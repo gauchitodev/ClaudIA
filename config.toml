@@ -1,5 +1,0 @@
-# Numero del bot sin "+" ni espacios ni guiones. Dejar vacío para vincular con codigo QR.
-numberBot = ""
-
-# Números de owners del bot sin "+" ni espacios ni guiones
-owners = ["", ""]

@@ -1,0 +1,34 @@
+# ===== ARCHIVOS SENSIBLES - NUNCA SUBIR =====
+
+# Sesión de WhatsApp (lo más crítico: da acceso a tu cuenta)
+botSession/
+botSession
+
+# Configuración con la API key de Gemini y datos del bot
+config.toml
+
+# Base de datos (tiene datos de usuarios y grupos)
+database/
+*.db
+*.db-journal
+*.sqlite
+
+# ===== ARCHIVOS TEMPORALES =====
+tmp/
+*.tmp
+*.log
+
+# ===== DEPENDENCIAS (se reinstalan solas) =====
+node_modules/
+
+# ===== BINARIOS DESCARGADOS =====
+yt-dlp
+yt-dlp.exe
+
+# ===== ARCHIVOS DEL SISTEMA =====
+.DS_Store
+Thumbs.db
+cookies.txt
+
+# Cookies de YouTube (equivalen a una contraseña de sesión)
+cookies.txt
