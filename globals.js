@@ -37,7 +37,7 @@ globalThis.txt = strings;
 // Newsletters IDs
 globalThis.newsletterJids = ["120363386229166956@newsletter"];
 // Newsletters names
-globalThis.newsletterNames = ["HOLAAAAAA🫩"];
+globalThis.newsletterNames = ["ClaudIA :)"];
 
 // Jid grupo URU
 globalThis.jidUru = "120363404278828828@g.us";
