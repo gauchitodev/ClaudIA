@@ -1,20 +1,31 @@
 import "./globals.js";
-const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore } = await import(baileys);
+const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
 import { readdirSync, rmSync } from "fs";
 import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
-import { loadDatabase, getChat, getBotSettings, isBlacklisted } from "./database-functions.js";
+import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
-// Función principal del bot
+protoType();
+serialize();
+
+let intentosReconexion = 0;
+const MAX_REINTENTOS = 5;
+let reconectando = false;
+let horaConexion = 0;
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
 
+  let { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
+
   const connectionOptions = {
     logger: pino({ level: "silent" }),
-    version: [2, 3000, 1035194821],
+    version,
+    browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
@@ -25,18 +36,23 @@ async function startBot() {
     shouldSyncHistoryMessage: () => false,
     getMessage: () => null,
   };
+
   global.client = makeWASocket(connectionOptions);
 
-  // Vinculación mediante codigo de ocho dígitos
+  client.ev.on("creds.update", saveCreds);
+
   if (!client.authState.creds.registered && numberBot && numberBot !== "") {
     setTimeout(async () => {
-      let pairingCode = await client.requestPairingCode(numberBot);
-      pairingCode = pairingCode?.match(/.{1,4}/g)?.join("-");
-      console.log(`CÓDIGO DE VINCULACIÓN:`, pairingCode);
-    }, 2000);
+      try {
+        let pairingCode = await client.requestPairingCode(numberBot);
+        pairingCode = pairingCode?.match(/.{1,4}/g)?.join("-");
+        console.log(`\n🔑 CÓDIGO DE VINCULACIÓN: ${pairingCode}\n`);
+      } catch (e) {
+        console.log("⚠️ No se pudo generar el código (error de conexión o reintento necesario).", e?.message || e);
+      }
+    }, 3000);
   }
 
-  // Eventos de actualización de conexión
   client.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
 
@@ -45,165 +61,98 @@ async function startBot() {
       console.log("📌 Tienes 45 SEGUNDOS para escanear este QR:");
     }
 
-    // sesión cerrada desde WhatsApp
     if (connection === "close" && lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
-      console.log('❌ La sesión fue cerrada desde WhatsApp. Vuelve a iniciar con "npm start" para volver a vincular.');
+      console.log('❌ La sesión fue cerrada desde WhatsApp. Se borrarán las credenciales.');
       rmSync(`./${globalThis.authFile}`, { recursive: true, force: true });
       setTimeout(() => process.exit(0), 2000);
       return;
     }
 
     if (connection === "close" && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-      console.log("⚠️ Conexión cerrada. Reconectando...");
-
-      // PROVISORIO. Evita con un reinicio del proceso, la mala conexión inicial al vincular
-      process.exit(1);
+      if (reconectando) return;
+      reconectando = true;
+      intentosReconexion++;
+      if (intentosReconexion > MAX_REINTENTOS) {
+        console.log("❌ Reconexión falló varias veces. Frenando. Reiniciá con npm start.");
+        setTimeout(() => process.exit(1), 2000);
+        return;
+      }
+      const codigo = lastDisconnect?.error?.output?.statusCode || "desconocido";
+      const espera = intentosReconexion * 5000;
+      const duro = horaConexion ? Math.round((Date.now() - horaConexion) / 1000) : "?";
+      console.log(`⚠️ Conexión cerrada (código ${codigo}). Aguantó ${duro}s conectado. Reconectando en ${espera / 1000}s (intento ${intentosReconexion}/${MAX_REINTENTOS})...`);
+      setTimeout(() => { reconectando = false; startBot(); }, espera);
     } else if (connection === "open") {
+      horaConexion = Date.now();
       console.log("🟢 Conexión exitosa a WhatsApp");
-
-      // se llaman ambas funciones aquí para evitar ReferenceError de client. Esperar que establezca conexión correctamente antes de inicializar funciones de plugins.
+      intentosReconexion = 0;
+      reconectando = false;
       loadPlugins();
       watchPlugins();
     }
   });
 
-  // Definir client.handler
   client.handler = handler.handleMessage.bind(global.client);
 
-  // Manejo de mensajes en msgQueue
-  const msgQueue = [];
-  async function processQueue() {
-    if (msgQueue.length === 0) return;
-    const msg = msgQueue.shift();
+  client.ev.on("messages.upsert", async (chatUpdate) => {
     try {
-      client.handler(msg);
-    } catch (error) {
-      console.error("Error procesando mensaje:", error);
-    }
-    processQueue();
-  }
-
-  // Evento de mensajes entrantes
-  client.ev.on("messages.upsert", ({ messages, type }) => {
-    for (const m of messages) {
-      // añadir type al "m" para verificar posteriormente en handleMessage si el mensaje es append o notify y evitar flood.
-      m._upsertType = type;
-
-      msgQueue.push(m);
-    }
-    processQueue();
-  });
-
-  // Evento actualización de participantes de grupos
-  client.ev.on("group-participants.update", async ({ id, participants, action }) => {
-    // Obtener datos del chat
-    const chat = getChat(id);
-
-    switch (action) {
-      case "add":
-        const groupMetadatax = await client.groupMetadata(id);
-        const participantsx = groupMetadatax.participants;
-        const bot = participantsx.find((u) => u.phoneNumber === client.user.jid);
-        const isBotAdmin = bot?.admin || false;
-        for (let user of participants) {
-          const jid = user.phoneNumber || user.pn;
-          if (!jid) continue;
-
-          // Verificar si el usuario está en lista negra.
-          const blacklistEntry = isBlacklisted(jid);
-          if (blacklistEntry) {
-            if (!isBotAdmin) return;
-            await client.groupParticipantsUpdate(id, [jid], "remove");
-            await client.sendText(id, txt.blackList(jid, blacklistEntry.reason), null, { mentions: [jid] });
-            return;
-          }
-        }
-
-        // Si welcome está activo en el chat, enviar mensaje de bienvenida al usuario.
-        if (chat?.welcome) {
-          for (let user of participants) {
-            const jid = user.id; // id, no jid. se requiere id (lid) para mención correcta y persistente en chat
-            if (!jid) continue;
-
-            client.sendText(id, txt.welcome(jid), null, { mentions: [jid] });
-          }
-        }
-        break;
-
-      case "remove":
-        // Si welcome está activo en el chat, enviar mensaje de despedida al usuario.
-        if (chat?.welcome) {
-          for (let user of participants) {
-            const jid = user.id; // id, no jid. se requiere id (lid) para mención correcta y persistente en chat
-            if (!jid) continue;
-
-            client.sendText(id, txt.welcomeBye(jid), null, { mentions: [jid] });
-          }
-        }
-        break;
+      let m = chatUpdate.messages[chatUpdate.messages.length - 1];
+      if (!m.message) return;
+      m.message = Object.keys(m.message)[0] === "ephemeralMessage" ? m.message.ephemeralMessage.message : m.message;
+      if (m.key && m.key.remoteJid === "status@broadcast") return;
+      if (!client.handler) return;
+      await client.handler(m, chatUpdate);
+    } catch (e) {
+      console.error(e);
     }
   });
 
-  // Evento de llamadas
-  client.ev.on("call", async (callUpdate) => {
-    // verificar si el antiCall está activo
-    const botSettings = getBotSettings(client.user.jid);
-    if (!botSettings?.antiCall) return;
+  // Puntos por reacciones: suma "recibidas" a quien escribió el mensaje, "emitidas" a quien reacciona.
+  client.ev.on("messages.reaction", (reactions) => {
+    for (const { key, reaction } of reactions) {
+      try {
+        if (!key?.remoteJid?.endsWith("@g.us")) continue;
+        if (!reaction?.text) continue;
 
-    for (let call of callUpdate) {
-      if (call.isGroup == false) {
-        if (call.status == "offer") {
-          await client.sendText(call.from, txt.antiCall(call.from), null, { mentions: [call.from] });
-          await client.updateBlockStatus(call.from, "block");
-        }
+        const autorLid = key.participant;
+        const reactorLid = reaction.key?.participant;
+        if (!autorLid || !reactorLid) continue;
+        if (autorLid === reactorLid) continue;
+
+        const mes = new Date().toISOString().slice(0, 7);
+        sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
+        sumarInteraccion(mes, key.remoteJid, reactorLid, "emitidas");
+      } catch (e) {
+        console.error("[ranking] error procesando reacción:", e);
       }
     }
   });
 
-  // Limpiar carpeta tmp cada 60 minutos
-  function clearTmp() {
-    const tmpDir = "./tmp";
-    const filenames = readdirSync(tmpDir);
-    filenames.forEach((file) => {
-      const filePath = `${tmpDir}/${file}`;
-      rmSync(filePath, { recursive: true, force: true });
-    });
-  }
-  setInterval(
-    async () => {
-      if (!client || !client.user) return;
-      clearTmp();
-      console.log(txt.clearTmp);
-    },
-    1000 * 60 * 30,
-  );
-
-  // Guardar sesión actualizada
-  client.ev.on("creds.update", saveCreds);
+  return client;
 }
 
-// evitar que el bot crashee aunque haya errores no manejados. puesto principalmente por errores temporales de librerías que crasheaban todo.
-process.on("uncaughtException", (err) => {
-  console.error("uncaughtException:", err);
-});
-process.on("unhandledRejection", (reason) => {
-  console.error("unhandledRejection:", reason);
-});
+global.db = loadDatabase();
 
-// no mostrar logs de info, debug, warn
-console.info = () => {};
-console.debug = () => {};
-console.warn = () => {};
+await installYtDlp();
 
-// funciones de waSocket
-protoType();
-serialize();
+function clearTmp() {
+  const tmpDir = "./tmp";
+  let borrados = 0;
+  try {
+    const filenames = readdirSync(tmpDir);
+    filenames.forEach((file) => {
+      try {
+        rmSync(`${tmpDir}/${file}`, { recursive: true, force: true });
+        borrados++;
+      } catch (e) {}
+    });
+  } catch (e) {}
+  return borrados;
+}
+setInterval(() => {
+  if (!global.client || !global.client.user) return;
+  const borrados = clearTmp();
+  if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
+}, 1000 * 60 * 30);
 
-// Cargar y guardar db
-globalThis.db = loadDatabase();
-
-// Instalar YTDLP
-installYtDlp();
-
-// Iniciar bot.
 startBot();

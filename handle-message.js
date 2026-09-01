@@ -1,6 +1,11 @@
 import { smsg } from "./lib/wa-socket.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo } from "./database-functions.js";
 
+// Memoria para guardar la última vez que se saludó por grupo
+const cooldownSaludos = new Map();
+// Tiempo de espera: 30 minutos (en milisegundos)
+const TIEMPO_COOLDOWN = 30 * 60 * 1000; 
+
 // Manejo de mensaje entrante desde msgQueue en main.js
 export async function handleMessage(nMsg) {
   if (!nMsg) return;
@@ -10,6 +15,13 @@ export async function handleMessage(nMsg) {
 
   try {
     m = smsg(this, m) || m;
+
+    // ==========================================
+    // 0. FILTRO ANTI-RESACA (Ignorar mensajes viejos)
+    // ==========================================
+    const tiempoMensaje = m.messageTimestamp || m.timestamp || 0;
+    // Si el mensaje tiene más de 60 segundos de antigüedad, lo descartamos de una
+    if (tiempoMensaje && (Date.now() / 1000) - tiempoMensaje > 60) return;
 
     // Evitar que el bot responda a mensajes de comandos de cuando estaba offline.
     if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return;
@@ -46,8 +58,39 @@ export async function handleMessage(nMsg) {
 
     // Extracción de text y argumentos separados.
     let text, args;
-    text = m.text;
-    args = m.text.trim().split(/\s+/);
+    text = m.text || "";
+    args = text.trim().split(/\s+/);
+
+    // ==========================================
+    // 1. LÓGICA DE SALUDOS CON COOLDOWN
+    // ==========================================
+    if (m.isGroup && text) {
+        const regexSaludo = /^(hola+|buenas+|buen día|buenos días|holis|q onda)/i;
+        
+        if (regexSaludo.test(text.trim())) {
+            const ahora = Date.now();
+            const ultimoSaludo = cooldownSaludos.get(m.chat) || 0;
+
+            // Si ya pasaron los 30 minutos para ESTE grupo...
+            if (ahora - ultimoSaludo > TIEMPO_COOLDOWN) {
+                
+                // Actualizamos el reloj
+                cooldownSaludos.set(m.chat, ahora);
+
+                const respuestas = [
+                    "¡Buenas! ¿Todo en orden por acá?",
+                    "Holaaa, ¿cómo andamos?",
+                    "¡Buenas buenas! ¿Qué se cuenta?",
+                    "¡Hola grupo!"
+                ];
+                const respuestaElegida = respuestas[Math.floor(Math.random() * respuestas.length)];
+
+                // Mandamos el mensaje citando al que saludó
+                await this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m });
+            }
+        }
+    }
+    // ==========================================
 
     // Ejecutar plugins de tipo 'before'
     for (const pluginName in globalThis.plugins) {
@@ -75,7 +118,7 @@ export async function handleMessage(nMsg) {
       return;
     }
 
-    // cbtener el comando y argumentos
+    // obtener el comando y argumentos
     args = m.text.slice(usedPrefix.length).trim().split(/\s+/);
     const command = args.shift().toLowerCase();
     if (!command) return;

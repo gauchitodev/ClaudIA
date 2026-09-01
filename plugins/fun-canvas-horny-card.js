@@ -1,5 +1,6 @@
 import Jimp from "jimp-legacy";
 import { unlinkSync } from "fs";
+import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 
 let plugin = {};
 plugin.cmd = ["hornycard", "licenciahot", "hotlicense", "hotlicencia"];
@@ -19,8 +20,7 @@ plugin.run = async (m, { client, text, chat }) => {
   }
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command));
 
-  const pp = await client.profilePictureUrl(who, "image").catch((_) => null);
-  if (!pp) return client.sendText(m.chat, txt.defaultNoPP, m);
+  const pp = await obtenerFotoPerfil(client, who);
   m.react("⏳");
 
   try {

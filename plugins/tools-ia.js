@@ -1,3 +1,5 @@
+import { preguntarGemini } from "../lib/gemini.js";
+
 let plugin = {};
 const botLid = client.user.lid.split("@")[0];
 plugin.cmd = [botLid, "gemini", "ia", "bot"];
@@ -6,41 +8,19 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, text }) => {
   if (!text) return client.sendText(m.chat, txt.iaPeticion, m);
 
-  const maxAttempts = 3;
-  const retryDelayMs = 500;
+  if (!globalThis.geminiApiKey) {
+    return client.sendText(m.chat, "Falta configurar la API key de Gemini en config.toml (geminiApiKey).", m);
+  }
 
   await client.sendPresenceUpdate("composing", m.chat);
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const q = encodeURIComponent(text);
-      const res = await fetch(`${globalThis.deliriusApi}/ia/gemini?query=${q}`);
-
-      if (!res.ok) {
-        if (attempt === maxAttempts) {
-          return client.sendText(m.chat, "Lo siento, no puedo ayudarte con esa petición.", m);
-        }
-        await new Promise((r) => setTimeout(r, retryDelayMs));
-        continue;
-      }
-
-      const json = await res.json();
-
-      if (json && json.status === true && json.data && json.data.result) {
-        return client.sendText(m.chat, json.data.result, m);
-      } else {
-        if (attempt === maxAttempts) {
-          return client.sendText(m.chat, "Lo siento, no puedo ayudarte con esa petición.", m);
-        }
-        await new Promise((r) => setTimeout(r, retryDelayMs));
-        continue;
-      }
-    } catch (error) {
-      if (attempt === maxAttempts) {
-        return client.sendText(m.chat, "Lo siento, no puedo ayudarte con esa petición.", m);
-      }
-      await new Promise((r) => setTimeout(r, retryDelayMs));
-    }
+  const respuesta = await preguntarGemini(text);
+  if (respuesta.ok) {
+    return client.sendText(m.chat, respuesta.texto, m);
+  } else if (respuesta.sinCuota) {
+    return client.sendText(m.chat, "Se me acabó la cuota gratis de la IA por hoy, probá de nuevo mañana.", m);
+  } else {
+    return client.sendText(m.chat, "Ta, se me complicó pensar ahora, probá de nuevo en un rato bo.", m);
   }
 };
 

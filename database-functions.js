@@ -27,9 +27,17 @@ export function loadDatabase() {
       marriedTime INTEGER DEFAULT -1,
       mute BOOLEAN DEFAULT 0,
       warn INTEGER DEFAULT 0,
+      memoria TEXT DEFAULT "",
       timestamp INTEGER
     )
   `);
+
+  // Migración: si la tabla users ya existía de antes sin la columna "memoria", se la agrega.
+  const columnasUsers = db.prepare(`PRAGMA table_info(users)`).all();
+  if (!columnasUsers.some((c) => c.name === "memoria")) {
+    db.exec(`ALTER TABLE users ADD COLUMN memoria TEXT DEFAULT ""`);
+    console.log("🟢 Migración: columna 'memoria' agregada a la tabla users");
+  }
 
   // Crear tabla chats
   db.exec(`
@@ -51,7 +59,17 @@ export function loadDatabase() {
       isBanned BOOLEAN DEFAULT 0,
       mentions BOOLEAN DEFAULT 1,
       reactions BOOLEAN DEFAULT 0,
-      welcome BOOLEAN DEFAULT 0
+      welcome BOOLEAN DEFAULT 0,
+      blacklistMode BOOLEAN DEFAULT 0
+    )
+  `);
+
+  // Crear tabla de comandos bloqueados por chat (modo blacklist)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_blacklist (
+      remoteJid TEXT NOT NULL,
+      command TEXT NOT NULL,
+      PRIMARY KEY (remoteJid, command)
     )
   `);
 
@@ -73,6 +91,32 @@ export function loadDatabase() {
       reason TEXT,
       dateAdded INTEGER,
       addedBy TEXT
+    )
+  `);
+
+  // Crear tabla de entradas de hashtags (historias random, etc.)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS hashtag_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      hashtag TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      contenido TEXT,
+      messageId TEXT,
+      semana TEXT NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+
+  // Crear tabla de interacciones mensuales (puntos por reaccionar / recibir reacciones)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS interacciones_mensuales (
+      mes TEXT NOT NULL,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      recibidas INTEGER DEFAULT 0,
+      emitidas INTEGER DEFAULT 0,
+      PRIMARY KEY (mes, chat, usuario)
     )
   `);
 
@@ -269,4 +313,80 @@ export function getAllUsers() {
 // eliminar usuario completo de tabla users
 export function deleteUser(lid) {
   return db.prepare(`DELETE FROM users WHERE lid = ?`).run(lid);
+}
+
+// añadir comando bloqueado a la blacklist de un chat
+export function addToChatBlacklist(remoteJid, command) {
+  db.prepare(`INSERT OR IGNORE INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`).run(remoteJid, command);
+}
+
+// quitar comando bloqueado de la blacklist de un chat
+export function removeFromChatBlacklist(remoteJid, command) {
+  db.prepare(`DELETE FROM chat_blacklist WHERE remoteJid = ? AND command = ?`).run(remoteJid, command);
+}
+
+// añadir varios comandos de una sola vez a la blacklist de un chat
+export function addManyToChatBlacklist(remoteJid, commands) {
+  const stmt = db.prepare(`INSERT OR IGNORE INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`);
+  const insertMany = db.transaction((cmds) => {
+    for (const cmd of cmds) stmt.run(remoteJid, cmd);
+  });
+  insertMany(commands);
+}
+
+// quitar varios comandos de una sola vez de la blacklist de un chat
+export function removeManyFromChatBlacklist(remoteJid, commands) {
+  const stmt = db.prepare(`DELETE FROM chat_blacklist WHERE remoteJid = ? AND command = ?`);
+  const deleteMany = db.transaction((cmds) => {
+    for (const cmd of cmds) stmt.run(remoteJid, cmd);
+  });
+  deleteMany(commands);
+}
+
+// obtener todos los comandos bloqueados de un chat
+export function getChatBlacklist(remoteJid) {
+  return db
+    .prepare(`SELECT command FROM chat_blacklist WHERE remoteJid = ?`)
+    .all(remoteJid)
+    .map((row) => row.command);
+}
+
+// verificar si un comando está bloqueado en un chat (modo blacklist)
+export function isCommandBlacklisted(remoteJid, command) {
+  return !!db.prepare(`SELECT 1 FROM chat_blacklist WHERE remoteJid = ? AND command = ?`).get(remoteJid, command);
+}
+
+// registrar una entrada de hashtag (ej. una historia random). Devuelve el número que le tocó
+// dentro de esa semana (para poder avisar "Historia #4 registrada").
+export function agregarEntradaHashtag({ chat, hashtag, usuario, contenido, messageId, semana }) {
+  const fecha = Date.now();
+  db.prepare(
+    `INSERT INTO hashtag_entries (chat, hashtag, usuario, contenido, messageId, semana, fecha)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(chat, hashtag, usuario, contenido || "", messageId || null, semana, fecha);
+
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ?`).get(chat, hashtag, semana);
+  return row?.total || 1;
+}
+
+// obtener todas las entradas de un hashtag en un chat, para una semana puntual, en orden de llegada.
+export function obtenerEntradasHashtag(chat, hashtag, semana) {
+  return db
+    .prepare(`SELECT * FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ? ORDER BY id ASC`)
+    .all(chat, hashtag, semana);
+}
+
+// sumar una interacción (reacción) del mes, ya sea "recibidas" (el autor del mensaje reaccionado)
+// o "emitidas" (quien reacciona). Crea la fila del usuario en ese mes/chat si todavía no existe.
+export function sumarInteraccion(mes, chat, usuario, tipo) {
+  if (tipo !== "recibidas" && tipo !== "emitidas") return;
+  db.prepare(`INSERT OR IGNORE INTO interacciones_mensuales (mes, chat, usuario) VALUES (?, ?, ?)`).run(mes, chat, usuario);
+  db.prepare(`UPDATE interacciones_mensuales SET ${tipo} = ${tipo} + 1 WHERE mes = ? AND chat = ? AND usuario = ?`).run(mes, chat, usuario);
+}
+
+// obtener el top 5 de "más votado" (recibidas) y "más activo" (emitidas) de un chat, en un mes dado.
+export function obtenerRankingMensual(chat, mes) {
+  const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0 ORDER BY recibidas DESC LIMIT 5`).all(chat, mes);
+  const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0 ORDER BY emitidas DESC LIMIT 5`).all(chat, mes);
+  return { masVotado, masActivo };
 }

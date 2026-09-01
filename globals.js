@@ -16,12 +16,14 @@ globalThis.authFile = `botSession`;
 
 // Numero del bot sin "+" ni espacios ni guiones. Dejar vacío para vincular con codigo QR.
 globalThis.numberBot = config.numberBot || "";
+globalThis.geminiApiKey = config.geminiApiKey || "";
+globalThis.groqApiKey = config.groqApiKey || "";
 
 // Numeros de owners del bot sin "+" ni espacios ni guiones
 globalThis.owners = config.owners || [""];
 
 // Prefijos de comandos
-globalThis.prefix = [".", "/", "#", "@"];
+globalThis.prefix = [".", "/", "@"];
 
 // Versión del bot
 globalThis.botVersion = "v2.0";
