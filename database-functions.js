@@ -198,6 +198,31 @@ export function loadDatabase() {
     )
   `);
 
+  // Mercados de apuestas sobre eventos reales (los abre un admin) y las apuestas de cada persona
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mercados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      opciones TEXT NOT NULL,
+      cierra_en INTEGER NOT NULL,
+      estado TEXT DEFAULT "abierto",
+      ganadora INTEGER,
+      creado_por TEXT NOT NULL,
+      creado INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS apuestas_mercado (
+      mercado_id INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      opcion INTEGER NOT NULL,
+      cantidad INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (mercado_id, usuario)
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -677,4 +702,52 @@ export function boletosLoteria(chat, semana) {
 
 export function boletosLoteriaDe(chat, semana, usuario) {
   return db.prepare(`SELECT cantidad FROM loteria_boletos WHERE chat = ? AND semana = ? AND usuario = ?`).get(chat, semana, usuario)?.cantidad || 0;
+}
+
+// ===================== Mercados de apuestas =====================
+
+function parsearMercado(row) {
+  if (!row) return null;
+  try {
+    row.opciones = JSON.parse(row.opciones || "[]");
+  } catch {
+    row.opciones = [];
+  }
+  return row;
+}
+
+export function crearMercado(chat, titulo, opciones, cierraEn, creadoPor) {
+  const res = db
+    .prepare(`INSERT INTO mercados (chat, titulo, opciones, cierra_en, estado, creado_por, creado) VALUES (?, ?, ?, ?, 'abierto', ?, ?)`)
+    .run(chat, titulo, JSON.stringify(opciones), cierraEn, creadoPor, Date.now());
+  return Number(res.lastInsertRowid);
+}
+
+export function getMercado(id) {
+  return parsearMercado(db.prepare(`SELECT * FROM mercados WHERE id = ?`).get(id));
+}
+
+export function mercadosDeChat(chat, estados = ["abierto", "cerrado"]) {
+  const marcas = estados.map(() => "?").join(", ");
+  return db.prepare(`SELECT * FROM mercados WHERE chat = ? AND estado IN (${marcas}) ORDER BY cierra_en ASC`).all(chat, ...estados).map(parsearMercado);
+}
+
+export function actualizarMercado(id, data) {
+  return updateRow("mercados", "id", id, data);
+}
+
+export function apuestaEnMercado(mercadoId, usuario) {
+  return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? AND usuario = ?`).get(mercadoId, usuario) || null;
+}
+
+// una apuesta por persona y mercado; si repite la misma opción, se suma
+export function apostarEnMercado(mercadoId, usuario, opcion, cantidad) {
+  db.prepare(
+    `INSERT INTO apuestas_mercado (mercado_id, usuario, opcion, cantidad, fecha) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(mercado_id, usuario) DO UPDATE SET cantidad = cantidad + excluded.cantidad, fecha = excluded.fecha`,
+  ).run(mercadoId, usuario, opcion, cantidad, Date.now());
+}
+
+export function apuestasDeMercado(mercadoId) {
+  return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? ORDER BY fecha ASC`).all(mercadoId);
 }

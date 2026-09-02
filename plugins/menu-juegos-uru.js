@@ -41,6 +41,12 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .ruleta 20 rojo — rojo, negro, par, impar (x2), docenas (x3) o un número (x36)
 ▸ .tragamonedas 10 — tres rodillos: dos cerezas x2, tres iguales hasta x200
 ▸ .loteria — estado del pozo · .loteria 2 — comprá boletos (10 c/u, máximo 5 por semana); el sorteo sale al empezar la semana
+
+📊 *Apuestas sobre eventos reales*
+▸ .evento Peñarol vs Nacional | Peñarol | Empate | Nacional | 20:30 — un admin abre el mercado (la hora de cierre es obligatoria)
+▸ .jugar 7 Nacional 20 — apostá en el mercado #7; lo apostado se reparte entre los que aciertan
+▸ .mercados — mercados abiertos · .mercado 7 — detalle de uno
+▸ .resolver 7 Nacional — un admin que no apostó carga el resultado (o "anulado" para devolver todo)
 `.trim();
 
   await client.sendText(m.chat, texto, m);
