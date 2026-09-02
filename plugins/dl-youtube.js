@@ -28,6 +28,9 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   const saltarCooldown = /ya$/i.test(command);
   const cmdBase = command.toLowerCase().replace(/ya$/, "");
 
+  // Sin título no hay nada que bajar: se chequea antes de cobrar UruCoins o de contar el intento como spam.
+  if (!text) return client.sendText(m.chat, txt.ingresarTitulo, m);
+
   const waitTime = m.isGroup ? 60000 : 210000;
   let time = user.lastmining + waitTime;
   let remainingTime = Math.ceil((time - new Date()) / 1000);
@@ -51,8 +54,6 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
       return client.sendText(m.chat, txt.advSpam(formattedTime, newAttempts) + `\n\n🪙 O saltá la espera por ${COINS.SALTAR_COOLDOWN} UruCoins con .${cmdBase}ya`, m);
     }
   }
-
-  if (!text) return client.sendText(m.chat, txt.ingresarTitulo, m);
 
   updateUser(m.sender, { lastmining: new Date() * 1, commandAttempts: 0 });
   m.react("🕐");

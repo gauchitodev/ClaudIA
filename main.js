@@ -19,6 +19,17 @@ const MAX_REINTENTOS = 5;
 let reconectando = false;
 let horaConexion = 0;
 
+// Reacciones ya contadas (mensaje + quien reacciona), en RAM y con tope, para no contar dos veces la misma.
+const reaccionesContadas = new Map();
+const MAX_REACCIONES_RECORDADAS = 5000;
+function marcarReaccionContada(messageId, reactorLid) {
+  const clave = `${messageId}|${reactorLid}`;
+  if (reaccionesContadas.has(clave)) return false;
+  reaccionesContadas.set(clave, Date.now());
+  if (reaccionesContadas.size > MAX_REACCIONES_RECORDADAS) reaccionesContadas.delete(reaccionesContadas.keys().next().value);
+  return true;
+}
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
 
@@ -58,6 +69,7 @@ async function startBot() {
 
   client.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
+    if (connection === "close") globalThis.botConectado = false;
 
     if (!numberBot && qr) {
       qrcode.generate(qr, { small: true });
@@ -87,6 +99,7 @@ async function startBot() {
       setTimeout(() => { reconectando = false; startBot(); }, espera);
     } else if (connection === "open") {
       horaConexion = Date.now();
+      globalThis.botConectado = true;
       console.log("🟢 Conexión exitosa a WhatsApp");
       intentosReconexion = 0;
       reconectando = false;
@@ -147,6 +160,9 @@ async function startBot() {
         const reactorLid = reaction.key?.participant;
         if (!autorLid || !reactorLid) continue;
         if (autorLid === reactorLid) continue;
+        // Sacar y volver a poner la reacción (o cambiar el emoji) dispara el evento de nuevo: sin esto sumaba
+        // ranking, UruCoins y votos de hashtags sin límite.
+        if (!marcarReaccionContada(key.id, reactorLid)) continue;
 
         const mes = mesDe();
         sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
