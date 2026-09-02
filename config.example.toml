@@ -21,3 +21,10 @@ openWeatherApiKey = ""
 
 # API key de Cerebras. Primer respaldo de IA cuando Gemini falla (después va Groq). Opcional.
 cerebrasApiKey = ""
+
+# Tarjeta con link que acompaña a los archivos que manda el bot (audio, video, imagen).
+# Tiene que ir al final del archivo, después de las claves sueltas. Sin "enlace" no se manda tarjeta.
+[tarjetaGrupo]
+titulo = "ClaudIA :)"
+cuerpo = "Unite al grupo"
+enlace = ""

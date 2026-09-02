@@ -43,10 +43,14 @@ globalThis.baileys = "@whiskeysockets/baileys";
 // Strings // Texts
 globalThis.txt = strings;
 
-// Newsletters IDs
-globalThis.newsletterJids = ["120363386229166956@newsletter"];
-// Newsletters names
-globalThis.newsletterNames = ["ClaudIA :)"];
+// Tarjeta con link que acompaña a los archivos que manda el bot (audio, video, imagen).
+// Reemplaza a la atribución falsa a un canal que traía SawBot, cuyo ID apuntaba al canal del autor original.
+// Se configura en la sección [tarjetaGrupo] de config.toml; sin "enlace" los archivos salen sin tarjeta.
+globalThis.tarjetaGrupo = {
+  titulo: config.tarjetaGrupo?.titulo || "ClaudIA :)",
+  cuerpo: config.tarjetaGrupo?.cuerpo || "Unite al grupo",
+  enlace: config.tarjetaGrupo?.enlace || "",
+};
 
 // Jid grupo URU
 globalThis.jidUru = "120363404278828828@g.us";
