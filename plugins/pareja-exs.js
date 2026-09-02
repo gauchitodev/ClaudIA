@@ -25,7 +25,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   whoLid = who?.lid;
   whoJid = who?.jid;
 
-  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), fkontak);
+  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
 
   let mensaje = `*Historial de relaciones de @${whoLid.split("@")[0]}:*\n\n`;
 

@@ -21,10 +21,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   whoLid = who?.lid;
   whoJid = who?.jid;
 
-  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), fkontak);
+  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
 
-  if (whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, whoLid), fkontak);
-  if (whoLid === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, fkontak);
+  if (whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, whoLid), m);
+  if (whoLid === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);
 
   const pacar = who?.couple;
 

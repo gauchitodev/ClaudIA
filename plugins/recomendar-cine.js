@@ -61,7 +61,7 @@ Total de temporadas: ${reco.number_of_seasons}
 📝 Sinopsis: ${reco.overview}`;
   }
 
-  await client.sendFile(m.chat, poster, "", caption, fkontak);
+  await client.sendFile(m.chat, poster, "", caption, m);
 };
 
 export default plugin;

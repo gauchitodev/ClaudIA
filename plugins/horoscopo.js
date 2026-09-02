@@ -21,7 +21,7 @@ plugin.run = async (m, { client, text }) => {
 ♓ .horoscopo piscis`;
   if (!text) return client.sendText(m.chat, caption, m);
   const signosZodiacales = ["aries", "tauro", "geminis", "cancer", "leo", "virgo", "libra", "escorpio", "sagitario", "capricornio", "acuario", "piscis"];
-  if (!signosZodiacales.some((signo) => text.toLowerCase().includes(signo.toLowerCase()))) return client.sendText(m.chat, `Signo inválido.`, fkontak);
+  if (!signosZodiacales.some((signo) => text.toLowerCase().includes(signo.toLowerCase()))) return client.sendText(m.chat, `Signo inválido.`, m);
   let sign = text.trim().toLowerCase();
   if (sign === "escorpio") {
     sign = "escorpion";
@@ -79,7 +79,7 @@ plugin.run = async (m, { client, text }) => {
     m.react(emoji);
     let teks = `*${emoji}${text.toUpperCase()}${emoji}*\n\n*📅 FECHA:*\n* ${tes1}\n\n${tes2}`;
     let link = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
-    let kz = await client.sendFile(m.chat, link, null, teks, fkontak);
+    let kz = await client.sendFile(m.chat, link, null, teks, m);
     client.sendMessage(m.chat, { react: { text: "🌠", key: kz.key } });
   } catch (error) {
     client.sendText(m.chat, `Hubo un error al obtener la predicción para ${sign}.`, m);

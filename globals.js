@@ -43,6 +43,15 @@ globalThis.baileys = "@whiskeysockets/baileys";
 // Strings // Texts
 globalThis.txt = strings;
 
+// Canal de WhatsApp para la etiqueta "reenviado desde el canal" en los archivos que manda el bot.
+// En config.toml: sección [canal] con enlace = "https://whatsapp.com/channel/..." y, opcional, nombre = "..." para
+// mostrar otro nombre. El ID interno del canal lo pide main.js a WhatsApp al conectarse y queda en globalThis.canal.
+globalThis.canalConfig = {
+  enlace: config.canal?.enlace || "",
+  nombre: config.canal?.nombre || "",
+};
+if (!globalThis.canal) globalThis.canal = null;
+
 // Tarjeta con link que acompaña a los archivos que manda el bot (audio, video, imagen).
 // Reemplaza a la atribución falsa a un canal que traía SawBot, cuyo ID apuntaba al canal del autor original.
 // Se configura en la sección [tarjetaGrupo] de config.toml; sin "enlace" los archivos salen sin tarjeta.
@@ -55,8 +64,6 @@ globalThis.tarjetaGrupo = {
 // Jid grupo URU
 globalThis.jidUru = "120363404278828828@g.us";
 
-// Fake quoted fkontak
-globalThis.fkontak = { key: { participants: "0@s.whatsapp.net", remoteJid: "status@broadcast", fromMe: false, id: "Halo" }, message: { contactMessage: { vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:y\nitem1.TEL;waid=\${m.sender.split("@")[0]}:\${m.sender.split("@")[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD` } }, participant: "0@s.whatsapp.net" };
 
 // delirius api
 globalThis.deliriusApi = "https://api.delirius.store";

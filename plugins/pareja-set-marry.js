@@ -45,12 +45,12 @@ Puede que:
 Ejemplo válido:
 +59899999999 +59898888888
 `,
-      fkontak
+      m
     );
 
   // Si aun no son pareja retornar sin casarlos.
   if (!persona1 || !persona2 || persona1?.couple !== persona2Jid || persona2?.couple !== persona1Jid) {
-    return client.sendText(m.chat, "💍 *Antes de casarse, primero deben ser pareja!*\nUsa: `.setpareja @user1 @user2`", fkontak);
+    return client.sendText(m.chat, "💍 *Antes de casarse, primero deben ser pareja!*\nUsa: `.setpareja @user1 @user2`", m);
   }
 
   const convertToMilliseconds = (timeText) => {
@@ -91,7 +91,7 @@ Ejemplo válido:
   updateUser(persona1Lid, { married: persona2Jid, marriedTime: +new Date() - time });
   updateUser(persona2Lid, { married: persona1Jid, marriedTime: +new Date() - time });
 
-  const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(persona1Lid, persona2Lid), fkontak);
+  const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(persona1Lid, persona2Lid), m);
   await delay(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });

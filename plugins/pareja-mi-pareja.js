@@ -9,7 +9,7 @@ plugin.run = async (m, { client, user }) => {
   let totalParejas = user.couplesHistory.length;
 
   if (user.couple == "") {
-    const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, totalParejas), fkontak);
+    const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, totalParejas), m);
     client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
     return;
   }
@@ -28,12 +28,12 @@ plugin.run = async (m, { client, user }) => {
       m.react("❤️");
     }, 700);
     const marriedMessage = user.married && parejaData.married ? `*💍Casados:* ✅\n*⏳Tiempo casados:*\n${timeSince(user.marriedTime)}` : `*💍Casados:* ❌`;
-    const kz = await client.sendText(m.chat, txt.parejaMiPareja(m.sender, parejaLid, timeSince(user.coupleTime), marriedMessage, totalParejas), fkontak);
+    const kz = await client.sendText(m.chat, txt.parejaMiPareja(m.sender, parejaLid, timeSince(user.coupleTime), marriedMessage, totalParejas), m);
     client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
     return;
   }
 
-  await client.sendText(m.chat, txt.parejaMiParejaSinRespuesta(parejaLid), fkontak);
+  await client.sendText(m.chat, txt.parejaMiParejaSinRespuesta(parejaLid), m);
   updateUser(m.sender, { couple: "" });
 };
 

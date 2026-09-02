@@ -18,9 +18,9 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
     txtAdv = who ? text.replace(`@${who.replace("@lid", "")}`, "").trim() : null;
   }
 
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), fkontak);
+  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (who == client.user.lid) return;
-  if (!txtAdv) return client.sendText(m.chat, txt.advertirNoRazon, fkontak);
+  if (!txtAdv) return client.sendText(m.chat, txt.advertirNoRazon, m);
 
   // no afectar a owners del bot
   const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");

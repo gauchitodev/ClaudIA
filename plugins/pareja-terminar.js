@@ -24,13 +24,13 @@ plugin.run = async (m, { client, user }) => {
   }
 
   if (user.couple == "") {
-    const kz = await client.sendText(m.chat, txt.parejaTerminarNull(m.sender), fkontak);
+    const kz = await client.sendText(m.chat, txt.parejaTerminarNull(m.sender), m);
     client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
     return;
   }
 
   if (m.senderJid == parejaCouple) {
-    const kz = await client.sendText(m.chat, txt.parejaTerminarSuccess(m.sender), fkontak);
+    const kz = await client.sendText(m.chat, txt.parejaTerminarSuccess(m.sender), m);
     client.sendMessage(m.chat, { react: { text: "💔", key: kz.key } });
 
     // Añadir al historial de parejas
@@ -47,7 +47,7 @@ plugin.run = async (m, { client, user }) => {
     updateUser(m.sender, { couplesHistory: JSON.stringify(historySender), couple: "", coupleTime: -1, married: "", marriedTime: -1 });
     updateUser(parejaLid, { couplesHistory: JSON.stringify(historyTarget), couple: "", coupleTime: -1, married: "", marriedTime: -1 });
   } else {
-    const kz = await client.sendText(m.chat, txt.parejaTerminarNull(m.sender), fkontak);
+    const kz = await client.sendText(m.chat, txt.parejaTerminarNull(m.sender), m);
     client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
   }
 };

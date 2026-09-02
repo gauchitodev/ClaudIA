@@ -21,9 +21,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   whoLid = who?.lid;
   whoJid = who?.jid;
 
-  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), fkontak);
-  if (whoJid === m.senderJid) return client.sendText(m.chat, txt.parejaWhoSender, fkontak);
-  if (whoJid === client.user.jid || whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBot, fkontak);
+  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
+  if (whoJid === m.senderJid) return client.sendText(m.chat, txt.parejaWhoSender, m);
+  if (whoJid === client.user.jid || whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBot, m);
 
   const pareja = user.couple;
   const parejaData = getUser(pareja);

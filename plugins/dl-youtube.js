@@ -137,8 +137,15 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
         continue;
       }
 
-      if (!miniaturaEnviadaRef.enviada && candidato.thumbnail) {
-        await client.sendFile(chat, candidato.thumbnail, null, txt.sendPreview(isAudio, candidato.title), fkontak);
+      if (!miniaturaEnviadaRef.enviada) {
+        // Aviso de "enviando" citando el pedido (antes citaba un contacto falso que se veía como "WhatsApp · Status").
+        // En los reintentos automáticos no hay pedido que citar y va sin cita.
+        const aviso = txt.sendPreview(isAudio, candidato.title);
+        if (candidato.thumbnail) {
+          await client.sendFile(chat, candidato.thumbnail, null, aviso, quoted).catch(() => client.sendText(chat, aviso, quoted));
+        } else {
+          await client.sendText(chat, aviso, quoted);
+        }
         miniaturaEnviadaRef.enviada = true;
       }
 
@@ -191,7 +198,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
 
 async function buscarYoutube(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["ytsearch3:" + query, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
+    const { stdout } = await execFileAsync(ytDlpPath, ["ytsearch3:" + query, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "youtube");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en YouTube falló: ${error.message}`);
@@ -201,7 +208,7 @@ async function buscarYoutube(query) {
 
 async function buscarSoundcloud(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["scsearch5:" + query, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
+    const { stdout } = await execFileAsync(ytDlpPath, ["scsearch5:" + query, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "soundcloud");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en SoundCloud falló: ${error.message}`);
@@ -212,11 +219,16 @@ async function buscarSoundcloud(query) {
 function parsearResultados(stdout, fuente) {
   const lineas = stdout.trim().split("\n").filter(Boolean);
   const resultados = [];
-  for (let i = 0; i < lineas.length; i += 3) {
+  for (let i = 0; i < lineas.length; i += 4) {
     const title = lineas[i];
     const url = lineas[i + 1];
-    const thumbnail = lineas[i + 2];
-    if (title && url) resultados.push({ title, url, thumbnail: thumbnail || "", fuente });
+    let thumbnail = lineas[i + 2] || "";
+    const id = lineas[i + 3] || "";
+    // YouTube suele devolver la miniatura en .webp, y sendFile manda cualquier .webp como sticker (y pierde el texto).
+    // La versión .jpg de la miniatura siempre existe a partir del ID del video.
+    if (fuente === "youtube" && /^[\w-]{11}$/.test(id)) thumbnail = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    else if (/\.webp(\?|$)/i.test(thumbnail)) thumbnail = "";
+    if (title && url) resultados.push({ title, url, thumbnail, fuente });
   }
   return resultados;
 }

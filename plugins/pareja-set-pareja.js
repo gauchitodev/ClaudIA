@@ -45,7 +45,7 @@ Puede que:
 Ejemplo válido:
 +59899999999 +59898888888
 `,
-      fkontak
+      m
     );
 
   const convertToMilliseconds = (timeText) => {
@@ -94,7 +94,7 @@ Ejemplo válido:
   updateUser(persona1Lid, { couplesHistory: JSON.stringify(newHistory1), couple: persona2Jid, coupleTime: Date.now() - time });
   updateUser(persona2Lid, { couplesHistory: JSON.stringify(newHistory2), couple: persona1Jid, coupleTime: Date.now() - time });
 
-  const kz = await client.sendText(m.chat, txt.parejaAccept(persona1Lid, persona2Lid), fkontak);
+  const kz = await client.sendText(m.chat, txt.parejaAccept(persona1Lid, persona2Lid), m);
   client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
 };
 

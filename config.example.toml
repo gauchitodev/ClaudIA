@@ -28,3 +28,9 @@ cerebrasApiKey = ""
 titulo = "ClaudIA :)"
 cuerpo = "Unite al grupo"
 enlace = ""
+
+# Canal de WhatsApp para la etiqueta "reenviado desde el canal" en los archivos del bot.
+# El bot obtiene el ID del canal solo, a partir del link, al conectarse. "nombre" es opcional: si no está, usa el real.
+[canal]
+enlace = ""
+nombre = ""

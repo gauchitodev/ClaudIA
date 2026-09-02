@@ -27,7 +27,7 @@ plugin.run = async (m, { client, text, args, user }) => {
   updateUser(m.sender, {
     inGroup: JSON.stringify(newInGroup),
   });
-  await client.sendText(m.chat, txt.afkSuccess(m.sender, text), fkontak);
+  await client.sendText(m.chat, txt.afkSuccess(m.sender, text), m);
 };
 
 export default plugin;

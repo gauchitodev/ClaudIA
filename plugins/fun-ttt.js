@@ -47,8 +47,8 @@ plugin.run = async (m, { client, text, chat }) => {
 𝙏𝙐𝙍𝙉𝙊 𝘿𝙀 *:* 
 @${room.game.currentTurn.split("@")[0]}
 `.trim();
-    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
-    await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
+    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: m });
+    await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
   } else {
     room = {
       id: "tictactoe-" + +new Date(),

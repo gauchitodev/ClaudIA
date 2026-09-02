@@ -18,7 +18,7 @@ plugin.run = async (m, { client, text }) => {
 
 *[📌] 𝙴𝙽𝙻𝙰𝙲𝙴:* ${instagramUrl}`.trim();
 
-  await client.sendFile(m.chat, image, null, str, fkontak);
+  await client.sendFile(m.chat, image, null, str, m);
 };
 
 export default plugin;

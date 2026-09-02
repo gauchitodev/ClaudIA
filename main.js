@@ -91,6 +91,7 @@ async function startBot() {
       intentosReconexion = 0;
       reconectando = false;
       loadPlugins();
+      resolverCanal();
       // El watcher se registra una sola vez: en cada reconexión se volvía a registrar y cada cambio de plugin se recargaba varias veces.
       if (!globalThis.watchPluginsIniciado) {
         watchPlugins();
@@ -166,6 +167,24 @@ async function startBot() {
   });
 
   return client;
+}
+
+// Resuelve el ID interno del canal configurado en [canal] de config.toml a partir de su link de invitación.
+// Se hace una sola vez por proceso; si falla, los archivos salen sin la etiqueta de canal.
+async function resolverCanal() {
+  const enlace = globalThis.canalConfig?.enlace;
+  if (!enlace || globalThis.canal) return;
+  const codigo = enlace.split("/channel/")[1]?.split(/[/?#]/)[0];
+  if (!codigo) return console.error("[canal] el enlace del config no parece un link de canal (whatsapp.com/channel/...)");
+  try {
+    const meta = await client.newsletterMetadata("invite", codigo);
+    if (!meta?.id) throw new Error("WhatsApp no devolvió el ID del canal");
+    const nombreReal = meta.name || meta.thread_metadata?.name?.text || "";
+    globalThis.canal = { jid: meta.id, nombre: globalThis.canalConfig.nombre || nombreReal };
+    console.log(`📣 Canal para la etiqueta de los archivos: ${globalThis.canal.nombre} (${meta.id})`);
+  } catch (e) {
+    console.error("[canal] no se pudo resolver el link del canal:", e.message);
+  }
 }
 
 global.db = loadDatabase();

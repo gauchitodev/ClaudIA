@@ -63,8 +63,8 @@ plugin.before = async function (m, { client }) {
 ${isWin ? `@${(isSurrender ? room.game.currentTurn : room.game.winner).split("@")[0]} 😎🏆 *GANASTE!!*` : isTie ? `*EMPATE!!🙄🤨*` : `🪄 *TURNO DE* @${room.game.currentTurn.split("@")[0]}`}
 `.trim();
     if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat) room[room.game._currentTurn ^ isSurrender ? "x" : "o"] = m.chat;
-    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
-    await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
+    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: m });
+    await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
 
     if (isTie || isWin) {
       delete client.game[room.id];

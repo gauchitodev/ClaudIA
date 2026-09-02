@@ -72,11 +72,11 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   }
 
   if (chat.detect && m.messageStubType == 23) {
-    await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
+    await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   } else if (chat.detect && m.messageStubType == 29) {
-    await client.sendText(m.chat, txt.detectEventsPromote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
+    await client.sendText(m.chat, txt.detectEventsPromote(userLid, m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   } else if (chat.detect && m.messageStubType == 30) {
-    await client.sendText(m.chat, txt.detectEventsDemote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
+    await client.sendText(m.chat, txt.detectEventsDemote(userLid, m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   }
 
   return;
