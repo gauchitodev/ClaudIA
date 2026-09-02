@@ -1,6 +1,7 @@
 // Probado en Linux, Windows, y Termux Android. Usa cookies.txt (cuenta real de YouTube) para
 // evitar los bloqueos anti-bot. Si YouTube falla en todos los candidatos, cae a SoundCloud
-// como segunda fuente antes de rendirse.
+// como segunda fuente antes de rendirse. Si aun así falla, la persona puede pedir un reintento
+// con .reintentar (o pidiéndoselo a Claudia), y el bot lo vuelve a probar solo más tarde.
 import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
@@ -9,6 +10,7 @@ import { updateUser } from "../database-functions.js";
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { gastarCoins, getSaldoCoins } from "../database-functions.js";
 import { COINS } from "../lib/urucoins.js";
+import { registrarFalloDescarga } from "../lib/pendientes.js";
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -55,102 +57,18 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   updateUser(m.sender, { lastmining: new Date() * 1, commandAttempts: 0 });
   m.react("🕐");
 
-  const adelante = encolarDescarga(async () => {
-    const isAudio = cmdBase === "play" || cmdBase === "audio";
-    const prohibido = ["anuel"];
-
-    const intentarCandidato = async (candidato) => {
-      try {
-        const format = isAudio ? "bestaudio/18/best" : "worst/18";
-        const postProcess = isAudio ? "--extract-audio --audio-format m4a" : "";
-        const messageType = isAudio ? "audio" : "video";
-        const mimeType = isAudio ? "audio/mp4" : undefined;
-        const randomFileName = Math.random().toString(36).substring(2, 15);
-        const outputTemplate = path.join("./tmp", `${randomFileName}.%(ext)s`);
-
-        const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
-        // Con timeout: una descarga colgada bloqueaba la cola entera hasta reiniciar el bot.
-        const { stdout, stderr } = await execAsync(commandStr, { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
-          stdout: error.stdout || "",
-          stderr: error.stderr || error.message || "",
-        }));
-
-        const lower = stderr.toLowerCase();
-        const esWarning = lower.includes("warning:") || lower.includes("sabr streaming") || lower.includes("some_web_safaris");
-        if (!esWarning && stderr) {
-          console.error(`[dl-youtube] falló "${candidato.title}" (${candidato.fuente}): ${stderr}`);
-          return false;
-        }
-
-        const tmpFiles = await promises.readdir("./tmp");
-        const foundFile = tmpFiles.find((f) => f.startsWith(randomFileName));
-
-        if (!foundFile) {
-          console.error(`[dl-youtube] archivo de "${candidato.title}" (${candidato.fuente}) no se encontró tras descargar.`);
-          return false;
-        }
-
-        const finalPath = path.join("./tmp", foundFile);
-
-        const mediaBuffer = await promises.readFile(finalPath);
-        await client.sendMessage(m.chat, { [messageType]: mediaBuffer, mimetype: mimeType }, { quoted: m });
-        await promises.unlink(finalPath).catch(() => {});
-        await client.sendText(m.chat, `✅ Ahí tenés, bo. *${candidato.title}*`, m);
-        return true;
-      } catch (error) {
-        console.error(`[dl-youtube] excepción con "${candidato.title}" (${candidato.fuente}): ${error.message}`);
-        return false;
-      }
-    };
-
-    const probarLista = async (candidatos, miniaturaEnviadaRef) => {
-      for (const candidato of candidatos) {
-        if (typeof candidato.title !== "string") continue;
-        if (prohibido.some((palabra) => candidato.title.toLowerCase().includes(palabra.toLowerCase())) && !isOwner) {
-          m.react("🟠");
-          continue;
-        }
-
-        if (!miniaturaEnviadaRef.enviada && candidato.thumbnail) {
-          await client.sendFile(m.chat, candidato.thumbnail, null, txt.sendPreview(isAudio, candidato.title), fkontak);
-          miniaturaEnviadaRef.enviada = true;
-        }
-
-        const exito = await intentarCandidato(candidato);
-        if (exito) return true;
-      }
-      return false;
-    };
-
-    try {
-      const candidatosYoutube = await buscarYoutube(args.join(" "));
-      if (!candidatosYoutube || candidatosYoutube.length === 0) {
-        await client.sendText(m.chat, "❌ No encontré resultados para eso en YouTube. Probá con otro título.", m);
-        m.react("❌");
-        return;
-      }
-
-      const referencia = candidatosYoutube[0];
-      const UMBRAL_SIMILITUD = 0.45;
-      const filtrados = candidatosYoutube.filter((c, i) => i === 0 || (typeof c.title === "string" && similitudTitulos(referencia.title, c.title) >= UMBRAL_SIMILITUD));
-
-      const miniaturaRef = { enviada: false };
-
-      if (await probarLista(filtrados, miniaturaRef)) return;
-
-      const candidatosSoundcloud = await buscarSoundcloud(args.join(" "));
-      const filtradosSC = candidatosSoundcloud.filter((c) => typeof c.title === "string" && similitudTitulos(referencia.title, c.title) >= UMBRAL_SIMILITUD);
-
-      if (filtradosSC.length > 0 && (await probarLista(filtradosSC, miniaturaRef))) return;
-
-      await client.sendText(m.chat, "❌ Probé varias opciones en YouTube y SoundCloud y ninguna se pudo descargar. Probá con otro título o de nuevo más tarde.", m);
-      m.react("❌");
-    } catch (error) {
-      console.log(`Error en plugin de youtube:`, error.message);
-      await client.sendText(m.chat, "❌ Ocurrió un error interno al procesar el pedido. Probá de nuevo más tarde.", m);
-      m.react("❌");
-    }
-  });
+  const adelante = encolarDescarga(() =>
+    descargarMultimedia({
+      client,
+      chat: m.chat,
+      usuario: m.sender,
+      texto: args.join(" "),
+      tipo: cmdBase === "play" || cmdBase === "audio" ? "audio" : "video",
+      quoted: m,
+      isOwner,
+      esReintento: false,
+    }),
+  );
 
   if (adelante > 0) {
     await client.sendText(m.chat, `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.`, m);
@@ -158,6 +76,118 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
 };
 
 export default plugin;
+
+// La descarga en sí, separada del comando para poder llamarla también desde los reintentos.
+// quoted: el mensaje original (para responderle y reaccionar) o null si es un reintento automático.
+export async function descargarMultimedia({ client, chat, usuario, texto, tipo, quoted = null, isOwner = false, esReintento = false }) {
+  const isAudio = tipo === "audio";
+  const prohibido = ["anuel"];
+  const reaccionar = (emoji) => quoted?.react?.(emoji);
+  const opcionesEnvio = quoted ? { quoted } : {};
+
+  const intentarCandidato = async (candidato) => {
+    try {
+      const format = isAudio ? "bestaudio/18/best" : "worst/18";
+      const postProcess = isAudio ? "--extract-audio --audio-format m4a" : "";
+      const messageType = isAudio ? "audio" : "video";
+      const mimeType = isAudio ? "audio/mp4" : undefined;
+      const randomFileName = Math.random().toString(36).substring(2, 15);
+      const outputTemplate = path.join("./tmp", `${randomFileName}.%(ext)s`);
+
+      const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
+      // Con timeout: una descarga colgada bloqueaba la cola entera hasta reiniciar el bot.
+      const { stdout, stderr } = await execAsync(commandStr, { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
+        stdout: error.stdout || "",
+        stderr: error.stderr || error.message || "",
+      }));
+
+      const lower = stderr.toLowerCase();
+      const esWarning = lower.includes("warning:") || lower.includes("sabr streaming") || lower.includes("some_web_safaris");
+      if (!esWarning && stderr) {
+        console.error(`[dl-youtube] falló "${candidato.title}" (${candidato.fuente}): ${stderr}`);
+        return false;
+      }
+
+      const tmpFiles = await promises.readdir("./tmp");
+      const foundFile = tmpFiles.find((f) => f.startsWith(randomFileName));
+
+      if (!foundFile) {
+        console.error(`[dl-youtube] archivo de "${candidato.title}" (${candidato.fuente}) no se encontró tras descargar.`);
+        return false;
+      }
+
+      const finalPath = path.join("./tmp", foundFile);
+
+      const mediaBuffer = await promises.readFile(finalPath);
+      await client.sendMessage(chat, { [messageType]: mediaBuffer, mimetype: mimeType }, opcionesEnvio);
+      await promises.unlink(finalPath).catch(() => {});
+      await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*`, quoted);
+      return true;
+    } catch (error) {
+      console.error(`[dl-youtube] excepción con "${candidato.title}" (${candidato.fuente}): ${error.message}`);
+      return false;
+    }
+  };
+
+  const probarLista = async (candidatos, miniaturaEnviadaRef) => {
+    for (const candidato of candidatos) {
+      if (typeof candidato.title !== "string") continue;
+      if (prohibido.some((palabra) => candidato.title.toLowerCase().includes(palabra.toLowerCase())) && !isOwner) {
+        reaccionar("🟠");
+        continue;
+      }
+
+      if (!miniaturaEnviadaRef.enviada && candidato.thumbnail) {
+        await client.sendFile(chat, candidato.thumbnail, null, txt.sendPreview(isAudio, candidato.title), fkontak);
+        miniaturaEnviadaRef.enviada = true;
+      }
+
+      const exito = await intentarCandidato(candidato);
+      if (exito) return true;
+    }
+    return false;
+  };
+
+  // Al fallar: guarda el fallo para poder reintentarlo y avisa cómo pedirlo (solo la primera vez).
+  const fallar = async (mensaje) => {
+    reaccionar("❌");
+    if (esReintento) {
+      await client.sendText(chat, `${mensaje}\n\nEse fue el reintento; si querés, más tarde pedila de nuevo con .${isAudio ? "play" : "video"}.`, quoted);
+      return;
+    }
+    registrarFalloDescarga(chat, usuario, texto, tipo);
+    await client.sendText(chat, `${mensaje}\n\n🔁 Si querés, mandá .reintentar y la vuelvo a probar sola en media hora.`, quoted);
+  };
+
+  try {
+    const candidatosYoutube = await buscarYoutube(texto);
+    if (!candidatosYoutube || candidatosYoutube.length === 0) {
+      await client.sendText(chat, "❌ No encontré resultados para eso en YouTube. Probá con otro título.", quoted);
+      reaccionar("❌");
+      return false;
+    }
+
+    const referencia = candidatosYoutube[0];
+    const UMBRAL_SIMILITUD = 0.45;
+    const filtrados = candidatosYoutube.filter((c, i) => i === 0 || (typeof c.title === "string" && similitudTitulos(referencia.title, c.title) >= UMBRAL_SIMILITUD));
+
+    const miniaturaRef = { enviada: false };
+
+    if (await probarLista(filtrados, miniaturaRef)) return true;
+
+    const candidatosSoundcloud = await buscarSoundcloud(texto);
+    const filtradosSC = candidatosSoundcloud.filter((c) => typeof c.title === "string" && similitudTitulos(referencia.title, c.title) >= UMBRAL_SIMILITUD);
+
+    if (filtradosSC.length > 0 && (await probarLista(filtradosSC, miniaturaRef))) return true;
+
+    await fallar("❌ Probé varias opciones en YouTube y SoundCloud y ninguna se pudo descargar. Probá con otro título o de nuevo más tarde.");
+    return false;
+  } catch (error) {
+    console.log(`Error en plugin de youtube:`, error.message);
+    await fallar("❌ Ocurrió un error interno al procesar el pedido. Probá de nuevo más tarde.");
+    return false;
+  }
+}
 
 async function buscarYoutube(query) {
   try {

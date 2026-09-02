@@ -172,6 +172,20 @@ export function loadDatabase() {
     )
   `);
 
+  // Pendientes: cosas que el bot tiene que hacer más tarde (por ahora, reintentar descargas fallidas)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pendientes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      datos TEXT NOT NULL,
+      ejecutar_en INTEGER NOT NULL,
+      estado TEXT DEFAULT "pendiente",
+      creado INTEGER NOT NULL
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -583,4 +597,44 @@ export function consumirItem(chat, usuario, item) {
 
 export function borrarItem(chat, usuario, item) {
   db.prepare(`DELETE FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
+}
+
+// ===================== Pendientes =====================
+
+export function crearPendiente(chat, usuario, tipo, datos, ejecutarEn) {
+  const res = db
+    .prepare(`INSERT INTO pendientes (chat, usuario, tipo, datos, ejecutar_en, estado, creado) VALUES (?, ?, ?, ?, ?, 'pendiente', ?)`)
+    .run(chat, usuario, tipo, JSON.stringify(datos), ejecutarEn, Date.now());
+  return res.lastInsertRowid;
+}
+
+// ¿ya hay un pendiente de este tipo esperando para esta persona en este chat?
+export function hayPendiente(chat, usuario, tipo) {
+  return !!db.prepare(`SELECT 1 FROM pendientes WHERE chat = ? AND usuario = ? AND tipo = ? AND estado = 'pendiente'`).get(chat, usuario, tipo);
+}
+
+export function contarPendientesHoy(chat, tipo) {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM pendientes WHERE chat = ? AND tipo = ? AND creado >= ?`).get(chat, tipo, inicioHoy.getTime());
+  return row?.total || 0;
+}
+
+// los que ya tocan ejecutar; los marca como "ejecutando" en la misma operación para no repetirlos
+export function tomarPendientesVencidos() {
+  const tx = db.transaction(() => {
+    const filas = db.prepare(`SELECT * FROM pendientes WHERE estado = 'pendiente' AND ejecutar_en <= ? ORDER BY ejecutar_en ASC`).all(Date.now());
+    for (const f of filas) db.prepare(`UPDATE pendientes SET estado = 'ejecutando' WHERE id = ?`).run(f.id);
+    return filas.map((f) => ({ ...f, datos: JSON.parse(f.datos || "{}") }));
+  });
+  return tx();
+}
+
+export function cerrarPendiente(id, estado = "hecho") {
+  db.prepare(`UPDATE pendientes SET estado = ? WHERE id = ?`).run(estado, id);
+}
+
+// si el bot se apagó a mitad de una ejecución, esos quedan "ejecutando" para siempre: los volvemos a pendientes al arrancar
+export function recuperarPendientesColgados() {
+  return db.prepare(`UPDATE pendientes SET estado = 'pendiente' WHERE estado = 'ejecutando'`).run().changes;
 }

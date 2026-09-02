@@ -7,6 +7,7 @@ import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
 import { mesDe } from "./lib/hashtags.js";
 import { otorgarPorReaccion } from "./lib/urucoins.js";
+import { iniciarPendientes } from "./lib/pendientes.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -177,6 +178,9 @@ mkdirSync("./tmp", { recursive: true });
 process.on("unhandledRejection", (error) => {
   console.error("[unhandledRejection]", error);
 });
+
+// Pendientes (reintentos de descargas): revisa cada un minuto si hay algo que ejecutar.
+iniciarPendientes();
 
 await installYtDlp();
 

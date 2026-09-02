@@ -17,6 +17,11 @@ plugin.before = async function (m, { client, isOwner, isAdmin, user, chat }) {
     client.sendText(m.chat, teks, m, { mentions: [m.sender] });
   }
 
+  // Chiste de la plantilla: antes además EXPULSABA a quien escribía exactamente "te eliminó." (o "te eliminó!").
+  if (/^te eliminó[.!]?$/i.test(m.text) && !isOwner) {
+    client.sendText(m.chat, `No, pensionista.`, m, { mentions: [m.sender] });
+  }
+
   if (user.banned) return;
   if (chat.isBanned) return;
 
