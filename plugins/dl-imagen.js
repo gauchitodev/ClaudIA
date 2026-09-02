@@ -9,10 +9,17 @@ plugin.run = async (m, { client, text, isOwner, chat }) => {
   if (!text) return client.sendText(m.chat, txt.dlImagenNull, m);
   if (!chat.adultMode && m.isGroup && !isOwner) {
     const prohibited = ["caca", "polla", "gay", "hombres cogiendo", "mía malkova", "mia malkova", "hombres gay", "fisting", "porno", "porn", "gore", "cum", "semen", "puta", "puto", "culo", "putita", "putito", "pussy", "hentai", "pene", "coño", "asesinato", "zoofilia", "mia khalifa", "desnudo", "desnuda", "cuca", "chocha", "muertos", "pornhub", "xnxx", "xvideos", "teta", "vagina", "marsha may", "misha cross", "sexmex", "furry", "furro", "furra", "xxx", "rule34", "panocha", "pedofilia", "necrofilia", "pinga", "horny", "ass", "nude", "popo", "nsfw", "femdom", "futanari", "erofeet", "sexo", "sex", "yuri", "ero", "ecchi", "blowjob", "anal", "ahegao", "pija", "verga", "trasero", "violation", "violacion", "bdsm", "cachonda", "+18", "cp", "mia marin", "lana rhoades", "cepesito", "hot", "buceta", "xxx", "Violet Myllers", "Violet Myllers pussy", "Violet Myllers desnuda", "Violet Myllers sin ropa", "Violet Myllers culo", "Violet Myllers vagina", "Pornografía", "Pornografía infantil", "niña desnuda", "niñas desnudas", "niña pussy", "niña pack", "niña culo", "niña sin ropa", "niña siendo abusada", "niña siendo abusada sexualmente", "niña cogiendo", "niña fototeta", "niña vagina", "hero Boku no pico", "Mia Khalifa cogiendo", "Mia Khalifa sin ropa", "Mia Khalifa comiendo polla", "Mia Khalifa desnuda"];
-    const normalizedText = text.replace(/\s+/g, "").toLowerCase();
-    if (prohibited.some((word) => normalizedText.includes(word.replace(/\s+/g, "")))) {
+    // Se compara por palabra o frase completa: antes "hotel", "dinero", "cpu" o "sexto" quedaban bloqueados
+    // por contener "hot", "ero", "cp" o "sex".
+    const textoNormalizado = text.toLowerCase().replace(/\s+/g, " ").trim();
+    const bloqueada = prohibited.some((word) => {
+      const frase = word.toLowerCase().replace(/\s+/g, " ").trim();
+      const escapada = frase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(^|[^\\p{L}\\p{N}])${escapada}($|[^\\p{L}\\p{N}])`, "iu").test(textoNormalizado);
+    });
+    if (bloqueada) {
       m.react("⚠️");
-      m.sendText("*⚠️BUSQUEDA RESTRINGIDA⚠️*");
+      await client.sendText(m.chat, "*⚠️BUSQUEDA RESTRINGIDA⚠️*", m);
       return;
     }
   }

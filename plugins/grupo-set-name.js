@@ -11,7 +11,7 @@ plugin.run = async (m, { client, args, text }) => {
     let text = args.join` `;
     if (!args || !args[0]) {
     } else {
-      client.groupUpdateSubject(m.chat, text);
+      await client.groupUpdateSubject(m.chat, text);
     }
   } catch (e) {
     await client.sendText(m.chat, `Error en la solicitud a WhatsApp.`);

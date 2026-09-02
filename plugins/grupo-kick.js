@@ -1,3 +1,5 @@
+import { esOwner } from "../database-functions.js";
+
 let plugin = {};
 plugin.cmd = ["k", "kick", "andate", "morite", "chau"];
 plugin.onlyGroup = true;
@@ -16,6 +18,7 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
     if (who === client.user.lid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
+    if (esOwner(who)) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
     const groupAdmins = participants.filter((p) => p.admin);
     const owner = groupMetadata.owner || groupAdmins.find((p) => p.admin === "superadmin")?.id || m.chat.split`-`[0] + "@lid";
 

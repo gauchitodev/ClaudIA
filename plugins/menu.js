@@ -20,6 +20,16 @@ plugin.run = async (m, { client, usedPrefix }) => {
 📌 \`LISTA DE COMANDOS:\`
 ${readMore}
 
+🇺🇾 *𝚃𝙴𝙼𝙰́𝚃𝙸𝙲𝙰𝚂 𝚈 𝚁𝙰𝙽𝙺𝙸𝙽𝙶 𝙳𝙴𝙻 𝙶𝚁𝚄𝙿𝙾*
+▸ #quejadelunes 😤 – \`Registra tu queja de la semana.\`
+▸ #historiasrandom 🎲 – \`Registra una historia random.\`
+▸ #recomendado ⭐ – \`Registra una recomendación.\`
+▸ ${usedPrefix}quejas 😤 – \`Lista de quejas de la semana.\`
+▸ ${usedPrefix}historias 🎲 – \`Lista de historias random de la semana.\`
+▸ ${usedPrefix}recomendados ⭐ – \`Lista de recomendaciones de la semana.\`
+▸ ${usedPrefix}ranking 🏆 – \`Ranking del mes por reacciones.\`
+▸ ${usedPrefix}menuuru 🇺🇾 – \`Cómo funcionan las temáticas del grupo.\`
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛡️ *𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂*
 ▸ ${usedPrefix}g 🔒 – \`Abre o cierra el chat del grupo.\`
 ▸ ${usedPrefix}k @mención ❌ – \`Expulsa a un participante.\`
@@ -39,7 +49,6 @@ ${readMore}
 ▸ ${usedPrefix}getpp 📸 – \`Obtiene la foto de perfil actual del grupo.\`
 ▸ ${usedPrefix}gpu 📸 – \`Obtiene la foto de perfil de un participante.\`
 ▸ ${usedPrefix}llamar @mención 🤚 – \`Menciona 20 veces a un usuario\`
-▸ ${usedPrefix}pin 📌 – \`Fija un mensaje en el chat.\`
 ▸ ${usedPrefix}rl ♻️ – \`Restaurar enlace del grupo.\`
 ▸ ${usedPrefix}ap ☑️ – \`Aprobar solicitudes pendientes para unirse.\`
 ▸ ${usedPrefix}ruletadelban ☠️ – \`Elimina un participante al azar.\`
@@ -73,7 +82,6 @@ ${readMore}
 ▸ ${usedPrefix}audio <artista y título> 🎵 – \`Reproduce música de YouTube.\`
 ▸ ${usedPrefix}video <nombre> 🎥 – \`Busca un video de YouTube.\`
 ▸ ${usedPrefix}imagen <texto> 📷 – \`Busca una imagen en Google.\`
-▸ ${usedPrefix}imagen2 <texto> 🖼️ – \`Busca una imagen en Google.\`
 ▸ ${usedPrefix}tt <enlaceTikTok> 📷 – \`Descarga video de TikTok.\`
 ▸ ${usedPrefix}igdl <enlaceInstagram> 📷 – \`Descarga imagen/video de Instagram.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
@@ -159,7 +167,6 @@ ${readMore}
 ✨ *𝙴𝚇𝚃𝚁𝙰𝚂*
 ▸ ${usedPrefix}say 🗣️ <texto>
 ▸ ${usedPrefix}sortear 🏆 <texto>
-▸ ${usedPrefix}hd 📷 – \`Efecto Remini a una foto.\`
 ▸ ${usedPrefix}clima 🌦️ <pais y/o ciudad>
 ▸ ${usedPrefix}traducir <texto>
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

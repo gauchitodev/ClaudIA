@@ -18,6 +18,10 @@ Corre 24/7 en una tablet Samsung Galaxy Tab A9, vía Termux.
 
 Node.js · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini + Groq · yt-dlp
 
+## Configuración
+
+Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. `config.toml` está en `.gitignore` y nunca se sube.
+
 ## Nota
 
 Proyecto personal, sin pretensión de ser un template genérico — está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.

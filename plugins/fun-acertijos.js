@@ -108,7 +108,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (acertijos[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, "*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* " + acertijo.respuesta + resumen, m);
+        client.sendText(m.chat, "*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* " + acertijo.respuesta + resumen, m).catch(console.error);
         delete acertijos[m.chat];
       }
     }, 30000), // 30 segundos para adivinar
@@ -130,7 +130,9 @@ plugin.before = async function (m, { client }) {
   // calcular distancia de Levenshtein para margen de error en respuestas
   const distancia = levenshteinDistance(respuestaUsuario, juego.respuesta);
 
-  if (respuestaUsuario === juego.respuesta || distancia <= 4) {
+  // Margen de error proporcional al largo de la respuesta (antes eran 4 letras fijas y "un ojo" pasaba por "un río").
+  const margen = Math.max(1, Math.floor(juego.respuesta.length * 0.2));
+  if (respuestaUsuario === juego.respuesta || distancia <= margen) {
     const resumen = juegoTerminado(m.chat, m.sender);
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(acertijos[m.chat].timeout);

@@ -50,7 +50,7 @@ export async function loadPlugins() {
 // Controlar cambios en plugins
 export function watchPlugins() {
   watch("./plugins/", { recursive: true }, async (eventType, filename) => {
-    if (!filename.endsWith(".js")) return;
+    if (!filename || !filename.endsWith(".js")) return;
 
     const pluginName = filename.replace(".js", "");
     const pluginPath = `./plugins/${filename}`;

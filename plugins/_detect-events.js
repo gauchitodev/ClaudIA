@@ -66,17 +66,17 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   // Si el evento involucra a un owner del bot, retornar para no lanzar alerta al chat.
   const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
   for (const ownerJid of ownerJids) {
-    const ownerData = getUser(ownerJid);
-    const ownerLid = ownerData?.lid;
-    if (m.sender == ownerLid || userLid == ownerLid) return;
+    const ownerLid = getUser(ownerJid)?.lid;
+    // Comparación estricta: con == un owner sin fila en la base (undefined) coincidía con userLid null y silenciaba todo.
+    if (ownerLid && (m.sender === ownerLid || userLid === ownerLid)) return;
   }
 
   if (chat.detect && m.messageStubType == 23) {
-    await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)] });
+    await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   } else if (chat.detect && m.messageStubType == 29) {
-    await client.sendText(m.chat, txt.detectEventsPromote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)] });
+    await client.sendText(m.chat, txt.detectEventsPromote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   } else if (chat.detect && m.messageStubType == 30) {
-    client.sendText(m.chat, txt.detectEventsDemote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)] });
+    await client.sendText(m.chat, txt.detectEventsDemote(userLid, m.sender), fkontak, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   }
 
   return;

@@ -49,7 +49,7 @@ plugin.run = async (m, { client }) => {
   if (mime === "image/jpeg" || mime === "image/png") {
     const media = await q.download();
     const response = await updatePictureProfile(media, client);
-    if (response) {
+    if (response.status) {
       client.sendText(m.chat, "Listo.", m);
     } else {
       await m.react("✖️");

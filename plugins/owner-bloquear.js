@@ -9,7 +9,7 @@ plugin.run = async (m, { client, text, command }) => {
   if (numberMatches && numberMatches.length > 0) {
     who = numberMatches[0].replace("@", "") + "@lid";
   } else {
-    who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted.sender;
+    who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
   }
   if (!who) return;
 

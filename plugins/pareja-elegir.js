@@ -23,7 +23,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
 
   if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), fkontak);
   if (whoJid === m.senderJid) return client.sendText(m.chat, txt.parejaWhoSender, fkontak);
-  if (whoJid === client.user.jid) return client.sendText(m.chat, txt.parejaWhoBot, fkontak);
+  if (whoJid === client.user.jid || whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBot, fkontak);
 
   const pareja = user.couple;
   const parejaData = getUser(pareja);
@@ -31,6 +31,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   const partnerData = getUser(who?.couple);
 
   if (who?.couple == m.senderJid && user.couple !== whoJid) return client.sendText(m.chat, `La persona ya te pidió ser tu pareja! Responde su petición con:\n\n${usedPrefix}aceptar @${whoLid.split("@")[0]}\n${usedPrefix}rechazar @${whoLid.split("@")[0]}`, m);
+  // Si la persona ya está en una relación mutua con otro, no se le puede pedir pareja (antes este chequeo era inalcanzable).
+  if (who?.couple && who.couple !== m.senderJid && partnerData?.couple === whoJid) return client.sendText(m.chat, `@${whoLid.split("@")[0]} ya tiene pareja, respete 🤨`, m, { mentions: [whoLid] });
   try {
     const pacar = parejaData?.couple;
 

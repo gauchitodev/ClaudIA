@@ -1,5 +1,8 @@
 import { unlinkSync, readFileSync } from "fs";
 import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 let plugin = {};
 plugin.cmd = ["bass", "blown", "deep", "earrape", "fast", "fat", "nightcore", "reverse", "robot", "slow", "smooth", "tupai"];
@@ -22,21 +25,25 @@ plugin.run = async (m, { client, command }) => {
   if (/smooth/.test(command)) set = "-filter:v \"minterpolate='mi_mode=mci:mc_mode=aobmc:vsbmc=1:fps=120'\"";
   if (/tupai/.test(command)) set = '-filter:a "atempo=0.5,asetrate=65100"';
 
-  if (/audio/.test(mime)) {
-    let ran = getRandom(".mp3");
-    const tmpDir = "./tmp";
-    let filename = `${tmpDir}/${ran}`;
-    let media = await q.download(true);
+  if (!/audio/.test(mime)) return client.sendText(m.chat, txt.audioEffects, m);
 
-    exec(`ffmpeg -i ${media} ${set} ${filename}`, async (err) => {
-      if (err) return console.error("Error en FFMPEG:", err);
-
-      unlinkSync(media);
-      let buff = readFileSync(filename);
-
-      client.sendFile(m.chat, buff, `audioEffects.mp3`, null, m, true, { seconds: "9999999999999" });
-    });
-  } else return client.sendText(m.chat, txt.audioEffects, m);
+  const filename = `./tmp/${getRandom(".mp3")}`;
+  const media = await q.download(true);
+  try {
+    await execAsync(`ffmpeg -i "${media}" ${set} "${filename}"`);
+    const buff = readFileSync(filename);
+    await client.sendFile(m.chat, buff, `audioEffects.mp3`, null, m, true, { seconds: "9999999999999" });
+  } catch (e) {
+    // Antes un error de ffmpeg dejaba al usuario sin respuesta, y un readFileSync fallido tumbaba el proceso.
+    console.error("[audio-effects]", e.message);
+    await client.sendText(m.chat, "No pude procesar ese audio, probá con otro.", m);
+  } finally {
+    for (const archivo of [media, filename]) {
+      try {
+        unlinkSync(archivo);
+      } catch {}
+    }
+  }
 };
 
 export default plugin;

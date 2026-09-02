@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, delete: del, reactions, mentions } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions } = chat;
 
   const text = `
 [⚙️] 𝙲𝙾𝙽𝙵𝙸𝙶 𝙳𝙴 𝙶𝚁𝚄𝙿𝙾 [⚙️]

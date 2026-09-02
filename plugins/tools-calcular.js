@@ -6,7 +6,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   if (!text) return client.sendText(m.chat, txt.calcNull(usedPrefix, command), m);
 
   let input = text.replace(/\s+/g, "").replace(/x/gi, "*");
-  if (!/^[\d.+\-*/()]+$/.test(input)) return conn.reply(m.chat, txt.calcCaracteresNull, m);
+  if (!/^[\d.+\-*/()]+$/.test(input)) return client.sendText(m.chat, txt.calcCaracteresNull, m);
 
   try {
     let result = eval(input);

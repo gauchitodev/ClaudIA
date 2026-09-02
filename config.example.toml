@@ -1,0 +1,23 @@
+# Copiá este archivo como config.toml y completá los valores.
+# config.toml está en .gitignore: nunca se sube al repo.
+
+# Número del bot sin "+" ni espacios ni guiones. Dejar vacío para vincular con código QR.
+numberBot = ""
+
+# Números de owners del bot sin "+" ni espacios ni guiones.
+owners = [""]
+
+# API key de Gemini. Sin esto no hay charla con IA (.ia, .gemini y las respuestas automáticas).
+geminiApiKey = ""
+
+# API key de Groq. Respaldo cuando Gemini se queda sin cuota. Opcional.
+groqApiKey = ""
+
+# API key de Tenor (Google). Solo la usa .emojimix. Opcional.
+tenorApiKey = ""
+
+# API key de OpenWeather. Solo la usa .clima. Opcional.
+openWeatherApiKey = ""
+
+# API key de Cerebras. Primer respaldo de IA cuando Gemini falla (después va Groq). Opcional.
+cerebrasApiKey = ""

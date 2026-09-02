@@ -213,7 +213,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (banderas[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*` + resumen, m);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*` + resumen, m).catch(console.error);
         delete banderas[m.chat];
       }
     }, 30000), // 30 segundos

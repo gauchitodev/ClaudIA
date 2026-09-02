@@ -1,5 +1,5 @@
 import { smsg } from "./lib/wa-socket.js";
-import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo } from "./database-functions.js";
+import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
 
 // Memoria para guardar la última vez que se saludó por grupo
 const cooldownSaludos = new Map();
@@ -19,7 +19,9 @@ export async function handleMessage(nMsg) {
     // ==========================================
     // 0. FILTRO ANTI-RESACA (Ignorar mensajes viejos)
     // ==========================================
-    const tiempoMensaje = m.messageTimestamp || m.timestamp || 0;
+    // messageTimestamp puede venir como número o como Long (protobuf); se normaliza a segundos.
+    const crudo = m.messageTimestamp ?? m.timestamp ?? 0;
+    const tiempoMensaje = Number(typeof crudo?.toNumber === "function" ? crudo.toNumber() : crudo) || 0;
     // Si el mensaje tiene más de 60 segundos de antigüedad, lo descartamos de una
     if (tiempoMensaje && (Date.now() / 1000) - tiempoMensaje > 60) return;
 
@@ -36,16 +38,18 @@ export async function handleMessage(nMsg) {
     const botSettings = getBotSettings(client.user.lid);
 
     // autoRead msg
-    if (botSettings.autoRead) await this.readMessages([m.key]);
+    if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
     // Usuario silenciado
-    if (user.inGroup[m.chat]?.mute) return m.delete();
+    if (user.inGroup[m.chat]?.mute && m.message) return m.delete();
 
     // Obtención de permisos actuales
     const groupMetadata = (m.isGroup ? (client.chats[m.chat] || {}).metadata || (await this.groupMetadata(m.chat).catch((_) => null)) : {}) || {};
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
     const userSender = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === m.sender) : {}) || {};
     const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) == client.user.lid) : {}) || {};
-    const isOwner = [...globalThis.owners.map((number) => number.replace(/[^0-9]/g, "") + "@s.whatsapp.net")].includes(m.senderJid) || m.fromMe;
+    // esOwner acepta @lid o @s.whatsapp.net (resuelve el lid del owner por la base), así el owner se reconoce aunque
+    // el mensaje venga solo con su LID.
+    const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
     const isRAdmin = userSender?.admin == "superadmin" || false;
     const isAdmin = isOwner || isRAdmin || userSender?.admin == "admin" || false;
     let isBotAdmin = !m.isGroup || bot?.admin || false;
@@ -125,6 +129,9 @@ export async function handleMessage(nMsg) {
     // ignorar comandos que sean solo puntos
     if (/^\.+$/.test(command)) return;
     text = args.join(" ");
+
+    // Modo blacklist del grupo (.blon + .bladd): los comandos bloqueados no corren para nadie salvo el owner.
+    if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
     // Verificar si el comando existe en algún plugin
     const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));

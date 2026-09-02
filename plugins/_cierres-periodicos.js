@@ -3,12 +3,13 @@
 // - Semana nueva: premia la entrada más votada de cada hashtag de la semana anterior.
 // Cada cierre se marca en la base de datos para no repetirlo después de un reinicio.
 import { obtenerRankingMensual, entradaMasVotada, periodoCerrado, marcarPeriodoCerrado, ganarCoins } from "../database-functions.js";
-import { HASHTAGS_CONFIG, semanaDe } from "../lib/hashtags.js";
+import { HASHTAGS_CONFIG, semanaDe, mesDe } from "../lib/hashtags.js";
 import { COINS } from "../lib/urucoins.js";
 
 const ultimoChequeo = new Map(); // chat -> { mes, semana } ya verificados (evita ir a la base en cada mensaje)
 
-const mesDe = (fecha) => new Date(fecha).toISOString().slice(0, 7);
+// mesDe viene de lib/hashtags.js (hora local): tiene que ser el mismo cálculo que usa el ranking al sumar reacciones,
+// si no el cierre del mes se dispara unas horas antes o después de que cambie la clave.
 const mencion = (lid) => `@${lid.split("@")[0]}`;
 
 let plugin = (m) => m;

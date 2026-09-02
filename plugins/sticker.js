@@ -6,7 +6,8 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, isOwner }) => {
   if (m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2Extension?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage?.viewOnce || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.viewOnce || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.audioMessage?.viewOnce) {
-    if (m.senderJid !== m.quoted.sender && !isOwner) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
+    // m.quoted.sender suele venir como @lid, así que se compara contra los dos formatos del remitente.
+    if (![m.sender, m.senderJid].includes(m.quoted.sender) && !isOwner) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   }
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || q.mediaType || "";

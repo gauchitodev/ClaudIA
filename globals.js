@@ -18,6 +18,8 @@ globalThis.authFile = `botSession`;
 globalThis.numberBot = config.numberBot || "";
 globalThis.geminiApiKey = config.geminiApiKey || "";
 globalThis.groqApiKey = config.groqApiKey || "";
+globalThis.tenorApiKey = config.tenorApiKey || "";
+globalThis.openWeatherApiKey = config.openWeatherApiKey || "";
 globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
 
 // Numeros de owners del bot sin "+" ni espacios ni guiones
@@ -26,8 +28,14 @@ globalThis.owners = config.owners || [""];
 // Prefijos de comandos
 globalThis.prefix = [".", "/", "@"];
 
-// Versión del bot
-globalThis.botVersion = "v3.0";
+// Versión del bot: se lee de package.json para que no queden dos números distintos.
+let versionPaquete = "3.0.0";
+try {
+  versionPaquete = JSON.parse(fs.readFileSync("package.json", "utf8")).version || versionPaquete;
+} catch (error) {
+  console.error("No se pudo leer la versión de package.json:", error.message);
+}
+globalThis.botVersion = `v${versionPaquete}`;
 
 // Baileys
 globalThis.baileys = "@whiskeysockets/baileys";

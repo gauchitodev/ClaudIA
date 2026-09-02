@@ -26,7 +26,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (ordenarPalabra[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*` + resumen, m);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*` + resumen, m).catch(console.error);
         delete ordenarPalabra[m.chat];
       }
     }, 30000),
