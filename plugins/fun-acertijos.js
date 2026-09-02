@@ -1,3 +1,4 @@
+import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
 plugin.botAdmin = true;
@@ -106,11 +107,13 @@ plugin.run = async (m, { client, chat }) => {
     mensajeId: acertijoMsg.key.id,
     timeout: setTimeout(() => {
       if (acertijos[m.chat]) {
-        client.sendText(m.chat, "*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* " + acertijo.respuesta, m);
+        const resumen = juegoTerminado(m.chat, null);
+        client.sendText(m.chat, "*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* " + acertijo.respuesta + resumen, m);
         delete acertijos[m.chat];
       }
     }, 30000), // 30 segundos para adivinar
   };
+  juegoIniciado(m.chat, "acertijo");
 };
 
 plugin.before = async function (m, { client }) {
@@ -128,7 +131,8 @@ plugin.before = async function (m, { client }) {
   const distancia = levenshteinDistance(respuestaUsuario, juego.respuesta);
 
   if (respuestaUsuario === juego.respuesta || distancia <= 4) {
-    client.sendText(m.chat, txt.gameSuccess, m);
+    const resumen = juegoTerminado(m.chat, m.sender);
+    client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(acertijos[m.chat].timeout);
     delete acertijos[m.chat];
   } else {

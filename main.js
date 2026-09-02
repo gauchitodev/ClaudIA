@@ -5,6 +5,7 @@ import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
+import { otorgarPorReaccion } from "./lib/urucoins.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -122,6 +123,7 @@ async function startBot() {
         const mes = new Date().toISOString().slice(0, 7);
         sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
         sumarInteraccion(mes, key.remoteJid, reactorLid, "emitidas");
+        otorgarPorReaccion(key.remoteJid, autorLid, reactorLid, key.id);
       } catch (e) {
         console.error("[ranking] error procesando reacción:", e);
       }

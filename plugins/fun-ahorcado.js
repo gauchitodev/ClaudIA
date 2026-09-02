@@ -1,3 +1,4 @@
+import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.botAdmin = true;
@@ -24,15 +25,18 @@ plugin.run = async (m, { client, chat }) => {
     letrasProbadas: [],
     timeout: setTimeout(() => {
       if (ahorcado[m.sender]) {
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*`, m);
+        const resumen = juegoTerminado(m.chat, null, m.sender);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*` + resumen, m);
         delete ahorcado[m.sender];
       }
     }, 180000), // 3 minutos para completar la palabra
   };
+  juegoIniciado(m.chat, "ahorcado", m.sender);
 };
 
 plugin.before = async function (m, { client }) {
   if (!ahorcado[m.sender]) return;
+  if (globalThis.prefix.some((p) => m.text.startsWith(p))) return; // dejar pasar comandos (.apostar, .play, etc.)
   let juego = ahorcado[m.sender];
 
   let letra = m.text.toLowerCase().trim();
@@ -52,14 +56,16 @@ plugin.before = async function (m, { client }) {
   if (!encontrada) juego.intentos--;
 
   if (juego.intentos <= 0) {
-    client.sendText(m.chat, `*[💀] ¡PERDISTE!*\n\nLa palabra era: *${juego.palabra}*`, m);
+    const resumen = juegoTerminado(m.chat, null, m.sender);
+    client.sendText(m.chat, `*[💀] ¡PERDISTE!*\n\nLa palabra era: *${juego.palabra}*` + resumen, m);
     clearTimeout(juego.timeout);
     delete ahorcado[m.sender];
     return;
   }
 
   if (!juego.oculta.includes("_")) {
-    client.sendText(m.chat, txt.gameSuccess, m);
+    const resumen = juegoTerminado(m.chat, m.sender, m.sender);
+    client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(juego.timeout);
     delete ahorcado[m.sender];
     return;

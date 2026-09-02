@@ -1,3 +1,4 @@
+import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
 plugin.botAdmin = true;
@@ -24,11 +25,13 @@ plugin.run = async (m, { client, chat }) => {
     mensajeId: juegoMsg.key.id,
     timeout: setTimeout(() => {
       if (ordenarPalabra[m.chat]) {
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*`, m);
+        const resumen = juegoTerminado(m.chat, null);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*` + resumen, m);
         delete ordenarPalabra[m.chat];
       }
     }, 30000),
   };
+  juegoIniciado(m.chat, "ordenar");
 };
 
 plugin.before = async function (m, { client }) {
@@ -39,7 +42,8 @@ plugin.before = async function (m, { client }) {
   const respuestaUsuario = m.text.toLowerCase().trim();
 
   if (respuestaUsuario === juego.palabra) {
-    client.sendText(m.chat, txt.gameSuccess, m);
+    const resumen = juegoTerminado(m.chat, m.sender);
+    client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(ordenarPalabra[m.chat].timeout);
     delete ordenarPalabra[m.chat];
   } else {

@@ -120,6 +120,45 @@ export function loadDatabase() {
     )
   `);
 
+  // UruCoins: saldo por persona y por grupo (cada grupo tiene su propia economía)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS urucoins (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      saldo INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // UruCoins: registro de cada movimiento (para auditar, y para los topes diarios)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS urucoins_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      cantidad INTEGER NOT NULL,
+      motivo TEXT NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+
+  // Períodos ya cerrados (anuncio de ganadores del mes / historia de la semana), para no repetirlos
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS periodos_cerrados (
+      chat TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      periodo TEXT NOT NULL,
+      PRIMARY KEY (chat, tipo, periodo)
+    )
+  `);
+
+  // Migración: contador de reacciones en las entradas de hashtags (para la historia de la semana)
+  const columnasHashtag = db.prepare(`PRAGMA table_info(hashtag_entries)`).all();
+  if (!columnasHashtag.some((c) => c.name === "reacciones")) {
+    db.exec(`ALTER TABLE hashtag_entries ADD COLUMN reacciones INTEGER DEFAULT 0`);
+    console.log("🟢 Migración: columna 'reacciones' agregada a hashtag_entries");
+  }
+
   return db;
 }
 
@@ -389,4 +428,92 @@ export function obtenerRankingMensual(chat, mes) {
   const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0 ORDER BY recibidas DESC LIMIT 5`).all(chat, mes);
   const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0 ORDER BY emitidas DESC LIMIT 5`).all(chat, mes);
   return { masVotado, masActivo };
+}
+
+
+// ===================== UruCoins =====================
+
+// saldo actual de una persona en un grupo
+export function getSaldoCoins(chat, usuario) {
+  const row = db.prepare(`SELECT saldo FROM urucoins WHERE chat = ? AND usuario = ?`).get(chat, usuario);
+  return row?.saldo || 0;
+}
+
+// mueve coins (positivo = gana, negativo = gasta) y deja registro. Devuelve el saldo nuevo.
+export function moverCoins(chat, usuario, cantidad, motivo) {
+  const tx = db.transaction(() => {
+    db.prepare(`INSERT OR IGNORE INTO urucoins (chat, usuario, saldo) VALUES (?, ?, 0)`).run(chat, usuario);
+    db.prepare(`UPDATE urucoins SET saldo = saldo + ? WHERE chat = ? AND usuario = ?`).run(cantidad, chat, usuario);
+    db.prepare(`INSERT INTO urucoins_log (chat, usuario, cantidad, motivo, fecha) VALUES (?, ?, ?, ?, ?)`).run(chat, usuario, cantidad, motivo, Date.now());
+    return db.prepare(`SELECT saldo FROM urucoins WHERE chat = ? AND usuario = ?`).get(chat, usuario).saldo;
+  });
+  return tx();
+}
+
+export function ganarCoins(chat, usuario, cantidad, motivo) {
+  if (!(cantidad > 0)) return getSaldoCoins(chat, usuario);
+  return moverCoins(chat, usuario, cantidad, motivo);
+}
+
+// intenta gastar; devuelve true si alcanzaba el saldo, false si no (y no toca nada)
+export function gastarCoins(chat, usuario, cantidad, motivo) {
+  if (!(cantidad > 0)) return false;
+  const tx = db.transaction(() => {
+    if (getSaldoCoins(chat, usuario) < cantidad) return false;
+    moverCoins(chat, usuario, -cantidad, motivo);
+    return true;
+  });
+  return tx();
+}
+
+// transferencia entre dos personas del mismo grupo
+export function transferirCoins(chat, de, para, cantidad) {
+  const tx = db.transaction(() => {
+    if (!gastarCoins(chat, de, cantidad, "regalo_enviado")) return false;
+    ganarCoins(chat, para, cantidad, "regalo_recibido");
+    return true;
+  });
+  return tx();
+}
+
+// suma de lo ganado HOY por motivos que empiecen con un prefijo (ej. "reaccion_") — para el tope diario
+export function coinsGanadasHoy(chat, usuario, prefijoMotivo) {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const row = db
+    .prepare(`SELECT COALESCE(SUM(cantidad), 0) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND cantidad > 0 AND motivo LIKE ? AND fecha >= ?`)
+    .get(chat, usuario, prefijoMotivo + "%", inicioHoy.getTime());
+  return row?.total || 0;
+}
+
+export function topCoins(chat, n = 5) {
+  return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
+}
+
+// cuántas entradas mandó una persona de un hashtag en una semana (para el tope de premios)
+export function contarEntradasUsuarioSemana(chat, hashtag, usuario, semana) {
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND usuario = ? AND semana = ?`).get(chat, hashtag, usuario, semana);
+  return row?.total || 0;
+}
+
+// sumar una reacción a la entrada de hashtag que corresponda a ese mensaje (si existe)
+export function sumarReaccionEntradaHashtag(chat, messageId) {
+  if (!messageId) return;
+  db.prepare(`UPDATE hashtag_entries SET reacciones = reacciones + 1 WHERE chat = ? AND messageId = ?`).run(chat, messageId);
+}
+
+// la entrada más reaccionada de un hashtag en una semana (con desempate por orden de llegada)
+export function entradaMasVotada(chat, hashtag, semana) {
+  return db
+    .prepare(`SELECT * FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ? AND reacciones > 0 ORDER BY reacciones DESC, id ASC LIMIT 1`)
+    .get(chat, hashtag, semana);
+}
+
+// períodos cerrados (para anunciar ganadores una sola vez)
+export function periodoCerrado(chat, tipo, periodo) {
+  return !!db.prepare(`SELECT 1 FROM periodos_cerrados WHERE chat = ? AND tipo = ? AND periodo = ?`).get(chat, tipo, periodo);
+}
+
+export function marcarPeriodoCerrado(chat, tipo, periodo) {
+  db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
 }

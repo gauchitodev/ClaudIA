@@ -1,3 +1,4 @@
+import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
 plugin.botAdmin = true;
@@ -211,11 +212,13 @@ plugin.run = async (m, { client, chat }) => {
     mensajeId: mensajeJuego.key.id,
     timeout: setTimeout(() => {
       if (banderas[m.chat]) {
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*`, m);
+        const resumen = juegoTerminado(m.chat, null);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*` + resumen, m);
         delete banderas[m.chat];
       }
     }, 30000), // 30 segundos
   };
+  juegoIniciado(m.chat, "banderas");
 };
 
 plugin.before = async function (m, { client }) {
@@ -226,7 +229,8 @@ plugin.before = async function (m, { client }) {
 
   const respuestaUsuario = m.text.toLowerCase().trim();
   if (respuestaUsuario === juego.pais) {
-    client.sendText(m.chat, txt.gameSuccess, m);
+    const resumen = juegoTerminado(m.chat, m.sender);
+    client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(banderas[m.chat].timeout);
     delete banderas[m.chat];
   } else {
