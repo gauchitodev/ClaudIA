@@ -18,3 +18,6 @@ tenorApiKey = ""
 
 # API key de OpenWeather. Solo la usa .clima. Opcional.
 openWeatherApiKey = ""
+
+# API key de Cerebras. Primer respaldo de IA cuando Gemini falla (después va Groq). Opcional.
+cerebrasApiKey = ""

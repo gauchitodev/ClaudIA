@@ -6,6 +6,7 @@ import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
 import { mesDe } from "./lib/hashtags.js";
+import { otorgarPorReaccion } from "./lib/urucoins.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -119,6 +120,20 @@ async function startBot() {
     }
   });
 
+  // Cuando cambian los participantes o admins de un grupo, refrescamos la metadata guardada.
+  // Sin esto, la lista de admins queda como estaba al conectar, y el bot no se entera de que
+  // lo hicieron (o le sacaron) admin hasta el próximo reinicio.
+  client.ev.on("group-participants.update", async ({ id }) => {
+    try {
+      if (!id?.endsWith("@g.us")) return;
+      const metadata = await client.groupMetadata(id).catch(() => null);
+      if (!metadata) return;
+      client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
+    } catch (e) {
+      console.error("[grupos] error refrescando metadata:", e);
+    }
+  });
+
   // Puntos por reacciones: suma "recibidas" a quien escribió el mensaje, "emitidas" a quien reacciona.
   client.ev.on("messages.reaction", (reactions) => {
     for (const { key, reaction } of reactions) {
@@ -134,20 +149,19 @@ async function startBot() {
         const mes = mesDe();
         sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
         sumarInteraccion(mes, key.remoteJid, reactorLid, "emitidas");
+        otorgarPorReaccion(key.remoteJid, autorLid, reactorLid, key.id);
       } catch (e) {
         console.error("[ranking] error procesando reacción:", e);
       }
     }
   });
 
-  // Cuando cambian los participantes/admins o la configuración del grupo, se descarta el caché de metadatos para que
-  // los permisos y el estado abierto/cerrado se vuelvan a leer frescos en el próximo mensaje.
-  const invalidarMetadata = (jid) => {
-    if (jid && client.chats?.[jid]) delete client.chats[jid].metadata;
-  };
-  client.ev.on("group-participants.update", (evento) => invalidarMetadata(evento?.id));
+  // Cuando cambia la configuración del grupo (abierto/cerrado, nombre, etc.), se descarta el caché de metadatos para
+  // que se vuelva a leer fresco en el próximo mensaje. Los cambios de participantes los refresca el handler de arriba.
   client.ev.on("groups.update", (cambios) => {
-    for (const cambio of cambios || []) invalidarMetadata(cambio?.id);
+    for (const cambio of cambios || []) {
+      if (cambio?.id && client.chats?.[cambio.id]) delete client.chats[cambio.id].metadata;
+    }
   });
 
   return client;

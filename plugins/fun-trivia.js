@@ -1,3 +1,4 @@
+import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["trivia"];
 plugin.botAdmin = true;
@@ -525,11 +526,13 @@ plugin.run = async (m, { client, chat }) => {
     mensajeId: triviaMsg.key.id,
     timeout: setTimeout(() => {
       if (trivias[m.chat]) {
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*`, m).catch(console.error);
+        const resumen = juegoTerminado(m.chat, null);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*` + resumen, m).catch(console.error);
         delete trivias[m.chat];
       }
     }, 30000),
   };
+  juegoIniciado(m.chat, "trivia");
 };
 
 plugin.before = async function (m, { client }) {
@@ -540,7 +543,8 @@ plugin.before = async function (m, { client }) {
   const respuestaUsuario = m.text.toLowerCase().trim();
 
   if (respuestaUsuario === juego.respuesta) {
-    client.sendText(m.chat, txt.gameSuccess, m);
+    const resumen = juegoTerminado(m.chat, m.sender);
+    client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(trivias[m.chat].timeout);
     delete trivias[m.chat];
   } else {

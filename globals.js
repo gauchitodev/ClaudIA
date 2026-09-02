@@ -20,6 +20,7 @@ globalThis.geminiApiKey = config.geminiApiKey || "";
 globalThis.groqApiKey = config.groqApiKey || "";
 globalThis.tenorApiKey = config.tenorApiKey || "";
 globalThis.openWeatherApiKey = config.openWeatherApiKey || "";
+globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
 
 // Numeros de owners del bot sin "+" ni espacios ni guiones
 globalThis.owners = config.owners || [""];

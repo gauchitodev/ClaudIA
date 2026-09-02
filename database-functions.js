@@ -120,6 +120,64 @@ export function loadDatabase() {
     )
   `);
 
+  // UruCoins: saldo por persona y por grupo (cada grupo tiene su propia economía)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS urucoins (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      saldo INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // UruCoins: registro de cada movimiento (para auditar, y para los topes diarios)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS urucoins_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      cantidad INTEGER NOT NULL,
+      motivo TEXT NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+
+  // Períodos ya cerrados (anuncio de ganadores del mes / historia de la semana), para no repetirlos
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS periodos_cerrados (
+      chat TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      periodo TEXT NOT NULL,
+      PRIMARY KEY (chat, tipo, periodo)
+    )
+  `);
+
+  // Migración: contador de reacciones en las entradas de hashtags (para la historia de la semana)
+  const columnasHashtag = db.prepare(`PRAGMA table_info(hashtag_entries)`).all();
+  if (!columnasHashtag.some((c) => c.name === "reacciones")) {
+    db.exec(`ALTER TABLE hashtag_entries ADD COLUMN reacciones INTEGER DEFAULT 0`);
+    console.log("🟢 Migración: columna 'reacciones' agregada a hashtag_entries");
+  }
+
+  // Inventario de la tienda de UruCoins (ítems por persona y por grupo)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inventario (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      item TEXT NOT NULL,
+      cantidad INTEGER DEFAULT 0,
+      extra TEXT DEFAULT "",
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario, item)
+    )
+  `);
+
+  // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
+  if (!columnasUsers.some((c) => c.name === "apodo")) {
+    db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
+    console.log("🟢 Migración: columna 'apodo' agregada a la tabla users");
+  }
+
   return db;
 }
 
@@ -403,4 +461,126 @@ export function esOwner(id) {
     if (fila?.lid && id === fila.lid) return true;
   }
   return false;
+}
+
+// ===================== UruCoins =====================
+
+// saldo actual de una persona en un grupo
+export function getSaldoCoins(chat, usuario) {
+  const row = db.prepare(`SELECT saldo FROM urucoins WHERE chat = ? AND usuario = ?`).get(chat, usuario);
+  return row?.saldo || 0;
+}
+
+// mueve coins (positivo = gana, negativo = gasta) y deja registro. Devuelve el saldo nuevo.
+export function moverCoins(chat, usuario, cantidad, motivo) {
+  const tx = db.transaction(() => {
+    db.prepare(`INSERT OR IGNORE INTO urucoins (chat, usuario, saldo) VALUES (?, ?, 0)`).run(chat, usuario);
+    db.prepare(`UPDATE urucoins SET saldo = saldo + ? WHERE chat = ? AND usuario = ?`).run(cantidad, chat, usuario);
+    db.prepare(`INSERT INTO urucoins_log (chat, usuario, cantidad, motivo, fecha) VALUES (?, ?, ?, ?, ?)`).run(chat, usuario, cantidad, motivo, Date.now());
+    return db.prepare(`SELECT saldo FROM urucoins WHERE chat = ? AND usuario = ?`).get(chat, usuario).saldo;
+  });
+  return tx();
+}
+
+export function ganarCoins(chat, usuario, cantidad, motivo) {
+  if (!(cantidad > 0)) return getSaldoCoins(chat, usuario);
+  return moverCoins(chat, usuario, cantidad, motivo);
+}
+
+// intenta gastar; devuelve true si alcanzaba el saldo, false si no (y no toca nada)
+export function gastarCoins(chat, usuario, cantidad, motivo) {
+  if (!(cantidad > 0)) return false;
+  const tx = db.transaction(() => {
+    if (getSaldoCoins(chat, usuario) < cantidad) return false;
+    moverCoins(chat, usuario, -cantidad, motivo);
+    return true;
+  });
+  return tx();
+}
+
+// transferencia entre dos personas del mismo grupo
+export function transferirCoins(chat, de, para, cantidad) {
+  const tx = db.transaction(() => {
+    if (!gastarCoins(chat, de, cantidad, "regalo_enviado")) return false;
+    ganarCoins(chat, para, cantidad, "regalo_recibido");
+    return true;
+  });
+  return tx();
+}
+
+// suma de lo ganado HOY por motivos que empiecen con un prefijo (ej. "reaccion_") — para el tope diario
+export function coinsGanadasHoy(chat, usuario, prefijoMotivo) {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const row = db
+    .prepare(`SELECT COALESCE(SUM(cantidad), 0) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND cantidad > 0 AND motivo LIKE ? AND fecha >= ?`)
+    .get(chat, usuario, prefijoMotivo + "%", inicioHoy.getTime());
+  return row?.total || 0;
+}
+
+export function topCoins(chat, n = 5) {
+  return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
+}
+
+// cuántas entradas mandó una persona de un hashtag en una semana (para el tope de premios)
+export function contarEntradasUsuarioSemana(chat, hashtag, usuario, semana) {
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND usuario = ? AND semana = ?`).get(chat, hashtag, usuario, semana);
+  return row?.total || 0;
+}
+
+// sumar una reacción a la entrada de hashtag que corresponda a ese mensaje (si existe)
+export function sumarReaccionEntradaHashtag(chat, messageId, cantidad = 1) {
+  if (!messageId) return false;
+  const res = db.prepare(`UPDATE hashtag_entries SET reacciones = reacciones + ? WHERE chat = ? AND messageId = ?`).run(cantidad, chat, messageId);
+  return res.changes > 0; // true si el mensaje reaccionado era una entrada de hashtag
+}
+
+// la entrada más reaccionada de un hashtag en una semana (con desempate por orden de llegada)
+export function entradaMasVotada(chat, hashtag, semana) {
+  return db
+    .prepare(`SELECT * FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ? AND reacciones > 0 ORDER BY reacciones DESC, id ASC LIMIT 1`)
+    .get(chat, hashtag, semana);
+}
+
+// períodos cerrados (para anunciar ganadores una sola vez)
+export function periodoCerrado(chat, tipo, periodo) {
+  return !!db.prepare(`SELECT 1 FROM periodos_cerrados WHERE chat = ? AND tipo = ? AND periodo = ?`).get(chat, tipo, periodo);
+}
+
+export function marcarPeriodoCerrado(chat, tipo, periodo) {
+  db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
+}
+
+// ===================== Inventario (tienda de UruCoins) =====================
+
+export function getItem(chat, usuario, item) {
+  return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).get(chat, usuario, item) || null;
+}
+
+export function getInventario(chat, usuario) {
+  return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND cantidad > 0 ORDER BY fecha ASC`).all(chat, usuario);
+}
+
+// suma unidades de un ítem (y opcionalmente guarda un dato extra, ej. vencimiento de la racha)
+export function agregarItem(chat, usuario, item, cantidad = 1, extra = null) {
+  db.prepare(
+    `INSERT INTO inventario (chat, usuario, item, cantidad, extra, fecha) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(chat, usuario, item) DO UPDATE SET cantidad = cantidad + excluded.cantidad, extra = COALESCE(excluded.extra, inventario.extra), fecha = excluded.fecha`,
+  ).run(chat, usuario, item, cantidad, extra, Date.now());
+}
+
+// resta una unidad; devuelve true si había para consumir. Si llega a 0, borra la fila.
+export function consumirItem(chat, usuario, item) {
+  const tx = db.transaction(() => {
+    const row = getItem(chat, usuario, item);
+    if (!row || row.cantidad <= 0) return false;
+    if (row.cantidad === 1) db.prepare(`DELETE FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
+    else db.prepare(`UPDATE inventario SET cantidad = cantidad - 1 WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
+    return true;
+  });
+  return tx();
+}
+
+export function borrarItem(chat, usuario, item) {
+  db.prepare(`DELETE FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
 }

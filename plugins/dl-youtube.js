@@ -7,6 +7,8 @@ import path from "path";
 import { existsSync, promises } from "fs";
 import { updateUser } from "../database-functions.js";
 import { encolarDescarga } from "../lib/cola-descargas.js";
+import { gastarCoins, getSaldoCoins } from "../database-functions.js";
+import { COINS } from "../lib/urucoins.js";
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -16,25 +18,36 @@ const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
 const cookiesFlagStr = existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : "";
 
 let plugin = {};
-plugin.cmd = ["play", "audio", "video", "vídeo"];
+plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
+  // .playya / .videoya: igual que .play / .video, pero si hay espera la salta pagando UruCoins.
+  const saltarCooldown = /ya$/i.test(command);
+  const cmdBase = command.toLowerCase().replace(/ya$/, "");
+
   const waitTime = m.isGroup ? 60000 : 210000;
   let time = user.lastmining + waitTime;
   let remainingTime = Math.ceil((time - new Date()) / 1000);
+  const minutes = Math.floor(remainingTime / 60);
+  const seconds = remainingTime % 60;
+  const formattedTime = minutes > 0 ? `${minutes} min ${seconds} segundos` : `${seconds} segundos`;
 
   if (new Date() - user.lastmining < waitTime && !isOwner) {
-    updateUser(m.sender, { commandAttempts: user.commandAttempts + 1 });
-    const newAttempts = user.commandAttempts + 1;
-    if (newAttempts > 4) {
-      updateUser(m.sender, { banned: true });
-      return client.sendText(m.chat, txt.banSpam, m);
+    if (saltarCooldown) {
+      if (!gastarCoins(m.chat, m.sender, COINS.SALTAR_COOLDOWN, "saltar_cooldown")) {
+        return client.sendText(m.chat, `Saltar la espera cuesta *${COINS.SALTAR_COOLDOWN} UruCoins* y tenés ${getSaldoCoins(m.chat, m.sender)}. Esperá ${formattedTime} o juntá más.`, m);
+      }
+      // pagó: sigue como si no hubiera espera
+    } else {
+      updateUser(m.sender, { commandAttempts: user.commandAttempts + 1 });
+      const newAttempts = user.commandAttempts + 1;
+      if (newAttempts > 4) {
+        updateUser(m.sender, { banned: true });
+        return client.sendText(m.chat, txt.banSpam, m);
+      }
+      return client.sendText(m.chat, txt.advSpam(formattedTime, newAttempts) + `\n\n🪙 O saltá la espera por ${COINS.SALTAR_COOLDOWN} UruCoins con .${cmdBase}ya`, m);
     }
-    const minutes = Math.floor(remainingTime / 60);
-    const seconds = remainingTime % 60;
-    const formattedTime = minutes > 0 ? `${minutes} min ${seconds} segundos` : `${seconds} segundos`;
-    return client.sendText(m.chat, txt.advSpam(formattedTime, newAttempts), m);
   }
 
   if (!text) return client.sendText(m.chat, txt.ingresarTitulo, m);
@@ -43,7 +56,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   m.react("🕐");
 
   const adelante = encolarDescarga(async () => {
-    const isAudio = command.toLowerCase() === "play" || command.toLowerCase() === "audio";
+    const isAudio = cmdBase === "play" || cmdBase === "audio";
     const prohibido = ["anuel"];
 
     const intentarCandidato = async (candidato) => {

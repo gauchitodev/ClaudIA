@@ -1,5 +1,6 @@
-import { agregarEntradaHashtag } from "../database-functions.js";
+import { agregarEntradaHashtag, contarEntradasUsuarioSemana, ganarCoins } from "../database-functions.js";
 import { HASHTAGS_CONFIG, semanaDe } from "../lib/hashtags.js";
+import { COINS } from "../lib/urucoins.js";
 
 let plugin = (m) => m;
 
@@ -25,7 +26,14 @@ plugin.before = async function (m, { client }) {
         semana,
       });
 
-      await client.sendText(m.chat, `${config.emoji} *${config.nombre} #${numero}* registrada.`, m);
+      // premio en UruCoins, hasta un tope de entradas por hashtag por semana
+      let premio = "";
+      if (contarEntradasUsuarioSemana(m.chat, tag, m.sender, semana) <= COINS.TOPE_HASHTAG_SEMANA) {
+        ganarCoins(m.chat, m.sender, COINS.HASHTAG, `hashtag_${tag}`);
+        premio = ` 🪙 +${COINS.HASHTAG}`;
+      }
+
+      await client.sendText(m.chat, `${config.emoji} *${config.nombre} #${numero}* registrada.${premio}`, m);
     }
   } catch (e) {
     console.error("[hashtags] ERROR:", e);
