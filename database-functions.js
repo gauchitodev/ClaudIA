@@ -186,6 +186,18 @@ export function loadDatabase() {
     )
   `);
 
+  // Lotería semanal: boletos comprados por persona y semana
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS loteria_boletos (
+      chat TEXT NOT NULL,
+      semana TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      cantidad INTEGER DEFAULT 0,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, semana, usuario)
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -637,4 +649,32 @@ export function cerrarPendiente(id, estado = "hecho") {
 // si el bot se apagó a mitad de una ejecución, esos quedan "ejecutando" para siempre: los volvemos a pendientes al arrancar
 export function recuperarPendientesColgados() {
   return db.prepare(`UPDATE pendientes SET estado = 'pendiente' WHERE estado = 'ejecutando'`).run().changes;
+}
+
+// ===================== Casino y lotería =====================
+
+// suma de lo GASTADO hoy por motivos que empiecen con un prefijo (ej. "casino_") — para el tope diario de apuestas
+export function coinsGastadasHoy(chat, usuario, prefijoMotivo) {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const row = db
+    .prepare(`SELECT COALESCE(SUM(-cantidad), 0) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND cantidad < 0 AND motivo LIKE ? AND fecha >= ?`)
+    .get(chat, usuario, prefijoMotivo + "%", inicioHoy.getTime());
+  return row?.total || 0;
+}
+
+export function agregarBoletosLoteria(chat, semana, usuario, cantidad) {
+  db.prepare(
+    `INSERT INTO loteria_boletos (chat, semana, usuario, cantidad, fecha) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(chat, semana, usuario) DO UPDATE SET cantidad = cantidad + excluded.cantidad, fecha = excluded.fecha`,
+  ).run(chat, semana, usuario, cantidad, Date.now());
+}
+
+// boletos de una semana en un chat, en orden de compra
+export function boletosLoteria(chat, semana) {
+  return db.prepare(`SELECT usuario, cantidad FROM loteria_boletos WHERE chat = ? AND semana = ? ORDER BY fecha ASC`).all(chat, semana);
+}
+
+export function boletosLoteriaDe(chat, semana, usuario) {
+  return db.prepare(`SELECT cantidad FROM loteria_boletos WHERE chat = ? AND semana = ? AND usuario = ?`).get(chat, semana, usuario)?.cantidad || 0;
 }

@@ -36,6 +36,11 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .comprar voto doble — tu próxima reacción a una entrada vale por dos (15)
 ▸ .comprar apodo Tito — Claudia te llama así (30)
 ▸ .inventario — lo que tenés
+
+🎰 *Casino y lotería*
+▸ .ruleta 20 rojo — rojo, negro, par, impar (x2), docenas (x3) o un número (x36)
+▸ .tragamonedas 10 — tres rodillos: dos cerezas x2, tres iguales hasta x200
+▸ .loteria — estado del pozo · .loteria 2 — comprá boletos (10 c/u, máximo 5 por semana); el sorteo sale al empezar la semana
 `.trim();
 
   await client.sendText(m.chat, texto, m);

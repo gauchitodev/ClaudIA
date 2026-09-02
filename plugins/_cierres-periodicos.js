@@ -5,6 +5,7 @@
 import { obtenerRankingMensual, entradaMasVotada, periodoCerrado, marcarPeriodoCerrado, ganarCoins } from "../database-functions.js";
 import { HASHTAGS_CONFIG, semanaDe, mesDe } from "../lib/hashtags.js";
 import { COINS } from "../lib/urucoins.js";
+import { sortearLoteria } from "../lib/loteria.js";
 
 const ultimoChequeo = new Map(); // chat -> { mes, semana } ya verificados (evita ir a la base en cada mensaje)
 
@@ -66,6 +67,13 @@ plugin.before = async function (m, { client }) {
       if (lineas.length > 0) {
         await client.sendMessage(m.chat, { text: `📣 *LO MÁS VOTADO DE LA SEMANA PASADA*\n\n${lineas.join("\n")}`, mentions: [...new Set(mentions)] });
       }
+    }
+
+    // ---- Sorteo de la lotería de la semana anterior ----
+    if (!periodoCerrado(m.chat, "loteria", semanaAnterior)) {
+      marcarPeriodoCerrado(m.chat, "loteria", semanaAnterior);
+      const sorteo = sortearLoteria(m.chat, semanaAnterior);
+      if (sorteo) await client.sendMessage(m.chat, { text: sorteo.texto, mentions: sorteo.mentions });
     }
   } catch (e) {
     console.error("[cierres-periodicos] ERROR:", e);
