@@ -18,7 +18,7 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
   else if (chat.antiTelegram && isLinkTelegram.test(m.text)) aviso = txt.allAntiLinkTelegram(m.sender);
 
   if (!aviso) return;
-  if (chat.delete) return client.sendText(m.chat, txt.allAntiLinkDelete, m, { mentions });
+  if (chat.antiDelete) return client.sendText(m.chat, txt.allAntiLinkDelete, m, { mentions });
   if (isBotAdmin) {
     await client.sendText(m.chat, aviso, null, { mentions });
     await m.delete();

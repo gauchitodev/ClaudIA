@@ -1,10 +1,11 @@
 import "./globals.js";
 const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
-import { readdirSync, rmSync } from "fs";
+import { readdirSync, rmSync, mkdirSync } from "fs";
 import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
+import { mesDe } from "./lib/hashtags.js";
 import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import qrcode from "qrcode-terminal";
@@ -90,22 +91,33 @@ async function startBot() {
       intentosReconexion = 0;
       reconectando = false;
       loadPlugins();
-      watchPlugins();
+      // El watcher se registra una sola vez: en cada reconexión se volvía a registrar y cada cambio de plugin se recargaba varias veces.
+      if (!globalThis.watchPluginsIniciado) {
+        watchPlugins();
+        globalThis.watchPluginsIniciado = true;
+      }
     }
   });
 
   client.handler = handler.handleMessage.bind(global.client);
 
+  // Se procesan TODOS los mensajes del lote (Baileys puede entregar varios juntos), no solo el último.
+  // Van en orden y de a uno para no mezclar el orden de las respuestas dentro de un mismo chat.
   client.ev.on("messages.upsert", async (chatUpdate) => {
-    try {
-      let m = chatUpdate.messages[chatUpdate.messages.length - 1];
-      if (!m.message) return;
-      m.message = Object.keys(m.message)[0] === "ephemeralMessage" ? m.message.ephemeralMessage.message : m.message;
-      if (m.key && m.key.remoteJid === "status@broadcast") return;
-      if (!client.handler) return;
-      await client.handler(m, chatUpdate);
-    } catch (e) {
-      console.error(e);
+    if (!client.handler) return;
+    for (const m of chatUpdate.messages || []) {
+      try {
+        // Los avisos de grupo (alguien entró, lo hicieron admin, pidió unirse, etc.) vienen sin "message" pero con
+        // messageStubType, y los necesitan _detect-events, la lista negra y el refresco de metadatos del grupo.
+        if (!m?.message && !m?.messageStubType) continue;
+        if (m.message && Object.keys(m.message)[0] === "ephemeralMessage") m.message = m.message.ephemeralMessage.message;
+        if (m.key && m.key.remoteJid === "status@broadcast") continue;
+        // "notify" = llegó en vivo; "append" = vino del historial. handle-message lo usa para ignorar comandos viejos.
+        m._upsertType = chatUpdate.type;
+        await client.handler(m, chatUpdate);
+      } catch (e) {
+        console.error(e);
+      }
     }
   });
 
@@ -135,7 +147,7 @@ async function startBot() {
         if (!autorLid || !reactorLid) continue;
         if (autorLid === reactorLid) continue;
 
-        const mes = new Date().toISOString().slice(0, 7);
+        const mes = mesDe();
         sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
         sumarInteraccion(mes, key.remoteJid, reactorLid, "emitidas");
         otorgarPorReaccion(key.remoteJid, autorLid, reactorLid, key.id);
@@ -145,10 +157,27 @@ async function startBot() {
     }
   });
 
+  // Cuando cambia la configuración del grupo (abierto/cerrado, nombre, etc.), se descarta el caché de metadatos para
+  // que se vuelva a leer fresco en el próximo mensaje. Los cambios de participantes los refresca el handler de arriba.
+  client.ev.on("groups.update", (cambios) => {
+    for (const cambio of cambios || []) {
+      if (cambio?.id && client.chats?.[cambio.id]) delete client.chats[cambio.id].metadata;
+    }
+  });
+
   return client;
 }
 
 global.db = loadDatabase();
+
+// Carpeta temporal para descargas, stickers y canvas (está en .gitignore, así que en un clon nuevo no existe).
+mkdirSync("./tmp", { recursive: true });
+
+// Red de contención: una promesa rechazada sin manejar (por ejemplo un envío que falla con la conexión caída
+// dentro de un setTimeout) no debe tumbar el proceso entero.
+process.on("unhandledRejection", (error) => {
+  console.error("[unhandledRejection]", error);
+});
 
 // Pendientes (reintentos de descargas): revisa cada un minuto si hay algo que ejecutar.
 iniciarPendientes();

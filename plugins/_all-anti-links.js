@@ -30,7 +30,7 @@ plugin.before = async function (m, { client, isAdmin, isBotAdmin, isOwner, parti
   }
   if (!foundLink) return;
 
-  if (chat.delete) {
+  if (chat.antiDelete) {
     return client.sendText(m.chat, txt.allAntiLinksDelete, m, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
   }
   await client.sendText(m.chat, txt.allAntiLinks(m.sender, foundLink), null, { mentions: [m.sender] });

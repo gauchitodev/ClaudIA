@@ -20,7 +20,7 @@ const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
 const cookiesFlagStr = existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : "";
 
 let plugin = {};
-plugin.cmd = ["play", "audio", "video", "playya", "videoya"];
+plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
@@ -94,8 +94,9 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       const randomFileName = Math.random().toString(36).substring(2, 15);
       const outputTemplate = path.join("./tmp", `${randomFileName}.%(ext)s`);
 
-      const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" ${candidato.url}`;
-      const { stdout, stderr } = await execAsync(commandStr).catch((error) => ({
+      const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
+      // Con timeout: una descarga colgada bloqueaba la cola entera hasta reiniciar el bot.
+      const { stdout, stderr } = await execAsync(commandStr, { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
         stdout: error.stdout || "",
         stderr: error.stderr || error.message || "",
       }));
@@ -190,7 +191,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
 
 async function buscarYoutube(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["ytsearch3:" + query, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"]);
+    const { stdout } = await execFileAsync(ytDlpPath, ["ytsearch3:" + query, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "youtube");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en YouTube falló: ${error.message}`);
@@ -200,7 +201,7 @@ async function buscarYoutube(query) {
 
 async function buscarSoundcloud(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["scsearch5:" + query, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"]);
+    const { stdout } = await execFileAsync(ytDlpPath, ["scsearch5:" + query, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "soundcloud");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en SoundCloud falló: ${error.message}`);

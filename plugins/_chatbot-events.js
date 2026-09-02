@@ -13,9 +13,7 @@ plugin.before = async function (m, { client, isOwner, isAdmin, user, chat }) {
   }
 
   if (/^(dame admin|denme admin|quiero admin|haganme admin|quiero ser admin|háganme admin|haceme admin|ponganme de admin|merezco ser admin|me das admin|admin quiero)$/i.test(m.text)) {
-    let teks = `
-${pickRandom([`No.`, `Jajaja no.`, `Verg te doy?`, `No pidas admin, perra`, `No se da admin, no pidas.`, `No vas a ser admin.`])}
-`.trim();
+    let teks = pickRandom([`No.`, `Jajaja no.`, `Acá no se reparte admin, dejá.`, `Pedir admin no suma puntos, eh.`, `No va a pasar, pero me gusta el entusiasmo.`, `Seguí participando 😌`]);
     client.sendText(m.chat, teks, m, { mentions: [m.sender] });
   }
 

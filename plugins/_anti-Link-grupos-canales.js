@@ -18,7 +18,7 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
     const thisGroup = await client.groupInviteCode(m.chat).catch(() => null);
     if (thisGroup && m.text.includes(thisGroup)) return client.sendText(m.chat, "El link es de este mismo grupo 😄", m);
 
-    if (chat.delete) return client.sendText(m.chat, txt.antiGroupsDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
+    if (chat.antiDelete) return client.sendText(m.chat, txt.antiGroupsDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
     client.sendMessage(m.chat, { text: txt.antiGroupsSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
     await m.delete();
@@ -27,7 +27,7 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
 
   if (chat.antiChannels && isChannelLink) {
     if (!isBotAdmin) return client.sendText(m.chat, txt.antiChannel, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
-    if (chat.delete) return client.sendText(m.chat, txt.antiChannelDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
+    if (chat.antiDelete) return client.sendText(m.chat, txt.antiChannelDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
     client.sendMessage(m.chat, { text: txt.antiChannelSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
     await m.delete();
