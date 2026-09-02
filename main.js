@@ -108,6 +108,20 @@ async function startBot() {
     }
   });
 
+  // Cuando cambian los participantes o admins de un grupo, refrescamos la metadata guardada.
+  // Sin esto, la lista de admins queda como estaba al conectar, y el bot no se entera de que
+  // lo hicieron (o le sacaron) admin hasta el próximo reinicio.
+  client.ev.on("group-participants.update", async ({ id }) => {
+    try {
+      if (!id?.endsWith("@g.us")) return;
+      const metadata = await client.groupMetadata(id).catch(() => null);
+      if (!metadata) return;
+      client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
+    } catch (e) {
+      console.error("[grupos] error refrescando metadata:", e);
+    }
+  });
+
   // Puntos por reacciones: suma "recibidas" a quien escribió el mensaje, "emitidas" a quien reacciona.
   client.ev.on("messages.reaction", (reactions) => {
     for (const { key, reaction } of reactions) {

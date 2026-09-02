@@ -48,7 +48,7 @@ export async function handleMessage(nMsg) {
     const isOwner = [...globalThis.owners.map((number) => number.replace(/[^0-9]/g, "") + "@s.whatsapp.net")].includes(m.senderJid) || m.fromMe;
     const isRAdmin = userSender?.admin == "superadmin" || false;
     const isAdmin = isOwner || isRAdmin || userSender?.admin == "admin" || false;
-    const isBotAdmin = !m.isGroup || bot?.admin || false;
+    let isBotAdmin = !m.isGroup || bot?.admin || false;
 
     // Retornar si el mensaje es de baileys para evitar conflictos en mensajes propios del bot.
     if (m.isBaileys) return;
@@ -145,7 +145,15 @@ export async function handleMessage(nMsg) {
 
         // Verificar si el comando requiere que el bot sea admin
         if (plugin.botAdmin && !isBotAdmin) {
-          return client.sendText(m.chat, txt.botAdmin, m);
+          // La metadata guardada puede estar vieja. Antes de rechazar, consultamos a WhatsApp
+          // y, si el bot sí es admin, actualizamos la caché para no volver a consultar.
+          const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
+          const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) == client.user.lid);
+          if (!botFresco?.admin) {
+            return client.sendText(m.chat, txt.botAdmin, m);
+          }
+          client.chats[m.chat] = { ...(client.chats[m.chat] || {}), id: m.chat, subject: metadataFresca.subject, isChats: true, metadata: metadataFresca };
+          isBotAdmin = true;
         }
 
         // Verificar si el comando requiere que el usuario sea admin

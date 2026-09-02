@@ -159,6 +159,25 @@ export function loadDatabase() {
     console.log("🟢 Migración: columna 'reacciones' agregada a hashtag_entries");
   }
 
+  // Inventario de la tienda de UruCoins (ítems por persona y por grupo)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inventario (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      item TEXT NOT NULL,
+      cantidad INTEGER DEFAULT 0,
+      extra TEXT DEFAULT "",
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario, item)
+    )
+  `);
+
+  // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
+  if (!columnasUsers.some((c) => c.name === "apodo")) {
+    db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
+    console.log("🟢 Migración: columna 'apodo' agregada a la tabla users");
+  }
+
   return db;
 }
 
@@ -497,9 +516,10 @@ export function contarEntradasUsuarioSemana(chat, hashtag, usuario, semana) {
 }
 
 // sumar una reacción a la entrada de hashtag que corresponda a ese mensaje (si existe)
-export function sumarReaccionEntradaHashtag(chat, messageId) {
-  if (!messageId) return;
-  db.prepare(`UPDATE hashtag_entries SET reacciones = reacciones + 1 WHERE chat = ? AND messageId = ?`).run(chat, messageId);
+export function sumarReaccionEntradaHashtag(chat, messageId, cantidad = 1) {
+  if (!messageId) return false;
+  const res = db.prepare(`UPDATE hashtag_entries SET reacciones = reacciones + ? WHERE chat = ? AND messageId = ?`).run(cantidad, chat, messageId);
+  return res.changes > 0; // true si el mensaje reaccionado era una entrada de hashtag
 }
 
 // la entrada más reaccionada de un hashtag en una semana (con desempate por orden de llegada)
@@ -516,4 +536,38 @@ export function periodoCerrado(chat, tipo, periodo) {
 
 export function marcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
+}
+
+// ===================== Inventario (tienda de UruCoins) =====================
+
+export function getItem(chat, usuario, item) {
+  return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).get(chat, usuario, item) || null;
+}
+
+export function getInventario(chat, usuario) {
+  return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND cantidad > 0 ORDER BY fecha ASC`).all(chat, usuario);
+}
+
+// suma unidades de un ítem (y opcionalmente guarda un dato extra, ej. vencimiento de la racha)
+export function agregarItem(chat, usuario, item, cantidad = 1, extra = null) {
+  db.prepare(
+    `INSERT INTO inventario (chat, usuario, item, cantidad, extra, fecha) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(chat, usuario, item) DO UPDATE SET cantidad = cantidad + excluded.cantidad, extra = COALESCE(excluded.extra, inventario.extra), fecha = excluded.fecha`,
+  ).run(chat, usuario, item, cantidad, extra, Date.now());
+}
+
+// resta una unidad; devuelve true si había para consumir. Si llega a 0, borra la fila.
+export function consumirItem(chat, usuario, item) {
+  const tx = db.transaction(() => {
+    const row = getItem(chat, usuario, item);
+    if (!row || row.cantidad <= 0) return false;
+    if (row.cantidad === 1) db.prepare(`DELETE FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
+    else db.prepare(`UPDATE inventario SET cantidad = cantidad - 1 WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
+    return true;
+  });
+  return tx();
+}
+
+export function borrarItem(chat, usuario, item) {
+  db.prepare(`DELETE FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).run(chat, usuario, item);
 }

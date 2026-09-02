@@ -18,6 +18,7 @@ globalThis.authFile = `botSession`;
 globalThis.numberBot = config.numberBot || "";
 globalThis.geminiApiKey = config.geminiApiKey || "";
 globalThis.groqApiKey = config.groqApiKey || "";
+globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
 
 // Numeros de owners del bot sin "+" ni espacios ni guiones
 globalThis.owners = config.owners || [""];

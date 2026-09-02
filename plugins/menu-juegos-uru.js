@@ -28,6 +28,14 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .apostar 20 — durante un juego activo: si ganás, cobrás el doble
 ▸ .regalar @alguien 20 — transferí coins
 ▸ .playya / .videoya — música sin esperar el cooldown (15 coins)
+
+🛒 *Tienda*
+▸ .tienda — qué se puede comprar
+▸ .comprar escudo — te salva una apuesta perdida (25)
+▸ .comprar racha — 24 h ganando el doble (40)
+▸ .comprar voto doble — tu próxima reacción a una entrada vale por dos (15)
+▸ .comprar apodo Tito — Claudia te llama así (30)
+▸ .inventario — lo que tenés
 `.trim();
 
   await client.sendText(m.chat, texto, m);
