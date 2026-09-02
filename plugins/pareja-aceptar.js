@@ -35,22 +35,26 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   }
   if (pacar != m.senderJid) {
     return client.sendText(m.chat, txt.parejaNoAccept(whoLid), m);
-  } else {
-    // si anteriormente fueron pareja, limpiar historial
-    const oldHistorySender = Array.isArray(user.couplesHistory) ? user.couplesHistory : [];
-    const oldHistoryTarget = Array.isArray(who.couplesHistory) ? who.couplesHistory : [];
-
-    const esParejaAntigua = oldHistorySender.includes(whoJid);
-    const newHistorySender = esParejaAntigua ? oldHistorySender.filter((id) => id !== whoJid) : oldHistorySender;
-    const newHistoryTarget = esParejaAntigua ? oldHistoryTarget.filter((id) => id !== m.senderJid) : oldHistoryTarget;
-
-    // actualizar ambos usuarios en db
-    updateUser(m.sender, { couplesHistory: JSON.stringify(newHistorySender), couple: whoJid, coupleTime: Date.now() });
-    updateUser(whoLid, { couplesHistory: JSON.stringify(newHistoryTarget), couple: m.senderJid, coupleTime: Date.now() });
-
-    const kz = await client.sendText(m.chat, txt.parejaAccept(m.sender, whoLid), m);
-    client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
   }
+
+  // Si ya está en una relación mutua con otra persona, primero hay que terminarla con .terminar.
+  const parejaActual = user.couple && user.couple !== whoJid ? getUser(user.couple) : null;
+  if (parejaActual?.lid && parejaActual.couple === m.senderJid) return client.sendText(m.chat, txt.parejaInfiel(parejaActual.lid, whoLid), m);
+
+  // si anteriormente fueron pareja, limpiar historial
+  const oldHistorySender = Array.isArray(user.couplesHistory) ? user.couplesHistory : [];
+  const oldHistoryTarget = Array.isArray(who.couplesHistory) ? who.couplesHistory : [];
+
+  const esParejaAntigua = oldHistorySender.includes(whoJid);
+  const newHistorySender = esParejaAntigua ? oldHistorySender.filter((id) => id !== whoJid) : oldHistorySender;
+  const newHistoryTarget = esParejaAntigua ? oldHistoryTarget.filter((id) => id !== m.senderJid) : oldHistoryTarget;
+
+  // actualizar ambos usuarios en db (una relación nueva arranca sin casamiento previo)
+  updateUser(m.sender, { couplesHistory: JSON.stringify(newHistorySender), couple: whoJid, coupleTime: Date.now(), married: "", marriedTime: -1 });
+  updateUser(whoLid, { couplesHistory: JSON.stringify(newHistoryTarget), couple: m.senderJid, coupleTime: Date.now(), married: "", marriedTime: -1 });
+
+  const kz = await client.sendText(m.chat, txt.parejaAccept(m.sender, whoLid), m);
+  client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
 };
 
 export default plugin;

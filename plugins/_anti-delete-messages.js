@@ -19,7 +19,7 @@ plugin.before = async function (m, { client, chat }) {
         let msgg = msg.mtype == "viewOnceMessageV2" ? msg.message.viewOnceMessageV2.message : msg.message.viewOnceMessageV2Extension.message;
         const type = Object.keys(msgg)[0];
         if (msg.mtype == "viewOnceMessageV2") {
-          media = await downloadContentFromMessage(msgg[type], type == "imageMessage" ? "image" : "videoMessage" ? "video" : "audio");
+          media = await downloadContentFromMessage(msgg[type], type == "imageMessage" ? "image" : type == "videoMessage" ? "video" : "audio");
         } else {
           media = await downloadContentFromMessage(msgg[type], "audio");
         }

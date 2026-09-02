@@ -5,8 +5,9 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, isAdmin, isOwner }) => {
   if (!m.quoted) return client.sendText(m.chat, txt.deleteMessageNull, m);
-  if (m.quoted.sender !== m.senderJid && !isAdmin && !isOwner) return client.sendText(m.chat, txt.deleteMessageOnlyMe, m);
-  if (!m.quoted) return client.sendText(m.chat, txt.delMsgNull, m);
+  // m.quoted.sender suele venir como @lid, así que se compara contra los dos formatos del remitente.
+  const esPropio = [m.sender, m.senderJid].includes(m.quoted.sender);
+  if (!esPropio && !isAdmin && !isOwner) return client.sendText(m.chat, txt.deleteMessageOnlyMe, m);
 
   m.quoted.delete();
   m.delete();

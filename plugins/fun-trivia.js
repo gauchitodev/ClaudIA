@@ -525,7 +525,7 @@ plugin.run = async (m, { client, chat }) => {
     mensajeId: triviaMsg.key.id,
     timeout: setTimeout(() => {
       if (trivias[m.chat]) {
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*`, m);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*`, m).catch(console.error);
         delete trivias[m.chat];
       }
     }, 30000),

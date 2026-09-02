@@ -18,13 +18,14 @@ plugin.run = async (m, { client, chat }) => {
   client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m);
 
   ahorcado[m.sender] = {
+    chat: m.chat,
     palabra: palabra,
     oculta: oculta.split(" "),
     intentos: intentos,
     letrasProbadas: [],
     timeout: setTimeout(() => {
       if (ahorcado[m.sender]) {
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*`, m);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*`, m).catch(console.error);
         delete ahorcado[m.sender];
       }
     }, 180000), // 3 minutos para completar la palabra
@@ -34,9 +35,14 @@ plugin.run = async (m, { client, chat }) => {
 plugin.before = async function (m, { client }) {
   if (!ahorcado[m.sender]) return;
   let juego = ahorcado[m.sender];
+  // La partida vive en un chat: lo que el jugador escriba en otros grupos o en privado no cuenta.
+  if (m.chat !== juego.chat) return;
+  if (!m.text || globalThis.prefix.some((p) => m.text.startsWith(p))) return;
 
   let letra = m.text.toLowerCase().trim();
-  if (letra.length !== 1 || !/^[a-záéíóúü]$/.test(letra)) return client.sendText(m.chat, txt.ahorcadoLetra, m);
+  // Mensajes largos (charla normal) se ignoran; solo se avisa si mandó un único carácter que no es letra.
+  if (letra.length !== 1) return;
+  if (!/^[a-záéíóúüñ]$/.test(letra)) return client.sendText(m.chat, txt.ahorcadoLetra, m);
   if (juego.letrasProbadas.includes(letra)) return m.react("❗");
 
   juego.letrasProbadas.push(letra);

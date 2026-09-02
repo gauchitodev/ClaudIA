@@ -1,11 +1,16 @@
 let plugin = (m) => m;
-plugin.before = async function (m, { client, isAdmin, isOwner, chat }) {
+plugin.before = async function (m, { client, isAdmin, isOwner, isBotAdmin, chat }) {
   if (!chat.antiStatus) return;
+  if (!isBotAdmin) return;
   if (m?.message?.groupStatusMentionMessage?.message?.protocolMessage && !isAdmin && !isOwner) {
-    client.sendText(m.chat, "No mencionar al grupo en tus estados!!", m, { mentions: [m.sender, globalThis.owners[0] + "@s.whatsapp.net"] });
+    await client.sendText(m.chat, "No mencionar al grupo en tus estados!!", m, { mentions: [m.sender, globalThis.owners[0] + "@s.whatsapp.net"] });
     setTimeout(async () => {
-      await client.groupParticipantsUpdate(m.chat, [m.sender], "remove");
-      await m.delete();
+      try {
+        await client.groupParticipantsUpdate(m.chat, [m.sender], "remove");
+        await m.delete();
+      } catch (e) {
+        console.error("[anti-mención-estado] no se pudo expulsar/borrar:", e.message);
+      }
     }, 3000);
   }
 

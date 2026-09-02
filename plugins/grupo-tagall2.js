@@ -27,7 +27,7 @@ plugin.run = async (m, { client, isOwner, text, participants, chat }) => {
 
   let i = 0;
   let intervalId = setInterval(() => {
-    client.sendMessage(m.chat, { text: teks, mentions: participants.filter((a) => !excludeJids.includes(a.id)).map((a) => a.id) }, { quoted: m });
+    client.sendMessage(m.chat, { text: teks, mentions: participants.filter((a) => !excludeJids.includes(a.id)).map((a) => a.id) }, { quoted: m }).catch(console.error);
     i++;
     if (i >= repeatCount) {
       clearInterval(intervalId);

@@ -41,7 +41,7 @@ plugin.run = async (m, { client, text, command }) => {
     let timersArray = [];
     for (let i = 0; i < 10; i++) {
       let timer = setTimeout(async () => {
-        client.sendText(m.chat, mencion, m);
+        client.sendText(m.chat, mencion, m).catch(console.error);
       }, i * 1000);
       timersArray.push(timer);
     }

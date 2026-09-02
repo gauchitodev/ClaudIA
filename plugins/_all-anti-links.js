@@ -10,7 +10,7 @@ plugin.before = async function (m, { client, isAdmin, isBotAdmin, isOwner, parti
   let foundLink = words.map((w) => parse(w)).find((info) => info.domainWithoutSuffix && info.isIcann)?.domainWithoutSuffix;
 
   if (foundLink) {
-    if (chat.delete) {
+    if (chat.antiDelete) {
       return client.sendText(m.chat, txt.allAntiLinksDelete, m, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
     }
 

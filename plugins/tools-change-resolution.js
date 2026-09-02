@@ -33,6 +33,10 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
     if (isNaN(newWidth) || isNaN(newHeight)) return client.sendText(m.chat, txt.changeResolutionNumbers(usedPrefix, command), m);
   }
 
+  // Tope de tamaño: sin esto ".res 20000x20000" reserva gigas de RAM y tumba la tablet.
+  const MAX_LADO = 4096;
+  if (newWidth < 1 || newHeight < 1 || newWidth > MAX_LADO || newHeight > MAX_LADO) return client.sendText(m.chat, `Tamaño inválido: cada lado tiene que estar entre 1 y ${MAX_LADO} píxeles.`, m);
+
   // redimensionar
   const resizedImage = await source.resize(newWidth, newHeight);
   const buffer = await resizedImage.getBufferAsync(jimp.MIME_PNG);
@@ -41,7 +45,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
 > Ancho : ${newWidth}
 > Altura : ${newHeight}`;
 
-  client.sendFile(m.chat, buffer, null, caption, m);
+  await client.sendFile(m.chat, buffer, null, caption, m);
 };
 
 export default plugin;

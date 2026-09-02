@@ -18,6 +18,9 @@ plugin.run = async (m, { client, user }) => {
     return client.sendText(m.chat, "Tu pareja ya no existe en la base de datos.", m);
   }
 
+  // Solo vale entre parejas oficiales (relación mutua).
+  if (parejaData.couple !== m.senderJid) return;
+
   const matrimPasan = parejaData?.married;
   const currentTime = new Date() - pTime;
 

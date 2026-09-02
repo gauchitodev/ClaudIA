@@ -8,11 +8,14 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args }) => {
   const defaultLang = "es";
-  let lang = args[0];
-  let text = args.slice(1).join(" ");
-  if ((args[0] || "").length !== 2) {
-    lang = defaultLang;
-    text = args.join(" ");
+  // El idioma se indica con "-xx" al principio (ej: .tts -en hello). Antes cualquier palabra de dos letras
+  // ("no", "de", "la", "es") se tomaba como idioma y el audio salía en noruego, alemán o latín.
+  let lang = defaultLang;
+  let text = args.join(" ");
+  const marcadorIdioma = (args[0] || "").match(/^-([a-z]{2})$/i);
+  if (marcadorIdioma) {
+    lang = marcadorIdioma[1].toLowerCase();
+    text = args.slice(1).join(" ");
   }
   if (!text && m.quoted?.text) text = m.quoted.text;
   let res;
@@ -35,9 +38,15 @@ function tts(text, lang = "es") {
     try {
       let tts = gtts(lang);
       let filePath = join("./tmp", Date.now() + ".wav");
-      tts.save(filePath, text, () => {
-        resolve(readFileSync(filePath));
-        unlinkSync(filePath);
+      tts.save(filePath, text, (err) => {
+        if (err) return reject(err);
+        try {
+          const audio = readFileSync(filePath);
+          unlinkSync(filePath);
+          resolve(audio);
+        } catch (e) {
+          reject(e);
+        }
       });
     } catch (e) {
       reject(e);

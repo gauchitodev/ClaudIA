@@ -19,6 +19,9 @@ plugin.run = async (m, { client, usedPrefix, user }) => {
     return client.sendText(m.chat, "Tu pareja ya no existe en la base de datos.", m);
   }
 
+  // Solo se puede proponer casamiento a una pareja oficial (relación mutua), no a alguien con un pedido pendiente.
+  if (parejaData.couple !== m.senderJid) return client.sendText(m.chat, "Todavía no son pareja oficial: falta que acepte tu pedido con .aceptar.", m);
+
   const matrimPasan = parejaData?.married;
   let currentTime = new Date() - pTime;
   if (m.senderJid == matrimPasan && matrim == pasan) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);

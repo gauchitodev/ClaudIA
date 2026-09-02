@@ -208,11 +208,10 @@ export function syncUserInfo(m) {
 
   if (!finalJid || !isRegularJid) finalJid = newJid;
 
-  updateUser(lid, {
-    pushName: newPush,
-    jid: finalJid,
-    timestamp: timestamp,
-  });
+  const datos = { jid: finalJid, timestamp };
+  // Los avisos de grupo y algunos tipos de mensaje vienen sin pushName: no pisar el nombre guardado con null.
+  if (newPush) datos.pushName = newPush;
+  updateUser(lid, datos);
 }
 
 // actualizar datos en db
@@ -389,4 +388,19 @@ export function obtenerRankingMensual(chat, mes) {
   const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0 ORDER BY recibidas DESC LIMIT 5`).all(chat, mes);
   const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0 ORDER BY emitidas DESC LIMIT 5`).all(chat, mes);
   return { masVotado, masActivo };
+}
+
+// ¿El identificador (lid o jid) pertenece a un owner del bot? Los owners se configuran por número de teléfono,
+// pero en los grupos los participantes llegan como @lid, así que se resuelve el lid del owner por la tabla users.
+export function esOwner(id) {
+  if (!id || typeof id !== "string") return false;
+  for (const numero of globalThis.owners || []) {
+    const limpio = String(numero).replace(/[^0-9]/g, "");
+    if (!limpio) continue;
+    const jid = limpio + "@s.whatsapp.net";
+    if (id === jid) return true;
+    const fila = db.prepare(`SELECT lid FROM users WHERE jid = ?`).get(jid);
+    if (fila?.lid && id === fila.lid) return true;
+  }
+  return false;
 }

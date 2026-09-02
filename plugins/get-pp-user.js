@@ -1,3 +1,5 @@
+import { obtenerFotoPerfil, AVATAR_DEFAULT } from "../lib/foto-perfil.js";
+
 let plugin = {};
 plugin.cmd = ["gpu", "getppuser"];
 plugin.onlyGroup = true;
@@ -15,10 +17,11 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   } else if (m.quoted) {
     who = m.quoted.sender;
   }
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command));
+  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  const pp = await client.profilePictureUrl(who, "image").catch((_) => null);
-  if (!pp) return client.sendText(m.chat, txt.defaultNoPP, m);
+  // obtenerFotoPerfil traduce el @lid al número real; si devuelve el avatar genérico es que no hay foto visible.
+  const pp = await obtenerFotoPerfil(client, who);
+  if (!pp || pp === AVATAR_DEFAULT) return client.sendText(m.chat, txt.defaultNoPP, m);
   await client.sendFile(m.chat, pp, "pp.jpg", null, m);
 };
 

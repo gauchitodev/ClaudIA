@@ -1,11 +1,12 @@
 import { obtenerRankingMensual } from "../database-functions.js";
+import { mesDe } from "../lib/hashtags.js";
 
 let plugin = {};
 plugin.cmd = ["ranking", "rankingmensual"];
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client }) => {
-  const mes = new Date().toISOString().slice(0, 7);
+  const mes = mesDe();
   const { masVotado, masActivo } = obtenerRankingMensual(m.chat, mes);
 
   if (masVotado.length === 0 && masActivo.length === 0) {

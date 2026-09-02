@@ -6,7 +6,7 @@ let plugin = {};
 plugin.cmd = ["hornycard", "licenciahot", "hotlicense", "hotlicencia"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, chat }) => {
+plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
   if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
@@ -18,7 +18,7 @@ plugin.run = async (m, { client, text, chat }) => {
   } else if (m.quoted) {
     who = m.quoted.sender;
   }
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command));
+  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   const pp = await obtenerFotoPerfil(client, who);
   m.react("⏳");

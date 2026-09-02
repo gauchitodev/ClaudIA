@@ -20,7 +20,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
 
   if (who.endsWith("@lid")) {
     const whoData = getUser(who);
-    who = whoData?.jid || null;
+    who = whoData?.jid || "";
   }
 
   if (who.includes("@s.whatsapp.net")) who = who.split("@")[0];

@@ -16,13 +16,15 @@ plugin.before = async function (m, { client }) {
     }
 
     if (!isSurrender && 1 > (ok = room.game.turn(m.sender === room.game.playerO, parseInt(m.text) - 1))) {
-      m.reply(
+      await client.sendText(
+        m.chat,
         {
           "-3": "El juego ha terminado",
           "-2": "Inválido",
           "-1": "Posición inválida",
           0: "Posición inválida",
-        }[ok]
+        }[ok],
+        m,
       );
       return !0;
     }
@@ -61,7 +63,7 @@ plugin.before = async function (m, { client }) {
 ${isWin ? `@${(isSurrender ? room.game.currentTurn : room.game.winner).split("@")[0]} 😎🏆 *GANASTE!!*` : isTie ? `*EMPATE!!🙄🤨*` : `🪄 *TURNO DE* @${room.game.currentTurn.split("@")[0]}`}
 `.trim();
     if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat) room[room.game._currentTurn ^ isSurrender ? "x" : "o"] = m.chat;
-    if (room.x !== room.o) await this.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
+    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
     await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: fkontak });
 
     if (isTie || isWin) {

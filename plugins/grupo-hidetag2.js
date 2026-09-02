@@ -1,5 +1,5 @@
 let plugin = {};
-plugin.cmd = ["hidetag2", "ht2", "stiker"];
+plugin.cmd = ["hidetag2", "ht2"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyAdmin = true;
@@ -30,7 +30,7 @@ plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
   // Enviar 10 veces con intervalos de 10 segundos
   for (let i = 0; i < 10; i++) {
     setTimeout(() => {
-      sendMessage();
+      sendMessage().catch(console.error);
     }, i * 500); // Intervalo de 10 segundos (10000 ms)
   }
 };

@@ -25,7 +25,7 @@ plugin.run = async (m, { client, participants }) => {
   const more = String.fromCharCode(8206);
   const readMore = more.repeat(4001);
 
-  let texto = `ðŸ“¢ *Usuarios inactivos (${inactivos.length}):*\n`;
+  let texto = `📢 *Usuarios inactivos (${inactivos.length}):*\n`;
   texto += readMore + "\n\n";
 
   for (const lid of inactivos) {

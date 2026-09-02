@@ -12,15 +12,15 @@ plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
   const users = participants.filter((a) => !excludeJids.includes(a.id)).map((a) => a.id);
   try {
     if (!isOwner) {
-      client.sendMessage(m.chat, { forward: m.quoted.fakeObj, mentions: users }, { quoted: m });
+      await client.sendMessage(m.chat, { forward: m.quoted.fakeObj, mentions: users }, { quoted: m });
     } else if (isOwner) {
-      client.sendMessage(m.chat, { forward: m.quoted.fakeObj, mentions: users });
+      await client.sendMessage(m.chat, { forward: m.quoted.fakeObj, mentions: users });
     }
   } catch {
     if (!isOwner) {
-      client.sendMessage(m.chat, { text: text ? text : "", mentions: users }, { quoted: m }, { ephemeralExpiration: 24 * 60 * 100, disappearingMessagesInChat: 24 * 60 * 100 });
+      await client.sendMessage(m.chat, { text: text ? text : "", mentions: users }, { quoted: m }, { ephemeralExpiration: 24 * 60 * 100, disappearingMessagesInChat: 24 * 60 * 100 });
     } else if (isOwner) {
-      client.sendMessage(m.chat, { text: text ? text : "", mentions: users }, { ephemeralExpiration: 24 * 60 * 100, disappearingMessagesInChat: 24 * 60 * 100 });
+      await client.sendMessage(m.chat, { text: text ? text : "", mentions: users }, { ephemeralExpiration: 24 * 60 * 100, disappearingMessagesInChat: 24 * 60 * 100 });
     }
   }
 };

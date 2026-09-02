@@ -7,21 +7,19 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, text }) => {
   if (!m.quoted) return client.sendText(m.chat, txt.wmNull, m);
 
-  let stiker = false;
+  const mime = m.quoted.mimetype || "";
+  if (!/webp/.test(mime)) return client.sendText(m.chat, txt.wmNull, m);
+
   try {
     let [packname, ...author] = text.split("|");
     author = (author || []).join("|");
-    const mime = m.quoted.mimetype || "";
-    if (!/webp/.test(mime)) return client.sendText(m.chat, txt.wmNull, m);
     const img = await m.quoted.download();
     if (!img) return client.sendText(m.chat, txt.wmNull, m);
-    stiker = await addExif(img, packname || "", author || "");
+    const stiker = await addExif(img, packname || "", author || "");
+    await client.sendFile(m.chat, stiker, "sticker.webp", "", m);
   } catch (e) {
     console.error(e);
-    if (Buffer.isBuffer(e)) stiker = e;
-  } finally {
-    if (stiker) client.sendFile(m.chat, stiker, "sticker.webp", "", m);
-    else return client.sendText(m.chat, txt.wmNull, m);
+    await client.sendText(m.chat, txt.wmNull, m);
   }
 };
 

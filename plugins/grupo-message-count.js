@@ -30,10 +30,10 @@ plugin.run = async (m, { client }) => {
   // tomar solo los primeros 10
   const top10 = ranking.slice(0, 10);
 
-  let txt = "ðŸ† *LOS 10 QUE MAS HABLAN EN ESTE GRUPO* ðŸ†\n\n";
+  let txt = "🏆 *LOS 10 QUE MÁS HABLAN EN ESTE GRUPO* 🏆\n\n";
 
   if (top10.length === 0) {
-    txt += "AÃºn nadie ha enviado mensajes (o el contador estÃ¡ vacÃ­o).";
+    txt += "Aún nadie ha enviado mensajes (o el contador está vacío).";
   } else {
     for (let i = 0; i < top10.length; i++) {
       const position = i + 1;

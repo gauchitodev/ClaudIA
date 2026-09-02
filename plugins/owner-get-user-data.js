@@ -25,8 +25,9 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
 
   if (!who && !whoLid) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  const txt = `Usuario: +${whoJid.split("@")[0]}\n\nNombre actual: ${whoPushName}\n\nLid: ${whoLid}\n\nChat actual: ${m.chat}`;
-  client.sendText(m.chat, txt, m);
+  // Ojo: no llamar "txt" a esta variable, pisa el global de textos y rompe txt.defaultWho más arriba.
+  const info = `Usuario: +${whoJid.split("@")[0]}\n\nNombre actual: ${whoPushName}\n\nLid: ${whoLid}\n\nChat actual: ${m.chat}`;
+  client.sendText(m.chat, info, m);
 };
 
 export default plugin;
