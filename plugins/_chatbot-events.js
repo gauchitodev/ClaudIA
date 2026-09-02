@@ -19,10 +19,9 @@ ${pickRandom([`No.`, `Jajaja no.`, `Verg te doy?`, `No pidas admin, perra`, `No 
     client.sendText(m.chat, teks, m, { mentions: [m.sender] });
   }
 
-  if (/^(te eliminó.)$/i.test(m.text) && !isOwner) {
-    const firstOwner = globalThis.owners[0] + "@s.whatsapp.net";
-    client.sendText(m.chat, `No, pensionista.`, m, { mentions: [firstOwner] });
-    client.groupParticipantsUpdate(m.chat, [m.sender], "remove");
+  // Chiste de la plantilla: antes además EXPULSABA a quien escribía exactamente "te eliminó." (o "te eliminó!").
+  if (/^te eliminó[.!]?$/i.test(m.text) && !isOwner) {
+    client.sendText(m.chat, `No, pensionista.`, m, { mentions: [m.sender] });
   }
 
   if (user.banned) return;

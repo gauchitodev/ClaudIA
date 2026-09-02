@@ -1,5 +1,6 @@
 let plugin = {};
-plugin.cmd = ["suicidarse", "matarse", "suicidio", "suicidarme", "matarme", "salir"];
+// Ojo: antes también respondía a ".salir", y cualquiera que lo escribiera (por ejemplo para salir de un juego) se autoexpulsaba.
+plugin.cmd = ["suicidarse", "matarse", "suicidio", "suicidarme", "matarme"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

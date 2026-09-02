@@ -33,3 +33,4 @@ cookies.txt
 # Cookies de YouTube (equivalen a una contraseña de sesión)
 cookies.txt
 botSession*
+temp_*.webp
