@@ -1,5 +1,6 @@
 import { getSaldoCoins, topCoins } from "../database-functions.js";
 import { textoInventario } from "../lib/tienda.js";
+import { textoRacha } from "../lib/actividad.js";
 
 let plugin = {};
 plugin.cmd = ["coins", "urucoins", "saldo"];
@@ -10,6 +11,9 @@ plugin.run = async (m, { client, user }) => {
   const top = topCoins(m.chat, 5);
 
   let texto = `🪙 *Tenés ${saldo} UruCoins*\n`;
+
+  const racha = textoRacha(m.chat, m.sender);
+  if (racha) texto += `${racha}\n`;
 
   const inventario = textoInventario(m.chat, m.sender, user);
   if (inventario) texto += `\n🎒 *En tu inventario:*\n${inventario}\n`;

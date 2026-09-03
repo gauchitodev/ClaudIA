@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal } = chat;
 
   const text = `
 [⚙️] 𝙲𝙾𝙽𝙵𝙸𝙶 𝙳𝙴 𝙶𝚁𝚄𝙿𝙾 [⚙️]
@@ -29,7 +29,10 @@ ${welcome ? "✅" : "❌"} Welcome - Bye
 ${detect ? "✅" : "❌"} Alertas de grupo
 ${mentions ? "✅" : "❌"} Uso de .tagall y ht
 ${del ? "✅" : "❌"} Anti Eliminar Mensajes
-${reactions ? "✅" : "❌"} Bot reacciona`.trim();
+${reactions ? "✅" : "❌"} Bot reacciona
+${preguntaDia ? "✅" : "❌"} Pregunta del día (.preguntadeldia)
+${triviaRelampago ? "✅" : "❌"} Trivia relámpago (.triviarelampago)
+${recapSemanal ? "✅" : "❌"} Recap semanal (.recapsemanal)`.trim();
 
   await client.sendText(m.chat, text, m);
 };

@@ -60,9 +60,21 @@ export function loadDatabase() {
       mentions BOOLEAN DEFAULT 1,
       reactions BOOLEAN DEFAULT 0,
       welcome BOOLEAN DEFAULT 0,
-      blacklistMode BOOLEAN DEFAULT 0
+      blacklistMode BOOLEAN DEFAULT 0,
+      preguntaDia BOOLEAN DEFAULT 0,
+      triviaRelampago BOOLEAN DEFAULT 0,
+      recapSemanal BOOLEAN DEFAULT 1
     )
   `);
+
+  // Migración: interruptores de actividad (pregunta del día, trivia relámpago, recap semanal) en bases ya creadas.
+  const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"]]) {
+    if (!columnasChats.includes(columna)) {
+      db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
+      console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
+    }
+  }
 
   // Crear tabla de comandos bloqueados por chat (modo blacklist)
   db.exec(`
@@ -232,6 +244,36 @@ export function loadDatabase() {
       mes INTEGER NOT NULL,
       fecha INTEGER NOT NULL,
       PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // Actividad: mensajes por persona y día (racha diaria y recap), rachas, y la pregunta del día de cada grupo
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS actividad_diaria (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      mensajes INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario, fecha)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rachas (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      dias INTEGER DEFAULT 0,
+      ultimoDia TEXT,
+      mejor INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS preguntas_dia (
+      chat TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      pregunta TEXT NOT NULL,
+      messageId TEXT,
+      PRIMARY KEY (chat, fecha)
     )
   `);
 
@@ -805,4 +847,69 @@ export function cumplesDeChat(chat) {
 
 export function cumplesDeHoy(dia, mes) {
   return db.prepare(`SELECT chat, usuario FROM cumpleanos WHERE dia = ? AND mes = ?`).all(dia, mes);
+}
+
+// ===================== Actividad: racha diaria, pregunta del día, recap =====================
+
+// suma un mensaje al contador del día y devuelve cuántos lleva
+export function sumarMensajeDiario(chat, usuario, fecha) {
+  db.prepare(`INSERT INTO actividad_diaria (chat, usuario, fecha, mensajes) VALUES (?, ?, ?, 1) ON CONFLICT(chat, usuario, fecha) DO UPDATE SET mensajes = mensajes + 1`).run(chat, usuario, fecha);
+  return db.prepare(`SELECT mensajes FROM actividad_diaria WHERE chat = ? AND usuario = ? AND fecha = ?`).get(chat, usuario, fecha)?.mensajes || 0;
+}
+
+export function topMensajesEntre(chat, fechas, n = 3) {
+  if (!fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  return db.prepare(`SELECT usuario, SUM(mensajes) AS total FROM actividad_diaria WHERE chat = ? AND fecha IN (${marcas}) GROUP BY usuario ORDER BY total DESC LIMIT ?`).all(chat, ...fechas, n);
+}
+
+export function totalMensajesEntre(chat, fechas) {
+  if (!fechas.length) return 0;
+  const marcas = fechas.map(() => "?").join(", ");
+  return db.prepare(`SELECT COALESCE(SUM(mensajes), 0) AS total FROM actividad_diaria WHERE chat = ? AND fecha IN (${marcas})`).get(chat, ...fechas)?.total || 0;
+}
+
+export function getRacha(chat, usuario) {
+  return db.prepare(`SELECT dias, ultimoDia, mejor FROM rachas WHERE chat = ? AND usuario = ?`).get(chat, usuario) || null;
+}
+
+export function setRacha(chat, usuario, dias, ultimoDia) {
+  db.prepare(
+    `INSERT INTO rachas (chat, usuario, dias, ultimoDia, mejor) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(chat, usuario) DO UPDATE SET dias = excluded.dias, ultimoDia = excluded.ultimoDia, mejor = MAX(rachas.mejor, excluded.dias)`,
+  ).run(chat, usuario, dias, ultimoDia, dias);
+}
+
+export function guardarPreguntaDia(chat, fecha, pregunta, messageId) {
+  db.prepare(
+    `INSERT INTO preguntas_dia (chat, fecha, pregunta, messageId) VALUES (?, ?, ?, ?)
+     ON CONFLICT(chat, fecha) DO UPDATE SET pregunta = excluded.pregunta, messageId = excluded.messageId`,
+  ).run(chat, fecha, pregunta, messageId);
+}
+
+export function preguntaDiaDe(chat, fecha) {
+  return db.prepare(`SELECT * FROM preguntas_dia WHERE chat = ? AND fecha = ?`).get(chat, fecha) || null;
+}
+
+export function ultimasPreguntasDia(chat, n = 10) {
+  return db.prepare(`SELECT pregunta FROM preguntas_dia WHERE chat = ? AND pregunta != '' ORDER BY fecha DESC LIMIT ?`).all(chat, n).map((r) => r.pregunta);
+}
+
+// grupos con un interruptor de actividad prendido (solo columnas conocidas, para no armar SQL con texto libre)
+const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal"]);
+export function chatsConOpcion(columna) {
+  if (!OPCIONES_ACTIVIDAD.has(columna)) return [];
+  return db.prepare(`SELECT remoteJid FROM chats WHERE ${columna} = 1`).all().map((r) => r.remoteJid);
+}
+
+export function contarLogDesde(chat, motivo, desdeMs) {
+  return db.prepare(`SELECT COUNT(*) AS total FROM urucoins_log WHERE chat = ? AND motivo = ? AND cantidad > 0 AND fecha >= ?`).get(chat, motivo, desdeMs)?.total || 0;
+}
+
+export function ganadoresLogDesde(chat, motivo, desdeMs) {
+  return db.prepare(`SELECT usuario, COUNT(*) AS total FROM urucoins_log WHERE chat = ? AND motivo = ? AND cantidad > 0 AND fecha >= ? GROUP BY usuario ORDER BY total DESC`).all(chat, motivo, desdeMs);
+}
+
+export function mercadosResueltosDesde(chat, desdeMs) {
+  return db.prepare(`SELECT * FROM mercados WHERE chat = ? AND estado = 'resuelto' AND cierra_en >= ? ORDER BY cierra_en ASC`).all(chat, desdeMs).map(parsearMercado);
 }

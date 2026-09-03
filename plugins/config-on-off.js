@@ -1,7 +1,7 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 
 let plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings }) => {
@@ -41,6 +41,9 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     reacciones: { key: "reactions", from: "chat" },
     juegos: { key: "games", from: "chat" },
     games: { key: "games", from: "chat" },
+    preguntadeldia: { key: "preguntaDia", from: "chat" },
+    triviarelampago: { key: "triviaRelampago", from: "chat" },
+    recapsemanal: { key: "recapSemanal", from: "chat" },
   };
 
   const opcion = optionsMap[command];

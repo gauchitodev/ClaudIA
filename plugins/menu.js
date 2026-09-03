@@ -74,6 +74,9 @@ ${readMore}
 ▸ ${usedPrefix}menciones 👤 – \`Uso de .tagall y .hidetag.\`
 ▸ ${usedPrefix}audios 🔊 – \`El bot manda audios.\`
 ▸ ${usedPrefix}reacciones 💚 – \`El bot reacciona a mensajes.\`
+▸ ${usedPrefix}preguntadeldia 💬 – \`Pregunta del día para arrancar charla.\`
+▸ ${usedPrefix}triviarelampago ⚡ – \`Trivias sorpresa con premio.\`
+▸ ${usedPrefix}recapsemanal 📅 – \`Resumen automático los domingos.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🚨 *𝚁𝙴𝙿𝙾𝚁𝚃𝙴𝚂 𝙰 𝙰𝙳𝙼𝙸𝙽𝚂*
 ▸ ${usedPrefix}reportar 🛑 [responde al mensaje que quiere reportar]

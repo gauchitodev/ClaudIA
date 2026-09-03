@@ -3,8 +3,8 @@ let plugin = {};
 plugin.cmd = ["trivia"];
 plugin.botAdmin = true;
 
-// Base de datos de preguntas
-const preguntas = [
+// Base de datos de preguntas (también la usa la trivia relámpago cuando la IA no responde)
+export const preguntas = [
   {
     pregunta: "¿Cuál es la capital de Japón?",
     opciones: ["A) Osaka", "B) Kioto", "C) Tokio", "D) Hiroshima"],
