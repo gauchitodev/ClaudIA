@@ -4,7 +4,8 @@
   "main": "start-process.js",
   "type": "module",
   "scripts": {
-    "start": "node start-process.js"
+    "start": "node start-process.js",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

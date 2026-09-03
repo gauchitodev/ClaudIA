@@ -164,6 +164,10 @@ export function loadDatabase() {
     )
   `);
 
+  // Índices: el registro de movimientos crece sin límite y se consulta en cada reacción y en cada apuesta (topes diarios)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_urucoins_log_persona ON urucoins_log (chat, usuario, fecha)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_urucoins_log_chat_fecha ON urucoins_log (chat, fecha)`);
+
   // Períodos ya cerrados (anuncio de ganadores del mes / historia de la semana), para no repetirlos
   db.exec(`
     CREATE TABLE IF NOT EXISTS periodos_cerrados (
@@ -207,6 +211,8 @@ export function loadDatabase() {
       creado INTEGER NOT NULL
     )
   `);
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pendientes_estado ON pendientes (estado, ejecutar_en)`);
 
   // Lotería semanal: boletos comprados por persona y semana
   db.exec(`
@@ -284,6 +290,17 @@ export function loadDatabase() {
       pregunta TEXT NOT NULL,
       messageId TEXT,
       PRIMARY KEY (chat, fecha)
+    )
+  `);
+
+  // Memoria del grupo: datos y chistes internos que el grupo le anota a Claudia con .recordá que
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memoria_grupo (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      autor TEXT NOT NULL,
+      fecha INTEGER NOT NULL
     )
   `);
 
@@ -917,4 +934,42 @@ export function ganadoresLogDesde(chat, motivo, desdeMs) {
 
 export function mercadosResueltosDesde(chat, desdeMs) {
   return db.prepare(`SELECT * FROM mercados WHERE chat = ? AND estado = 'resuelto' AND cierra_en >= ? ORDER BY cierra_en ASC`).all(chat, desdeMs).map(parsearMercado);
+}
+
+// ===================== Economía (.economia) =====================
+
+export function totalEnCirculacion(chat) {
+  return db.prepare(`SELECT COALESCE(SUM(saldo), 0) AS total, COUNT(*) AS personas FROM urucoins WHERE chat = ? AND saldo > 0`).get(chat);
+}
+
+// entradas y salidas por motivo desde una fecha
+export function movimientosPorMotivo(chat, desdeMs) {
+  return db
+    .prepare(
+      `SELECT motivo, SUM(CASE WHEN cantidad > 0 THEN cantidad ELSE 0 END) AS entradas, SUM(CASE WHEN cantidad < 0 THEN -cantidad ELSE 0 END) AS salidas, COUNT(*) AS n
+       FROM urucoins_log WHERE chat = ? AND fecha >= ? GROUP BY motivo`,
+    )
+    .all(chat, desdeMs);
+}
+
+// ===================== Memoria del grupo =====================
+
+export function agregarMemoriaGrupo(chat, texto, autor) {
+  return Number(db.prepare(`INSERT INTO memoria_grupo (chat, texto, autor, fecha) VALUES (?, ?, ?, ?)`).run(chat, texto, autor, Date.now()).lastInsertRowid);
+}
+
+export function memoriaGrupo(chat) {
+  return db.prepare(`SELECT * FROM memoria_grupo WHERE chat = ? ORDER BY id ASC`).all(chat);
+}
+
+export function getMemoriaGrupo(chat, id) {
+  return db.prepare(`SELECT * FROM memoria_grupo WHERE chat = ? AND id = ?`).get(chat, id) || null;
+}
+
+export function borrarMemoriaGrupo(chat, id) {
+  return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ? AND id = ?`).run(chat, id).changes > 0;
+}
+
+export function limpiarMemoriaGrupo(chat) {
+  return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ?`).run(chat).changes;
 }

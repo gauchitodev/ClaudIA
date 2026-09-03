@@ -55,6 +55,7 @@ ${readMore}
 ▸ ${usedPrefix}config ⚙️ – \`Ver la configuración actual del bot en el grupo\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
+▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`
 ▸ ${usedPrefix}ln @mención <motivo> 🚫 – \`Lista negra del grupo: no puede entrar acá (a admins no).\`
 ▸ ${usedPrefix}ln2 @mención ☑️ – \`Sacar de la lista negra del grupo.\`
 ▸ ${usedPrefix}vln 📋 – \`Ver la lista negra del grupo.\`
@@ -181,6 +182,7 @@ ${readMore}
 ▸ ${usedPrefix}recordame <cuándo> <texto> ⏰ – \`Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar <n>\`
 ▸ ${usedPrefix}cumple 14/03 🎂 – \`Anotá tu cumple; con .cumples ves los del grupo.\`
 ▸ ${usedPrefix}resumen [horas] 📝 – \`Resumen con IA de lo que se habló.\`
+▸ ${usedPrefix}recordá que <algo> 🧠 – \`Anotale a Claudia un dato o chiste del grupo; .memoria los lista.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🥷 *𝚂𝙾𝙻𝙾 𝙾𝚆𝙽𝙴𝚁 𝙳𝙴𝙻 𝙱𝙾𝚃*
 ▸ ${usedPrefix}banuser 🚫 – \`Banea al participante, no podrá usar el bot.\`
@@ -189,6 +191,7 @@ ${readMore}
 ▸ ${usedPrefix}setppbot 📷 – \`Establece foto de perfil al bot.\`
 ▸ ${usedPrefix}setbotname ✏️ – \`Establece nombre al bot [no funciona con WhatsApp Business]\`
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
+▸ ${usedPrefix}ajustar @mención 50 🪙 – \`Corrección de UruCoins a mano (negativo para sacar).\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 💻 *¿Querés instalar el bot tu mismo?*

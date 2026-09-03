@@ -2,6 +2,7 @@ import { preguntarIA } from "../lib/ia.js";
 import { updateUser } from "../database-functions.js";
 import { recordarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
+import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { laburoDe } from "../lib/laburos.js";
 
@@ -90,6 +91,12 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
     // apodo comprado en la tienda: Claudia le habla así
     if (user?.apodo) {
       partes.push(`Esta persona te pidió que le digas "${user.apodo}" — usá ese apodo cuando le hables.`);
+    }
+
+    // memoria del grupo (.recordá que ...): chistes internos y datos que el grupo le anotó
+    if (m.isGroup) {
+      const hechos = memoriaDelGrupo(m.chat);
+      if (hechos) partes.push(hechos);
     }
 
     if (esRespuestaAlBot && m.quoted.text) {
