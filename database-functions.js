@@ -223,6 +223,18 @@ export function loadDatabase() {
     )
   `);
 
+  // Cumpleaños: día y mes por persona y grupo (Claudia saluda en el grupo donde se anotó)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cumpleanos (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      dia INTEGER NOT NULL,
+      mes INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -750,4 +762,47 @@ export function apostarEnMercado(mercadoId, usuario, opcion, cantidad) {
 
 export function apuestasDeMercado(mercadoId) {
   return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? ORDER BY fecha ASC`).all(mercadoId);
+}
+
+// ===================== Pendientes: consultas para recordatorios y .estado =====================
+
+export function pendientesDeUsuario(usuario, tipo) {
+  return db
+    .prepare(`SELECT * FROM pendientes WHERE usuario = ? AND tipo = ? AND estado = 'pendiente' ORDER BY ejecutar_en ASC`)
+    .all(usuario, tipo)
+    .map((f) => ({ ...f, datos: JSON.parse(f.datos || "{}") }));
+}
+
+// cancela un pendiente propio; true si existía y estaba pendiente
+export function cancelarPendiente(id, usuario, tipo) {
+  return db.prepare(`UPDATE pendientes SET estado = 'cancelado' WHERE id = ? AND usuario = ? AND tipo = ? AND estado = 'pendiente'`).run(id, usuario, tipo).changes > 0;
+}
+
+export function contarPendientesPorTipo() {
+  return db.prepare(`SELECT tipo, COUNT(*) AS total FROM pendientes WHERE estado = 'pendiente' GROUP BY tipo ORDER BY total DESC`).all();
+}
+
+// ===================== Cumpleaños =====================
+
+export function setCumple(chat, usuario, dia, mes) {
+  db.prepare(
+    `INSERT INTO cumpleanos (chat, usuario, dia, mes, fecha) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(chat, usuario) DO UPDATE SET dia = excluded.dia, mes = excluded.mes, fecha = excluded.fecha`,
+  ).run(chat, usuario, dia, mes, Date.now());
+}
+
+export function getCumple(chat, usuario) {
+  return db.prepare(`SELECT dia, mes FROM cumpleanos WHERE chat = ? AND usuario = ?`).get(chat, usuario) || null;
+}
+
+export function borrarCumple(chat, usuario) {
+  return db.prepare(`DELETE FROM cumpleanos WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes > 0;
+}
+
+export function cumplesDeChat(chat) {
+  return db.prepare(`SELECT usuario, dia, mes FROM cumpleanos WHERE chat = ? ORDER BY mes ASC, dia ASC`).all(chat);
+}
+
+export function cumplesDeHoy(dia, mes) {
+  return db.prepare(`SELECT chat, usuario FROM cumpleanos WHERE dia = ? AND mes = ?`).all(dia, mes);
 }

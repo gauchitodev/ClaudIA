@@ -54,6 +54,7 @@ ${readMore}
 ▸ ${usedPrefix}ruletadelban ☠️ – \`Elimina un participante al azar.\`
 ▸ ${usedPrefix}config ⚙️ – \`Ver la configuración actual del bot en el grupo\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
+▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 ⚙️ *𝙲𝙾𝙽𝙵𝙸𝙶𝚄𝚁𝙰𝙲𝙸𝙾́𝙽*
 *[ Si está activado, se desactiva, y viceversa ]*
@@ -171,6 +172,9 @@ ${readMore}
 ▸ ${usedPrefix}traducir <texto>
 ▸ ${usedPrefix}links 🔗 – \`Links del grupo, el canal y el Discord.\`
 ▸ ${usedPrefix}discord 🎮 – \`Link del Discord.\`
+▸ ${usedPrefix}recordame <cuándo> <texto> ⏰ – \`Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar <n>\`
+▸ ${usedPrefix}cumple 14/03 🎂 – \`Anotá tu cumple; con .cumples ves los del grupo.\`
+▸ ${usedPrefix}resumen [horas] 📝 – \`Resumen con IA de lo que se habló.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🥷 *𝚂𝙾𝙻𝙾 𝙾𝚆𝙽𝙴𝚁 𝙳𝙴𝙻 𝙱𝙾𝚃*
 ▸ ${usedPrefix}banuser 🚫 – \`Banea al participante, no podrá usar el bot.\`
@@ -181,6 +185,7 @@ ${readMore}
 ▸ ${usedPrefix}vln 🚫 – \`Ver los usuarios que están en lista negra.\`
 ▸ ${usedPrefix}setppbot 📷 – \`Establece foto de perfil al bot.\`
 ▸ ${usedPrefix}setbotname ✏️ – \`Establece nombre al bot [no funciona con WhatsApp Business]\`
+▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 💻 *¿Querés instalar el bot tu mismo?*

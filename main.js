@@ -8,6 +8,8 @@ import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion 
 import { mesDe } from "./lib/hashtags.js";
 import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
+import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
+import { avisarOwner } from "./lib/avisos.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -69,7 +71,10 @@ async function startBot() {
 
   client.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
-    if (connection === "close") globalThis.botConectado = false;
+    if (connection === "close") {
+      globalThis.botConectado = false;
+      if (!globalThis.horaCaida) globalThis.horaCaida = Date.now();
+    }
 
     if (!numberBot && qr) {
       qrcode.generate(qr, { small: true });
@@ -105,6 +110,15 @@ async function startBot() {
       reconectando = false;
       loadPlugins();
       resolverCanal();
+      globalThis.horaConexion = horaConexion;
+      // Aviso al owner: al arrancar el proceso, y cuando vuelve después de una caída larga.
+      if (!globalThis.avisoArranqueEnviado) {
+        globalThis.avisoArranqueEnviado = true;
+        avisarOwner(`Arranqué (${globalThis.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
+      } else if (globalThis.horaCaida && Date.now() - globalThis.horaCaida > 5 * 60 * 1000) {
+        avisarOwner(`Volví después de ${Math.round((Date.now() - globalThis.horaCaida) / 60000)} min sin conexión.`, "reconexion");
+      }
+      globalThis.horaCaida = 0;
       // El watcher se registra una sola vez: en cada reconexión se volvía a registrar y cada cambio de plugin se recargaba varias veces.
       if (!globalThis.watchPluginsIniciado) {
         watchPlugins();
@@ -216,6 +230,7 @@ process.on("unhandledRejection", (error) => {
 
 // Pendientes (reintentos de descargas): revisa cada un minuto si hay algo que ejecutar.
 iniciarPendientes();
+iniciarTareasProgramadas();
 
 await installYtDlp();
 
