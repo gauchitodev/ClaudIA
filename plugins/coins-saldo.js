@@ -3,7 +3,7 @@ import { textoInventario } from "../lib/tienda.js";
 import { textoRacha } from "../lib/actividad.js";
 
 let plugin = {};
-plugin.cmd = ["coins", "urucoins", "saldo"];
+plugin.cmd = ["coins", "urucoins", "saldo", "bal", "balance"];
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, user }) => {
