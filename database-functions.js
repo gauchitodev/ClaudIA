@@ -96,15 +96,25 @@ export function loadDatabase() {
     )
   `);
 
-  // Crear tabla de usuarios en lista negra
+  // Lista negra de personas, por grupo. chat = "*" es la lista de todos los grupos (la maneja el owner desde el privado).
   db.exec(`
-    CREATE TABLE IF NOT EXISTS blacklist (
-      jid TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS lista_negra (
+      chat TEXT NOT NULL,
+      jid TEXT NOT NULL,
       reason TEXT,
       dateAdded INTEGER,
-      addedBy TEXT
+      addedBy TEXT,
+      PRIMARY KEY (chat, jid)
     )
   `);
+  // Migración: la lista negra vieja era una sola para todos los grupos; sus entradas pasan a "*" y la tabla vieja se borra.
+  if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blacklist'`).get()) {
+    db.transaction(() => {
+      db.exec(`INSERT OR IGNORE INTO lista_negra (chat, jid, reason, dateAdded, addedBy) SELECT '*', jid, reason, dateAdded, addedBy FROM blacklist`);
+      db.exec(`DROP TABLE blacklist`);
+    })();
+    console.log("🟢 Migración: lista negra pasada al formato por grupo");
+  }
 
   // Crear tabla de entradas de hashtags (historias random, etc.)
   db.exec(`
@@ -415,33 +425,28 @@ export function updateSettings(botJid, data) {
   return updateRow("settings", "botJid", botJid, data);
 }
 
-// añadir usuario a lista negra
-export function addToBlacklist(jid, reason, addedBy) {
-  const exists = isBlacklisted(jid);
-  if (exists) {
-    // Solo actualiza la razón (mantiene el addedBy y dateAdded originales)
-    db.prepare(`UPDATE blacklist SET reason = ? WHERE jid = ?`).run(reason, jid);
-  } else {
-    const dateAdded = Date.now();
-    db.prepare(
-      `INSERT INTO blacklist (jid, reason, dateAdded, addedBy)
-      VALUES (?, ?, ?, ?)`,
-    ).run(jid, reason, dateAdded, addedBy);
-  }
+// añadir persona a la lista negra de un grupo ("*" = todos los grupos). Si ya estaba, solo se actualiza el motivo.
+export function addToBlacklist(jid, reason, addedBy, chat = "*") {
+  db.prepare(
+    `INSERT INTO lista_negra (chat, jid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(chat, jid) DO UPDATE SET reason = excluded.reason`,
+  ).run(chat, jid, reason, Date.now(), addedBy);
 }
 
-// eliminar usuario de lista negra
-export function removeFromBlacklist(jid) {
-  db.prepare(`DELETE FROM blacklist WHERE jid = ?`).run(jid);
+// sacar de la lista negra de un grupo; true si estaba
+export function removeFromBlacklist(jid, chat = "*") {
+  return db.prepare(`DELETE FROM lista_negra WHERE chat = ? AND jid = ?`).run(chat, jid).changes > 0;
 }
 
-export function isBlacklisted(jid) {
-  return db.prepare(`SELECT * FROM blacklist WHERE jid = ?`).get(jid) || null;
+// ¿está en la lista negra de ese grupo, o en la de todos los grupos? Devuelve la entrada (la del grupo antes que la global) o null.
+export function isBlacklisted(jid, chat = "*") {
+  return db.prepare(`SELECT * FROM lista_negra WHERE jid = ? AND chat IN (?, '*') ORDER BY CASE WHEN chat = '*' THEN 1 ELSE 0 END LIMIT 1`).get(jid, chat) || null;
 }
 
-// obtener usuarios en lista negra
-export function getBlacklist() {
-  return db.prepare(`SELECT * FROM blacklist`).all();
+// entradas de un grupo más las globales; sin chat, todas las de todos los grupos
+export function getBlacklist(chat = null) {
+  if (!chat) return db.prepare(`SELECT * FROM lista_negra ORDER BY dateAdded ASC`).all();
+  return db.prepare(`SELECT * FROM lista_negra WHERE chat IN (?, '*') ORDER BY dateAdded ASC`).all(chat);
 }
 
 // obtener numero total de usuarios en db tabla users

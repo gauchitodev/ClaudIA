@@ -8,7 +8,7 @@ plugin.before = async function (m, { client, isBotAdmin, isRAdmin }) {
   if (m.messageStubType) return;
 
   // Buscar en SQLite
-  const blacklistEntry = isBlacklisted(m.senderJid);
+  const blacklistEntry = isBlacklisted(m.senderJid, m.chat);
   if (!blacklistEntry) return;
 
   // borrar el mensaje y eliminar al usuario.

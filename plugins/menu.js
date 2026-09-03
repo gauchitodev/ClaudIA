@@ -55,6 +55,9 @@ ${readMore}
 ▸ ${usedPrefix}config ⚙️ – \`Ver la configuración actual del bot en el grupo\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
+▸ ${usedPrefix}ln @mención <motivo> 🚫 – \`Lista negra del grupo: no puede entrar acá (a admins no).\`
+▸ ${usedPrefix}ln2 @mención ☑️ – \`Sacar de la lista negra del grupo.\`
+▸ ${usedPrefix}vln 📋 – \`Ver la lista negra del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 ⚙️ *𝙲𝙾𝙽𝙵𝙸𝙶𝚄𝚁𝙰𝙲𝙸𝙾́𝙽*
 *[ Si está activado, se desactiva, y viceversa ]*
@@ -183,9 +186,6 @@ ${readMore}
 ▸ ${usedPrefix}banuser 🚫 – \`Banea al participante, no podrá usar el bot.\`
 ▸ ${usedPrefix}unbanuser ☑️ – \`Desbanea al participante, podrá usar el bot.\`
 ▸ ${usedPrefix}rd @mención 🔄 – \`Resetea datos de participante.\`
-▸ ${usedPrefix}Ln 🚫 – \`Meter un usuario a lista negra para que no entre a tus grupos.\`
-▸ ${usedPrefix}Ln2 🚫 – \`Sacar a un usuario de la lista negra.\`
-▸ ${usedPrefix}vln 🚫 – \`Ver los usuarios que están en lista negra.\`
 ▸ ${usedPrefix}setppbot 📷 – \`Establece foto de perfil al bot.\`
 ▸ ${usedPrefix}setbotname ✏️ – \`Establece nombre al bot [no funciona con WhatsApp Business]\`
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`

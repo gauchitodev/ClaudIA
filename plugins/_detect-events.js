@@ -46,7 +46,7 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
       for (const participante of pendientes) {
         const phone = participante.phone_number || null;
 
-        const userReject = rejectUsers(phone);
+        const userReject = rejectUsers(phone, m.chat);
         if (userReject) {
           usuariosRechazar.push(phone);
         }
@@ -84,8 +84,8 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
 
 export default plugin;
 
-function rejectUsers(jid) {
-  return Boolean(isBlacklisted(jid));
+function rejectUsers(jid, chat) {
+  return Boolean(isBlacklisted(jid, chat));
 }
 
 function safeJSON(value) {
