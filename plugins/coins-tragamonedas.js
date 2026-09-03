@@ -11,7 +11,7 @@ plugin.run = async (m, { client, args, chat }) => {
   if (!args[0] || Number.isNaN(cantidad)) {
     return client.sendText(
       m.chat,
-      `🎰 *Tragamonedas* — uso: .tragamonedas <cantidad>\n\nPagos: ${textoPagosTragamonedas()}\n\nMínimo ${COINS.APUESTA_MIN}, máximo ${COINS.CASINO_APUESTA_MAX} por jugada, tope ${COINS.CASINO_TOPE_DIA} por día. La racha y el escudo no aplican en el casino.\nEj: .tragamonedas 10`,
+      `🎰 *Tragamonedas* — uso: .tragamonedas <cantidad>\n\n${textoPagosTragamonedas()}\n\nMínimo ${COINS.APUESTA_MIN}, máximo ${COINS.CASINO_APUESTA_MAX} por jugada, tope ${COINS.CASINO_TOPE_DIA} por día. La racha y el escudo no aplican en el casino.\nEj: .tragamonedas 10`,
       m,
     );
   }
