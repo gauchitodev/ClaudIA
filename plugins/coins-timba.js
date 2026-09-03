@@ -2,6 +2,8 @@
 // lotería y mercados) y el resultado neto (premios y devoluciones menos lo apostado).
 // .timba mes → solo lo de este mes.
 
+import { etiquetaLaburo } from "../lib/laburos.js";
+
 const MOTIVOS_APUESTA = ["casino_ruleta", "casino_tragamonedas", "apuesta_%", "loteria_boletos", "mercado_apuesta_%"];
 const MOTIVOS_COBRO = ["casino_ruleta_premio", "casino_tragamonedas_premio", "apuesta_ganada", "escudo_devolucion", "loteria_premio", "loteria_devolucion", "mercado_premio_%", "mercado_devolucion_%"];
 
@@ -36,7 +38,8 @@ plugin.run = async (m, { client, args }) => {
   const lineas = top.map((r, i) => {
     const signo = r.neto > 0 ? `+${r.neto}` : `${r.neto}`;
     const estado = r.neto > 0 ? "🟢" : r.neto < 0 ? "🔴" : "⚪";
-    return `${i + 1}. @${r.usuario.split("@")[0]} — ${TITULOS[i]}\n   apostó *${r.apostado}* en ${r.jugadas} ${r.jugadas === 1 ? "jugada" : "jugadas"} · balance ${estado} ${signo}`;
+    const laburo = etiquetaLaburo(m.chat, r.usuario);
+    return `${i + 1}. @${r.usuario.split("@")[0]}${laburo ? ` (${laburo})` : ""} — ${TITULOS[i]}\n   apostó *${r.apostado}* en ${r.jugadas} ${r.jugadas === 1 ? "jugada" : "jugadas"} · balance ${estado} ${signo}`;
   });
 
   const texto = `🎰 *LOS MÁS LUDÓPATAS${soloMes ? " DEL MES" : ""}*\n\n${lineas.join("\n")}\n\nCuenta casino, apuestas en juegos, lotería y mercados.${soloMes ? "" : " Probá .timba mes para solo este mes."}`;

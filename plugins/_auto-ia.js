@@ -3,6 +3,7 @@ import { updateUser } from "../database-functions.js";
 import { recordarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
+import { laburoDe } from "../lib/laburos.js";
 
 // Palabras con las que el bot se da por aludido (en minúscula).
 const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
@@ -78,6 +79,12 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
 
     if (user?.memoria) {
       partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores: ${user.memoria}`);
+    }
+
+    // laburo del juego de roles: Claudia lo sabe y puede chicanear con eso
+    const laburo = laburoDe(m.chat, m.sender);
+    if (laburo) {
+      partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${laburo.oficio.nombre.toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
     }
 
     // apodo comprado en la tienda: Claudia le habla así
