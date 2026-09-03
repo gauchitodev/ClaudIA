@@ -38,7 +38,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .inventario — lo que tenés
 
 🎰 *Casino y lotería*
-▸ .ruleta 20 rojo — rojo, negro, par, impar (x2), docenas (x3) o un número (x36)
+▸ .ruleta 20 rojo — abre la mesa; en 45 s apuestan todos y la bola sale una vez. Rojo, negro, par, impar (x2), docenas (x3), un número (x36)
 ▸ .tragamonedas 30 — tres líneas de pago; por línea, dos cerezas x2 y tres iguales hasta x200
 ▸ .loteria — estado del pozo · .loteria 2 — comprá boletos (10 c/u, máximo 5 por semana); el sorteo sale al empezar la semana
 
