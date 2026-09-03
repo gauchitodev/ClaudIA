@@ -197,6 +197,13 @@ const banderasLista = [
   { emoji: "🇿🇼", pais: "zimbabue" },
 ];
 
+const normalizar = (texto) =>
+  (texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 let banderas = {};
 
 plugin.run = async (m, { client, chat }) => {
@@ -227,8 +234,8 @@ plugin.before = async function (m, { client }) {
 
   if (!m.quoted || m.quoted.id !== juego.mensajeId) return;
 
-  const respuestaUsuario = m.text.toLowerCase().trim();
-  if (respuestaUsuario === juego.pais) {
+  const respuestaUsuario = normalizar(m.text);
+  if (respuestaUsuario === normalizar(juego.pais)) {
     const resumen = juegoTerminado(m.chat, m.sender);
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(banderas[m.chat].timeout);
