@@ -18,13 +18,9 @@ globalThis.authFile = `botSession`;
 globalThis.numberBot = config.numberBot || "";
 globalThis.geminiApiKey = config.geminiApiKey || "";
 globalThis.groqApiKey = config.groqApiKey || "";
-globalThis.tenorApiKey = config.tenorApiKey || "";
-globalThis.openWeatherApiKey = config.openWeatherApiKey || "";
 globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
-
-// Link del Discord (.discord y .links) y texto de .faggi
-globalThis.discordUrl = config.discordUrl || "";
-globalThis.textoFaggi = config.textofaggi || "";
+globalThis.openrouterApiKey = config.openrouterApiKey || "";
+globalThis.nvidiaApiKey = config.nvidiaApiKey || "";
 
 // Numeros de owners del bot sin "+" ni espacios ni guiones
 globalThis.owners = config.owners || [""];
@@ -32,14 +28,8 @@ globalThis.owners = config.owners || [""];
 // Prefijos de comandos
 globalThis.prefix = [".", "/", "@"];
 
-// Versión del bot: se lee de package.json para que no queden dos números distintos.
-let versionPaquete = "3.0.0";
-try {
-  versionPaquete = JSON.parse(fs.readFileSync("package.json", "utf8")).version || versionPaquete;
-} catch (error) {
-  console.error("No se pudo leer la versión de package.json:", error.message);
-}
-globalThis.botVersion = `v${versionPaquete}`;
+// Versión del bot
+globalThis.botVersion = "v3.0";
 
 // Baileys
 globalThis.baileys = "@whiskeysockets/baileys";
@@ -47,27 +37,16 @@ globalThis.baileys = "@whiskeysockets/baileys";
 // Strings // Texts
 globalThis.txt = strings;
 
-// Canal de WhatsApp para la etiqueta "reenviado desde el canal" en los archivos que manda el bot.
-// En config.toml: sección [canal] con enlace = "https://whatsapp.com/channel/..." y, opcional, nombre = "..." para
-// mostrar otro nombre. El ID interno del canal lo pide main.js a WhatsApp al conectarse y queda en globalThis.canal.
-globalThis.canalConfig = {
-  enlace: config.canal?.enlace || "",
-  nombre: config.canal?.nombre || "",
-};
-if (!globalThis.canal) globalThis.canal = null;
-
-// Tarjeta con link que acompaña a los archivos que manda el bot (audio, video, imagen).
-// Reemplaza a la atribución falsa a un canal que traía SawBot, cuyo ID apuntaba al canal del autor original.
-// Se configura en la sección [tarjetaGrupo] de config.toml; sin "enlace" los archivos salen sin tarjeta.
-globalThis.tarjetaGrupo = {
-  titulo: config.tarjetaGrupo?.titulo || "ClaudIA :)",
-  cuerpo: config.tarjetaGrupo?.cuerpo || "Unite al grupo",
-  enlace: config.tarjetaGrupo?.enlace || "",
-};
+// Newsletters IDs
+globalThis.newsletterJids = ["120363386229166956@newsletter"];
+// Newsletters names
+globalThis.newsletterNames = ["ClaudIA :)"];
 
 // Jid grupo URU
 globalThis.jidUru = "120363404278828828@g.us";
 
+// Fake quoted fkontak
+globalThis.fkontak = { key: { participants: "0@s.whatsapp.net", remoteJid: "status@broadcast", fromMe: false, id: "Halo" }, message: { contactMessage: { vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:y\nitem1.TEL;waid=\${m.sender.split("@")[0]}:\${m.sender.split("@")[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD` } }, participant: "0@s.whatsapp.net" };
 
 // delirius api
 globalThis.deliriusApi = "https://api.delirius.store";
