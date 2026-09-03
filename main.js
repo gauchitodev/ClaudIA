@@ -174,6 +174,8 @@ async function startBot() {
         const reactorLid = reaction.key?.participant;
         if (!autorLid || !reactorLid) continue;
         if (autorLid === reactorLid) continue;
+        // Las reacciones del propio bot (🕐 en descargas, 🔥 de racha, 🪙 de la pregunta del día) no reparten coins ni ranking.
+        if (reaction.key?.fromMe || reactorLid === client.user?.lid) continue;
         // Sacar y volver a poner la reacción (o cambiar el emoji) dispara el evento de nuevo: sin esto sumaba
         // ranking, UruCoins y votos de hashtags sin límite.
         if (!marcarReaccionContada(key.id, reactorLid)) continue;
