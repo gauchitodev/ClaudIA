@@ -22,6 +22,10 @@ globalThis.tenorApiKey = config.tenorApiKey || "";
 globalThis.openWeatherApiKey = config.openWeatherApiKey || "";
 globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
 
+// Link del Discord (.discord y .links) y texto de .faggi
+globalThis.discordUrl = config.discordUrl || "";
+globalThis.textoFaggi = config.textofaggi || "";
+
 // Numeros de owners del bot sin "+" ni espacios ni guiones
 globalThis.owners = config.owners || [""];
 

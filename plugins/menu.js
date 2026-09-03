@@ -169,6 +169,8 @@ ${readMore}
 ▸ ${usedPrefix}sortear 🏆 <texto>
 ▸ ${usedPrefix}clima 🌦️ <pais y/o ciudad>
 ▸ ${usedPrefix}traducir <texto>
+▸ ${usedPrefix}links 🔗 – \`Links del grupo, el canal y el Discord.\`
+▸ ${usedPrefix}discord 🎮 – \`Link del Discord.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🥷 *𝚂𝙾𝙻𝙾 𝙾𝚆𝙽𝙴𝚁 𝙳𝙴𝙻 𝙱𝙾𝚃*
 ▸ ${usedPrefix}banuser 🚫 – \`Banea al participante, no podrá usar el bot.\`
