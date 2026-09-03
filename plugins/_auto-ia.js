@@ -2,6 +2,7 @@ import { preguntarIA } from "../lib/ia.js";
 import { updateUser } from "../database-functions.js";
 import { recordarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
+import { conocimientoPara } from "../lib/manual-claudia.js";
 
 // Palabras con las que el bot se da por aludido (en minúscula).
 const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
@@ -66,6 +67,9 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
 
     // ---------- armar el prompt ----------
     const partes = [];
+
+    // lo que Claudia sabe de sí misma y del bot (el manual completo solo si el mensaje pregunta por funciones)
+    partes.push(conocimientoPara(m.text));
 
     const contexto = textoContexto(m.chat, true);
     if (contexto) {
