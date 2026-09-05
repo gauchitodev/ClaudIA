@@ -2,10 +2,10 @@ import { getUser } from "../database-functions.js";
 
 let plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : m.sender;
   if (command !== "love" && [client.user.lid, client.user.jid].includes(who)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // El "santo" es el segundo owner configurado; se resuelve su @lid por la base porque las menciones llegan como @lid.

@@ -3,10 +3,10 @@ import { getMercado } from "../database-functions.js";
 
 let plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
   if (command === "mercados") return client.sendText(m.chat, textoListaMercados(m.chat), m);
 

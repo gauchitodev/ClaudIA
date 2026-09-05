@@ -2,11 +2,11 @@ import { crearMercadoDesdeTexto, resolver } from "../lib/mercados.js";
 
 let plugin = {};
 plugin.cmd = ["evento", "resolver"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, args, command, chat, isOwner }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
   if (command === "evento") {
     const r = crearMercadoDesdeTexto(m.chat, m.sender, text);

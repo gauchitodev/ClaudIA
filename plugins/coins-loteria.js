@@ -2,11 +2,11 @@ import { comprarBoletos, textoEstadoLoteria } from "../lib/loteria.js";
 
 let plugin = {};
 plugin.cmd = ["loteria", "lotería", "boleto", "boletos"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 // .loteria → estado del pozo · .loteria 2 → compra 2 boletos · .boleto → compra 1
 plugin.run = async (m, { client, args, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const esBoleto = command.startsWith("boleto");
   if (!args[0] && !esBoleto) return client.sendText(m.chat, textoEstadoLoteria(m.chat, m.sender), m);
 

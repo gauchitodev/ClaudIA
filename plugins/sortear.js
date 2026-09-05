@@ -1,11 +1,11 @@
 let plugin = {};
 plugin.cmd = ["sortear", "sortear1", "sortear2", "sortear3", "sortear4", "sortear5", "sortear6", "sortear7", "sortear8", "sortear9", "sortear10"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   if (!text) return client.sendText(m.chat, txt.sortearText, m);
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
   let user = (a) => "@" + a.split("@")[0];
   let ps = groupMetadata.participants.map((v) => v.id);

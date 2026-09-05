@@ -1,5 +1,6 @@
 import { smsg } from "./lib/wa-socket.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
+import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 
 // Memoria para guardar la última vez que se saludó por grupo
 const cooldownSaludos = new Map();
@@ -166,6 +167,16 @@ export async function handleMessage(nMsg) {
         // Verificar si el comando requiere que el usuario sea admin
         if (plugin.onlyAdmin && !isAdmin) {
           return client.sendText(m.chat, txt.onlyAdmin, m);
+        }
+
+        // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
+        // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
+        if (plugin.juego) {
+          if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
+          if (m.isGroup && !juegosAbiertos(chat)) {
+            if (correspondeAvisar(m.chat)) return client.sendText(m.chat, mensajeJuegosCerrados(chat), m);
+            return m.react("🕒");
+          }
         }
 
         // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.

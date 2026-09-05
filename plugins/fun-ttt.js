@@ -2,11 +2,11 @@ import TicTacToe from "../lib/ttt.js";
 
 let plugin = {};
 plugin.cmd = ["ttt"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
   if (text) return client.sendText(m.chat, "[❗] NO ES NECESARIO PONER NOMBRE A LA SALA.\n\nSOLAMENTE PONER:\n* .ttt", m);
 

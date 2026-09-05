@@ -1,6 +1,7 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 // Lista de palabras
@@ -9,7 +10,6 @@ const palabras = ["sol", "casa", "perro", "gato", "luz", "rio", "arbol", "flor",
 let ordenarPalabra = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   if (ordenarPalabra[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
   const palabra = palabras[Math.floor(Math.random() * palabras.length)];

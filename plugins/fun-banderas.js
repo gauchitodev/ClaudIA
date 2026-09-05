@@ -1,6 +1,7 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 const banderasLista = [
@@ -207,7 +208,6 @@ const normalizar = (texto) =>
 let banderas = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   if (banderas[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
   const bandera = banderasLista[Math.floor(Math.random() * banderasLista.length)];

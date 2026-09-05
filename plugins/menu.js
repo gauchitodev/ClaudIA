@@ -72,6 +72,7 @@ ${readMore}
 ▸ ${usedPrefix}antieliminar 🗑️ – \`Reenvía mensajes eliminados en el chat.\`
 ▸ ${usedPrefix}18 🔞 – \`Busquedas +18 en comandos.\`
 ▸ ${usedPrefix}juegos 🎮 – \`Uso de juegos.\`
+▸ ${usedPrefix}horariojuegos 20:00-23:00 🕒 – \`Juegos solo en ese horario (por grupo). Con "off" se saca.\`
 ▸ ${usedPrefix}menciones 👤 – \`Uso de .tagall y .hidetag.\`
 ▸ ${usedPrefix}audios 🔊 – \`El bot manda audios.\`
 ▸ ${usedPrefix}reacciones 💚 – \`El bot reacciona a mensajes.\`

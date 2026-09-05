@@ -1,10 +1,10 @@
 let plugin = {};
 plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   let user = (a) => "@" + a.split("@")[0];
   let ps = groupMetadata.participants.map((v) => v.id);
   let a = ps.getRandom();

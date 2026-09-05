@@ -3,12 +3,12 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["ruleta"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 // .ruleta <cantidad> <apuesta>: la primera apuesta abre la mesa; durante unos segundos apuestan todos, y después
 // la bola sale una sola vez para todas las apuestas. .ruleta sin nada muestra la mesa abierta o la ayuda.
 plugin.run = async (m, { client, args, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const cantidad = parseInt(args[0], 10);
   if (!args[0] || Number.isNaN(cantidad)) {
     const mesa = textoMesaRuleta(m.chat);

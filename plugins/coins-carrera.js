@@ -3,13 +3,13 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["carrera", "caballos"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // .carrera <cantidad> <número o nombre>: la primera apuesta abre la carrera; a los 45 s se corre para todos.
 plugin.run = async (m, { client, args, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const cantidad = parseInt(args[0], 10);
   if (!args[0] || Number.isNaN(cantidad)) {
     const abierta = textoCarrera(m.chat);

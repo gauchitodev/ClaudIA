@@ -3,12 +3,12 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 const ACCIONES = { pedir, plantarse, plantarme: plantarse, doblar, dividir, seguro, rendirse, rendirme: rendirse };
 
 plugin.run = async (m, { client, args, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
   let r;
   if (ACCIONES[command]) r = ACCIONES[command](m.chat, m.sender);

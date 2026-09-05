@@ -1,6 +1,7 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 // datos del juego
@@ -95,7 +96,6 @@ const response = [
 let acertijos = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   if (acertijos[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
   const acertijo = response[Math.floor(Math.random() * response.length)];

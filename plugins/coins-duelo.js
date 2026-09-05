@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 const ACCIONES = new Set(["golpe", "patada", "cubrirse", "curar"]);
@@ -10,7 +11,6 @@ const ACCIONES = new Set(["golpe", "patada", "cubrirse", "curar"]);
 // .duelo @alguien 20 [dado|carta|pelea] o .pelea @alguien 20 desafía · .acepto / .rechazo responde el desafiado ·
 // en una pelea, el del turno usa .golpe, .patada, .cubrirse o .curar · .duelo sin nada lista lo pendiente
 plugin.run = async (m, { client, args, text, command, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const avisar = (msg) => client.sendMessage(m.chat, { text: msg.texto, mentions: msg.mentions || [] });
 
   let r;

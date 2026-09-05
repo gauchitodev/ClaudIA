@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos } = chat;
 
   const text = `
 [⚙️] 𝙲𝙾𝙽𝙵𝙸𝙶 𝙳𝙴 𝙶𝚁𝚄𝙿𝙾 [⚙️]
@@ -25,6 +25,7 @@ ${antiInstagram ? "✅" : "❌"} Anti links Instagram
 ${antiTiktok ? "✅" : "❌"} Anti links TikTok
 ${antiTelegram ? "✅" : "❌"} Anti links Telegram
 ${games ? "✅" : "❌"} Uso de juegos
+🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
 ${welcome ? "✅" : "❌"} Welcome - Bye
 ${detect ? "✅" : "❌"} Alertas de grupo
 ${mentions ? "✅" : "❌"} Uso de .tagall y ht

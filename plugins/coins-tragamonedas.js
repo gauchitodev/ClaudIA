@@ -3,10 +3,10 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["tragamonedas", "slot", "slots"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   const cantidad = parseInt(args[0], 10);
   if (!args[0] || Number.isNaN(cantidad)) {
     return client.sendText(

@@ -63,13 +63,14 @@ export function loadDatabase() {
       blacklistMode BOOLEAN DEFAULT 0,
       preguntaDia BOOLEAN DEFAULT 0,
       triviaRelampago BOOLEAN DEFAULT 0,
-      recapSemanal BOOLEAN DEFAULT 1
+      recapSemanal BOOLEAN DEFAULT 1,
+      horarioJuegos TEXT DEFAULT ""
     )
   `);
 
-  // Migración: interruptores de actividad (pregunta del día, trivia relámpago, recap semanal) en bases ya creadas.
+  // Migración: interruptores de actividad (pregunta del día, trivia relámpago, recap semanal) y horario de juegos en bases ya creadas.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""']]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);

@@ -1,6 +1,7 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["ahorcado"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 // Lista de palabras para el ahorcado
@@ -9,7 +10,6 @@ const palabras = ["solido", "camino", "flores", "arboles", "ciudad", "puente", "
 let ahorcado = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   if (ahorcado[m.sender]) return client.sendText(m.chat, txt.gameAlready, m);
 
   let palabra = palabras[Math.floor(Math.random() * palabras.length)];

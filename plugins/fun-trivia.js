@@ -1,6 +1,7 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 let plugin = {};
 plugin.cmd = ["trivia"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 // Base de datos de preguntas (también la usa la trivia relámpago cuando la IA no responde)
@@ -515,7 +516,6 @@ export const preguntas = [
 let trivias = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   if (trivias[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
   const trivia = preguntas[Math.floor(Math.random() * preguntas.length)];

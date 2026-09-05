@@ -4,10 +4,10 @@ import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 
 let plugin = {};
 plugin.cmd = ["hornycard", "licenciahot", "hotlicense", "hotlicencia"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
-  if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   const numberMatchesPlus = text.match(/\+[0-9\s]+/g);
