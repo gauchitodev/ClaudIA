@@ -4,7 +4,7 @@ import { readdirSync, rmSync, mkdirSync } from "fs";
 import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
-import { loadDatabase, getChat, getBotSettings, isBlacklisted, sumarInteraccion } from "./database-functions.js";
+import { loadDatabase, sumarInteraccion } from "./database-functions.js";
 import { mesDe } from "./lib/hashtags.js";
 import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";

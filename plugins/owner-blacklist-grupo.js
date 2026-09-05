@@ -1,4 +1,4 @@
-import { updateChat, addToChatBlacklist, removeFromChatBlacklist, addManyToChatBlacklist, removeManyFromChatBlacklist, getChatBlacklist, getChat } from "../database-functions.js";
+import { updateChat, addManyToChatBlacklist, removeManyFromChatBlacklist, getChatBlacklist, getChat } from "../database-functions.js";
 import { getComandosDeSeccion, getNombresSecciones } from "../lib/secciones.js";
 
 let plugin = {};

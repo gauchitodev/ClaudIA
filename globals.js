@@ -65,9 +65,5 @@ globalThis.tarjetaGrupo = {
   enlace: config.tarjetaGrupo?.enlace || "",
 };
 
-// Jid grupo URU
-globalThis.jidUru = "120363404278828828@g.us";
-
-
 // delirius api
 globalThis.deliriusApi = "https://api.delirius.store";

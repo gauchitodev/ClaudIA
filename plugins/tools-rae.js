@@ -118,7 +118,7 @@ function extract_definitions_from_articles(html) {
         $item.find("p, span, div").each((j, sub) => {
           const $sub = $(sub);
           const sub_text = $sub.text().replace(/\s+/g, " ").trim();
-          if (/^sin[:\.]|^ant[:\.]/i.test(sub_text)) {
+          if (/^sin[:.]|^ant[:.]/i.test(sub_text)) {
             subToRemove.push(sub);
           }
         });

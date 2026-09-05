@@ -97,7 +97,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
 
       const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
       // Con timeout: una descarga colgada bloqueaba la cola entera hasta reiniciar el bot.
-      const { stdout, stderr } = await execAsync(commandStr, { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
+      const { stderr } = await execAsync(commandStr, { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
         stdout: error.stdout || "",
         stderr: error.stderr || error.message || "",
       }));

@@ -40,7 +40,7 @@ plugin.run = async (m, { client, command, chat }) => {
 
   if (command == "lesbiana") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 🏳️‍🌈`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    await client.sendText(m.chat, juego, m);
   }
 
   if (command == "pajero") {

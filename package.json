@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node start-process.js",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
@@ -28,5 +29,13 @@
     "qrcode-terminal": "^0.12.0",
     "tldts": "^7.0.12",
     "yt-search": "^2.10.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0"
+  },
+  "allowScripts": {
+    "better-sqlite3": true
   }
 }

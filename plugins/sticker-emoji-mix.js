@@ -21,14 +21,4 @@ plugin.run = async (m, { client, text, args, usedPrefix, command }) => {
 
 export default plugin;
 
-const fetchJson = (url, options) =>
-  new Promise(async (resolve, reject) => {
-    fetch(url, options)
-      .then((response) => response.json())
-      .then((json) => {
-        resolve(json);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
+const fetchJson = (url, options) => fetch(url, options).then((response) => response.json());

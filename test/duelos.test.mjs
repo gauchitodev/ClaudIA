@@ -104,7 +104,7 @@ test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", (
   assert.match(r.texto, /@b se cura \+25/);
   assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 88);
   assert.match(r.texto, /\.curar \(2\)/.test(r.texto) ? /\.curar \(2\)/ : /Turno de @a/);
-  r = D.accionPelea(G, "a", "cubrirse");
+  D.accionPelea(G, "a", "cubrirse");
   cola.push(99, 10, 10); // b: golpe que falla (99 >= 85), contraataque sale (10 < 40) por 10
   r = D.accionPelea(G, "b", "golpe");
   assert.ok(/@b lanza un golpe\.\.\. y falla/.test(r.texto) && /@a contraataca desde la guardia: −10/.test(r.texto));

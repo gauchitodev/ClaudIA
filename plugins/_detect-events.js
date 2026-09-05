@@ -1,8 +1,5 @@
 import { getUser, isBlacklisted } from "../database-functions.js";
 
-// mapa para demote de bot
-const timers = new Map();
-
 let plugin = (m) => m;
 plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   if (!m.messageStubType || !m.isGroup) return;
@@ -11,30 +8,6 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   const userLid = parseStub?.id || null;
 
   const groupAdmins = participants.filter((p) => p.admin);
-
-  // se sale el bot del grupo a los 60 segundos de quitarle el permiso administrador en el grupo
-  /*if (m.messageStubType == 30 && userLid === client.user.jid) {
-    if (timers.has(m.chat)) {
-      clearTimeout(timers.get(m.chat));
-    }
-
-    const timer = setTimeout(async () => {
-      if (timers.has(m.chat)) {
-        await client.groupLeave(m.chat);
-        timers.delete(m.chat);
-      }
-    }, 60000);
-
-    client.sendText(m.chat, txt.demoteBot, null, { mentions: [...groupAdmins.map((v) => v.id)] });
-    timers.set(m.chat, timer);
-  }
-
-  if (m.messageStubType == 29 && userLid === client.user.jid) {
-    if (timers.has(m.chat)) {
-      clearTimeout(timers.get(m.chat));
-      timers.delete(m.chat);
-    }
-  }*/
 
   // solicitud de unirse de un usuario que está en lista negra.
   if (m.messageStubType == 172) {

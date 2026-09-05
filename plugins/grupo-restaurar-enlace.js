@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client }) => {
-  const res = await client.groupRevokeInvite(m.chat);
+  await client.groupRevokeInvite(m.chat);
 };
 
 export default plugin;

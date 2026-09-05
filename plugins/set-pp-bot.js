@@ -12,31 +12,29 @@ async function resizeImg(image, height) {
   };
 }
 const updatePictureProfile = async (content, client) => {
-  return new Promise(async (resolve) => {
-    try {
-      const media = await resizeImg(content, 720);
-      await client.query({
-        tag: "iq",
-        attrs: {
-          target: undefined, // undefined for pp bot, 'xx@g.us' for group
-          to: S_WHATSAPP_NET,
-          type: "set",
-          xmlns: "w:profile:picture",
+  try {
+    const media = await resizeImg(content, 720);
+    await client.query({
+      tag: "iq",
+      attrs: {
+        target: undefined, // undefined for pp bot, 'xx@g.us' for group
+        to: S_WHATSAPP_NET,
+        type: "set",
+        xmlns: "w:profile:picture",
+      },
+      content: [
+        {
+          tag: "picture",
+          attrs: { type: "image" },
+          content: Buffer.from(media.image),
         },
-        content: [
-          {
-            tag: "picture",
-            attrs: { type: "image" },
-            content: Buffer.from(media.image),
-          },
-        ],
-      });
-      resolve({ status: true });
-    } catch (e) {
-      console.log(e);
-      resolve({ status: false });
-    }
-  });
+      ],
+    });
+    return { status: true };
+  } catch (e) {
+    console.log(e);
+    return { status: false };
+  }
 };
 
 let plugin = {};

@@ -1,11 +1,9 @@
-import { format } from "util";
-
 let plugin = (m) => m;
 plugin.before = async function (m, { client }) {
   let ok;
   let isWin = !1;
   let isTie = !1;
-  let isSurrender = !1;
+  let isSurrender;
   client.game = client.game ? client.game : {};
   let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state == "PLAYING");
   if (room) {

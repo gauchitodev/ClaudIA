@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
-import { prepararBase, G, esperar, ultimoEnviado } from "./helpers.mjs";
+import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 
 let F, Rec, C, B, Av, CC, Mem, E;
 before(async () => {
