@@ -181,6 +181,7 @@ ${readMore}
 ▸ ${usedPrefix}cumple 14/03 🎂 – \`Anotá tu cumple; con .cumples ves los del grupo.\`
 ▸ ${usedPrefix}resumen [horas] 📝 – \`Resumen con IA de lo que se habló.\`
 ▸ ${usedPrefix}perfil @mención 👤 – \`Ficha de una persona: coins, laburo, racha, ranking, duelos, pareja y cumple.\`
+▸ ${usedPrefix}rango 🎖️ – \`Tu rango por antigüedad y actividad; .rangos muestra la escalera.\`
 ▸ ${usedPrefix}recordá que <algo> 🧠 – \`Anotale a Claudia un dato o chiste del grupo; .memoria los lista.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🥷 *𝚂𝙾𝙻𝙾 𝙾𝚆𝙽𝙴𝚁 𝙳𝙴𝙻 𝙱𝙾𝚃*

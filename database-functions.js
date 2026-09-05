@@ -362,6 +362,7 @@ export function getUser(userId, chatJid = null) {
         afkReason: "",
         mute: false,
         messageCount: 0,
+        desde: Date.now(), // primera vez que el bot vio a la persona en este grupo (antigüedad para los rangos)
       };
 
       updateUser(userId, {
@@ -898,6 +899,11 @@ export function cumplesDeHoy(dia, mes) {
 export function sumarMensajeDiario(chat, usuario, fecha) {
   db.prepare(`INSERT INTO actividad_diaria (chat, usuario, fecha, mensajes) VALUES (?, ?, ?, 1) ON CONFLICT(chat, usuario, fecha) DO UPDATE SET mensajes = mensajes + 1`).run(chat, usuario, fecha);
   return db.prepare(`SELECT mensajes FROM actividad_diaria WHERE chat = ? AND usuario = ? AND fecha = ?`).get(chat, usuario, fecha)?.mensajes || 0;
+}
+
+// primer día con actividad registrada de una persona en un grupo ("YYYY-MM-DD"), o null
+export function primeraActividad(chat, usuario) {
+  return db.prepare(`SELECT MIN(fecha) AS fecha FROM actividad_diaria WHERE chat = ? AND usuario = ?`).get(chat, usuario)?.fecha || null;
 }
 
 export function topMensajesEntre(chat, fechas, n = 3) {

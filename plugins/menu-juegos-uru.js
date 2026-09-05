@@ -57,6 +57,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ Racha diaria: escribí 3 mensajes (de dos palabras o más) en el día y ganás monedas; el premio sube con los días seguidos. Se ve en .racha
 ▸ Pregunta del día: a partir del mediodía, respondé al mensaje de Claudia y sumás monedas (un admin la activa con .preguntadeldia)
 ▸ Trivia relámpago: un par de veces por día, en horario sorpresa; el primero que acierta cobra (se activa con .triviarelampago)
+▸ Rangos: con días en el grupo y mensajes subís solo de Nuevo a Leyenda, con premio al subir. .rango te muestra el tuyo, .rangos la escalera
 ▸ .recap — resumen de la semana en curso; el domingo de noche sale solo (se apaga con .recapsemanal)
 `.trim();
 

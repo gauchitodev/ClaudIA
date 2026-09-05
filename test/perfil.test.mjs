@@ -17,7 +17,7 @@ const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsa
 test("perfil: ficha mínima de alguien sin nada", () => {
   F.initDataDB(persona(111));
   const r = Pf.textoPerfil(G, "111@lid", F.getUser("111@lid"), true);
-  assert.equal(r.texto, "👤 *Tu perfil*\n\n🪙 0 UruCoins\n💼 Sin laburo (.laburos)\n🔥 Sin racha diaria");
+  assert.equal(r.texto, "👤 *Tu perfil*\n\n🌱 Nuevo · en el grupo desde hoy\n🪙 0 UruCoins\n💼 Sin laburo (.laburos)\n🔥 Sin racha diaria");
   assert.deepEqual(r.mentions, ["111@lid"]);
 });
 
@@ -35,7 +35,7 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
   F.moverCoins(G, "111@lid", 10, "duelo_devolucion"); // un desafío rechazado no cuenta como jugado
   F.moverCoins(G, "111@lid", 20, "duelo_premio");
-  F.updateUser("111@lid", { couple: "222@s.whatsapp.net", coupleTime: Date.now() - 2 * DIA, apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 42 } }) });
+  F.updateUser("111@lid", { couple: "222@s.whatsapp.net", coupleTime: Date.now() - 2 * DIA, apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 600, desde: Date.now() - 40 * DIA } }) });
   F.updateUser("222@lid", { couple: "111@s.whatsapp.net" });
   F.setCumple(G, "111@lid", 14, 3);
   F.agregarItem(G, "111@lid", "escudo", 2);
@@ -44,6 +44,7 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   const esperado = [
     "👤 *Perfil de @111*",
     "",
+    "🪑 De la casa · 40 días en el grupo",
     "🪙 120 UruCoins · puesto 2 del grupo",
     "💼 🐄 Tambero, nivel 1; faltan 3 cobros para el nivel 2",
     "🔥 Racha diaria: 3 días · mejor: 3",
@@ -51,7 +52,7 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
     "⚔️ Duelos: 1 ganado de 2",
     "💞 Pareja: @222, desde hace 2 d 0 h",
     "🎂 Cumple: 14 de marzo",
-    "💬 42 mensajes en el grupo",
+    "💬 600 mensajes en el grupo",
     "🎒 🛡️ Escudo x2",
     '🏷️ Claudia le dice "Tito"',
   ].join("\n");
