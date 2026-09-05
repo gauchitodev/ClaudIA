@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 
 let plugin = {};
 plugin.cmd = ["imagen", "foto", "imágen"];

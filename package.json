@@ -22,7 +22,6 @@
     "jimp": "^1.6.0",
     "jimp-legacy": "npm:jimp@0.16.1",
     "link-preview-js": "^3.0.0",
-    "node-fetch": "^3.2.0",
     "node-gtts": "^2.0.2",
     "node-webpmux": "^3.1.1",
     "pino": "^7.8.0",
@@ -37,5 +36,8 @@
   },
   "allowScripts": {
     "better-sqlite3": true
+  },
+  "engines": {
+    "node": ">=20.11"
   }
 }

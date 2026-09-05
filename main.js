@@ -55,7 +55,7 @@ async function startBot() {
     getMessage: () => null,
   };
 
-  global.client = makeWASocket(connectionOptions);
+  globalThis.client = makeWASocket(connectionOptions);
 
   client.ev.on("creds.update", saveCreds);
 
@@ -129,7 +129,7 @@ async function startBot() {
     }
   });
 
-  client.handler = handler.handleMessage.bind(global.client);
+  client.handler = handler.handleMessage.bind(globalThis.client);
 
   // Se procesan TODOS los mensajes del lote (Baileys puede entregar varios juntos), no solo el último.
   // Van en orden y de a uno para no mezclar el orden de las respuestas dentro de un mismo chat.
@@ -228,7 +228,7 @@ async function resolverCanal() {
   }
 }
 
-global.db = loadDatabase();
+globalThis.db = loadDatabase();
 
 // Carpeta temporal para descargas, stickers y canvas (está en .gitignore, así que en un clon nuevo no existe).
 mkdirSync("./tmp", { recursive: true });
@@ -260,7 +260,7 @@ function clearTmp() {
   return borrados;
 }
 setInterval(() => {
-  if (!global.client || !global.client.user) return;
+  if (!globalThis.client || !globalThis.client.user) return;
   const borrados = clearTmp();
   if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
 }, 1000 * 60 * 30);

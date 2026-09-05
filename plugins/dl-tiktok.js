@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 
 async function tiktokdl(url) {
   if (!url || !url.includes("tiktok.com")) throw new Error("URL de TikTok inválida");

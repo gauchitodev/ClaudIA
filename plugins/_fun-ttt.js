@@ -1,16 +1,16 @@
 let plugin = (m) => m;
 plugin.before = async function (m, { client }) {
   let ok;
-  let isWin = !1;
-  let isTie = !1;
+  let isWin = false;
+  let isTie = false;
   let isSurrender;
   client.game = client.game ? client.game : {};
   let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state == "PLAYING");
   if (room) {
-    if (!/^([1-9]|(me)?nyerah|\rendirse\|rendirse|RENDIRSE|SALIR|salir|Salir|out|OUT|Out|surr?ender)$/i.test(m.text)) return !0;
+    if (!/^([1-9]|(me)?nyerah|\rendirse\|rendirse|RENDIRSE|SALIR|salir|Salir|out|OUT|Out|surr?ender)$/i.test(m.text)) return true;
     isSurrender = !/^[1-9]$/.test(m.text);
     if (m.sender !== room.game.currentTurn) {
-      if (!isSurrender) return !0;
+      if (!isSurrender) return true;
     }
 
     if (!isSurrender && 1 > (ok = room.game.turn(m.sender === room.game.playerO, parseInt(m.text) - 1))) {
@@ -24,7 +24,7 @@ plugin.before = async function (m, { client }) {
         }[ok],
         m,
       );
-      return !0;
+      return true;
     }
     if (m.sender === room.game.winner) isWin = true;
     else if (room.game.board === 511) isTie = true;

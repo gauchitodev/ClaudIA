@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import { load } from "cheerio";
 
 const SUP_MAP = {
@@ -22,7 +21,7 @@ const HEADERS = {
 async function fetch_page(word) {
   const url = `https://dle.rae.es/${encodeURIComponent(word)}`;
   try {
-    const resp = await fetch(url, { headers: HEADERS, timeout: 10000 });
+    const resp = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
     return { resp, url };
   } catch (e) {
     console.error(`Error de conexión: ${e}`);

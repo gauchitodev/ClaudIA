@@ -1,5 +1,4 @@
 import { sticker } from "../lib/sticker.js";
-import fetch from "node-fetch";
 
 let plugin = {};
 plugin.cmd = ["emojimix"];
