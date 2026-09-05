@@ -1163,3 +1163,21 @@ export function ultimasCalificaciones(para, n = 3) {
 export function chatsConHorarioGrupo() {
   return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario FROM chats WHERE horarioGrupo != ''`).all();
 }
+
+// Una calificación por id, todas las que recibió una persona (con el grupo donde se hicieron), y edición o borrado
+// para que un admin pueda corregir una maliciosa.
+export function getCalificacion(id) {
+  return db.prepare(`SELECT * FROM calificaciones WHERE id = ?`).get(id) || null;
+}
+
+export function calificacionesRecibidas(para, n = 20) {
+  return db.prepare(`SELECT * FROM calificaciones WHERE para = ? ORDER BY fecha DESC LIMIT ?`).all(para, n);
+}
+
+export function actualizarCalificacion(id, estrellas, comentario) {
+  return db.prepare(`UPDATE calificaciones SET estrellas = ?, comentario = ? WHERE id = ?`).run(estrellas, comentario, id).changes > 0;
+}
+
+export function borrarCalificacion(id) {
+  return db.prepare(`DELETE FROM calificaciones WHERE id = ?`).run(id).changes > 0;
+}

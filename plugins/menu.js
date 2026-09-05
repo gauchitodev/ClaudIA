@@ -67,6 +67,7 @@ ${readMore}
 ▸ ${usedPrefix}roles 📋 – \`Quiénes tienen rol del bot en este grupo.\`
 ▸ ${usedPrefix}horariogrupo 8:00-22:00 🌙 – \`Cierra el grupo fuera de ese horario y lo abre solo. "off" lo saca.\`
 ▸ ${usedPrefix}reglas set <texto> 📋 – \`Carga las reglas del grupo; se mandan al que entra. .plantilla set <texto> hace lo mismo con el formato.\`
+▸ ${usedPrefix}calificaciones @mención ⭐ – \`Lista numerada; con "borrar N" o "editar N 4 comentario" corregís una maliciosa.\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
 ▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`

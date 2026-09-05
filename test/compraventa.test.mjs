@@ -190,3 +190,43 @@ test("compraventa: el horario del grupo cierra y abre solo", async () => {
   assert.deepEqual([F.getChat(G).horarioGrupo, F.getChat(G).grupoCerradoPorHorario], ["", 0]);
   assert.match(HG.textoHorarioGrupo(G), /no tiene horario/);
 });
+
+test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
+  const run = (sender, text, extra = {}) => Cal.run(msg(sender, text), { client: cliente(), command: "calificaciones", args: text.trim() ? text.trim().split(/\s+/) : [], text, isAdmin: false, isOwner: false, ...extra });
+  // 111 tiene dos calificaciones de este grupo (de 222 y 333); una tercera hecha en otro grupo
+  const otra = F.guardarCalificacion("otro@g.us", "444@lid", "111@lid", 1, "estafador", 0);
+  assert.equal(otra.actualizada, false);
+  await run("222@lid", "@111");
+  const lista = ultimo();
+  assert.match(lista, /⭐ Calificaciones de @111 \(3, promedio 2,7 de 5 \(3 calificaciones\)\):/);
+  assert.match(lista, /\*#3\* ⭐ "estafador" — @444 · hace .* · en otro grupo/);
+  assert.match(lista, /\*#2\* ⭐⭐ "me arrepentí" — @333/);
+  assert.match(lista, /Admins: \.calificaciones borrar N/);
+  // alguien común no puede borrar la de otro
+  await run("222@lid", "borrar 2");
+  assert.match(ultimo(), /Solo un admin del grupo, quien la hizo, o el owner puede borrar/);
+  // un admin de este grupo no toca la que se hizo en otro grupo
+  await run("222@lid", "borrar 3", { isAdmin: true });
+  assert.match(ultimo(), /La #3 se hizo en otro grupo/);
+  // ... pero sí edita y borra las de acá
+  await run("222@lid", "editar 2 4 se arregló", { isAdmin: true });
+  assert.match(ultimo(), /✏️ La calificación #2 de @333 a @111 quedó en ⭐⭐⭐⭐ "se arregló"\. @111 ahora tiene 3,3 de 5/);
+  assert.deepEqual([F.getCalificacion(2).estrellas, F.getCalificacion(2).comentario], [4, "se arregló"]);
+  await run("222@lid", "editar 2 9", { isAdmin: true });
+  assert.match(ultimo(), /van de 1 a 5/);
+  await run("222@lid", "borrar 99", { isAdmin: true });
+  assert.match(ultimo(), /No hay ninguna calificación #99/);
+  await run("222@lid", "borrar x", { isAdmin: true });
+  assert.match(ultimo(), /¿Cuál\? Poné el número/);
+  // el owner puede con la de otro grupo
+  await run("222@lid", "borrar 3", { isOwner: true });
+  assert.match(ultimo(), /🗑️ Borré la calificación #3 \(⭐ de @444 a @111\)\. @111 ahora tiene 4,5 de 5 \(2 calificaciones\)/);
+  assert.equal(F.getCalificacion(3), null);
+  // quien la hizo puede borrar la suya
+  await run("333@lid", "borrar 2");
+  assert.match(ultimo(), /Borré la calificación #2/);
+  await run("333@lid", "borrar 1");
+  assert.match(ultimo(), /Solo un admin del grupo/);
+  await run("111@lid", "");
+  assert.match(ultimo(), /⭐ Tus calificaciones \(1, promedio 5,0 de 5/);
+});
