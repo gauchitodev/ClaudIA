@@ -570,6 +570,14 @@ export function sumarInteraccion(mes, chat, usuario, tipo) {
 }
 
 // obtener el top 5 de "más votado" (recibidas) y "más activo" (emitidas) de un chat, en un mes dado.
+// puesto de una persona en el ranking del mes por reacciones recibidas (1 = la más votada); null si no tiene nada
+export function puestoRankingMensual(mes, chat, usuario) {
+  const fila = db.prepare(`SELECT recibidas, emitidas FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND usuario = ?`).get(mes, chat, usuario);
+  if (!fila || (fila.recibidas <= 0 && fila.emitidas <= 0)) return null;
+  const puesto = db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND recibidas > ?`).get(mes, chat, fila.recibidas).puesto;
+  return { ...fila, puesto };
+}
+
 export function obtenerRankingMensual(chat, mes) {
   const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0 ORDER BY recibidas DESC LIMIT 5`).all(chat, mes);
   const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0 ORDER BY emitidas DESC LIMIT 5`).all(chat, mes);
@@ -655,6 +663,11 @@ export function puestoCoins(chat, usuario) {
   const saldo = getSaldoCoins(chat, usuario);
   if (saldo <= 0) return null;
   return db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM urucoins WHERE chat = ? AND saldo > ?`).get(chat, saldo).puesto;
+}
+
+// cuántos movimientos con ese motivo tiene una persona en el grupo (por ejemplo, duelos ganados = "duelo_premio")
+export function contarMovimientos(chat, usuario, motivo) {
+  return db.prepare(`SELECT COUNT(*) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND motivo = ?`).get(chat, usuario, motivo)?.total || 0;
 }
 
 // cuántas entradas mandó una persona de un hashtag en una semana (para el tope de premios)

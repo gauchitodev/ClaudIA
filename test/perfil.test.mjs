@@ -1,0 +1,76 @@
+import { test, before } from "node:test";
+import assert from "node:assert/strict";
+import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
+
+let F, A, H, L, Pf, P;
+const DIA = 24 * 60 * 60 * 1000;
+before(async () => {
+  ({ F } = await prepararBase("perfil"));
+  A = await import("../lib/actividad.js");
+  H = await import("../lib/hashtags.js");
+  L = await import("../lib/laburos.js");
+  Pf = await import("../lib/perfil.js");
+  P = (await import("../plugins/perfil.js")).default;
+});
+const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
+
+test("perfil: ficha mínima de alguien sin nada", () => {
+  F.initDataDB(persona(111));
+  const r = Pf.textoPerfil(G, "111@lid", F.getUser("111@lid"), true);
+  assert.equal(r.texto, "👤 *Tu perfil*\n\n🪙 0 UruCoins\n💼 Sin laburo (.laburos)\n🔥 Sin racha diaria");
+  assert.deepEqual(r.mentions, ["111@lid"]);
+});
+
+test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, cumple, mensajes, ítems y apodo", () => {
+  F.initDataDB(persona(222));
+  fijarSaldo(F, G, "111@lid", 120);
+  fijarSaldo(F, G, "222@lid", 300);
+  L.tomarLaburo(G, "111@lid", "tambero");
+  F.setRacha(G, "111@lid", 3, A.claveDia());
+  const mes = H.mesDe();
+  for (let i = 0; i < 2; i++) F.sumarInteraccion(mes, G, "111@lid", "recibidas");
+  for (let i = 0; i < 5; i++) F.sumarInteraccion(mes, G, "222@lid", "recibidas");
+  F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
+  F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
+  F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
+  F.moverCoins(G, "111@lid", 10, "duelo_devolucion"); // un desafío rechazado no cuenta como jugado
+  F.moverCoins(G, "111@lid", 20, "duelo_premio");
+  F.updateUser("111@lid", { couple: "222@s.whatsapp.net", coupleTime: Date.now() - 2 * DIA, apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 42 } }) });
+  F.updateUser("222@lid", { couple: "111@s.whatsapp.net" });
+  F.setCumple(G, "111@lid", 14, 3);
+  F.agregarItem(G, "111@lid", "escudo", 2);
+
+  const r = Pf.textoPerfil(G, "111@lid", F.getUser("111@lid"), false);
+  const esperado = [
+    "👤 *Perfil de @111*",
+    "",
+    "🪙 120 UruCoins · puesto 2 del grupo",
+    "💼 🐄 Tambero, nivel 1; faltan 3 cobros para el nivel 2",
+    "🔥 Racha diaria: 3 días · mejor: 3",
+    "🏆 Ranking del mes: puesto 2 · 2 reacciones recibidas, 0 dadas",
+    "⚔️ Duelos: 1 ganado de 2",
+    "💞 Pareja: @222, desde hace 2 d 0 h",
+    "🎂 Cumple: 14 de marzo",
+    "💬 42 mensajes en el grupo",
+    "🎒 🛡️ Escudo x2",
+    '🏷️ Claudia le dice "Tito"',
+  ].join("\n");
+  assert.equal(r.texto, esperado);
+  assert.deepEqual(r.mentions, ["111@lid", "222@lid"]);
+  // la pareja tiene que ser mutua: si la otra persona ya no la tiene, no se muestra
+  F.updateUser("222@lid", { couple: "" });
+  assert.doesNotMatch(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /Pareja/);
+});
+
+test("perfil: el comando resuelve a quién mirar", async () => {
+  const cliente = globalThis.client;
+  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "" });
+  assert.match(ultimoEnviado().msg.text, /^👤 \*Tu perfil\*/);
+  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "@222" });
+  assert.match(ultimoEnviado().msg.text, /^👤 \*Perfil de @222\*/);
+  assert.match(ultimoEnviado().msg.text, /300 UruCoins · puesto 1 del grupo/);
+  await P.run({ chat: G, sender: "111@lid", isGroup: true, quoted: { sender: "222@lid" } }, { client: cliente, text: "" });
+  assert.match(ultimoEnviado().msg.text, /Perfil de @222/);
+  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "@999" });
+  assert.match(ultimoEnviado().msg.text, /No tengo datos de esa persona/);
+});
