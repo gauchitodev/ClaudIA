@@ -16,12 +16,12 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   }
 
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-  if (who == client.user.lid) return;
+  if (who === client.user.lid) return;
 
   const whoData = getUser(who);
   if (!whoData) return client.sendText(m.chat, "El usuario no está registrado en la base de datos.", m);
 
-  if (whoData.warn == 0) return client.sendText(m.chat, "El usuario no tiene advertencias.", m);
+  if (whoData.warn === 0) return client.sendText(m.chat, "El usuario no tiene advertencias.", m);
 
   if (whoData.warn > 0) {
     const whoWarns = (whoData.warn -= 1);

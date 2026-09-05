@@ -25,7 +25,7 @@ plugin.run = async (m, { client, user }) => {
   const pTime = user.coupleTime;
   const currentTime = new Date() - pTime;
 
-  if (m.senderJid == matrimPasan && matrim == pareja) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
+  if (m.senderJid === matrimPasan && matrim === pareja) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
   if (currentTime < 604800000) return client.sendText(m.chat, txt.parejaCasamientoNoTime, m);
 
   // Solo se rechaza una propuesta que la pareja le hizo a esta persona (antes cualquier valor en "married" alcanzaba).

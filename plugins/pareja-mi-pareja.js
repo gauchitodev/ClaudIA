@@ -8,7 +8,7 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, user }) => {
   let totalParejas = user.couplesHistory.length;
 
-  if (user.couple == "") {
+  if (user.couple === "") {
     const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, totalParejas), m);
     client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
     return;

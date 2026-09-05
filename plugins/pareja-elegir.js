@@ -30,18 +30,18 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   const parejaLid = parejaData?.lid;
   const partnerData = getUser(who?.couple);
 
-  if (who?.couple == m.senderJid && user.couple !== whoJid) return client.sendText(m.chat, `La persona ya te pidió ser tu pareja! Responde su petición con:\n\n${usedPrefix}aceptar @${whoLid.split("@")[0]}\n${usedPrefix}rechazar @${whoLid.split("@")[0]}`, m);
+  if (who?.couple === m.senderJid && user.couple !== whoJid) return client.sendText(m.chat, `La persona ya te pidió ser tu pareja! Responde su petición con:\n\n${usedPrefix}aceptar @${whoLid.split("@")[0]}\n${usedPrefix}rechazar @${whoLid.split("@")[0]}`, m);
   // Si la persona ya está en una relación mutua con otro, no se le puede pedir pareja (antes este chequeo era inalcanzable).
   if (who?.couple && who.couple !== m.senderJid && partnerData?.couple === whoJid) return client.sendText(m.chat, `@${whoLid.split("@")[0]} ya tiene pareja, respete 🤨`, m, { mentions: [whoLid] });
   try {
     const pacar = parejaData?.couple;
 
-    if (pareja != "" && parejaLid && pacar == m.senderJid && user.couple != whoJid) {
+    if (pareja !== "" && parejaLid && pacar === m.senderJid && user.couple !== whoJid) {
       const kz = await client.sendText(m.chat, txt.parejaInfiel(parejaLid, whoLid), m);
       client.sendMessage(m.chat, { react: { text: "😡", key: kz.key } });
     } else if (typeof pacar === "string" && pacar.length > 0) {
       if (pacar) {
-        if (m.senderJid == pacar && user.couple == whoJid) {
+        if (m.senderJid === pacar && user.couple === whoJid) {
           const kz = await client.sendText(m.chat, txt.parejaAlready(whoLid), m);
           client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
           return;
@@ -49,7 +49,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
           return client.sendText(m.chat, `@${whoLid.split("@")[0]} ya tiene pareja, respete 🤨`, m);
         }
       }
-    } else if (pacar == m.senderJid) {
+    } else if (pacar === m.senderJid) {
       updateUser(m.sender, { couple: whoJid });
       client.sendText(m.chat, `Felicitaciones, oficialmente están saliendo @${whoLid.split("@")[0]}\n\nQue dure para siempre y siempre sea feliz 🥳🥳🥳`, m, { contextInfo: { mentionedJid: [whoLid] } });
     } else {

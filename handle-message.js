@@ -48,12 +48,12 @@ export async function handleMessage(nMsg) {
     const groupMetadata = (m.isGroup ? (client.chats[m.chat] || {}).metadata || (await this.groupMetadata(m.chat).catch((_) => null)) : {}) || {};
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
     const userSender = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === m.sender) : {}) || {};
-    const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) == client.user.lid) : {}) || {};
+    const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === client.user.lid) : {}) || {};
     // esOwner acepta @lid o @s.whatsapp.net (resuelve el lid del owner por la base), así el owner se reconoce aunque
     // el mensaje venga solo con su LID.
     const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
-    const isRAdmin = userSender?.admin == "superadmin" || false;
-    const isWaAdmin = isRAdmin || userSender?.admin == "admin" || false;
+    const isRAdmin = userSender?.admin === "superadmin" || false;
+    const isWaAdmin = isRAdmin || userSender?.admin === "admin" || false;
     // Roles del bot por grupo (.adminbot / .moderador): el admin del bot cuenta como admin y el moderador solo como
     // mod. Los admins de WhatsApp y el owner tienen los dos sin necesidad de rol.
     const { rol: rolBot, isAdmin, isMod } = permisosDe(m.chat, m.sender, { esOwner: isOwner, esAdminWhatsApp: isWaAdmin });
@@ -161,7 +161,7 @@ export async function handleMessage(nMsg) {
           // La metadata guardada puede estar vieja. Antes de rechazar, consultamos a WhatsApp
           // y, si el bot sí es admin, actualizamos la caché para no volver a consultar.
           const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
-          const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) == client.user.lid);
+          const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
           if (!botFresco?.admin) {
             return client.sendText(m.chat, txt.botAdmin, m);
           }

@@ -30,6 +30,8 @@ export default defineConfig([
       // Los plugins destructuran muchos argumentos que no siempre usan, y los catch vacíos son a propósito.
       "no-unused-vars": ["error", { args: "none", caughtErrors: "none", ignoreRestSiblings: true, varsIgnorePattern: "^_" }],
       "no-empty": ["error", { allowEmptyCatch: true }],
+      // Igualdad estricta siempre; "== null" se deja porque cubre null y undefined a la vez.
+      eqeqeq: ["error", "always", { null: "ignore" }],
       // Los textos que manda el bot llevan espacios raros (zero-width) a propósito, para el formato de WhatsApp.
       "no-irregular-whitespace": ["error", { skipStrings: true, skipTemplates: true, skipComments: true, skipRegExps: true }],
     },

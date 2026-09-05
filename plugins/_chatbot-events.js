@@ -2,7 +2,7 @@ let plugin = (m) => m;
 plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
   if (!m.isGroup) return;
 
-  if (m.mtype == "liveLocationMessage" && !isMod && !isOwner) {
+  if (m.mtype === "liveLocationMessage" && !isMod && !isOwner) {
     await m.delete();
     return;
   }

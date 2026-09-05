@@ -23,13 +23,13 @@ plugin.run = async (m, { client, user }) => {
     }
   }
 
-  if (user.couple == "") {
+  if (user.couple === "") {
     const kz = await client.sendText(m.chat, txt.parejaTerminarNull(m.sender), m);
     client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
     return;
   }
 
-  if (m.senderJid == parejaCouple) {
+  if (m.senderJid === parejaCouple) {
     const kz = await client.sendText(m.chat, txt.parejaTerminarSuccess(m.sender), m);
     client.sendMessage(m.chat, { react: { text: "💔", key: kz.key } });
 

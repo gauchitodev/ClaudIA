@@ -10,7 +10,7 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   const groupAdmins = participants.filter((p) => p.admin);
 
   // solicitud de unirse de un usuario que está en lista negra.
-  if (m.messageStubType == 172) {
+  if (Number(m.messageStubType) === 172) {
     if (!isBotAdmin) return;
     try {
       const pendientes = await client.groupRequestParticipantsList(m.chat);
@@ -44,11 +44,11 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
     if (ownerLid && (m.sender === ownerLid || userLid === ownerLid)) return;
   }
 
-  if (chat.detect && m.messageStubType == 23) {
+  if (chat.detect && Number(m.messageStubType) === 23) {
     await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
-  } else if (chat.detect && m.messageStubType == 29) {
+  } else if (chat.detect && Number(m.messageStubType) === 29) {
     await client.sendText(m.chat, txt.detectEventsPromote(userLid, m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
-  } else if (chat.detect && m.messageStubType == 30) {
+  } else if (chat.detect && Number(m.messageStubType) === 30) {
     await client.sendText(m.chat, txt.detectEventsDemote(userLid, m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });
   }
 

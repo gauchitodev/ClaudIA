@@ -24,7 +24,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   const parejaSenderDataLid = parejaSenderData?.lid;
   const whoJid = whoData?.jid;
 
-  if (parejaSenderJid != "" && parejaSenderData?.couple == m.senderJid && parejaSenderJid != whoJid) return client.sendText(m.chat, txt.besarInfiel(parejaSenderDataLid), m);
+  if (parejaSenderJid !== "" && parejaSenderData?.couple === m.senderJid && parejaSenderJid !== whoJid) return client.sendText(m.chat, txt.besarInfiel(parejaSenderDataLid), m);
 
   if (whoCouple && m.senderJid !== whoCouple) return client.sendText(m.chat, txt.besarTienePareja(who), m);
   const teks = `${pickRandom([`¡Muah! 💋 Beso virtual enviado con cariño.`, `¡Besoo enviado! 💋`, `¡Hermoso beso virtual para ti! 💋`])}`.trim();

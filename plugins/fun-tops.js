@@ -18,7 +18,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   let i = ps.getRandom();
   let j = ps.getRandom();
 
-  if (command == "topgays") {
+  if (command === "topgays") {
     let top = `*🌈TOP 10 GAYS/LESBIANAS DEL GRUPO🌈*
     
 *_1.- 🏳️‍🌈 ${user(a)}_* 🏳️‍🌈
@@ -34,7 +34,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "topsucios") {
+  if (command === "topsucios") {
     let top = `*🤢🤮TOP 10 SUCIOS QUE NUNCA SE BAÑAN🤮🤢*
 
 *_1.- 🤢 ${user(a)}_* 🤮
@@ -51,7 +51,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "topotakus") {
+  if (command === "topotakus") {
     let top = `*🌸 TOP 10 OTAKUS DEL GRUPO 🌸*
     
 *_1.- 💮 ${user(a)}_* 💮
@@ -67,7 +67,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "toppajer@s") {
+  if (command === "toppajer@s") {
     let top = `*_😏TOP L@S MAS PAJEROS/AS DEL GRUPO💦_* 
     
 *_1.- 🥵 ${user(a)}_* 💦
@@ -83,7 +83,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "toplind@s") {
+  if (command === "toplind@s") {
     let top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
     
 *_1.- ✨ ${user(a)}_* ✨
@@ -99,7 +99,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "toplindos") {
+  if (command === "toplindos") {
     let top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
     
 *_1.- ✨ ${user(a)}_* ✨
@@ -115,7 +115,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "topput@s") {
+  if (command === "topput@s") {
     let top = `*_😏TOP L@S MAS PUT@S DEL GRUPO SON🔥_* 
     
 *_1.- 👉 ${user(a)}_* 👌
@@ -131,7 +131,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "topchupadores" || command == "topmamadores" || command == "topchupapijas" || command == "topchupavergas") {
+  if (command === "topchupadores" || command === "topmamadores" || command === "topchupapijas" || command === "topchupavergas") {
     let top = `*_🥵TOP 5 DE LOS MÁS CHUPA PIJAS COMPULSIVOS🥵_* 
     
 *_1.- 😏 ${user(a)}_* 💦
@@ -144,7 +144,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
     client.sendText(m.chat, top, m);
   }
 
-  if (command == "top5parejas" || command == "topparejas") {
+  if (command === "top5parejas" || command === "topparejas") {
     let top = `*_😍 Las 5 maravillosas parejas del grupo 😍_*
     
 *_1.- ${user(a)} 💘 ${user(b)}_* 

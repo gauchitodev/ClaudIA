@@ -22,14 +22,14 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
-    if (who == ownerData?.lid) return m.react("❌");
+    if (who === ownerData?.lid) return m.react("❌");
   }
 
   const whoData = getUser(who);
   if (!whoData) return client.sendText(m.chat, "No existen datos del usuario, puede que aun no haya enviado mensajes");
 
   let trueOrFalse;
-  if (command == "desilenciar" || command == "unmute") {
+  if (command === "desilenciar" || command === "unmute") {
     trueOrFalse = false;
   } else {
     trueOrFalse = true;

@@ -27,7 +27,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
-    if (who == ownerData?.lid && m.sender !== who) return m.react("❌");
+    if (who === ownerData?.lid && m.sender !== who) return m.react("❌");
   }
 
   // eliminar usuario de la db.

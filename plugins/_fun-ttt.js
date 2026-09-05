@@ -5,7 +5,7 @@ plugin.before = async function (m, { client }) {
   let isTie = false;
   let isSurrender;
   client.game = client.game ? client.game : {};
-  let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state == "PLAYING");
+  let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state === "PLAYING");
   if (room) {
     if (!/^([1-9]|(me)?nyerah|\rendirse\|rendirse|RENDIRSE|SALIR|salir|Salir|out|OUT|Out|surr?ender)$/i.test(m.text)) return true;
     isSurrender = !/^[1-9]$/.test(m.text);

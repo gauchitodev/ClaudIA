@@ -73,7 +73,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!who) return client.sendText(m.chat, txt.defaultWhoBlackList(usedPrefix, command), m);
   if (who === client.user.jid) return m.react("❌");
   if (who === m.senderJid) return m.react("❌");
-  if (command == "ln" && !reason) return client.sendText(m.chat, txt.blistRejectNullReason, m);
+  if (command === "ln" && !reason) return client.sendText(m.chat, txt.blistRejectNullReason, m);
 
   // no afectar a los dueños del bot
   if (esOwner(who) || (whoLid && esOwner(whoLid))) return m.react("❌");

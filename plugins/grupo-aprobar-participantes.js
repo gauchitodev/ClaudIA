@@ -7,7 +7,7 @@ plugin.onlyAdmin = true;
 plugin.run = async (m, { client, command }) => {
   const groupId = m.chat;
   try {
-    if (command == "pendientes") {
+    if (command === "pendientes") {
       const participants = await client.groupRequestParticipantsList(groupId);
       if (!participants.length) {
         await client.sendText(m.chat, "No hay participantes pendientes de aprobación.", m);
@@ -19,7 +19,7 @@ plugin.run = async (m, { client, command }) => {
         message += `${index + 1}. JID: @${phoneNumber}\n* Se unió a través de: ${participant.request_method}\n\n`;
       });
       await client.sendText(m.chat, message, m);
-    } else if (command == "ap" || command == "aprobar") {
+    } else if (command === "ap" || command === "aprobar") {
       const participants = await client.groupRequestParticipantsList(groupId);
       if (!participants.length) {
         await client.sendText(m.chat, "No hay participantes pendientes de aprobación.", m);

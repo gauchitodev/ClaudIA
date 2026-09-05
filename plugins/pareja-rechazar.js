@@ -28,13 +28,13 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
 
   const pacar = who?.couple;
 
-  if (m.senderJid == pacar && user.couple == whoJid) {
+  if (m.senderJid === pacar && user.couple === whoJid) {
     const kz = await client.sendText(m.chat, txt.parejaAlready(whoLid), m);
     client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
     return;
   }
 
-  if (pacar != m.senderJid) {
+  if (pacar !== m.senderJid) {
     return client.sendText(m.chat, txt.parejaNoReject(whoLid), m);
   } else {
     updateUser(whoLid, { couple: "" });

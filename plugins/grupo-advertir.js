@@ -19,14 +19,14 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   }
 
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-  if (who == client.user.lid) return;
+  if (who === client.user.lid) return;
   if (!txtAdv) return client.sendText(m.chat, txt.advertirNoRazon, m);
 
   // no afectar a owners del bot
   const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
-    if (who == ownerData?.lid) return m.react("❌");
+    if (who === ownerData?.lid) return m.react("❌");
   }
 
   const whoData = getUser(who);

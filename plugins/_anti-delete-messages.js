@@ -7,19 +7,19 @@ plugin.before = async function (m, { client, chat }) {
     if (m.message?.protocolMessage?.type === 0) {
       let msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id));
       if (!msg) return;
-      if (msg.key.fromMe || msg.key.participant == client.user.lid) return;
+      if (msg.key.fromMe || msg.key.participant === client.user.lid) return;
       if (msg.message.reactionMessage) return;
       const gN = msg.key.remoteJid.endsWith("@g.us") ? await client.groupMetadata(msg.key.remoteJid) : null;
       const participant = msg.key?.participant || msg.key?.remoteJid;
       const { imageMessage, videoMessage, stickerMessage, audioMessage, extendedTextMessage, conversation } = msg.message;
 
-      let isOnce = msg.mtype == "viewOnceMessageV2" || msg.mtype == "viewOnceMessageV2Extension";
+      let isOnce = msg.mtype === "viewOnceMessageV2" || msg.mtype === "viewOnceMessageV2Extension";
       if (isOnce) {
         let media;
-        let msgg = msg.mtype == "viewOnceMessageV2" ? msg.message.viewOnceMessageV2.message : msg.message.viewOnceMessageV2Extension.message;
+        let msgg = msg.mtype === "viewOnceMessageV2" ? msg.message.viewOnceMessageV2.message : msg.message.viewOnceMessageV2Extension.message;
         const type = Object.keys(msgg)[0];
-        if (msg.mtype == "viewOnceMessageV2") {
-          media = await downloadContentFromMessage(msgg[type], type == "imageMessage" ? "image" : type == "videoMessage" ? "video" : "audio");
+        if (msg.mtype === "viewOnceMessageV2") {
+          media = await downloadContentFromMessage(msgg[type], type === "imageMessage" ? "image" : type === "videoMessage" ? "video" : "audio");
         } else {
           media = await downloadContentFromMessage(msgg[type], "audio");
         }
@@ -32,7 +32,7 @@ plugin.before = async function (m, { client, chat }) {
 *┃ ViewOnce (eliminado)*
 - *Nombre:* @${participant.split`@`[0]}
 ${msgg[type].caption ? `- *Caption:* ${msgg[type].caption}` : "- *Caption:* _sin_caption_"}`;
-          return await client.sendFile(m.chat, buffer, type == "imageMessage" ? "error.jpg" : "error.mp4", caption, msg);
+          return await client.sendFile(m.chat, buffer, type === "imageMessage" ? "error.jpg" : "error.mp4", caption, msg);
         } else if (/audio/.test(type)) {
           const audiox = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ ViewOnce (eliminado)*

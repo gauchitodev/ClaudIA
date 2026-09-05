@@ -24,12 +24,12 @@ plugin.run = async (m, { client, usedPrefix, user }) => {
 
   const matrimPasan = parejaData?.married;
   let currentTime = new Date() - pTime;
-  if (m.senderJid == matrimPasan && matrim == pasan) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
+  if (m.senderJid === matrimPasan && matrim === pasan) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
   if (currentTime < 604800000) return client.sendText(m.chat, txt.parejaCasamientoNoTime, m);
 
-  if (matrimPasan == m.senderJid && user.married !== parejaData?.jid) return client.sendText(m.chat, `Tu pareja ya te propuso casamiento! Responde su propuesta con:\n\n${usedPrefix}si\n${usedPrefix}no`, m);
+  if (matrimPasan === m.senderJid && user.married !== parejaData?.jid) return client.sendText(m.chat, `Tu pareja ya te propuso casamiento! Responde su propuesta con:\n\n${usedPrefix}si\n${usedPrefix}no`, m);
 
-  if (pasan != "") {
+  if (pasan !== "") {
     updateUser(m.sender, { married: pasan });
     const kz = await client.sendText(m.chat, txt.parejaCasamientoPropuesta(m.sender, parejaLid), m);
     client.sendMessage(m.chat, { react: { text: "😳", key: kz.key } });
