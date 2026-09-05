@@ -2,7 +2,7 @@ let plugin = {};
 plugin.cmd = ["tagall", "todos"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, isOwner, text, participants, chat }) => {
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);

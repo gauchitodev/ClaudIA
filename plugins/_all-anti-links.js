@@ -18,8 +18,8 @@ function detectarLink(palabra) {
 
 let plugin = (m) => m;
 
-plugin.before = async function (m, { client, isAdmin, isBotAdmin, isOwner, participants, chat }) {
-  if (!m.isGroup || !isBotAdmin || isAdmin || isOwner) return;
+plugin.before = async function (m, { client, isMod, isBotAdmin, isOwner, participants, chat }) {
+  if (!m.isGroup || !isBotAdmin || isMod || isOwner) return;
   if (!chat.allAntiLinks || !m.text) return;
   const groupAdmins = participants.filter((p) => p.admin);
 

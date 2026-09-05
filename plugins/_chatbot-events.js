@@ -1,13 +1,13 @@
 let plugin = (m) => m;
-plugin.before = async function (m, { client, isOwner, isAdmin, user, chat }) {
+plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
   if (!m.isGroup) return;
 
-  if (m.mtype == "liveLocationMessage" && !isAdmin && !isOwner) {
+  if (m.mtype == "liveLocationMessage" && !isMod && !isOwner) {
     await m.delete();
     return;
   }
 
-  if (m.mentionedJid && m.mentionedJid.length >= 10 && !isOwner && !isAdmin) {
+  if (m.mentionedJid && m.mentionedJid.length >= 10 && !isOwner && !isMod) {
     m.delete();
     client.sendText(m.chat, `Ponete a hacer algo productivo y dejate de joder @${m.sender.split("@")[0]} 🤨`, m, { mentions: [m.sender] });
   }

@@ -4,7 +4,7 @@ let plugin = {};
 plugin.cmd = ["advertir", "adv", "warn"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command }) => {
   let who;

@@ -33,7 +33,7 @@ const ESQUEMA_RESPUESTA = {
 
 let plugin = (m) => m;
 
-plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, isOwner, user, chat }) {
+plugin.before = async function (m, { client, participants, isMod, isBotAdmin, isOwner, user, chat }) {
   try {
     if (m.fromMe || m.isBaileys) return;
     if (!m.text) return;
@@ -182,8 +182,8 @@ plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, 
         await decir(respuesta);
         return;
       }
-      if (!isAdmin && !isOwner) {
-        await decir("Che, eso lo puede pedir solo un admin del grupo.", m);
+      if (!isMod && !isOwner) {
+        await decir("Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
         return;
       }
     }

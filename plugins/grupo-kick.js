@@ -4,7 +4,7 @@ let plugin = {};
 plugin.cmd = ["k", "kick", "andate", "morite", "chau"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command }) => {
   try {

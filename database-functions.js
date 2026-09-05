@@ -305,6 +305,18 @@ export function loadDatabase() {
     )
   `);
 
+  // Roles del bot por grupo (.adminbot / .moderador): una persona tiene a lo sumo un rol por grupo
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS roles_grupo (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      rol TEXT NOT NULL,
+      dadoPor TEXT DEFAULT "",
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -999,4 +1011,22 @@ export function borrarMemoriaGrupo(chat, id) {
 
 export function limpiarMemoriaGrupo(chat) {
   return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ?`).run(chat).changes;
+}
+
+// ===================== Roles del bot por grupo =====================
+export function setRolGrupo(chat, usuario, rol, dadoPor = "") {
+  db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha`).run(chat, usuario, rol, dadoPor, Date.now());
+}
+
+export function quitarRolGrupo(chat, usuario) {
+  return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes > 0;
+}
+
+// "admin", "mod" o null
+export function rolGrupo(chat, usuario) {
+  return db.prepare(`SELECT rol FROM roles_grupo WHERE chat = ? AND usuario = ?`).get(chat, usuario)?.rol || null;
+}
+
+export function rolesGrupo(chat) {
+  return db.prepare(`SELECT usuario, rol, dadoPor, fecha FROM roles_grupo WHERE chat = ? ORDER BY rol, fecha`).all(chat);
 }

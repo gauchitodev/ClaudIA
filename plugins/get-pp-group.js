@@ -2,7 +2,7 @@ let plugin = {};
 plugin.cmd = ["getpp"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client }) => {
   const pp = await client.profilePictureUrl(m.chat, "image").catch((_) => null);

@@ -2,7 +2,7 @@ let plugin = {};
 plugin.cmd = ["hidetag2", "ht2"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);

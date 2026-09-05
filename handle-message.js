@@ -1,6 +1,7 @@
 import { smsg } from "./lib/wa-socket.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
+import { permisosDe } from "./lib/roles.js";
 
 // Memoria para guardar la última vez que se saludó por grupo
 const cooldownSaludos = new Map();
@@ -52,7 +53,10 @@ export async function handleMessage(nMsg) {
     // el mensaje venga solo con su LID.
     const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
     const isRAdmin = userSender?.admin == "superadmin" || false;
-    const isAdmin = isOwner || isRAdmin || userSender?.admin == "admin" || false;
+    const isWaAdmin = isRAdmin || userSender?.admin == "admin" || false;
+    // Roles del bot por grupo (.adminbot / .moderador): el admin del bot cuenta como admin y el moderador solo como
+    // mod. Los admins de WhatsApp y el owner tienen los dos sin necesidad de rol.
+    const { rol: rolBot, isAdmin, isMod } = permisosDe(m.chat, m.sender, { esOwner: isOwner, esAdminWhatsApp: isWaAdmin });
     let isBotAdmin = !m.isGroup || bot?.admin || false;
 
     // Retornar si el mensaje es de baileys para evitar conflictos en mensajes propios del bot.
@@ -101,7 +105,7 @@ export async function handleMessage(nMsg) {
     for (const pluginName in globalThis.plugins) {
       const plugin = globalThis.plugins[pluginName];
       if (typeof plugin.before === "function") {
-        await plugin.before(m, { client: this, text, args, participants, isRAdmin, isAdmin, isBotAdmin, isOwner, user, chat, botSettings });
+        await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
       }
     }
 
@@ -109,7 +113,7 @@ export async function handleMessage(nMsg) {
     if (chat.isBanned && !isOwner) return;
 
     // verificar modoadmin
-    if (chat.adminMode && !isOwner && !isAdmin && m.isGroup) return;
+    if (chat.adminMode && !isOwner && !isMod && m.isGroup) return;
 
     // verificar si el mensaje comienza con un prefijo válido
     const usedPrefix = globalThis.prefix.find((p) => m.text.startsWith(p));
@@ -169,6 +173,11 @@ export async function handleMessage(nMsg) {
           return client.sendText(m.chat, txt.onlyAdmin, m);
         }
 
+        // Verificar si el comando requiere ser moderador del bot (los admins también pasan)
+        if (plugin.onlyMod && !isMod) {
+          return client.sendText(m.chat, txt.onlyMod, m);
+        }
+
         // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
         // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
         if (plugin.juego) {
@@ -180,7 +189,7 @@ export async function handleMessage(nMsg) {
         }
 
         // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.
-        await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isAdmin, isBotAdmin, isOwner, user, chat, botSettings });
+        await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
       }
     }
   } catch (e) {

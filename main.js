@@ -10,6 +10,7 @@ import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
+import { limpiarRolesAlSalir } from "./lib/roles.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -152,9 +153,11 @@ async function startBot() {
   // Cuando cambian los participantes o admins de un grupo, refrescamos la metadata guardada.
   // Sin esto, la lista de admins queda como estaba al conectar, y el bot no se entera de que
   // lo hicieron (o le sacaron) admin hasta el próximo reinicio.
-  client.ev.on("group-participants.update", async ({ id }) => {
+  client.ev.on("group-participants.update", async ({ id, participants, action }) => {
     try {
       if (!id?.endsWith("@g.us")) return;
+      // El que sale del grupo (o lo sacan) pierde el rol del bot que tenía ahí.
+      if (action === "remove") limpiarRolesAlSalir(id, participants);
       const metadata = await client.groupMetadata(id).catch(() => null);
       if (!metadata) return;
       client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };

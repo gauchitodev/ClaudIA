@@ -50,6 +50,9 @@ ${readMore}
 ▸ ${usedPrefix}ap ☑️ – \`Aprobar solicitudes pendientes para unirse.\`
 ▸ ${usedPrefix}ruletadelban ☠️ – \`Elimina un participante al azar.\`
 ▸ ${usedPrefix}config ⚙️ – \`Ver la configuración actual del bot en el grupo\`
+▸ ${usedPrefix}adminbot @mención 🛡️ – \`Admin del bot solo en este grupo: configura, economía, juegos y modera. Con "quitar" se saca.\`
+▸ ${usedPrefix}moderador @mención 🧹 – \`Moderador del bot en este grupo: advertir, silenciar, expulsar y tagall. Con "quitar" se saca.\`
+▸ ${usedPrefix}roles 📋 – \`Quiénes tienen rol del bot en este grupo.\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
 ▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`

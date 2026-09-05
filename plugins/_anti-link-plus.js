@@ -6,9 +6,9 @@ const isLinkTelegram = /\b(?:t\.me|telegram\.(?:me|org|dog))\/\S+/i;
 const isLinkInstagram = /\b(?:www\.)?instagram\.com\/\S+/i;
 
 let plugin = (m) => m;
-plugin.before = async function (m, { client, participants, isAdmin, isBotAdmin, isOwner, chat }) {
+plugin.before = async function (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) {
   if (!m.isGroup || !m.text) return;
-  if (isAdmin || isOwner) return;
+  if (isMod || isOwner) return;
   const groupAdmins = participants.filter((p) => p.admin);
   const mentions = [m.sender, ...groupAdmins.map((v) => v.id)];
 

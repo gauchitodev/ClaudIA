@@ -7,7 +7,7 @@ import { COOLDOWN_REINTENTO_MS } from "../lib/gemini.js";
 
 let plugin = {};
 plugin.cmd = ["estado", "status"];
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client }) => {
   const ahora = Date.now();

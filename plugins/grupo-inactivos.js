@@ -2,7 +2,7 @@ import { getAllUsers } from "../database-functions.js";
 
 let plugin = {};
 plugin.cmd = ["inactivos"];
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, participants }) => {

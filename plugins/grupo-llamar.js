@@ -4,7 +4,7 @@ let plugin = {};
 plugin.cmd = ["llamar", "mencionar", "cancelar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, command }) => {
   if (command === "cancelar") {

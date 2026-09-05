@@ -2,7 +2,7 @@ let plugin = {};
 plugin.cmd = ["admins"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, participants, args, text }) => {
   if (!text) return client.sendText(m.chat, txt.adminsReason, m);
