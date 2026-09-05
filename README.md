@@ -1,5 +1,7 @@
 # ClaudIA 🇺🇾
 
+[![CI](https://github.com/gauchitodev/ClaudIA-mi-edit-de-SawBot/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA-mi-edit-de-SawBot/actions/workflows/ci.yml)
+
 Bot de WhatsApp con personalidad propia, hecho a mano para un grupo de amigos uruguayo. Es mi primer proyecto de programación — arrancó como una copia de [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) y se fue transformando con el tiempo hasta quedar irreconocible.
 
 Corre 24/7 en una tablet Samsung Galaxy Tab A9, vía Termux.
@@ -21,6 +23,10 @@ Node.js · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite
 ## Configuración
 
 Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. `config.toml` está en `.gitignore` y nunca se sube.
+
+## Tests y lint
+
+`npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 24 y 26, en cada push a `main` y en cada pull request.
 
 ## Nota
 
