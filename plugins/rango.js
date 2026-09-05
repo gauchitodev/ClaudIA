@@ -1,4 +1,5 @@
 import { getUser } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
 import { textoRango, textoRangos } from "../lib/rangos.js";
 
 let plugin = {};
@@ -9,10 +10,7 @@ plugin.onlyGroup = true;
 plugin.run = async (m, { client, command, text }) => {
   if (command === "rangos") return client.sendText(m.chat, textoRangos(), m);
 
-  let lid = m.sender;
-  const mencion = (text || "").match(/@[0-9\s]+/g);
-  if (mencion) lid = mencion[0].replace("@", "").replace(/\s+/g, "") + "@lid";
-  else if (m.quoted?.sender) lid = m.quoted.sender;
+  const lid = lidMencionado(m, text) || m.sender;
 
   const user = getUser(lid);
   if (!user) return client.sendText(m.chat, "No tengo datos de esa persona todavía. Cuando escriba algo en el grupo, la conozco.", m);

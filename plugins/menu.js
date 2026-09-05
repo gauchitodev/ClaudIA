@@ -27,6 +27,18 @@ ${readMore}
 ▸ ${usedPrefix}ranking 🏆 – \`Ranking del mes por reacciones.\`
 ▸ ${usedPrefix}menuuru 🇺🇾 – \`Cómo funcionan las temáticas del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+🛒 *COMPRAVENTA*
+▸ #vendo / #compro en un mensaje 🏷️ – \`Registra la publicación con un número.\`
+▸ ${usedPrefix}vendo / ${usedPrefix}compro 📋 – \`Catálogo activo (o publicá con .vendo <texto>).\`
+▸ ${usedPrefix}buscar <palabra> 🔎 – \`Busca en las publicaciones activas.\`
+▸ ${usedPrefix}publicacion N 📄 – \`Detalle de una publicación.\`
+▸ ${usedPrefix}vendido N / ${usedPrefix}baja N / ${usedPrefix}reservado N / ${usedPrefix}sigue N ✅ – \`Cerrar, bajar, reservar o renovar la tuya.\`
+▸ ${usedPrefix}mias 🗂️ – \`Tus publicaciones activas.\`
+▸ ${usedPrefix}avisame <palabra> 🔔 – \`Te menciono cuando aparezca algo con esa palabra.\`
+▸ ${usedPrefix}calificar @mención 5 <comentario> ⭐ – \`Calificá a quien le compraste o vendiste.\`
+▸ ${usedPrefix}reputacion @mención ⭐ – \`Promedio y últimas calificaciones.\`
+▸ ${usedPrefix}reglas 📋 / ${usedPrefix}plantilla 📝 – \`Reglas del grupo y formato para publicar.\`
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛡️ *𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂*
 ▸ ${usedPrefix}g 🔒 – \`Abre o cierra el chat del grupo.\`
 ▸ ${usedPrefix}k @mención ❌ – \`Expulsa a un participante.\`
@@ -53,6 +65,8 @@ ${readMore}
 ▸ ${usedPrefix}adminbot @mención 🛡️ – \`Admin del bot solo en este grupo: configura, economía, juegos y modera. Con "quitar" se saca.\`
 ▸ ${usedPrefix}moderador @mención 🧹 – \`Moderador del bot en este grupo: advertir, silenciar, expulsar y tagall. Con "quitar" se saca.\`
 ▸ ${usedPrefix}roles 📋 – \`Quiénes tienen rol del bot en este grupo.\`
+▸ ${usedPrefix}horariogrupo 8:00-22:00 🌙 – \`Cierra el grupo fuera de ese horario y lo abre solo. "off" lo saca.\`
+▸ ${usedPrefix}reglas set <texto> 📋 – \`Carga las reglas del grupo; se mandan al que entra. .plantilla set <texto> hace lo mismo con el formato.\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
 ▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`

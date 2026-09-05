@@ -68,14 +68,18 @@ export function loadDatabase() {
       charla BOOLEAN DEFAULT 1,
       saludos BOOLEAN DEFAULT 1,
       monedas BOOLEAN DEFAULT 1,
-      ascensos BOOLEAN DEFAULT 1
+      ascensos BOOLEAN DEFAULT 1,
+      reglas TEXT DEFAULT "",
+      plantilla TEXT DEFAULT "",
+      horarioGrupo TEXT DEFAULT "",
+      grupoCerradoPorHorario BOOLEAN DEFAULT 0
     )
   `);
 
   // Migración: interruptores de actividad (pregunta del día, trivia relámpago, recap semanal), horario de juegos e
   // interruptores del modo compraventa (charla, saludos, monedas, ascensos) en bases ya creadas.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -321,6 +325,47 @@ export function loadDatabase() {
       PRIMARY KEY (chat, usuario)
     )
   `);
+
+  // Compraventa: publicaciones (#vendo / #compro) numeradas por grupo, alertas por palabra y calificaciones entre personas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS publicaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      precio TEXT DEFAULT "",
+      messageId TEXT,
+      estado TEXT DEFAULT "activa",
+      creada INTEGER NOT NULL,
+      actualizada INTEGER NOT NULL,
+      aviso INTEGER DEFAULT 0,
+      UNIQUE (chat, numero)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_chat_estado ON publicaciones (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alertas_compraventa (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      palabra TEXT NOT NULL,
+      creada INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario, palabra)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS calificaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      de TEXT NOT NULL,
+      para TEXT NOT NULL,
+      estrellas INTEGER NOT NULL,
+      comentario TEXT DEFAULT "",
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_calificaciones_para ON calificaciones (para, fecha)`);
 
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
@@ -1034,4 +1079,87 @@ export function rolGrupo(chat, usuario) {
 
 export function rolesGrupo(chat) {
   return db.prepare(`SELECT usuario, rol, dadoPor, fecha FROM roles_grupo WHERE chat = ? ORDER BY rol, fecha`).all(chat);
+}
+
+// ===================== Compraventa: publicaciones =====================
+const ESTADOS_VIGENTES = "('activa', 'reservada')";
+
+export function crearPublicacion({ chat, usuario, tipo, texto, precio = "", messageId = null }) {
+  const numero = db.prepare(`SELECT COALESCE(MAX(numero), 0) + 1 AS n FROM publicaciones WHERE chat = ?`).get(chat).n;
+  const ahora = Date.now();
+  db.prepare(`INSERT INTO publicaciones (chat, numero, usuario, tipo, texto, precio, messageId, estado, creada, actualizada, aviso) VALUES (?, ?, ?, ?, ?, ?, ?, 'activa', ?, ?, 0)`).run(chat, numero, usuario, tipo, texto, precio, messageId, ahora, ahora);
+  return numero;
+}
+
+export function getPublicacion(chat, numero) {
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND numero = ?`).get(chat, numero) || null;
+}
+
+// vigentes (activas o reservadas), de un tipo o de todos, de la más nueva a la más vieja
+export function publicacionesActivas(chat, tipo = null, limite = 30) {
+  if (tipo) return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND tipo = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, tipo, limite);
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, limite);
+}
+
+export function publicacionesDe(chat, usuario) {
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND usuario = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC`).all(chat, usuario);
+}
+
+export function contarPublicacionesActivas(chat, usuario) {
+  return db.prepare(`SELECT COUNT(*) AS n FROM publicaciones WHERE chat = ? AND usuario = ? AND estado IN ${ESTADOS_VIGENTES}`).get(chat, usuario).n;
+}
+
+export function actualizarPublicacion(chat, numero, data) {
+  const keys = Object.keys(data);
+  if (!keys.length) return;
+  db.prepare(`UPDATE publicaciones SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE chat = ? AND numero = ?`).run(...keys.map((k) => data[k]), chat, numero);
+}
+
+// vigentes que hay que revisar: sin aviso y viejas, o con aviso ya vencido
+export function publicacionesParaRevisar(limiteActualizada, limiteAviso) {
+  return db.prepare(`SELECT * FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} AND ((aviso = 0 AND actualizada < ?) OR (aviso > 0 AND aviso < ?)) ORDER BY chat, numero`).all(limiteActualizada, limiteAviso);
+}
+
+// ===================== Compraventa: alertas =====================
+export function agregarAlerta(chat, usuario, palabra) {
+  return db.prepare(`INSERT OR IGNORE INTO alertas_compraventa (chat, usuario, palabra, creada) VALUES (?, ?, ?, ?)`).run(chat, usuario, palabra, Date.now()).changes > 0;
+}
+
+export function quitarAlerta(chat, usuario, palabra) {
+  return db.prepare(`DELETE FROM alertas_compraventa WHERE chat = ? AND usuario = ? AND palabra = ?`).run(chat, usuario, palabra).changes > 0;
+}
+
+export function alertasDe(chat, usuario) {
+  return db.prepare(`SELECT palabra FROM alertas_compraventa WHERE chat = ? AND usuario = ? ORDER BY creada`).all(chat, usuario).map((r) => r.palabra);
+}
+
+export function alertasDelChat(chat) {
+  return db.prepare(`SELECT usuario, palabra FROM alertas_compraventa WHERE chat = ?`).all(chat);
+}
+
+// ===================== Compraventa: calificaciones =====================
+// Una por persona calificada y mes: si ya había una de este mes, se reemplaza. Devuelve { actualizada }.
+export function guardarCalificacion(chat, de, para, estrellas, comentario, desdeMs, ahora = Date.now()) {
+  const previa = db.prepare(`SELECT id FROM calificaciones WHERE de = ? AND para = ? AND fecha >= ? ORDER BY fecha DESC LIMIT 1`).get(de, para, desdeMs);
+  if (previa) {
+    db.prepare(`UPDATE calificaciones SET chat = ?, estrellas = ?, comentario = ?, fecha = ? WHERE id = ?`).run(chat, estrellas, comentario, ahora, previa.id);
+    return { actualizada: true };
+  }
+  db.prepare(`INSERT INTO calificaciones (chat, de, para, estrellas, comentario, fecha) VALUES (?, ?, ?, ?, ?, ?)`).run(chat, de, para, estrellas, comentario, ahora);
+  return { actualizada: false };
+}
+
+// promedio y cantidad de calificaciones de una persona, contando todos los grupos
+export function reputacionDe(para) {
+  const r = db.prepare(`SELECT AVG(estrellas) AS promedio, COUNT(*) AS cantidad FROM calificaciones WHERE para = ?`).get(para);
+  return { promedio: r.promedio || 0, cantidad: r.cantidad || 0 };
+}
+
+export function ultimasCalificaciones(para, n = 3) {
+  return db.prepare(`SELECT de, estrellas, comentario, fecha FROM calificaciones WHERE para = ? ORDER BY fecha DESC LIMIT ?`).all(para, n);
+}
+
+// ===================== Horario del grupo =====================
+export function chatsConHorarioGrupo() {
+  return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario FROM chats WHERE horarioGrupo != ''`).all();
 }

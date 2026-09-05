@@ -25,7 +25,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   assert.ok(cols("users").includes("memoria") && cols("users").includes("apodo"));
-  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos"].every((c) => cols("chats").includes(c)));
+  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario"].every((c) => cols("chats").includes(c)));
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT recapSemanal FROM chats WHERE remoteJid = ?`).get(G).recapSemanal, 1);
@@ -35,7 +35,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G)?.reason, "spam");
   assert.ok(cols("hashtag_entries").includes("reacciones"));
   const tablas = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all().map((t) => t.name);
-  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
+  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
   globalThis.db = F.loadDatabase(); // idempotente
   fs.rmSync(dir, { recursive: true, force: true });
 });

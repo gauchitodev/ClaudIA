@@ -11,6 +11,7 @@ import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
+import { avisoReglasParaNuevos } from "./lib/reglas.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
@@ -158,6 +159,11 @@ async function startBot() {
       if (!id?.endsWith("@g.us")) return;
       // El que sale del grupo (o lo sacan) pierde el rol del bot que tenía ahí.
       if (action === "remove") limpiarRolesAlSalir(id, participants);
+      // Al que entra se le mandan las reglas del grupo, si un admin las cargó con .reglas set.
+      if (action === "add") {
+        const aviso = avisoReglasParaNuevos(id, participants);
+        if (aviso) await client.sendMessage(id, { text: aviso.texto, mentions: aviso.mentions }).catch((e) => console.error("[reglas] no se pudieron mandar:", e.message));
+      }
       const metadata = await client.groupMetadata(id).catch(() => null);
       if (!metadata) return;
       client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };

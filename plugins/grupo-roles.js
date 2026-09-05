@@ -1,4 +1,5 @@
 import { getUser } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
 import { darRol, quitarRol, textoRoles } from "../lib/roles.js";
 
 let plugin = {};
@@ -16,10 +17,7 @@ plugin.run = async (m, { client, command, args, text, participants, isOwner, isW
   const rol = command.startsWith("admin") ? "admin" : "mod";
   const quitar = /^(quitar|sacar|borrar|remover)$/i.test(args[0]);
 
-  let lid = null;
-  const mencion = (text || "").match(/@[0-9\s]+/g);
-  if (mencion) lid = mencion[0].replace("@", "").replace(/\s+/g, "") + "@lid";
-  else if (m.quoted?.sender) lid = m.quoted.sender;
+  const lid = lidMencionado(m, text);
 
   const enGrupo = lid ? (participants || []).find((p) => client.decodeJid(p.id) === lid) : null;
   const quien = { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin, isAdmin };
