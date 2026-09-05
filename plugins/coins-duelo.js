@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 

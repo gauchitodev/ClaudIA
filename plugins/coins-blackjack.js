@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 

@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["racha"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 // Estado de tu racha diaria (antes salía en .coins).

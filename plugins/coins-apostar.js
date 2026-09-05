@@ -2,6 +2,7 @@ import { apostar, COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["apostar", "apuesta"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args }) => {

@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["ruleta"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 

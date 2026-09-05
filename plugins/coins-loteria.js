@@ -2,6 +2,7 @@ import { comprarBoletos, textoEstadoLoteria } from "../lib/loteria.js";
 
 let plugin = {};
 plugin.cmd = ["loteria", "lotería", "boleto", "boletos"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 

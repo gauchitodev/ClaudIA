@@ -2,6 +2,7 @@ import { textoLaburos, buscarOficio, tomarLaburo, cobrar, renunciar } from "../l
 
 let plugin = {};
 plugin.cmd = ["laburos", "laburo", "trabajo", "trabajos", "cobrar", "renunciar"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, command, args }) => {

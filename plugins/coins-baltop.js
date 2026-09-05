@@ -5,6 +5,7 @@ const TOP_N = 10;
 
 let plugin = {};
 plugin.cmd = ["baltop", "topcoins", "ricos"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 // Los más ricos del grupo (antes salía dentro de .coins). Si no entrás en el top, te dice en qué puesto estás.

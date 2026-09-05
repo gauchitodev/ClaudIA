@@ -76,6 +76,11 @@ ${readMore}
 ▸ ${usedPrefix}18 🔞 – \`Busquedas +18 en comandos.\`
 ▸ ${usedPrefix}juegos 🎮 – \`Uso de juegos.\`
 ▸ ${usedPrefix}horariojuegos 20:00-23:00 🕒 – \`Juegos solo en ese horario (por grupo). Con "off" se saca.\`
+▸ ${usedPrefix}charla 💬 – \`Charla automática de Claudia cuando la nombran.\`
+▸ ${usedPrefix}saludos 👋 – \`Saludo automático cuando alguien dice hola.\`
+▸ ${usedPrefix}monedas 🪙 – \`Economía de UruCoins del grupo.\`
+▸ ${usedPrefix}ascensos 🎖️ – \`Avisos de ascenso de rango.\`
+▸ ${usedPrefix}modo compraventa|amigos ⚙️ – \`Apaga o prende todo eso de una, según el tipo de grupo.\`
 ▸ ${usedPrefix}menciones 👤 – \`Uso de .tagall y .hidetag.\`
 ▸ ${usedPrefix}audios 🔊 – \`El bot manda audios.\`
 ▸ ${usedPrefix}reacciones 💚 – \`El bot reacciona a mensajes.\`

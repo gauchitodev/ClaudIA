@@ -73,7 +73,8 @@ export async function handleMessage(nMsg) {
     // ==========================================
     // 1. LÓGICA DE SALUDOS CON COOLDOWN
     // ==========================================
-    if (m.isGroup && text) {
+    // El saludo se apaga por grupo con .saludos (o .modo compraventa).
+    if (m.isGroup && text && chat.saludos !== 0) {
         const regexSaludo = /^(hola+|buenas+|buen día|buenos días|holis|q onda)/i;
         
         if (regexSaludo.test(text.trim())) {
@@ -187,6 +188,9 @@ export async function handleMessage(nMsg) {
             return m.react("🕒");
           }
         }
+
+        // Economía (plugin.economia): con .monedas apagado (modo compraventa) los comandos de UruCoins no corren.
+        if (plugin.economia && m.isGroup && chat.monedas === 0) return client.sendText(m.chat, txt.disabledEconomy, m);
 
         // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.
         await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });

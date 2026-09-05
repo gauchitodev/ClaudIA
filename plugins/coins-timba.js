@@ -20,6 +20,7 @@ function topTimba(chat, desde = 0, n = 5) {
 
 let plugin = {};
 plugin.cmd = ["timba", "ludopatas", "ludópatas"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args }) => {

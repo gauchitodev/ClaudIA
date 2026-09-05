@@ -7,7 +7,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, charla, saludos, monedas, ascensos } = chat;
   const roles = rolesGrupo(m.chat);
   const admins = roles.filter((r) => r.rol === "admin").map((r) => `@${r.usuario.split("@")[0]}`);
   const mods = roles.filter((r) => r.rol === "mod").map((r) => `@${r.usuario.split("@")[0]}`);
@@ -39,6 +39,10 @@ ${reactions ? "✅" : "❌"} Bot reacciona
 ${preguntaDia ? "✅" : "❌"} Pregunta del día (.preguntadeldia)
 ${triviaRelampago ? "✅" : "❌"} Trivia relámpago (.triviarelampago)
 ${recapSemanal ? "✅" : "❌"} Recap semanal (.recapsemanal)
+${charla ? "✅" : "❌"} Charla automática de Claudia (.charla)
+${saludos ? "✅" : "❌"} Saludo automático (.saludos)
+${monedas ? "✅" : "❌"} Economía de UruCoins (.monedas)
+${ascensos ? "✅" : "❌"} Avisos de ascenso de rango (.ascensos)
 🛡️ Admins del bot: ${admins.join(", ") || "nadie"} (.adminbot)
 🧹 Moderadores: ${mods.join(", ") || "nadie"} (.moderador)`.trim();
 

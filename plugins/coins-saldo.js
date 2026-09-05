@@ -2,6 +2,7 @@ import { getSaldoCoins } from "../database-functions.js";
 
 let plugin = {};
 plugin.cmd = ["coins", "urucoins", "saldo", "bal", "balance"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 // Solo tu saldo. El ranking está en .baltop, el inventario en .inventario y la racha diaria en .racha.

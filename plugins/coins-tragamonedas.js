@@ -3,6 +3,7 @@ import { COINS } from "../lib/urucoins.js";
 
 let plugin = {};
 plugin.cmd = ["tragamonedas", "slot", "slots"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 

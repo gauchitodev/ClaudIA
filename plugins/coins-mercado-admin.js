@@ -2,6 +2,7 @@ import { crearMercadoDesdeTexto, resolver } from "../lib/mercados.js";
 
 let plugin = {};
 plugin.cmd = ["evento", "resolver"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;

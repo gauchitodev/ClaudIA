@@ -4,7 +4,7 @@
 // Cada cierre se marca en la base de datos para no repetirlo después de un reinicio.
 import { obtenerRankingMensual, entradaMasVotada, periodoCerrado, marcarPeriodoCerrado, ganarCoins } from "../database-functions.js";
 import { HASHTAGS_CONFIG, semanaDe, mesDe } from "../lib/hashtags.js";
-import { COINS } from "../lib/urucoins.js";
+import { COINS, monedasActivas } from "../lib/urucoins.js";
 import { sortearLoteria } from "../lib/loteria.js";
 
 const ultimoChequeo = new Map(); // chat -> { mes, semana } ya verificados (evita ir a la base en cada mensaje)
@@ -41,9 +41,10 @@ plugin.before = async function (m, { client }) {
 
       if (ganadores.length > 0) {
         let texto = `🏆 *CERRÓ EL RANKING DE ${nombreMes(mesAnterior).toUpperCase()}*\n\n`;
+        const pagar = monedasActivas(m.chat); // con la economía apagada se anuncia igual, sin premio
         for (const g of ganadores) {
-          ganarCoins(m.chat, g.lid, COINS.GANADOR_MES, "ganador_mes");
-          texto += `${g.titulo}: ${mencion(g.lid)} — ${g.detalle} 🪙 +${COINS.GANADOR_MES}\n`;
+          if (pagar) ganarCoins(m.chat, g.lid, COINS.GANADOR_MES, "ganador_mes");
+          texto += `${g.titulo}: ${mencion(g.lid)} — ${g.detalle}${pagar ? ` 🪙 +${COINS.GANADOR_MES}` : ""}\n`;
         }
         texto += `\nArranca de cero el ranking de ${nombreMes(mesActual)}. A reaccionar 👀`;
         await client.sendMessage(m.chat, { text: texto.trim(), mentions: [...new Set(ganadores.map((g) => g.lid))] });
@@ -60,8 +61,9 @@ plugin.before = async function (m, { client }) {
       for (const [tag, config] of Object.entries(HASHTAGS_CONFIG)) {
         const top = entradaMasVotada(m.chat, tag, semanaAnterior);
         if (!top) continue;
-        ganarCoins(m.chat, top.usuario, COINS.HISTORIA_SEMANA, `top_semana_${tag}`);
-        lineas.push(`${config.emoji} *${config.nombre}*: ${mencion(top.usuario)} con ${top.reacciones} reacciones 🪙 +${COINS.HISTORIA_SEMANA}`);
+        const pagar = monedasActivas(m.chat);
+        if (pagar) ganarCoins(m.chat, top.usuario, COINS.HISTORIA_SEMANA, `top_semana_${tag}`);
+        lineas.push(`${config.emoji} *${config.nombre}*: ${mencion(top.usuario)} con ${top.reacciones} reacciones${pagar ? ` 🪙 +${COINS.HISTORIA_SEMANA}` : ""}`);
         mentions.push(top.usuario);
       }
       if (lineas.length > 0) {

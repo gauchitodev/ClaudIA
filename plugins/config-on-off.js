@@ -1,7 +1,7 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 
 let plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings }) => {
@@ -44,6 +44,11 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     preguntadeldia: { key: "preguntaDia", from: "chat" },
     triviarelampago: { key: "triviaRelampago", from: "chat" },
     recapsemanal: { key: "recapSemanal", from: "chat" },
+    // interruptores del modo compraventa: charla automática de Claudia, saludo automático, economía de UruCoins y avisos de ascenso
+    charla: { key: "charla", from: "chat" },
+    saludos: { key: "saludos", from: "chat" },
+    monedas: { key: "monedas", from: "chat" },
+    ascensos: { key: "ascensos", from: "chat" },
   };
 
   const opcion = optionsMap[command];

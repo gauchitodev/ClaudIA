@@ -2,6 +2,7 @@ import { getUser, transferirCoins, getSaldoCoins } from "../database-functions.j
 
 let plugin = {};
 plugin.cmd = ["regalar", "dar", "transferir"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, text, args }) => {

@@ -2,6 +2,7 @@ import { textoTienda } from "../lib/tienda.js";
 
 let plugin = {};
 plugin.cmd = ["tienda", "shop"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client }) => {

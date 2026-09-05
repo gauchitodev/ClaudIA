@@ -2,6 +2,7 @@ import { buscarItem, comprar } from "../lib/tienda.js";
 
 let plugin = {};
 plugin.cmd = ["comprar", "buy"];
+plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args }) => {

@@ -42,6 +42,9 @@ plugin.before = async function (m, { client, participants, isMod, isBotAdmin, is
     const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
     recordarMensaje(m.chat, nombre, m.text, false);
 
+    // Charla automática apagada en este grupo (.charla / .modo compraventa): Claudia solo responde a comandos.
+    if (chat?.charla === 0) return;
+
     if (!globalThis.geminiApiKey) return;
 
     // si el mensaje es un comando (empieza con prefijo), lo maneja el sistema normal

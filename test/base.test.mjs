@@ -25,7 +25,8 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   assert.ok(cols("users").includes("memoria") && cols("users").includes("apodo"));
-  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos"].every((c) => cols("chats").includes(c)));
+  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos"].every((c) => cols("chats").includes(c)));
+  assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT recapSemanal FROM chats WHERE remoteJid = ?`).get(G).recapSemanal, 1);
   assert.equal(db.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'blacklist'`).get(), undefined);

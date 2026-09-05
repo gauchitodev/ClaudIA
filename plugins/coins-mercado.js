@@ -3,6 +3,7 @@ import { getMercado } from "../database-functions.js";
 
 let plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
+plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
 
