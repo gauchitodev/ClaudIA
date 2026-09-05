@@ -10,8 +10,14 @@ owners = [""]
 # API key de Gemini. Sin esto no hay charla con IA (.ia, .gemini y las respuestas automáticas).
 geminiApiKey = ""
 
-# API key de Groq. Respaldo cuando Gemini se queda sin cuota. Opcional.
+# API key de Groq. Primer respaldo cuando Gemini falla o se queda sin cuota. Opcional.
 groqApiKey = ""
+
+# API key de OpenRouter. Segundo respaldo de IA; usa solo modelos gratis. Opcional.
+openrouterApiKey = ""
+
+# API key de NVIDIA NIM. Tercer respaldo de IA. Opcional.
+nvidiaApiKey = ""
 
 # API key de Tenor (Google). Solo la usa .emojimix. Opcional.
 tenorApiKey = ""
@@ -19,7 +25,7 @@ tenorApiKey = ""
 # API key de OpenWeather. Solo la usa .clima. Opcional.
 openWeatherApiKey = ""
 
-# API key de Cerebras. Primer respaldo de IA cuando Gemini falla (después va Groq). Opcional.
+# API key de Cerebras. Último respaldo de IA; sin saldo cargado no responde. Opcional.
 cerebrasApiKey = ""
 
 # Link de invitación al Discord del grupo. Lo muestran .discord y .links. Opcional.
