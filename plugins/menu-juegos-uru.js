@@ -24,7 +24,7 @@ Reaccioná a los mensajes que te gusten — suma para quien lo escribió y para 
 
 🪙 *UruCoins*
 Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las de arriba (+5), ganando trivia/acertijo/ahorcado/banderas/ordenar (+10), la entrada más votada de la semana (+25) y los ganadores del mes (+50).
-▸ .coins — tu saldo y los más ricos
+▸ .bal — tu saldo · .baltop — los más ricos del grupo · .inventario — tus ítems
 ▸ .apostar 20 — durante un juego activo: si ganás, cobrás el doble
 ▸ .regalar @alguien 20 — transferí coins
 ▸ .playya / .videoya — música sin esperar el cooldown (15 coins)
@@ -53,7 +53,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .resolver 7 Nacional — un admin que no apostó carga el resultado (o "anulado" para devolver todo)
 
 🔥 *Actividad*
-▸ Racha diaria: escribí 3 mensajes (de dos palabras o más) en el día y ganás monedas; el premio sube con los días seguidos. Se ve en .coins
+▸ Racha diaria: escribí 3 mensajes (de dos palabras o más) en el día y ganás monedas; el premio sube con los días seguidos. Se ve en .racha
 ▸ Pregunta del día: a partir del mediodía, respondé al mensaje de Claudia y sumás monedas (un admin la activa con .preguntadeldia)
 ▸ Trivia relámpago: un par de veces por día, en horario sorpresa; el primero que acierta cobra (se activa con .triviarelampago)
 ▸ .recap — resumen de la semana en curso; el domingo de noche sale solo (se apaga con .recapsemanal)

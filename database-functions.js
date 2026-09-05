@@ -650,6 +650,13 @@ export function topCoins(chat, n = 5) {
   return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
 }
 
+// puesto de una persona en el ranking de saldos del grupo (1 = la más rica; empatados comparten puesto); null si no tiene coins
+export function puestoCoins(chat, usuario) {
+  const saldo = getSaldoCoins(chat, usuario);
+  if (saldo <= 0) return null;
+  return db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM urucoins WHERE chat = ? AND saldo > ?`).get(chat, saldo).puesto;
+}
+
 // cuántas entradas mandó una persona de un hashtag en una semana (para el tope de premios)
 export function contarEntradasUsuarioSemana(chat, hashtag, usuario, semana) {
   const row = db.prepare(`SELECT COUNT(*) AS total FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND usuario = ? AND semana = ?`).get(chat, hashtag, usuario, semana);
