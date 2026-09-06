@@ -194,6 +194,7 @@ ${readMore}
 ▸ ${usedPrefix}reverse
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 ✨ *𝙴𝚇𝚃𝚁𝙰𝚂*
+▸ ${usedPrefix}orsi 🎙️ – \`Una respuesta al estilo Orsi.\`
 ▸ ${usedPrefix}say 🗣️ <texto>
 ▸ ${usedPrefix}sortear 🏆 <texto>
 ▸ ${usedPrefix}clima 🌦️ <pais y/o ciudad>
