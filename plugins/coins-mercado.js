@@ -1,7 +1,7 @@
 import { jugar, textoListaMercados, textoMercado } from "../lib/mercados.js";
 import { getMercado } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
 plugin.economia = true;
 plugin.juego = true;

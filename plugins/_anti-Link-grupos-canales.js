@@ -3,8 +3,8 @@
 const groupLinkRegex = /chat\.whatsapp\.com\/[A-Za-z0-9]{6,}/i;
 const channelLinkRegex = /whatsapp\.com\/channel\/[A-Za-z0-9]{6,}/i;
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) => {
   if (isMod || isOwner) return;
   if (!m.isGroup || !m.text) return;
   const groupAdmins = participants.filter((p) => p.admin);

@@ -1,6 +1,6 @@
 import { preguntarGemini } from "../lib/gemini.js";
 
-let plugin = {};
+const plugin = {};
 const botLid = client.user.lid.split("@")[0];
 plugin.cmd = [botLid, "gemini", "ia", "bot"];
 plugin.botAdmin = true;

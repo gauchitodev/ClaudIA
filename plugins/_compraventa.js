@@ -1,8 +1,8 @@
 import { detectarPublicacion, publicar } from "../lib/compraventa.js";
 
 // #vendo / #compro (y #busco, #venta, #necesito) en un mensaje de grupo registran la publicación con un número.
-let plugin = (m) => m;
-plugin.before = async function (m, { client }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client }) => {
   try {
     if (!m.isGroup || !m.text || m.fromMe || m.isBaileys) return;
     if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;

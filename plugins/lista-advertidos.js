@@ -1,6 +1,6 @@
 import { getAllUsers } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["listaadv", "listaadvertidos", "advertidos"];
 plugin.onlyOwner = true;
 
@@ -12,14 +12,13 @@ plugin.run = async (m, { client, isOwner }) => {
 
 │ *Total : ${users.length} Usuarios* ${
     users.length
-      ? "\n" +
-        users
+      ? `\n${users
           .map((u) =>
             `
-│ ${isOwner ? "@" + u.lid.split("@")[0] : u.lid} *(${u.warn}/3)*
+│ ${isOwner ? `@${u.lid.split("@")[0]}` : u.lid} *(${u.warn}/3)*
 │ - - - - - - - - -`.trim()
           )
-          .join("\n")
+          .join("\n")}`
       : ""
   }`;
 

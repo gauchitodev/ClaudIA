@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["links", "discord"];
 
 plugin.run = async (m, { client, command, isBotAdmin }) => {

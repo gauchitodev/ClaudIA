@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { calificar, textoReputacion, textoCalificaciones, borrarCalificacion, editarCalificacion } from "../lib/reputacion.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["calificar", "reputacion", "reputación", "calificaciones"];
 plugin.onlyGroup = true;
 

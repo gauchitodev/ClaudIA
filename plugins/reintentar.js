@@ -1,6 +1,6 @@
 import { programarReintento } from "../lib/pendientes.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["reintentar", "retry"];
 plugin.onlyGroup = true;
 

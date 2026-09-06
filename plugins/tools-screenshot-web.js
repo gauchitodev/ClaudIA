@@ -1,5 +1,5 @@
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ss"];
 plugin.botAdmin = true;
 

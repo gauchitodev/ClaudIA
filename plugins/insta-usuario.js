@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ig"];
 plugin.botAdmin = true;
 

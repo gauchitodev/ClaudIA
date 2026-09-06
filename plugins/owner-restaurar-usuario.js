@@ -1,6 +1,6 @@
 import { getUser, deleteUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["rd", "resetuser", "userreset", "restaurarusuario"];
 plugin.onlyOwner = true;
 
@@ -9,9 +9,9 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const numberMatches = text.match(/@[0-9\s]+/g);
   const numberMatchesPlus = text.match(/\+[0-9\s]+/g);
   if (numberMatchesPlus && numberMatchesPlus.length > 0) {
-    who = numberMatchesPlus[0].replace(/[+\s]/g, "") + "@s.whatsapp.net";
+    who = `${numberMatchesPlus[0].replace(/[+\s]/g, "")}@s.whatsapp.net`;
   } else if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else if (m.quoted) {
     who = m.quoted.sender;
   }
@@ -24,7 +24,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   // no afectar a owners del bot
-  const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
+  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
     if (who === ownerData?.lid && m.sender !== who) return m.react("❌");

@@ -13,9 +13,9 @@ const ultimoChequeo = new Map(); // chat -> { mes, semana } ya verificados (evit
 // si no el cierre del mes se dispara unas horas antes o después de que cambie la clave.
 const mencion = (lid) => `@${lid.split("@")[0]}`;
 
-let plugin = (m) => m;
+const plugin = (m) => m;
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   try {
     if (!m.isGroup) return;
 

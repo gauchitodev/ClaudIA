@@ -3,7 +3,7 @@ import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUs
 // Lista negra de personas, por grupo: quien está en la de un grupo no puede entrar ahí (se rechaza su solicitud y, si
 // entra igual, se la expulsa). La manejan los admins de cada grupo; a los admins y a los dueños del bot no se los puede
 // meter. El owner, desde el privado, maneja además una lista de todos los grupos ("*"), que vale en cualquiera.
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ln", "ln2", "vln", "listanegra"];
 plugin.onlyAdmin = true;
 
@@ -17,7 +17,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
 
     if (entries.length === 0) return client.sendText(m.chat, "No hay usuarios en lista negra.", m);
 
-    let msg = entries
+    const msg = entries
       .map((entry, i) => {
         const num = `+${entry.jid.split("@")[0]}`;
 
@@ -54,7 +54,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   let whoLid = null;
   const phoneMatches = text.match(/\+\d[\d\s-]*/g);
   if (phoneMatches && phoneMatches.length > 0) {
-    who = phoneMatches[0].replace(/[^\d]/g, "") + "@s.whatsapp.net";
+    who = `${phoneMatches[0].replace(/[^\d]/g, "")}@s.whatsapp.net`;
     reason = text.replace(phoneMatches[0], "").trim();
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;

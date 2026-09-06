@@ -1,7 +1,7 @@
 import { setTimeout as esperar } from "node:timers/promises";
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ruletadelban", "ruletaban", "banruleta"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

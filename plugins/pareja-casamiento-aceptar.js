@@ -1,6 +1,7 @@
 import { getUser, updateUser } from "../database-functions.js";
+import { setTimeout as esperar } from "node:timers/promises";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["si"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -22,7 +23,7 @@ plugin.run = async (m, { client, user }) => {
   if (parejaData.couple !== m.senderJid) return;
 
   const matrimPasan = parejaData?.married;
-  const currentTime = new Date() - pTime;
+  const currentTime = Date.now() - pTime;
 
   if (m.senderJid === matrimPasan && matrim === pareja) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
   if (currentTime < 604800000) return client.sendText(m.chat, txt.parejaCasamientoNoTime, m);
@@ -32,14 +33,12 @@ plugin.run = async (m, { client, user }) => {
     updateUser(parejaLid, { marriedTime: Date.now() });
 
     const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(m.sender, parejaLid), m);
-    await delay(700);
+    await esperar(700);
     for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
       await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });
-      await delay(700);
+      await esperar(700);
     }
   } else return;
 };
 
 export default plugin;
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

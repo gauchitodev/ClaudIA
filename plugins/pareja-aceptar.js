@@ -1,15 +1,15 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["aceptar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
-  let who, whoJid, whoLid;
+  let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else if (m.quoted) {
     who = m.quoted.sender;
   }
@@ -18,8 +18,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
     who = getUser(who);
   }
 
-  whoLid = who?.lid;
-  whoJid = who?.jid;
+  const whoLid = who?.lid;
+  const whoJid = who?.jid;
 
   if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
 

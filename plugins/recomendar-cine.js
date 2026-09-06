@@ -1,6 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["serie", "pelicula", "película"];
 plugin.botAdmin = true;
 

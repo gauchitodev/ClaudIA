@@ -1,9 +1,9 @@
-let plugin = (m) => m;
-plugin.before = async function (m, { client, isMod, isOwner, isBotAdmin, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, isMod, isOwner, isBotAdmin, chat }) => {
   if (!chat.antiStatus) return;
   if (!isBotAdmin) return;
   if (m?.message?.groupStatusMentionMessage?.message?.protocolMessage && !isMod && !isOwner) {
-    await client.sendText(m.chat, "No mencionar al grupo en tus estados!!", m, { mentions: [m.sender, globalThis.owners[0] + "@s.whatsapp.net"] });
+    await client.sendText(m.chat, "No mencionar al grupo en tus estados!!", m, { mentions: [m.sender, `${globalThis.owners[0]}@s.whatsapp.net`] });
     setTimeout(async () => {
       try {
         await client.groupParticipantsUpdate(m.chat, [m.sender], "remove");

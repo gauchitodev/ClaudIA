@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["hidetag2", "ht2"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

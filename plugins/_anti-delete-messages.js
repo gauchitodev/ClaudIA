@@ -1,11 +1,11 @@
-let { downloadContentFromMessage } = await import(baileys);
+const { downloadContentFromMessage } = await import(baileys);
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, chat }) => {
   if (!chat.antiDelete) return;
   try {
     if (m.message?.protocolMessage?.type === 0) {
-      let msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id));
+      const msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id));
       if (!msg) return;
       if (msg.key.fromMe || msg.key.participant === client.user.lid) return;
       if (msg.message.reactionMessage) return;
@@ -13,10 +13,10 @@ plugin.before = async function (m, { client, chat }) {
       const participant = msg.key?.participant || msg.key?.remoteJid;
       const { imageMessage, videoMessage, stickerMessage, audioMessage, extendedTextMessage, conversation } = msg.message;
 
-      let isOnce = msg.mtype === "viewOnceMessageV2" || msg.mtype === "viewOnceMessageV2Extension";
+      const isOnce = msg.mtype === "viewOnceMessageV2" || msg.mtype === "viewOnceMessageV2Extension";
       if (isOnce) {
         let media;
-        let msgg = msg.mtype === "viewOnceMessageV2" ? msg.message.viewOnceMessageV2.message : msg.message.viewOnceMessageV2Extension.message;
+        const msgg = msg.mtype === "viewOnceMessageV2" ? msg.message.viewOnceMessageV2.message : msg.message.viewOnceMessageV2Extension.message;
         const type = Object.keys(msgg)[0];
         if (msg.mtype === "viewOnceMessageV2") {
           media = await downloadContentFromMessage(msgg[type], type === "imageMessage" ? "image" : type === "videoMessage" ? "video" : "audio");
@@ -54,7 +54,7 @@ ${msgg[type].caption ? `- *Caption:* ${msgg[type].caption}` : "- *Caption:* _sin
 *┃ Nombre:* @${participant.split("@")[0]}
 ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
 ${imageMessage.caption ? `- *Texto:* ${imageMessage.caption}` : "- *Texto:* _sin_texto_"}`;
-        await client.sendMessage(m.chat, { image: buffer, caption: caption, mentions: client.parseMention(caption) }, { quoted: msg });
+        await client.sendMessage(m.chat, { image: buffer, caption, mentions: client.parseMention(caption) }, { quoted: msg });
         return;
       } else if (videoMessage) {
         const media = await downloadContentFromMessage(videoMessage, "video");
@@ -66,7 +66,7 @@ ${imageMessage.caption ? `- *Texto:* ${imageMessage.caption}` : "- *Texto:* _sin
 *┃ Nombre:* @${participant.split("@")[0]}
 ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
 ${videoMessage.caption ? `- *Texto:* ${videoMessage.caption}` : "- *Texto:* _sin_texto_"}`;
-        await client.sendMessage(m.chat, { video: buffer, caption: caption, mentions: client.parseMention(caption) }, { quoted: msg });
+        await client.sendMessage(m.chat, { video: buffer, caption, mentions: client.parseMention(caption) }, { quoted: msg });
         return;
       } else if (stickerMessage) {
         if (!msg.message.stickerMessage?.height) {

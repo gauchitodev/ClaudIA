@@ -1,6 +1,6 @@
 import translate from "@vitalets/google-translate-api";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["traducir", "translate"];
 plugin.botAdmin = true;
 

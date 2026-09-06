@@ -20,7 +20,7 @@ const cookiesPath = path.resolve("cookies.txt");
 const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
 const cookiesFlagStr = existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : "";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
 plugin.botAdmin = true;
 
@@ -33,13 +33,13 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   if (!text) return client.sendText(m.chat, txt.ingresarTitulo, m);
 
   const waitTime = m.isGroup ? 60000 : 210000;
-  let time = user.lastmining + waitTime;
-  let remainingTime = Math.ceil((time - new Date()) / 1000);
+  const time = user.lastmining + waitTime;
+  const remainingTime = Math.ceil((time - new Date()) / 1000);
   const minutes = Math.floor(remainingTime / 60);
   const seconds = remainingTime % 60;
   const formattedTime = minutes > 0 ? `${minutes} min ${seconds} segundos` : `${seconds} segundos`;
 
-  if (new Date() - user.lastmining < waitTime && !isOwner) {
+  if (Date.now() - user.lastmining < waitTime && !isOwner) {
     if (saltarCooldown) {
       if (!gastarCoins(m.chat, m.sender, COINS.SALTAR_COOLDOWN, "saltar_cooldown")) {
         return client.sendText(m.chat, `Saltar la espera cuesta *${COINS.SALTAR_COOLDOWN} UruCoins* y tenés ${getSaldoCoins(m.chat, m.sender)}. Esperá ${formattedTime} o juntá más.`, m);
@@ -52,7 +52,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
         updateUser(m.sender, { banned: true });
         return client.sendText(m.chat, txt.banSpam, m);
       }
-      return client.sendText(m.chat, txt.advSpam(formattedTime, newAttempts) + `\n\n🪙 O saltá la espera por ${COINS.SALTAR_COOLDOWN} UruCoins con .${cmdBase}ya`, m);
+      return client.sendText(m.chat, `${txt.advSpam(formattedTime, newAttempts)}\n\n🪙 O saltá la espera por ${COINS.SALTAR_COOLDOWN} UruCoins con .${cmdBase}ya`, m);
     }
   }
 
@@ -200,7 +200,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
 
 async function buscarYoutube(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["ytsearch3:" + query, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
+    const { stdout } = await execFileAsync(ytDlpPath, [`ytsearch3:${query}`, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "youtube");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en YouTube falló: ${error.message}`);
@@ -210,7 +210,7 @@ async function buscarYoutube(query) {
 
 async function buscarSoundcloud(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, ["scsearch5:" + query, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
+    const { stdout } = await execFileAsync(ytDlpPath, [`scsearch5:${query}`, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings"], { timeout: 60 * 1000 });
     return parsearResultados(stdout, "soundcloud");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en SoundCloud falló: ${error.message}`);

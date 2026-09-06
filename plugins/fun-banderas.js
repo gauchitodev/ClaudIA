@@ -1,6 +1,6 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
 plugin.juego = true;
 plugin.botAdmin = true;
@@ -206,7 +206,7 @@ const normalizar = (texto) =>
     .toLowerCase()
     .trim();
 
-let banderas = {};
+const banderas = {};
 
 plugin.run = async (m, { client, chat }) => {
   if (banderas[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
@@ -221,7 +221,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (banderas[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*` + resumen, m).catch(console.error);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*${resumen}`, m).catch(console.error);
         delete banderas[m.chat];
       }
     }, 30000), // 30 segundos
@@ -229,7 +229,7 @@ plugin.run = async (m, { client, chat }) => {
   juegoIniciado(m.chat, "banderas");
 };
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   if (!banderas[m.chat]) return;
   const juego = banderas[m.chat];
 

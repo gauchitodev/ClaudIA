@@ -6,7 +6,7 @@ import fs from "fs";
 
 const execFileAsync = promisify(execFile);
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ttp2", "attp2"];
 plugin.botAdmin = true;
 

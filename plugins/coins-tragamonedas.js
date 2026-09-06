@@ -1,7 +1,7 @@
 import { jugarTragamonedas, textoPagosTragamonedas } from "../lib/casino.js";
 import { COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tragamonedas", "slot", "slots"];
 plugin.economia = true;
 plugin.juego = true;

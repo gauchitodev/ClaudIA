@@ -1,7 +1,7 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, isOwner, isMod, user, chat }) => {
   if (!m.isGroup) return;
 
   if (m.mtype === "liveLocationMessage" && !isMod && !isOwner) {

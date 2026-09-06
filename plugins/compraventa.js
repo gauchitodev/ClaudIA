@@ -1,6 +1,6 @@
 import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarEstado, gestionarAlerta } from "../lib/compraventa.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["vendo", "compro", "busco", "publicaciones", "catalogo", "catálogo", "buscar", "publicacion", "publicación", "vendido", "conseguido", "baja", "reservado", "sigue", "mias", "mispublicaciones", "avisame", "avisame", "alertas"];
 plugin.onlyGroup = true;
 

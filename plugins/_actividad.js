@@ -3,8 +3,8 @@ import { responderPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { responderRelampago } from "../lib/trivia-relampago.js";
 
 // Corre en cada mensaje de grupo: racha diaria, respuestas a la pregunta del día y a la trivia relámpago.
-let plugin = (m) => m;
-plugin.before = async function (m, { client }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client }) => {
   try {
     if (!m.isGroup || !m.message || m.fromMe || m.isBaileys || !m.text) return;
     if (globalThis.prefix.some((p) => m.text.startsWith(p))) return; // los comandos no cuentan como charla

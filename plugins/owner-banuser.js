@@ -1,6 +1,6 @@
 import { updateUser, esOwner } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["banuser", "unbanuser"];
 plugin.onlyOwner = true;
 
@@ -8,7 +8,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
   }

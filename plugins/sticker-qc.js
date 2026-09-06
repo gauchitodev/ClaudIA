@@ -2,7 +2,7 @@ import { sticker } from "../lib/sticker.js";
 import axios from "axios";
 import { getUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["qc"];
 plugin.botAdmin = true;
 

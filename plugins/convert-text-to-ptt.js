@@ -1,6 +1,6 @@
 import { sintetizar } from "../lib/tts.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tts"];
 plugin.botAdmin = true;
 

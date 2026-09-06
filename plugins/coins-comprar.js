@@ -1,6 +1,6 @@
 import { buscarItem, comprar } from "../lib/tienda.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["comprar", "buy"];
 plugin.economia = true;
 plugin.onlyGroup = true;

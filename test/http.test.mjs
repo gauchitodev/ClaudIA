@@ -9,7 +9,7 @@ before(async () => {
     let cuerpo = "";
     req.on("data", (d) => (cuerpo += d));
     req.on("end", () => {
-      if (req.url === "/texto") return res.writeHead(200, { "content-type": "text/plain" }).end("hola " + (req.headers["x-prueba"] || ""));
+      if (req.url === "/texto") return res.writeHead(200, { "content-type": "text/plain" }).end(`hola ${req.headers["x-prueba"] || ""}`);
       if (req.url === "/json") return res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, metodo: req.method, cuerpo }));
       if (req.url === "/redir") return res.writeHead(302, { location: "/texto" }).end();
       if (req.url === "/bucle") return res.writeHead(302, { location: "/bucle" }).end();

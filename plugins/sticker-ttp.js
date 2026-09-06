@@ -1,7 +1,7 @@
 import { stickerDeTexto } from "../lib/canvas.js";
 import { sticker } from "../lib/sticker.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ttp"];
 plugin.botAdmin = true;
 

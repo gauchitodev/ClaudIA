@@ -1,6 +1,6 @@
 import { getAllUsers } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["conteo"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -9,7 +9,7 @@ plugin.onlyMod = true;
 plugin.run = async (m, { client }) => {
   const allUsers = getAllUsers();
 
-  let ranking = [];
+  const ranking = [];
 
   for (const user of allUsers) {
     const groupData = user.inGroup[m.chat];

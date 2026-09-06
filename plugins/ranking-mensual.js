@@ -1,7 +1,7 @@
 import { obtenerRankingMensual } from "../database-functions.js";
 import { mesDe } from "../lib/hashtags.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ranking", "rankingmensual"];
 plugin.onlyGroup = true;
 

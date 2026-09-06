@@ -123,7 +123,7 @@ export async function handleMessage(nMsg) {
 
     // usuario baneado del bot
     if (user.banned) {
-      if (new Date() - user.lastmining < 3600000) return;
+      if (Date.now() - user.lastmining < 3600000) return;
       this.sendMessage(m.chat, { text: "🚫ESTÁS BANEADO(A)🚫", mentions: [m.sender] }, { quoted: m });
       updateUser(m.sender, { lastmining: Date.now() });
       return;

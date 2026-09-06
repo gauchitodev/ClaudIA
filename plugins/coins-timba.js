@@ -18,7 +18,7 @@ function topTimba(chat, desde = 0, n = 5) {
   return apostado.map((r) => ({ ...r, neto: cobrado.get(chat, r.usuario, desde, ...MOTIVOS_COBRO).total - r.apostado }));
 }
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["timba", "ludopatas", "ludópatas"];
 plugin.economia = true;
 plugin.onlyGroup = true;

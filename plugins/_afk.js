@@ -1,7 +1,7 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, user }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, user }) => {
   const who = m.mentionedJid?.[0] || m.quoted?.sender || m.sender;
   const inGroup = user.inGroup[m.chat];
   if (user.banned) return;

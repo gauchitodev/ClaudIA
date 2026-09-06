@@ -1,6 +1,6 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
 plugin.botAdmin = true;
@@ -8,27 +8,27 @@ plugin.botAdmin = true;
 // Lista de palabras para el ahorcado
 const palabras = ["solido", "camino", "flores", "arboles", "ciudad", "puente", "montaña", "valle", "playas", "nubes", "viento", "lluvia", "trueno", "rayos", "nieve", "bosque", "selva", "desierto", "oasis", "lunas", "estrellas", "planeta", "galaxia", "cometa", "orbita", "satelite", "cohete", "avion", "barco", "trenes", "carros", "motos", "bicicleta", "camion", "ruedas", "motor", "frenos", "luces", "ventana", "puerta", "techo", "piso", "muros", "ladrillo", "cemento", "arena", "piedra", "madera", "vidrio", "metal", "plata", "oro", "bronce", "hierro", "acero", "cobre", "alambre", "clavos", "tornillo", "martillo", "sierra", "taladro", "pintura", "brocha", "lienzo", "cuadro", "pincel", "colores", "tinta", "papel", "libro", "hojas", "pluma", "lapiz", "borrador", "cuaderno", "escuela", "maestro", "alumnos", "clase", "leccion", "tarea", "examen", "nota", "grado", "titulo", "fiesta", "musica", "baile", "canto", "guitarra", "piano", "tambor", "flauta", "sonido", "ritmo", "melodia", "armonia", "silencio", "fuente", "laguna", "cascada", "cerros", "prados", "campos", "granja", "animal", "perros", "gatos", "peces", "tigre", "leones", "osos", "lobos", "zorros", "ciervo", "caballo", "burro", "vacas", "ovejas", "gallina", "patos", "cerdo", "conejo", "hormiga", "abeja", "mosca", "grillo", "saltamontes", "mariposa", "escarabajo", "araña", "serpiente", "lagarto", "rana", "sapo", "tortuga", "cocodrilo", "ballena", "pulpo", "medusa", "coral", "ostra", "cangrejo", "islas", "costas", "olas", "mareas", "arena", "roca", "faro", "puerto", "nave", "velero", "remo", "ancla", "buzos", "tesoro", "mapas", "reloj", "hora", "minuto", "semana", "meses", "año", "siglo", "pasado", "futuro", "ayer", "hoy", "mañana", "noche", "dawn", "tarde", "sol", "calor", "hielo", "fuego", "ceniza", "humo", "sombra", "luz", "rayo", "tormenta", "niebla", "charco", "pozo", "riego", "cosecha"];
 
-let ahorcado = {};
+const ahorcado = {};
 
 plugin.run = async (m, { client, chat }) => {
   if (ahorcado[m.sender]) return client.sendText(m.chat, txt.gameAlready, m);
 
   const palabra = elegirAlAzar(palabras);
-  let oculta = palabra.replace(/./g, "_ ");
-  let intentos = 8;
+  const oculta = palabra.replace(/./g, "_ ");
+  const intentos = 8;
 
   client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m);
 
   ahorcado[m.sender] = {
     chat: m.chat,
-    palabra: palabra,
+    palabra,
     oculta: oculta.split(" "),
-    intentos: intentos,
+    intentos,
     letrasProbadas: [],
     timeout: setTimeout(() => {
       if (ahorcado[m.sender]) {
         const resumen = juegoTerminado(m.chat, null, m.sender);
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*` + resumen, m).catch(console.error);
+        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*${resumen}`, m).catch(console.error);
         delete ahorcado[m.sender];
       }
     }, 180000), // 3 minutos para completar la palabra
@@ -36,15 +36,15 @@ plugin.run = async (m, { client, chat }) => {
   juegoIniciado(m.chat, "ahorcado", m.sender);
 };
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   if (!ahorcado[m.sender]) return;
-  let juego = ahorcado[m.sender];
+  const juego = ahorcado[m.sender];
   // La partida vive en un chat: lo que el jugador escriba en otros grupos o en privado no cuenta.
   if (m.chat !== juego.chat) return;
   // dejar pasar comandos (.apostar, .play, etc.) y mensajes sin texto
   if (!m.text || globalThis.prefix.some((p) => m.text.startsWith(p))) return;
 
-  let letra = m.text.toLowerCase().trim();
+  const letra = m.text.toLowerCase().trim();
   // Mensajes largos (charla normal) se ignoran; solo se avisa si mandó un único carácter que no es letra.
   if (letra.length !== 1) return;
   if (!/^[a-záéíóúüñ]$/.test(letra)) return client.sendText(m.chat, txt.ahorcadoLetra, m);
@@ -64,7 +64,7 @@ plugin.before = async function (m, { client }) {
 
   if (juego.intentos <= 0) {
     const resumen = juegoTerminado(m.chat, null, m.sender);
-    client.sendText(m.chat, `*[💀] ¡PERDISTE!*\n\nLa palabra era: *${juego.palabra}*` + resumen, m);
+    client.sendText(m.chat, `*[💀] ¡PERDISTE!*\n\nLa palabra era: *${juego.palabra}*${resumen}`, m);
     clearTimeout(juego.timeout);
     delete ahorcado[m.sender];
     return;

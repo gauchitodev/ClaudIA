@@ -1,7 +1,7 @@
 import { getUser } from "../database-functions.js";
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["kiss", "beso", "besar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -10,7 +10,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else if (m.quoted) {
     who = m.quoted.sender;
   }
@@ -29,7 +29,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
 
   if (whoCouple && m.senderJid !== whoCouple) return client.sendText(m.chat, txt.besarTienePareja(who), m);
   const teks = elegirAlAzar(["¡Muah! 💋 Beso virtual enviado con cariño.", "¡Besoo enviado! 💋", "¡Hermoso beso virtual para ti! 💋"]);
-  let tekss = `
+  const tekss = `
 ${teks}
 
 *💌Lo recibe:* @${who.split("@")[0]}

@@ -1,6 +1,6 @@
 import { textoReglas, textoPlantilla, fijarReglas, fijarPlantilla } from "../lib/reglas.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["reglas", "plantilla"];
 plugin.onlyGroup = true;
 

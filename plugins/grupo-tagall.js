@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tagall", "todos"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -10,13 +10,13 @@ plugin.run = async (m, { client, isOwner, text, participants, chat }) => {
   const more = String.fromCharCode(8206);
   const readMore = more.repeat(4001);
 
-  let htextos = `${text ? text : "_no_establecido_"}`;
-  let oi = `*MENSAJE:* ${htextos}`;
+  const htextos = `${text ? text : "_no_establecido_"}`;
+  const oi = `*MENSAJE:* ${htextos}`;
   let teks = `*[ 🗣️ 🇭 🇴 🇱 🇦❕]*\n\n${oi}\n\n${readMore}`;
 
   const excludeJids = ["1234567890@lid"];
 
-  for (let mem of participants) {
+  for (const mem of participants) {
     if (!excludeJids.includes(mem.id)) {
       teks += `@${mem.id.split("@")[0]} `;
     }

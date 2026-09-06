@@ -1,7 +1,7 @@
 import fs from "fs";
 import { hacerBackup, enviarBackupAlOwner, tamano } from "../lib/backup.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["backup"];
 plugin.onlyOwner = true;
 

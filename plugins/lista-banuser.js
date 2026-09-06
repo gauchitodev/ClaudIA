@@ -1,6 +1,6 @@
 import { getAllUsers } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["listabanuser", "listabaneados"];
 plugin.botAdmin = true;
 plugin.onlyOwner = true;
@@ -13,14 +13,13 @@ plugin.run = async (m, { client, isOwner }) => {
 
 │ *Total : ${users.length} Usuarios* ${
     users.length
-      ? "\n" +
-        users
+      ? `\n${users
           .map((u) =>
             `
-│ ${isOwner ? "@" + u.lid.split("@")[0] : u.lid}
+│ ${isOwner ? `@${u.lid.split("@")[0]}` : u.lid}
 │ - - - - - - - - -`.trim()
           )
-          .join("\n")
+          .join("\n")}`
       : ""
   }
 *Estos usuarios no pueden usar el bot*`.trim();

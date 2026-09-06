@@ -1,4 +1,6 @@
-let plugin = {};
+import { setTimeout as esperar } from "node:timers/promises";
+
+const plugin = {};
 plugin.cmd = ["ap", "aprobar", "pendientes"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -27,7 +29,7 @@ plugin.run = async (m, { client, command }) => {
       }
       const jids = participants.map((p) => p.jid);
       await client.groupRequestParticipantsUpdate(groupId, jids, "approve");
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await esperar(2000);
       m.react("✅");
     }
   } catch (error) {

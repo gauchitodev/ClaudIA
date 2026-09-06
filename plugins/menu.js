@@ -1,6 +1,6 @@
 import { getTotalUsers, getChat, getChatBlacklist } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["menu", "menú", "help", "comandos", "ayuda"];
 
 plugin.run = async (m, { client, usedPrefix }) => {
@@ -237,7 +237,7 @@ Ver mas información con el siguiente comando:
           const match = linea.match(new RegExp(`^▸\\s*${prefijoEscapado}([\\wáéíóúñ@]+)`, "i"));
           if (match) {
             const cmd = match[1].toLowerCase();
-            if (bloqueados.has(cmd)) return linea + " 🔒";
+            if (bloqueados.has(cmd)) return `${linea} 🔒`;
           }
           return linea;
         })

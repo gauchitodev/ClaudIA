@@ -1,6 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["sortear", "sortear1", "sortear2", "sortear3", "sortear4", "sortear5", "sortear6", "sortear7", "sortear8", "sortear9", "sortear10"];
 plugin.juego = true;
 plugin.onlyGroup = true;
@@ -9,12 +9,12 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   if (!text) return client.sendText(m.chat, txt.sortearText, m);
 
-  const user = (a) => "@" + a.split("@")[0];
+  const user = (a) => `@${a.split("@")[0]}`;
   const ps = groupMetadata.participants.map((v) => v.id);
   const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, () => elegirAlAzar(ps));
 
   if (command === "sortear") {
-    let top = `*🏆 GANADOR ​🏆​*
+    const top = `*🏆 GANADOR ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -23,7 +23,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear1") {
-    let top = `*🏆 GANADOR ​🏆​*
+    const top = `*🏆 GANADOR ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -32,7 +32,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear2") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -42,7 +42,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear3") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -53,7 +53,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear4") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -65,7 +65,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear5") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -78,7 +78,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear6") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -92,7 +92,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear7") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -107,7 +107,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear8") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -123,7 +123,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear9") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     
@@ -140,7 +140,7 @@ plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   }
 
   if (command === "sortear10") {
-    let top = `*🏆 GANADORES ​🏆​*
+    const top = `*🏆 GANADORES ​🏆​*
 
 *🥳PREMIO:* ${text}
     

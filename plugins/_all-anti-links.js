@@ -16,9 +16,9 @@ function detectarLink(palabra) {
   return info.isIcann && info.domainWithoutSuffix ? info.domainWithoutSuffix : null;
 }
 
-let plugin = (m) => m;
+const plugin = (m) => m;
 
-plugin.before = async function (m, { client, isMod, isBotAdmin, isOwner, participants, chat }) {
+plugin.before = async (m, { client, isMod, isBotAdmin, isOwner, participants, chat }) => {
   if (!m.isGroup || !isBotAdmin || isMod || isOwner) return;
   if (!chat.allAntiLinks || !m.text) return;
   const groupAdmins = participants.filter((p) => p.admin);

@@ -1,6 +1,6 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["silenciar", "mute", "desilenciar", "unmute", "silencio", "hacesilencio"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -11,7 +11,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const numberRegex = /@[0-9]+/g;
   const numberMatches = text.match(numberRegex);
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "") + "@lid";
+    who = `${numberMatches[0].replace("@", "")}@lid`;
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
   }
@@ -19,7 +19,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   if (who === client.user.lid) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   // no afectar a owners del bot
-  const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
+  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
     if (who === ownerData?.lid) return m.react("❌");

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["instagram", "igdl"];
 plugin.botAdmin = true;
 

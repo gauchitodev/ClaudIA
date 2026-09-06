@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { textoRango, textoRangos } from "../lib/rangos.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["rango", "rangos"];
 plugin.onlyGroup = true;
 

@@ -1,6 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["formarpareja"];
 plugin.juego = true;
 plugin.onlyGroup = true;

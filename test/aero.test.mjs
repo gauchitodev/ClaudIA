@@ -63,7 +63,7 @@ test("aero: pide a la NOAA con caché, y arma los textos de .metar y .taf", asyn
     if (url.includes("/taf?ids=SUMU&")) return respuesta(200, "TAF SUMU 052330Z 0600/0624 20018KT 9999 BKN026\n  TEMPO 0600/0610 20018G28KT 5000 SHRA BKN023\n");
     if (url.includes("/taf?ids=SUMO&")) return respuesta(204, "");
     if (url.includes("/metar?ids=SUMO&")) return respuesta(500, "error");
-    throw new Error("url inesperada " + url);
+    throw new Error(`url inesperada ${url}`);
   };
   let t = await A.textoMetar("", AHORA);
   assert.match(t, /^✈️ \*SUMU\* Carrasco Intl · 02:00Z/);
@@ -165,7 +165,7 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   A._dep.fetch = async (url) => {
     if (url.includes("search?name=Montevideo")) return respuesta(200, { results: [{ name: "Montevideo", country: "Uruguay", admin1: "Departamento de Montevideo", latitude: -34.90328, longitude: -56.18816, timezone: "America/Montevideo" }] });
     if (url.includes("search?name=Xyzzy")) return respuesta(200, {});
-    throw new Error("url inesperada " + url);
+    throw new Error(`url inesperada ${url}`);
   };
   const ahora = Date.parse("2026-09-06T15:00:00Z"); // 12:00 en Montevideo
   let t = await A.textoSolDe("", ahora);

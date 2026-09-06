@@ -1,6 +1,6 @@
 import { getUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
 plugin.juego = true;
 plugin.botAdmin = true;
@@ -10,11 +10,11 @@ plugin.run = async (m, { client, command, chat }) => {
   if (command !== "love" && [client.user.lid, client.user.jid].includes(who)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // El "santo" es el segundo owner configurado; se resuelve su @lid por la base porque las menciones llegan como @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
-  const santoJid = numeroSanto ? numeroSanto + "@s.whatsapp.net" : null;
+  const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
   const santoLid = santoJid ? getUser(santoJid)?.lid : null;
   if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, `0% @${who.split("@")[0]} es un santo 😇`, m, { mentions: [who] });
 
-  let porcentaje = Math.floor(Math.random() * 101);
+  const porcentaje = Math.floor(Math.random() * 101);
 
   if (command === "gay2") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *GAY*_ 🏳️‍🌈`.trim();
@@ -44,7 +44,7 @@ plugin.run = async (m, { client, command, chat }) => {
   }
 
   if (command === "pajero") {
-    let juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 😏💦`.trim();
+    const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 😏💦`.trim();
     const kz = await client.sendText(m.chat, juego, m);
     client.sendMessage(m.chat, { react: { text: "💦", key: kz.key } });
   }

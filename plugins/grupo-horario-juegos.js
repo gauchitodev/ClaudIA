@@ -1,6 +1,6 @@
 import { fijarHorario, quitarHorario, horarioDe, textoHorario, juegosAbiertos } from "../lib/horario-juegos.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["horariojuegos", "juegoshorario"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;

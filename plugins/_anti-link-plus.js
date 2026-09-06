@@ -5,8 +5,8 @@ const isLinkTikTok = /\b(?:www\.|vm\.|vt\.)?tiktok\.com\/\S+/i;
 const isLinkTelegram = /\b(?:t\.me|telegram\.(?:me|org|dog))\/\S+/i;
 const isLinkInstagram = /\b(?:www\.)?instagram\.com\/\S+/i;
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) => {
   if (!m.isGroup || !m.text) return;
   if (isMod || isOwner) return;
   const groupAdmins = participants.filter((p) => p.admin);

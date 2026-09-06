@@ -1,11 +1,11 @@
-let plugin = (m) => m;
-plugin.before = async function (m, { client }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client }) => {
   let ok;
   let isWin = false;
   let isTie = false;
   let isSurrender;
   client.game = client.game ? client.game : {};
-  let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state === "PLAYING");
+  const room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state === "PLAYING");
   if (room) {
     if (!/^([1-9]|(me)?nyerah|\rendirse\|rendirse|RENDIRSE|SALIR|salir|Salir|out|OUT|Out|surr?ender)$/i.test(m.text)) return true;
     isSurrender = !/^[1-9]$/.test(m.text);
@@ -28,7 +28,7 @@ plugin.before = async function (m, { client }) {
     }
     if (m.sender === room.game.winner) isWin = true;
     else if (room.game.board === 511) isTie = true;
-    let arr = room.game.render().map((v) => {
+    const arr = room.game.render().map((v) => {
       return {
         X: "❎",
         O: "⭕",
@@ -48,7 +48,7 @@ plugin.before = async function (m, { client }) {
       isWin = true;
     }
 
-    let str = `
+    const str = `
 🫂 𝙅𝙐𝙂𝘼𝘿𝙊𝙍𝙀𝙎 *:*
 *┈┈┈┈┈┈┈┈┈*
 ❎ = @${room.game.playerX.split("@")[0]}

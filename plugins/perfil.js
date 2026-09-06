@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { textoPerfil } from "../lib/perfil.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["perfil", "ficha"];
 plugin.onlyGroup = true;
 

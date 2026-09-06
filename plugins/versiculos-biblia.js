@@ -1,7 +1,7 @@
 import axios from "axios";
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["versiculo", "versículo", "biblia", "salmo", "salmos"];
 plugin.botAdmin = true;
 

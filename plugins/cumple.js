@@ -1,6 +1,6 @@
 import { registrarCumple, textoCumples } from "../lib/cumpleanos.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["cumple", "cumples", "cumpleanos", "cumpleaños"];
 plugin.onlyGroup = true;
 

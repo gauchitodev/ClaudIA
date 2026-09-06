@@ -1,7 +1,7 @@
 import { textoMetar, textoTaf, textoMenuAero, textoSigmet, textoSolDe } from "../lib/aero.js";
 import { textoCruzado } from "../lib/aero-calculos.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["metar", "taf", "sigmet", "cruzado", "sol", "menuaero", "aero"];
 
 // .metar [ICAO o nombre ...] · .taf [ICAO o nombre ...] · .sigmet · .cruzado <pista> <viento> · .sol [ciudad] · .menuaero

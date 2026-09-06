@@ -1,12 +1,12 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["mipareja"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, user }) => {
-  let totalParejas = user.couplesHistory.length;
+  const totalParejas = user.couplesHistory.length;
 
   if (user.couple === "") {
     const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, totalParejas), m);
@@ -14,7 +14,7 @@ plugin.run = async (m, { client, user }) => {
     return;
   }
 
-  let persona = user.couple;
+  const persona = user.couple;
   const parejaData = getUser(persona);
   const parejaLid = parejaData?.lid;
 
@@ -40,21 +40,21 @@ plugin.run = async (m, { client, user }) => {
 export default plugin;
 
 function timeSince(time) {
-  let seconds = Math.floor((new Date() - time) / 1000);
+  let seconds = Math.floor((Date.now() - time) / 1000);
   let interval;
   const timeUnits = [];
 
   // Calcular años
   interval = Math.floor(seconds / 31536000);
   if (interval >= 1) {
-    timeUnits.push(interval + ` año${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} año${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 31536000;
   }
 
   // Calcular meses
   interval = Math.floor(seconds / 2592000);
   if (interval >= 1) {
-    timeUnits.push(interval + ` mes${interval !== 1 ? "es" : ""}`);
+    timeUnits.push(`${interval} mes${interval !== 1 ? "es" : ""}`);
     seconds -= interval * 2592000;
   }
 
@@ -62,27 +62,27 @@ function timeSince(time) {
   interval = Math.floor(seconds / 86400);
   const daysPassed = interval >= 1; // Guardar si ha pasado al menos un día
   if (interval >= 1) {
-    timeUnits.push(interval + ` día${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} día${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 86400;
   }
 
   // Calcular horas
   interval = Math.floor(seconds / 3600);
   if (interval >= 1) {
-    timeUnits.push(interval + ` hora${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} hora${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 3600;
   }
 
   // Calcular minutos
   interval = Math.floor(seconds / 60);
   if (interval >= 1) {
-    timeUnits.push(interval + ` minuto${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} minuto${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 60;
   }
 
   // Calcular segundos solo si ha pasado menos de un día
   if (!daysPassed && seconds >= 1) {
-    timeUnits.push(seconds + ` segundo${seconds !== 1 ? "s" : ""}`);
+    timeUnits.push(`${seconds} segundo${seconds !== 1 ? "s" : ""}`);
   }
 
   return timeUnits.join(", ");

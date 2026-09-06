@@ -1,6 +1,6 @@
 import { textoLaburos, buscarOficio, tomarLaburo, cobrar, renunciar } from "../lib/laburos.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["laburos", "laburo", "trabajo", "trabajos", "cobrar", "renunciar"];
 plugin.economia = true;
 plugin.onlyGroup = true;

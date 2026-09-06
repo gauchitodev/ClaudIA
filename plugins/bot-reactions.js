@@ -1,7 +1,7 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { chat }) => {
   if (!chat.reactions) return;
 
   if (m.text.match(/(ción|dad|aje|oso|izar|mente|pero|tion|age|ous|ate|and|but|ify)/gi)) {

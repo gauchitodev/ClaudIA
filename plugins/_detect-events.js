@@ -1,7 +1,7 @@
 import { getUser, isBlacklisted } from "../database-functions.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
   if (!m.messageStubType || !m.isGroup) return;
   const raw = m?.messageStubParameters?.[0] || null;
   const parseStub = safeJSON(raw);
@@ -37,7 +37,7 @@ plugin.before = async function (m, { client, participants, isBotAdmin, chat }) {
   if (chat.isBanned) return;
 
   // Si el evento involucra a un owner del bot, retornar para no lanzar alerta al chat.
-  const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
+  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
   for (const ownerJid of ownerJids) {
     const ownerLid = getUser(ownerJid)?.lid;
     // Comparación estricta: con == un owner sin fila en la base (undefined) coincidía con userLid null y silenciaba todo.

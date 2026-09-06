@@ -1,6 +1,6 @@
 import { toPTT } from "../lib/ffmpeg.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["vn", "ptt"];
 plugin.botAdmin = true;
 
@@ -8,10 +8,10 @@ plugin.run = async (m, { client }) => {
   if (!m.quoted) return client.sendText(m.chat, txt.toPTTNull, m);
   const mime = m.quoted.mimetype || "";
   if (!/video|audio/.test(mime)) return;
-  let media = await m.quoted.download?.();
+  const media = await m.quoted.download?.();
   if (!media && !/video/.test(mime)) return;
   if (!media && !/audio/.test(mime)) return;
-  let audio = await toPTT(media, "mp4");
+  const audio = await toPTT(media, "mp4");
   if (!audio.data && !/audio/.test(mime)) return;
   if (!audio.data && !/video/.test(mime)) return;
   await client.sendFile(m.chat, audio.data, `toPTT.mp3`, null, m, true, { seconds: "9999999999999" });

@@ -5,7 +5,7 @@ import os from "os";
 import path from "path";
 
 export const G = "grupo@g.us";
-export const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+export { setTimeout as esperar } from "node:timers/promises";
 export const carta = (s) => ({ v: s.slice(0, -1), p: s.slice(-1) });
 // las cartas se reparten con pop(): la primera de la lista sale primero
 export const mazoDe = (...cartas) => cartas.map(carta).reverse();

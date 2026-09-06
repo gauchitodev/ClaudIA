@@ -1,6 +1,6 @@
 import uploadImage from "../lib/upload-image.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tourl", "upload"];
 plugin.botAdmin = true;
 

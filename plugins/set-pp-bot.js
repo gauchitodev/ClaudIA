@@ -27,7 +27,7 @@ const updatePictureProfile = async (content, client) => {
   }
 };
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["setppbot"];
 plugin.onlyOwner = true;
 

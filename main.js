@@ -13,7 +13,7 @@ import { avisarOwner } from "./lib/avisos.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { avisoReglasParaNuevos } from "./lib/reglas.js";
 import qrcode from "qrcode-terminal";
-let handler = await import("./handle-message.js");
+const handler = await import("./handle-message.js");
 
 serialize();
 
@@ -36,7 +36,7 @@ function marcarReaccionContada(messageId, reactorLid) {
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
 
-  let { version, isLatest } = await fetchLatestBaileysVersion();
+  const { version, isLatest } = await fetchLatestBaileysVersion();
   console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
 
   const connectionOptions = {

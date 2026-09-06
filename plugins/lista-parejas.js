@@ -1,6 +1,6 @@
 import { getAllUsers } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["listaparejas", "listadeparejas"];
 plugin.botAdmin = true;
 
@@ -47,8 +47,7 @@ plugin.run = async (m, { client }) => {
 ╭•·━━━━━━━━━━━━━━━━━━━━
 │ *Total: ${parejas.length} Pareja${parejas.length !== 1 ? "s" : ""}* ${
     parejas.length > 0
-      ? "\n│━━━━━━━━━━━━━━━━━━━━━\n" +
-        parejas
+      ? `\n│━━━━━━━━━━━━━━━━━━━━━\n${parejas
           .map(
             (r) => `
 │ @${r.user1.split("@")[0]} 💞 @${r.user2.split("@")[0]}
@@ -56,7 +55,7 @@ plugin.run = async (m, { client }) => {
 ${r.casadosMessage}
 │━━━━━━━━━━━━━━━━━━━━━`
           )
-          .join("\n")
+          .join("\n")}`
       : ""
   }
 ╰•·━━━━━━━━━━━━━━━━━━━━`;
@@ -71,42 +70,42 @@ export default plugin;
 // Formato de tiempo
 function timeSince(time) {
   if (!time || time <= 0) return "recién";
-  let seconds = Math.floor((new Date() - time) / 1000);
+  let seconds = Math.floor((Date.now() - time) / 1000);
   const timeUnits = [];
 
   let interval = Math.floor(seconds / 31536000);
   if (interval >= 1) {
-    timeUnits.push(interval + ` año${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} año${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 31536000;
   }
 
   interval = Math.floor(seconds / 2592000);
   if (interval >= 1) {
-    timeUnits.push(interval + ` mes${interval !== 1 ? "es" : ""}`);
+    timeUnits.push(`${interval} mes${interval !== 1 ? "es" : ""}`);
     seconds -= interval * 2592000;
   }
 
   interval = Math.floor(seconds / 86400);
   const daysPassed = interval >= 1;
   if (interval >= 1) {
-    timeUnits.push(interval + ` día${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} día${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 86400;
   }
 
   interval = Math.floor(seconds / 3600);
   if (interval >= 1) {
-    timeUnits.push(interval + ` hora${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} hora${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 3600;
   }
 
   interval = Math.floor(seconds / 60);
   if (interval >= 1) {
-    timeUnits.push(interval + ` minuto${interval !== 1 ? "s" : ""}`);
+    timeUnits.push(`${interval} minuto${interval !== 1 ? "s" : ""}`);
     seconds -= interval * 60;
   }
 
   if (!daysPassed && seconds >= 1) {
-    timeUnits.push(seconds + ` segundo${seconds !== 1 ? "s" : ""}`);
+    timeUnits.push(`${seconds} segundo${seconds !== 1 ? "s" : ""}`);
   }
 
   return timeUnits.length > 0 ? timeUnits.join(", ") : "0 segundos";

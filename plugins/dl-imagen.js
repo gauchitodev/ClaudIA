@@ -1,6 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["imagen", "foto", "imágen"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -40,12 +40,11 @@ plugin.run = async (m, { client, text, isOwner, chat }) => {
 
     const patron = /\["(https?:\/\/encrypted-tbn0\.gstatic\.com\/images\?[^"]+?)".*?\["(https?:\/\/[^"]+?)".*?"(.*?)".*?\]/g;
 
-    let match;
-    let resultados = [];
-    let visto = new Set();
+    const resultados = [];
+    const visto = new Set();
 
-    while ((match = patron.exec(html)) !== null) {
-      let original_url = match[2].replace(/\\u003d/g, "=").replace(/\\u0026/g, "&");
+    for (const match of html.matchAll(patron)) {
+      const original_url = match[2].replace(/\\u003d/g, "=").replace(/\\u0026/g, "&");
 
       let titulo = match[3]
         .replace(/\\u[\dA-F]{4}/gi, (u) => String.fromCharCode(parseInt(u.replace("\\u", ""), 16)))

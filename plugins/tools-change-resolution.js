@@ -1,6 +1,6 @@
 import { redimensionar } from "../lib/canvas.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["res"];
 plugin.botAdmin = true;
 

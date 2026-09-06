@@ -1,6 +1,6 @@
 import { addExif } from "../lib/sticker.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["wm"];
 plugin.botAdmin = true;
 
@@ -11,8 +11,8 @@ plugin.run = async (m, { client, text }) => {
   if (!/webp/.test(mime)) return client.sendText(m.chat, txt.wmNull, m);
 
   try {
-    let [packname, ...author] = text.split("|");
-    author = (author || []).join("|");
+    const [packname, ...partesAutor] = text.split("|");
+    const author = partesAutor.join("|");
     const img = await m.quoted.download();
     if (!img) return client.sendText(m.chat, txt.wmNull, m);
     const stiker = await addExif(img, packname || "", author || "");

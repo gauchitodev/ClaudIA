@@ -1,6 +1,6 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["trivia"];
 plugin.juego = true;
 plugin.botAdmin = true;
@@ -514,7 +514,7 @@ export const preguntas = [
   },
 ];
 
-let trivias = {};
+const trivias = {};
 
 plugin.run = async (m, { client, chat }) => {
   if (trivias[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
@@ -528,7 +528,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (trivias[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*` + resumen, m).catch(console.error);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa respuesta era: *${trivia.respuesta.toUpperCase()}*${resumen}`, m).catch(console.error);
         delete trivias[m.chat];
       }
     }, 30000),
@@ -536,7 +536,7 @@ plugin.run = async (m, { client, chat }) => {
   juegoIniciado(m.chat, "trivia");
 };
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   if (!trivias[m.chat]) return;
   const juego = trivias[m.chat];
   if (!m.quoted || m.quoted.id !== juego.mensajeId) return;
