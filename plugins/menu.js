@@ -203,6 +203,7 @@ ${readMore}
 ▸ ${usedPrefix}recordame <cuándo> <texto> ⏰ – \`Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar <n>\`
 ▸ ${usedPrefix}cumple 14/03 🎂 – \`Anotá tu cumple; con .cumples ves los del grupo.\`
 ▸ ${usedPrefix}resumen [horas] 📝 – \`Resumen con IA de lo que se habló.\`
+▸ ${usedPrefix}menuaero ✈️ – \`Meteorología aeronáutica: .metar y .taf, decodificados.\`
 ▸ ${usedPrefix}perfil @mención 👤 – \`Ficha de una persona: coins, laburo, racha, ranking, duelos, pareja y cumple.\`
 ▸ ${usedPrefix}rango 🎖️ – \`Tu rango por antigüedad y actividad; .rangos muestra la escalera.\`
 ▸ ${usedPrefix}recordá que <algo> 🧠 – \`Anotale a Claudia un dato o chiste del grupo; .memoria los lista.\`

@@ -55,8 +55,11 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   A.ACTIVIDAD.RELAMPAGO_DESDE = 0;
   A.ACTIVIDAD.RELAMPAGO_HASTA = 23;
   A.ACTIVIDAD.RELAMPAGO_SEGUNDOS = 0.05;
-  assert.equal(T.programarTriviasDelDia(), 2);
-  assert.equal(T.programarTriviasDelDia(), 0);
+  // hora fija dentro de la ventana: a la noche (después de RELAMPAGO_HASTA) no queda nada para agendar y el test fallaba
+  const mediodia = new Date();
+  mediodia.setHours(12, 0, 0, 0);
+  assert.equal(T.programarTriviasDelDia(mediodia), 2);
+  assert.equal(T.programarTriviasDelDia(mediodia), 0);
   await T.lanzarTriviaRelampago(globalThis.client, G);
   const lanzada = ultimoEnviado();
   assert.match(lanzada.msg.text, /TRIVIA RELÁMPAGO/);
