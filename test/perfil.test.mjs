@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
 
-let F, A, H, L, Pf, P;
+let F, A, H, L, Pf, P, Pj;
 const DIA = 24 * 60 * 60 * 1000;
 before(async () => {
   ({ F } = await prepararBase("perfil"));
@@ -10,6 +10,7 @@ before(async () => {
   H = await import("../lib/hashtags.js");
   L = await import("../lib/laburos.js");
   Pf = await import("../lib/perfil.js");
+  Pj = await import("../lib/parejas.js");
   P = (await import("../plugins/perfil.js")).default;
 });
 const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
@@ -35,8 +36,8 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
   F.moverCoins(G, "111@lid", 10, "duelo_devolucion"); // un desafío rechazado no cuenta como jugado
   F.moverCoins(G, "111@lid", 20, "duelo_premio");
-  F.updateUser("111@lid", { couple: "222@s.whatsapp.net", coupleTime: Date.now() - 2 * DIA, apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 600, desde: Date.now() - 40 * DIA } }) });
-  F.updateUser("222@lid", { couple: "111@s.whatsapp.net" });
+  F.updateUser("111@lid", { apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 600, desde: Date.now() - 40 * DIA } }) });
+  Pj.fijarPareja("111@lid", "222@lid", Date.now() - 2 * DIA);
   F.setCumple(G, "111@lid", 14, 3);
   F.agregarItem(G, "111@lid", "escudo", 2);
 
@@ -58,8 +59,8 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   ].join("\n");
   assert.equal(r.texto, esperado);
   assert.deepEqual(r.mentions, ["111@lid", "222@lid"]);
-  // la pareja tiene que ser mutua: si la otra persona ya no la tiene, no se muestra
-  F.updateUser("222@lid", { couple: "" });
+  // si la relación terminó, no se muestra
+  Pj.terminarPareja("222@lid");
   assert.doesNotMatch(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /Pareja/);
 });
 

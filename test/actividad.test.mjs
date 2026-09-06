@@ -52,6 +52,7 @@ test("pregunta del día: una por día, premio una vez por persona", async () => 
 });
 
 test("trivia relámpago: agenda, lanza, responde y vence", async () => {
+  const Tr = await import("../lib/trivia.js");
   A.ACTIVIDAD.RELAMPAGO_DESDE = 0;
   A.ACTIVIDAD.RELAMPAGO_HASTA = 23;
   A.ACTIVIDAD.RELAMPAGO_SEGUNDOS = 0.05;
@@ -62,20 +63,23 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.equal(T.programarTriviasDelDia(mediodia), 0);
   await T.lanzarTriviaRelampago(globalThis.client, G);
   const lanzada = ultimoEnviado();
-  assert.match(lanzada.msg.text, /TRIVIA RELÁMPAGO/);
-  const estado = globalThis.relampagos.get(G);
-  const idMsg = estado.mensajeId;
-  const mal = "abcd".replace(estado.respuesta, "")[0];
-  assert.equal(T.responderRelampago({ chat: G, sender: "a", text: mal, quoted: { id: idMsg } }).reaccion, "❌");
-  assert.equal(T.responderRelampago({ chat: G, sender: "a", text: estado.respuesta, quoted: { id: idMsg } }).reaccion, "🙅");
-  assert.equal(T.responderRelampago({ chat: G, sender: "b", text: "hola", quoted: { id: idMsg } }), null);
-  const win = T.responderRelampago({ chat: G, sender: "b", text: `${estado.respuesta.toUpperCase()})`, quoted: { id: idMsg } });
+  assert.match(lanzada.msg.text, /^⚡ \*TRIVIA RELÁMPAGO\* — 15 UruCoins para el primero que acierte\n\n.+\nA\) /);
+  const ronda = Tr.rondaDe(G);
+  assert.equal(ronda.tipo, "relampago");
+  const idMsg = ronda.mensajeId;
+  const correcta = ronda.pregunta.correcta;
+  const mal = "abcd".replace(correcta, "")[0];
+  assert.equal(Tr.responderTrivia({ chat: G, sender: "a", text: mal, quoted: { id: idMsg } }).reaccion, "❌");
+  assert.equal(Tr.responderTrivia({ chat: G, sender: "a", text: correcta, quoted: { id: idMsg } }).reaccion, "🙅");
+  assert.equal(Tr.responderTrivia({ chat: G, sender: "b", text: "hola", quoted: { id: idMsg } }), null);
+  const win = Tr.responderTrivia({ chat: G, sender: "b", text: `${correcta.toUpperCase()})` });
   assert.equal(win.reaccion, "✅");
+  assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n🪙 \+15 UruCoins\.$/);
   assert.equal(saldo("b"), 15);
-  assert.ok(!globalThis.relampagos.has(G));
+  assert.equal(Tr.rondaDe(G), null);
   await T.lanzarTriviaRelampago(globalThis.client, G);
   await esperar(120);
-  assert.match(ultimoEnviado().msg.text, /Nadie acertó/);
+  assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.$/);
 });
 
 test("recap semanal", async () => {

@@ -367,6 +367,41 @@ export function loadDatabase() {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_calificaciones_para ON calificaciones (para, fecha)`);
 
+  // Parejas: una fila por pareja, con quién propuso casamiento y desde cuándo están casados. Los pedidos sin responder
+  // van en solicitudes_pareja y las relaciones terminadas en exparejas. Antes todo vivía en las columnas couple/married
+  // de cada usuario, y "tener pareja" dependía de que las dos fichas se apuntaran mutuamente: un pedido sin contestar se
+  // confundía con una pareja. Las columnas viejas quedan, pero ya no se usan.
+  const habiaParejas = !!db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'parejas'`).get();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parejas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      a TEXT NOT NULL UNIQUE,
+      b TEXT NOT NULL UNIQUE,
+      desde INTEGER NOT NULL,
+      casados_desde INTEGER DEFAULT 0,
+      propuso_casamiento TEXT DEFAULT ""
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS solicitudes_pareja (
+      de TEXT PRIMARY KEY,
+      para TEXT NOT NULL,
+      chat TEXT DEFAULT "",
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exparejas (
+      a TEXT NOT NULL,
+      b TEXT NOT NULL,
+      desde INTEGER DEFAULT 0,
+      hasta INTEGER DEFAULT 0,
+      PRIMARY KEY (a, b, hasta)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_exparejas_b ON exparejas (b)`);
+  if (!habiaParejas) migrarParejasViejas(db);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -1180,4 +1215,110 @@ export function actualizarCalificacion(id, estrellas, comentario) {
 
 export function borrarCalificacion(id) {
   return db.prepare(`DELETE FROM calificaciones WHERE id = ?`).run(id).changes > 0;
+}
+
+// ---------- Parejas ----------
+// Pasa las columnas couple/coupleTime/married/marriedTime/couplesHistory de users a las tablas nuevas. Corre una sola
+// vez, cuando la tabla parejas recién se crea. Los punteros mutuos son parejas; los de un solo lado, pedidos pendientes.
+function migrarParejasViejas(db) {
+  const usuarios = db.prepare(`SELECT lid, jid, couple, coupleTime, couplesHistory, married, marriedTime FROM users WHERE couple != '' OR (couplesHistory != '' AND couplesHistory != '[]')`).all();
+  if (!usuarios.length) return;
+  const lidPorJid = new Map(db.prepare(`SELECT lid, jid FROM users WHERE jid != ''`).all().map((u) => [u.jid, u.lid]));
+  const porLid = new Map(usuarios.map((u) => [u.lid, u]));
+  const primeraFecha = (...ts) => {
+    const validas = ts.filter((t) => t > 0);
+    return validas.length ? Math.min(...validas) : 0;
+  };
+  let parejas = 0;
+  let pedidos = 0;
+  let ex = 0;
+  db.transaction(() => {
+    for (const u of usuarios) {
+      if (u.couple) {
+        const otroLid = lidPorJid.get(u.couple);
+        const otro = otroLid ? porLid.get(otroLid) : null;
+        if (otro && otro.couple === u.jid) {
+          if (u.lid < otro.lid) {
+            const desde = primeraFecha(u.coupleTime, otro.coupleTime) || Date.now();
+            const casados = !!u.married && u.married === otro.jid && otro.married === u.jid;
+            const casadosDesde = casados ? primeraFecha(u.marriedTime, otro.marriedTime) || desde : 0;
+            const propuso = casados ? "" : u.married === otro.jid ? u.lid : otro.married === u.jid ? otro.lid : "";
+            if (db.prepare(`INSERT OR IGNORE INTO parejas (a, b, desde, casados_desde, propuso_casamiento) VALUES (?, ?, ?, ?, ?)`).run(u.lid, otro.lid, desde, casadosDesde, propuso).changes) parejas++;
+          }
+        } else if (otroLid && otroLid !== u.lid) {
+          db.prepare(`INSERT OR IGNORE INTO solicitudes_pareja (de, para, chat, fecha) VALUES (?, ?, '', ?)`).run(u.lid, otroLid, Date.now());
+          pedidos++;
+        }
+      }
+      let historial = [];
+      try {
+        historial = JSON.parse(u.couplesHistory || "[]");
+      } catch {}
+      for (const jid of Array.isArray(historial) ? historial : []) {
+        const exLid = lidPorJid.get(jid);
+        if (!exLid || exLid === u.lid) continue;
+        const [a, b] = [u.lid, exLid].sort();
+        if (db.prepare(`INSERT OR IGNORE INTO exparejas (a, b, desde, hasta) VALUES (?, ?, 0, 0)`).run(a, b).changes) ex++;
+      }
+    }
+  })();
+  console.log(`🟢 Migración: parejas pasadas a tablas propias (${parejas} parejas, ${pedidos} pedidos pendientes, ${ex} ex)`);
+}
+
+const filaPareja = (p, lid) => ({ id: p.id, pareja: p.a === lid ? p.b : p.a, desde: p.desde, casadosDesde: p.casados_desde || 0, propusoCasamiento: p.propuso_casamiento || "" });
+
+export function parejaDe(lid) {
+  const p = db.prepare(`SELECT * FROM parejas WHERE a = ? OR b = ?`).get(lid, lid);
+  return p ? filaPareja(p, lid) : null;
+}
+
+export function crearPareja(a, b, desde) {
+  return db.prepare(`INSERT INTO parejas (a, b, desde) VALUES (?, ?, ?)`).run(a, b, desde).lastInsertRowid;
+}
+
+export function actualizarPareja(id, data) {
+  return updateRow("parejas", "id", id, data);
+}
+
+export function borrarPareja(id) {
+  return db.prepare(`DELETE FROM parejas WHERE id = ?`).run(id).changes > 0;
+}
+
+export function listaParejas() {
+  return db.prepare(`SELECT * FROM parejas ORDER BY desde ASC`).all().map((p) => ({ id: p.id, a: p.a, b: p.b, desde: p.desde, casadosDesde: p.casados_desde || 0 }));
+}
+
+export function guardarSolicitudPareja(de, para, chat, fecha) {
+  db.prepare(`INSERT OR REPLACE INTO solicitudes_pareja (de, para, chat, fecha) VALUES (?, ?, ?, ?)`).run(de, para, chat || "", fecha);
+}
+
+export function getSolicitudPareja(de) {
+  return db.prepare(`SELECT * FROM solicitudes_pareja WHERE de = ?`).get(de) || null;
+}
+
+export function borrarSolicitudPareja(de) {
+  return db.prepare(`DELETE FROM solicitudes_pareja WHERE de = ?`).run(de).changes > 0;
+}
+
+// borra los pedidos hechos por y para esta persona (al formarse una pareja no queda nada pendiente)
+export function borrarSolicitudesCon(lid) {
+  return db.prepare(`DELETE FROM solicitudes_pareja WHERE de = ? OR para = ?`).run(lid, lid).changes;
+}
+
+export function guardarExPareja(x, y, desde, hasta) {
+  const [a, b] = [x, y].sort();
+  return db.prepare(`INSERT OR IGNORE INTO exparejas (a, b, desde, hasta) VALUES (?, ?, ?, ?)`).run(a, b, desde || 0, hasta || 0).changes > 0;
+}
+
+// ex de una persona, sin repetir, de la más reciente a la más vieja
+export function exParejasDe(lid) {
+  const vistos = new Set();
+  const lista = [];
+  for (const f of db.prepare(`SELECT a, b, hasta FROM exparejas WHERE a = ? OR b = ? ORDER BY hasta DESC`).all(lid, lid)) {
+    const otro = f.a === lid ? f.b : f.a;
+    if (vistos.has(otro)) continue;
+    vistos.add(otro);
+    lista.push(otro);
+  }
+  return lista;
 }

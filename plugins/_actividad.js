@@ -1,8 +1,7 @@
 import { registrarActividad } from "../lib/actividad.js";
 import { responderPreguntaDelDia } from "../lib/pregunta-dia.js";
-import { responderRelampago } from "../lib/trivia-relampago.js";
 
-// Corre en cada mensaje de grupo: racha diaria, respuestas a la pregunta del día y a la trivia relámpago.
+// Corre en cada mensaje de grupo: racha diaria y respuestas a la pregunta del día. Las trivias las lee _trivia.js.
 const plugin = (m) => m;
 plugin.before = async (m, { client }) => {
   try {
@@ -14,11 +13,6 @@ plugin.before = async (m, { client }) => {
 
     if (responderPreguntaDelDia(m)) m.react("🪙").catch(() => {});
 
-    const r = responderRelampago(m);
-    if (r) {
-      if (r.reaccion) m.react(r.reaccion).catch(() => {});
-      if (r.texto) await client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions }, { quoted: m });
-    }
   } catch (e) {
     console.error("[actividad] ERROR:", e);
   }
