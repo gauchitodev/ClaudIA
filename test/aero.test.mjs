@@ -194,3 +194,17 @@ test("aero: rumbo recíproco de rumbos y de pistas", () => {
   assert.equal(Cc.textoReciproco("045 270 18 06L 24R 09C 360 x"), ["✈️ *Rumbo recíproco*", "🧭 045° ↔ 225°", "🧭 270° ↔ 090°", "🛬 Pista 18 ↔ 36 (180° ↔ 360°)", "🛬 Pista 06L ↔ 24R (060° ↔ 240°)", "🛬 Pista 24R ↔ 06L (240° ↔ 060°)", "🛬 Pista 09C ↔ 27C (090° ↔ 270°)", "🧭 360° ↔ 180°", '❌ "x": poné un rumbo de 0 a 360 o una pista como 06 o 24L.'].join("\n"));
   assert.match(Cc.textoReciproco(""), /^Uso: \.reciproco/);
 });
+
+test("aero: factor de carga según el ángulo de viraje", () => {
+  assert.ok(Math.abs(Cc.factorDeCarga(60) - 2) < 1e-9);
+  assert.ok(Math.abs(Cc.factorDeCarga(45) - Math.SQRT2) < 1e-9);
+  assert.equal(Cc.factorDeCarga(0), 1);
+  assert.equal(Cc.textoFactorCarga("45"), "✈️ *Factor de carga* · viraje nivelado de 45°\n⚖️ n = 1,41 G (1 / cos 45°)\n📈 Velocidad de pérdida: ×1,19, un 19 % más");
+  assert.equal(Cc.textoFactorCarga("60 50"), "✈️ *Factor de carga* · viraje nivelado de 60°\n⚖️ n = 2,00 G (1 / cos 60°)\n📈 Velocidad de pérdida: ×1,41, un 41 % más → 71 kt con una Vs de 50 kt\n🟡 Ya vas a 2 G o más: ojo con la velocidad y la pérdida acelerada.");
+  assert.match(Cc.textoFactorCarga("80"), /n = 5,76 G[\s\S]*🔴 Supera el límite de la categoría normal \(3,8 G\)/);
+  assert.match(Cc.textoFactorCarga("90"), /tiende a infinito/);
+  assert.match(Cc.textoFactorCarga("mucho"), /Poné el ángulo/);
+  assert.match(Cc.textoFactorCarga("45 rapido"), /La velocidad de pérdida va en nudos/);
+  const tabla = Cc.textoFactorCarga("");
+  assert.match(tabla, /^✈️ \*Factor de carga en viraje nivelado\*\n15° → 1,04 G · Vs ×1,02\n30° → 1,15 G · Vs ×1,07\n45° → 1,41 G · Vs ×1,19\n60° → 2,00 G · Vs ×1,41 🟡\n75° → 3,86 G · Vs ×1,97 🔴\n\nUso: /);
+});
