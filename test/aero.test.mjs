@@ -107,7 +107,7 @@ test("aero: SIGMET de la FIR Montevideo, filtrado y descrito", async () => {
       "*SIGMET 1* · engelamiento severo",
       "⏱️ 01:30Z a 05:30Z (quedan 2 h 32 min)",
       "📏 FL030 a FL080 · se mueve al E a 5 kt · sin cambios",
-      "`WSUY31 SUMU 060125 SUEO SIGMET 1 VALID 060130/060530 SUMU- SUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=`",
+      "`WSUY31 SUMU 060125 SUEO SIGMET 1 VALID 060130/060530 SUMU- SUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=`\n\n_Fuente: NOAA, Aviation Weather Center._",
     ].join("\n"),
   );
   assert.match(A.describirSigmet(SIGMET_SBCW, ahora), /\*SIGMET 96\* · tormentas embebidas\n⏱️ 23:30Z a 03:30Z \(quedan 32 min\)\n📏 hasta FL450 · estacionario · sin cambios/);
@@ -169,7 +169,7 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   };
   const ahora = Date.parse("2026-09-06T15:00:00Z"); // 12:00 en Montevideo
   let t = await A.textoSolDe("", ahora);
-  assert.match(t, /^☀️ \*Montevideo, Uruguay\* · 06\/09 · hora local\n🌅 Sale 06:5\d · 🌇 se pone 18:(29|3\d|28) · día de 11 h 3\d min\n🌆 Crepúsculo civil: de 06:\d\d a 06:5\d y de 18:\d\d a 18:5\d\nAhora: el sol está arriba\.$/);
+  assert.match(t, /^☀️ \*Montevideo, Uruguay\* · 06\/09 · hora local\n🌅 Sale 06:5\d · 🌇 se pone 18:(29|3\d|28) · día de 11 h 3\d min\n🌆 Crepúsculo civil: de 06:\d\d a 06:5\d y de 18:\d\d a 18:5\d\nAhora: el sol está arriba\.\n_Fuente: ubicación de Open-Meteo; los horarios son cálculo propio\._$/);
   t = await A.textoSolDe("montevideo", Date.parse("2026-09-06T23:00:00Z"));
   assert.match(t, /Ahora: ya es de noche\./);
   assert.match(await A.textoSolDe("Xyzzy", ahora), /No encontré "Xyzzy"/);
