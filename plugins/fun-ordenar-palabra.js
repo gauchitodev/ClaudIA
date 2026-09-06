@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { elegirAlAzar } from "../lib/azar.js";
 let plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
 plugin.juego = true;
@@ -12,7 +13,7 @@ let ordenarPalabra = {};
 plugin.run = async (m, { client, chat }) => {
   if (ordenarPalabra[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  const palabra = palabras[Math.floor(Math.random() * palabras.length)];
+  const palabra = elegirAlAzar(palabras);
   const desordenada = palabra
     .split("")
     .sort(() => Math.random() - 0.5)

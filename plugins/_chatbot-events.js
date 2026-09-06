@@ -1,3 +1,5 @@
+import { elegirAlAzar } from "../lib/azar.js";
+
 let plugin = (m) => m;
 plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
   if (!m.isGroup) return;
@@ -13,7 +15,7 @@ plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
   }
 
   if (/^(dame admin|denme admin|quiero admin|haganme admin|quiero ser admin|háganme admin|haceme admin|ponganme de admin|merezco ser admin|me das admin|admin quiero)$/i.test(m.text)) {
-    let teks = pickRandom([`No.`, `Jajaja no.`, `Acá no se reparte admin, dejá.`, `Pedir admin no suma puntos, eh.`, `No va a pasar, pero me gusta el entusiasmo.`, `Seguí participando 😌`]);
+    const teks = elegirAlAzar([`No.`, `Jajaja no.`, `Acá no se reparte admin, dejá.`, `Pedir admin no suma puntos, eh.`, `No va a pasar, pero me gusta el entusiasmo.`, `Seguí participando 😌`]);
     client.sendText(m.chat, teks, m, { mentions: [m.sender] });
   }
 
@@ -29,7 +31,3 @@ plugin.before = async function (m, { client, isOwner, isMod, user, chat }) {
 };
 
 export default plugin;
-
-function pickRandom(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}

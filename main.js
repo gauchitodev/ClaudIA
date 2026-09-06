@@ -1,7 +1,7 @@
 import "./globals.js";
 const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
 import { readdirSync, rmSync, mkdirSync } from "fs";
-import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
+import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, sumarInteraccion } from "./database-functions.js";
@@ -15,7 +15,6 @@ import { avisoReglasParaNuevos } from "./lib/reglas.js";
 import qrcode from "qrcode-terminal";
 let handler = await import("./handle-message.js");
 
-protoType();
 serialize();
 
 let intentosReconexion = 0;

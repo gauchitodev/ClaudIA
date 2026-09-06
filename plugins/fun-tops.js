@@ -1,3 +1,5 @@
+import { elegirAlAzar } from "../lib/azar.js";
+
 let plugin = {};
 plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas"];
 plugin.juego = true;
@@ -5,18 +7,9 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, command, chat }) => {
-  let user = (a) => "@" + a.split("@")[0];
-  let ps = groupMetadata.participants.map((v) => v.id);
-  let a = ps.getRandom();
-  let b = ps.getRandom();
-  let c = ps.getRandom();
-  let d = ps.getRandom();
-  let e = ps.getRandom();
-  let f = ps.getRandom();
-  let g = ps.getRandom();
-  let h = ps.getRandom();
-  let i = ps.getRandom();
-  let j = ps.getRandom();
+  const user = (a) => "@" + a.split("@")[0];
+  const ps = groupMetadata.participants.map((v) => v.id);
+  const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, () => elegirAlAzar(ps));
 
   if (command === "topgays") {
     let top = `*🌈TOP 10 GAYS/LESBIANAS DEL GRUPO🌈*

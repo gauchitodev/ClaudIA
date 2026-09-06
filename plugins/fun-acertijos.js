@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { elegirAlAzar } from "../lib/azar.js";
 let plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
 plugin.juego = true;
@@ -98,7 +99,7 @@ let acertijos = {};
 plugin.run = async (m, { client, chat }) => {
   if (acertijos[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  const acertijo = response[Math.floor(Math.random() * response.length)];
+  const acertijo = elegirAlAzar(response);
   const acertijoMsg = await client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m);
 
   acertijos[m.chat] = {

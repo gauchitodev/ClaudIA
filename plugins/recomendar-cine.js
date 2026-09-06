@@ -1,3 +1,4 @@
+import { elegirAlAzar } from "../lib/azar.js";
 
 let plugin = {};
 plugin.cmd = ["serie", "pelicula", "película"];
@@ -11,7 +12,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   let genero = text.toLowerCase();
 
   if (genero === "random") {
-    genero = generosDisponibles[Math.floor(Math.random() * generosDisponibles.length)];
+    genero = elegirAlAzar(generosDisponibles);
   }
 
   if (!generosDisponibles.includes(genero)) {

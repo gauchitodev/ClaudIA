@@ -1,3 +1,5 @@
+import { elegirAlAzar } from "../lib/azar.js";
+
 let plugin = {};
 plugin.cmd = ["sortear", "sortear1", "sortear2", "sortear3", "sortear4", "sortear5", "sortear6", "sortear7", "sortear8", "sortear9", "sortear10"];
 plugin.juego = true;
@@ -7,18 +9,9 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, groupMetadata, command, text, chat }) => {
   if (!text) return client.sendText(m.chat, txt.sortearText, m);
 
-  let user = (a) => "@" + a.split("@")[0];
-  let ps = groupMetadata.participants.map((v) => v.id);
-  let a = ps.getRandom();
-  let b = ps.getRandom();
-  let c = ps.getRandom();
-  let d = ps.getRandom();
-  let e = ps.getRandom();
-  let f = ps.getRandom();
-  let g = ps.getRandom();
-  let h = ps.getRandom();
-  let i = ps.getRandom();
-  let j = ps.getRandom();
+  const user = (a) => "@" + a.split("@")[0];
+  const ps = groupMetadata.participants.map((v) => v.id);
+  const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, () => elegirAlAzar(ps));
 
   if (command === "sortear") {
     let top = `*🏆 GANADOR ​🏆​*

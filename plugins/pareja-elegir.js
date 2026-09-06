@@ -1,4 +1,5 @@
 import { getUser, updateUser } from "../database-functions.js";
+import { elegirAlAzar } from "../lib/azar.js";
 
 let plugin = {};
 plugin.cmd = ["pareja"];
@@ -54,7 +55,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
       client.sendText(m.chat, `Felicitaciones, oficialmente están saliendo @${whoLid.split("@")[0]}\n\nQue dure para siempre y siempre sea feliz 🥳🥳🥳`, m, { contextInfo: { mentionedJid: [whoLid] } });
     } else {
       updateUser(m.sender, { couple: whoJid });
-      let random = ktnmbk.getRandom();
+      const random = elegirAlAzar(ktnmbk);
       const kz = await client.sendText(m.chat, txt.parejaPeticion(random, m.sender, whoLid), m);
       client.sendMessage(m.chat, { react: { text: "😳", key: kz.key } });
     }

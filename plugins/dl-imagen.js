@@ -1,3 +1,4 @@
+import { elegirAlAzar } from "../lib/azar.js";
 
 let plugin = {};
 plugin.cmd = ["imagen", "foto", "imágen"];
@@ -67,7 +68,7 @@ plugin.run = async (m, { client, text, isOwner, chat }) => {
     if (resultados.length === 0) return client.sendText(m.chat, "No hubo resultados", m);
 
     // elegir una al azar
-    const elegido = resultados[Math.floor(Math.random() * resultados.length)];
+    const elegido = elegirAlAzar(resultados);
 
     // enviar imagen
     await client.sendFile(m.chat, elegido.url, "img.jpg", `*Resultado de:* ${text}`, m);

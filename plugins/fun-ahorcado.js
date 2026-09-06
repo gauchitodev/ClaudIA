@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { elegirAlAzar } from "../lib/azar.js";
 let plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
@@ -12,7 +13,7 @@ let ahorcado = {};
 plugin.run = async (m, { client, chat }) => {
   if (ahorcado[m.sender]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  let palabra = palabras[Math.floor(Math.random() * palabras.length)];
+  const palabra = elegirAlAzar(palabras);
   let oculta = palabra.replace(/./g, "_ ");
   let intentos = 8;
 

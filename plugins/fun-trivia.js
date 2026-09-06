@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { elegirAlAzar } from "../lib/azar.js";
 let plugin = {};
 plugin.cmd = ["trivia"];
 plugin.juego = true;
@@ -518,7 +519,7 @@ let trivias = {};
 plugin.run = async (m, { client, chat }) => {
   if (trivias[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  const trivia = preguntas[Math.floor(Math.random() * preguntas.length)];
+  const trivia = elegirAlAzar(preguntas);
   const triviaMsg = await client.sendText(m.chat, `*[🎓] Pregunta de Trivia:*\n* ${trivia.pregunta}\n\n${trivia.opciones.join("\n")}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la letra correcta (A, B, C o D).\n*[⏱️]* 30 segundos para responder.`, m);
 
   trivias[m.chat] = {

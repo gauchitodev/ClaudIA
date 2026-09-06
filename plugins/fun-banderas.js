@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { elegirAlAzar } from "../lib/azar.js";
 let plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
 plugin.juego = true;
@@ -210,7 +211,7 @@ let banderas = {};
 plugin.run = async (m, { client, chat }) => {
   if (banderas[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  const bandera = banderasLista[Math.floor(Math.random() * banderasLista.length)];
+  const bandera = elegirAlAzar(banderasLista);
 
   const mensajeJuego = await client.sendText(m.chat, `*[🌍] ADIVINA LA BANDERA:*\n* ${bandera.emoji}\n\n*[❗] RESPONDE A ESTE MENSAJE* con el nombre del país.\n*[⏱️]* 30 segundos para responder.`, m);
 
