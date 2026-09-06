@@ -45,7 +45,7 @@ test("horario de juegos: se guarda por grupo y el aviso se limita", () => {
   F.initDataDB({ ...msg, chat: G });
   F.initDataDB({ ...msg, chat: OTRO });
   const r = H.fijarHorario(G, "de 20 a 23");
-  assert.ok(r.ok && /van de 20:00 a 23:00/.test(r.mensaje));
+  assert.ok(r.ok && /va de 20:00 a 23:00/.test(r.mensaje));
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
   assert.equal(F.getChat(OTRO).horarioJuegos, "", "el horario es por grupo");
   assert.equal(H.juegosAbiertos(F.getChat(G), en(21)), true);
@@ -70,7 +70,7 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   await correr("");
   assert.match(ultimoEnviado().msg.text, /no tiene horario de juegos/);
   await correr("20:00-23:00");
-  assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00/);
+  assert.match(ultimoEnviado().msg.text, /va de 20:00 a 23:00/);
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
   await correr("");
   assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00; ahora están (abiertos|cerrados)/);
@@ -79,7 +79,7 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
   F.updateChat(G, { games: false });
   await correr("22-01");
-  assert.match(ultimoEnviado().msg.text, /van de 22:00 a 01:00[\s\S]*apagados con \.juegos/);
+  assert.match(ultimoEnviado().msg.text, /va de 22:00 a 01:00[\s\S]*apagados con \.juegos/);
   F.updateChat(G, { games: true });
   await correr("off");
   assert.match(ultimoEnviado().msg.text, /saqué el horario/);
