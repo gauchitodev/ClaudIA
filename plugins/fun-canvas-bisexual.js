@@ -1,5 +1,4 @@
-import Jimp from "jimp-legacy";
-import { unlinkSync } from "fs";
+import { superponer } from "../lib/canvas.js";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 
 let plugin = {};
@@ -7,7 +6,7 @@ plugin.cmd = ["bisexual", "bi"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
+plugin.run = async (m, { client, text, usedPrefix, command }) => {
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   const numberMatchesPlus = text.match(/\+[0-9\s]+/g);
@@ -22,33 +21,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
 
   const pp = await obtenerFotoPerfil(client, who);
   m.react("⏳");
-
   try {
-    const randomName = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const outputPath = `./tmp/${randomName}.jpg`;
-
-    const ppBi = "https://openclipart.org/image/800px/344896";
-
-    const foto1 = await Jimp.read(pp);
-    const foto2 = await Jimp.read(ppBi);
-
-    const scaleFactor = 1.05;
-    const newWidth = Math.round(foto1.getWidth() * scaleFactor);
-    const newHeight = Math.round(foto1.getHeight() * scaleFactor);
-
-    foto2.resize(newWidth, newHeight);
-    foto2.opacity(0.9);
-
-    // Calcular el desplazamiento para centrar foto2 sobre foto1
-    const xOffset = Math.round((foto1.getWidth() - newWidth) / 2);
-    const yOffset = Math.round((foto1.getHeight() - newHeight) / 2);
-
-    foto1.composite(foto2, xOffset, yOffset, { mode: Jimp.BLEND_SOURCE_OVER });
-
-    await foto1.writeAsync(outputPath);
-
-    await client.sendFile(m.chat, outputPath, `${randomName}.jpg`, "🌈🏳️‍🌈", m);
-    unlinkSync(outputPath);
+    const imagen = await superponer(pp, "https://openclipart.org/image/800px/344896", { opacidad: 0.9, escala: 1.05 });
+    await client.sendFile(m.chat, imagen, `${Date.now()}.jpg`, "🌈🏳️‍🌈", m);
   } catch (err) {
     console.error(err);
   }

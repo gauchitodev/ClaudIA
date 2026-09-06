@@ -1,19 +1,9 @@
 import { S_WHATSAPP_NET } from "@whiskeysockets/baileys";
-import Jimp from "jimp-legacy";
+import { fotoDePerfil } from "../lib/canvas.js";
 
-async function resizeImg(image, height) {
-  let jimp = await Jimp.read(image);
-  let min = jimp.getWidth();
-  let max = jimp.getHeight();
-  let outputRatio = height / Math.max(max, min);
-  let cropped = jimp.crop(0, 0, min, max);
-  return {
-    image: await cropped.resize(Math.floor(min * outputRatio), Math.floor(max * outputRatio), Jimp.RESIZE_BILINEAR).getBufferAsync(Jimp.MIME_JPEG),
-  };
-}
 const updatePictureProfile = async (content, client) => {
   try {
-    const media = await resizeImg(content, 720);
+    const media = { image: await fotoDePerfil(content, 720) };
     await client.query({
       tag: "iq",
       attrs: {
