@@ -1,4 +1,5 @@
 import { load } from "cheerio";
+import { pedirHttp } from "../lib/http.js";
 
 const SUP_MAP = {
   0: "⁰",
@@ -21,7 +22,8 @@ const HEADERS = {
 async function fetch_page(word) {
   const url = `https://dle.rae.es/${encodeURIComponent(word)}`;
   try {
-    const resp = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    // La RAE está detrás de Cloudflare y le responde 403 al fetch nativo; con el cliente del core de Node contesta bien.
+    const resp = await pedirHttp(url, { headers: HEADERS, timeoutMs: 10000 });
     return { resp, url };
   } catch (e) {
     console.error(`Error de conexión: ${e}`);
