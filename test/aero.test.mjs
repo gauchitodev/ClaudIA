@@ -179,3 +179,18 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "sol", text: "Montevideo" });
   assert.match(ultimoEnviado().msg.text, /☀️ \*Montevideo, Uruguay\*/);
 });
+
+test("aero: rumbo recíproco de rumbos y de pistas", () => {
+  assert.equal(Cc.reciproco(45), 225);
+  assert.equal(Cc.reciproco(270), 90);
+  assert.equal(Cc.reciproco(180), 360);
+  assert.equal(Cc.reciproco(360), 180);
+  assert.deepEqual(Cc.parsearRumbo("06L"), { tipo: "pista", pista: "06L", lado: "L", rumbo: 60 });
+  assert.deepEqual(Cc.parsearRumbo("18"), { tipo: "pista", pista: "18", lado: "", rumbo: 180 }, "dos cifras hasta 36 es pista");
+  assert.deepEqual(Cc.parsearRumbo("018"), { tipo: "rumbo", rumbo: 18 }, "tres cifras es rumbo");
+  assert.deepEqual(Cc.parsearRumbo("0"), { tipo: "rumbo", rumbo: 360 });
+  assert.equal(Cc.parsearRumbo("361"), null);
+  assert.equal(Cc.parsearRumbo("norte"), null);
+  assert.equal(Cc.textoReciproco("045 270 18 06L 24R 09C 360 x"), ["✈️ *Rumbo recíproco*", "🧭 045° ↔ 225°", "🧭 270° ↔ 090°", "🛬 Pista 18 ↔ 36 (180° ↔ 360°)", "🛬 Pista 06L ↔ 24R (060° ↔ 240°)", "🛬 Pista 24R ↔ 06L (240° ↔ 060°)", "🛬 Pista 09C ↔ 27C (090° ↔ 270°)", "🧭 360° ↔ 180°", '❌ "x": poné un rumbo de 0 a 360 o una pista como 06 o 24L.'].join("\n"));
+  assert.match(Cc.textoReciproco(""), /^Uso: \.reciproco/);
+});
