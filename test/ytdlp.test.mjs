@@ -95,8 +95,12 @@ test("ytdlp: manda video o imagen con el título, limpia el temporal y avisa si 
 });
 
 test("ytdlp: se actualiza una vez por día a la hora configurada", async () => {
-  const { chequearActualizacionYtDlp } = await import("../lib/ytdlp.js");
+  const { chequearActualizacionYtDlp, actualizarYtDlp } = await import("../lib/ytdlp.js");
   let corridas = 0;
+  // en CI no hay bin/yt-dlp (está en .gitignore): sin binario no se intenta nada, y el test no depende de que exista
+  _dep.existe = () => false;
+  assert.equal(await actualizarYtDlp(), null);
+  _dep.existe = () => true;
   _dep.ejecutar = async (bin, args) => {
     corridas++;
     assert.deepEqual(args, ["-U"]);
