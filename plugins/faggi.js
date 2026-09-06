@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["faggi"];
 
 // Responde con el texto configurado en config.toml (textofaggi).

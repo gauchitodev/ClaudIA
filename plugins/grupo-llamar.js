@@ -1,6 +1,6 @@
-let activeTimers = {};
+const activeTimers = {};
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["llamar", "mencionar", "cancelar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -9,8 +9,8 @@ plugin.onlyMod = true;
 plugin.run = async (m, { client, text, command }) => {
   if (command === "cancelar") {
     if (activeTimers[m.chat]) {
-      for (let timers of activeTimers[m.chat]) {
-        for (let timer of timers) {
+      for (const timers of activeTimers[m.chat]) {
+        for (const timer of timers) {
           clearTimeout(timer);
         }
       }
@@ -27,7 +27,7 @@ plugin.run = async (m, { client, text, command }) => {
   const numberMatches = text.match(/@[0-9\s]+/g);
 
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches.map((match) => match.replace(/[@\s]/g, "") + "@lid");
+    who = numberMatches.map((match) => `${match.replace(/[@\s]/g, "")}@lid`);
     mencion = who.map((w) => `@${w.split("@")[0]}`).join(" ");
   } else if (m.quoted) {
     who = [m.quoted.sender];
@@ -38,9 +38,9 @@ plugin.run = async (m, { client, text, command }) => {
     if (!activeTimers[m.chat]) {
       activeTimers[m.chat] = [];
     }
-    let timersArray = [];
+    const timersArray = [];
     for (let i = 0; i < 10; i++) {
-      let timer = setTimeout(async () => {
+      const timer = setTimeout(async () => {
         client.sendText(m.chat, mencion, m).catch(console.error);
       }, i * 1000);
       timersArray.push(timer);

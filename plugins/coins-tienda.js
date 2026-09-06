@@ -1,6 +1,6 @@
 import { textoTienda } from "../lib/tienda.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tienda", "shop"];
 plugin.economia = true;
 plugin.onlyGroup = true;

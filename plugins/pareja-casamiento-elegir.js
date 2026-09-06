@@ -1,6 +1,6 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["casarse", "casarme", "boda", "matrimonio", "casar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -23,7 +23,7 @@ plugin.run = async (m, { client, usedPrefix, user }) => {
   if (parejaData.couple !== m.senderJid) return client.sendText(m.chat, "Todavía no son pareja oficial: falta que acepte tu pedido con .aceptar.", m);
 
   const matrimPasan = parejaData?.married;
-  let currentTime = new Date() - pTime;
+  const currentTime = Date.now() - pTime;
   if (m.senderJid === matrimPasan && matrim === pasan) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
   if (currentTime < 604800000) return client.sendText(m.chat, txt.parejaCasamientoNoTime, m);
 

@@ -1,6 +1,6 @@
 import { recordar, textoMemoria, borrar, limpiar } from "../lib/memoria-grupo.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["recorda", "recordá", "memoria"];
 plugin.onlyGroup = true;
 

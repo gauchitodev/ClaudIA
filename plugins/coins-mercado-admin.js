@@ -1,6 +1,6 @@
 import { crearMercadoDesdeTexto, resolver } from "../lib/mercados.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["evento", "resolver"];
 plugin.economia = true;
 plugin.juego = true;

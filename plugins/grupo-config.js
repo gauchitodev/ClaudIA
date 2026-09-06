@@ -1,6 +1,6 @@
 import { rolesGrupo } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["config"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -31,7 +31,7 @@ ${antiTiktok ? "✅" : "❌"} Anti links TikTok
 ${antiTelegram ? "✅" : "❌"} Anti links Telegram
 ${games ? "✅" : "❌"} Uso de juegos
 🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
-🌙 Horario del grupo: ${horarioGrupo ? horarioGrupo.replace("-", " a ") + " (se cierra solo fuera de eso)" : "sin horario (.horariogrupo)"}
+🌙 Horario del grupo: ${horarioGrupo ? `${horarioGrupo.replace("-", " a ")} (se cierra solo fuera de eso)` : "sin horario (.horariogrupo)"}
 📋 Reglas: ${reglas ? "cargadas (.reglas)" : "sin cargar (.reglas set <texto>)"}
 ${welcome ? "✅" : "❌"} Welcome - Bye
 ${detect ? "✅" : "❌"} Alertas de grupo

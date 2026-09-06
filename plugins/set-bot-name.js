@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["setbotname"];
 plugin.onlyOwner = true;
 

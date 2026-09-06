@@ -1,7 +1,7 @@
 import "./globals.js";
 const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
 import { readdirSync, rmSync, mkdirSync } from "fs";
-import { makeWASocket, protoType, serialize } from "./lib/wa-socket.js";
+import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase, sumarInteraccion } from "./database-functions.js";
@@ -13,9 +13,8 @@ import { avisarOwner } from "./lib/avisos.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { avisoReglasParaNuevos } from "./lib/reglas.js";
 import qrcode from "qrcode-terminal";
-let handler = await import("./handle-message.js");
+const handler = await import("./handle-message.js");
 
-protoType();
 serialize();
 
 let intentosReconexion = 0;
@@ -37,7 +36,7 @@ function marcarReaccionContada(messageId, reactorLid) {
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
 
-  let { version, isLatest } = await fetchLatestBaileysVersion();
+  const { version, isLatest } = await fetchLatestBaileysVersion();
   console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
 
   const connectionOptions = {

@@ -1,18 +1,18 @@
-let linkRegex = /chat.whatsapp.com\/([0-9A-Za-z]{20,24})/i;
+import { setTimeout as esperar } from "node:timers/promises";
 
-let plugin = {};
+const linkRegex = /chat.whatsapp.com\/([0-9A-Za-z]{20,24})/i;
+
+const plugin = {};
 plugin.cmd = ["join"];
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text }) => {
   const link = (m.quoted ? (m.quoted.text ? m.quoted.text : text) : text) || text;
-  let [_, code] = link.match(linkRegex) || [];
+  const [_, code] = link.match(linkRegex) || [];
   if (!code) return client.sendText(m.chat, txt.joinGroupNull, m);
   client.sendText(m.chat, txt.joinGroupSuccess, m);
-  await delay(5000);
+  await esperar(5000);
   await client.groupAcceptInvite(code);
 };
 
 export default plugin;
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -1,6 +1,6 @@
 import { armarRecap } from "../lib/recap.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["recap"];
 plugin.onlyGroup = true;
 

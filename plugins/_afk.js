@@ -1,8 +1,8 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, user }) {
-  const who = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : m.sender;
+const plugin = (m) => m;
+plugin.before = async (m, { client, user }) => {
+  const who = m.mentionedJid?.[0] || m.quoted?.sender || m.sender;
   const inGroup = user.inGroup[m.chat];
   if (user.banned) return;
 
@@ -18,9 +18,9 @@ plugin.before = async function (m, { client, user }) {
     const whoAfk = hap?.inGroup[m.chat];
     const afkTime = hap?.inGroup[m.chat]?.afk || 0;
     if (afkTime && afkTime > 0) {
-      let tiempoInactivo = (new Date() - afkTime) / 1000;
+      const tiempoInactivo = (Date.now() - afkTime) / 1000;
       if (tiempoInactivo < 10) return;
-      let reason = whoAfk.afkReason || "";
+      const reason = whoAfk.afkReason || "";
       await client.sendText(m.chat, txt.afkOn(reason, whoAfk.afk), m);
     }
   }

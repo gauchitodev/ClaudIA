@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["r", "recovery", "recuperar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

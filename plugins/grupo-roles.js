@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { darRol, quitarRol, textoRoles } from "../lib/roles.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["adminbot", "adminbots", "moderador", "moderadores", "mod", "mods", "roles"];
 plugin.onlyGroup = true;
 

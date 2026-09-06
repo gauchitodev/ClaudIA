@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["info", "infobot", "botinfo"];
 
 plugin.run = async (m, { client }) => {

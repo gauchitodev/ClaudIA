@@ -1,6 +1,6 @@
 import { getUser, transferirCoins, getSaldoCoins } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["regalar", "dar", "transferir"];
 plugin.economia = true;
 plugin.onlyGroup = true;
@@ -10,7 +10,7 @@ plugin.run = async (m, { client, text, args }) => {
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
   if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else if (m.quoted) {
     who = m.quoted.sender;
   }

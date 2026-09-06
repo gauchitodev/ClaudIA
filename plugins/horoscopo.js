@@ -1,6 +1,4 @@
-import axios from "axios";
-
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["horoscopo", "horóscopo"];
 plugin.botAdmin = true;
 
@@ -27,13 +25,14 @@ plugin.run = async (m, { client, text }) => {
     sign = "escorpion";
   }
   try {
-    let response = await axios.get(`https://www.horoscopo.com/horoscopos/general-diaria-${sign}`);
-    let html = response.data;
-    let startIndex = html.indexOf("<p>") + "<p>".length;
-    let endIndex = html.indexOf("</p>", startIndex);
-    let horoscope = html.substring(startIndex, endIndex);
-    let tes1 = horoscope.split`-`[0];
-    let tes2 = horoscope.split`-`[1];
+    const response = await fetch(`https://www.horoscopo.com/horoscopos/general-diaria-${sign}`, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`horoscopo.com respondió ${response.status}`);
+    const html = await response.text();
+    const startIndex = html.indexOf("<p>") + "<p>".length;
+    const endIndex = html.indexOf("</p>", startIndex);
+    const horoscope = html.substring(startIndex, endIndex);
+    const tes1 = horoscope.split("-")[0];
+    const tes2 = horoscope.split("-")[1];
 
     let emoji = "";
     switch (text.toLowerCase()) {
@@ -77,9 +76,9 @@ plugin.run = async (m, { client, text }) => {
         break;
     }
     m.react(emoji);
-    let teks = `*${emoji}${text.toUpperCase()}${emoji}*\n\n*📅 FECHA:*\n* ${tes1}\n\n${tes2}`;
-    let link = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
-    let kz = await client.sendFile(m.chat, link, null, teks, m);
+    const teks = `*${emoji}${text.toUpperCase()}${emoji}*\n\n*📅 FECHA:*\n* ${tes1}\n\n${tes2}`;
+    const link = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
+    const kz = await client.sendFile(m.chat, link, null, teks, m);
     client.sendMessage(m.chat, { react: { text: "🌠", key: kz.key } });
   } catch (error) {
     client.sendText(m.chat, `Hubo un error al obtener la predicción para ${sign}.`, m);

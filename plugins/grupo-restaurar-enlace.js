@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["rl", "resetlink", "restaurarenlace"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

@@ -1,13 +1,12 @@
 import { apostarCarrera, textoCarrera, CARRERA } from "../lib/carrera.js";
 import { COINS } from "../lib/urucoins.js";
+import { setTimeout as esperar } from "node:timers/promises";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["carrera", "caballos"];
 plugin.economia = true;
 plugin.juego = true;
 plugin.onlyGroup = true;
-
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // .carrera <cantidad> <número o nombre>: la primera apuesta abre la carrera; a los 45 s se corre para todos.
 plugin.run = async (m, { client, args, chat }) => {

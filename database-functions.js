@@ -654,7 +654,7 @@ export function esOwner(id) {
   for (const numero of globalThis.owners || []) {
     const limpio = String(numero).replace(/[^0-9]/g, "");
     if (!limpio) continue;
-    const jid = limpio + "@s.whatsapp.net";
+    const jid = `${limpio}@s.whatsapp.net`;
     if (id === jid) return true;
     const fila = db.prepare(`SELECT lid FROM users WHERE jid = ?`).get(jid);
     if (fila?.lid && id === fila.lid) return true;
@@ -713,7 +713,7 @@ export function coinsGanadasHoy(chat, usuario, prefijoMotivo) {
   inicioHoy.setHours(0, 0, 0, 0);
   const row = db
     .prepare(`SELECT COALESCE(SUM(cantidad), 0) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND cantidad > 0 AND motivo LIKE ? AND fecha >= ?`)
-    .get(chat, usuario, prefijoMotivo + "%", inicioHoy.getTime());
+    .get(chat, usuario, `${prefijoMotivo}%`, inicioHoy.getTime());
   return row?.total || 0;
 }
 
@@ -844,7 +844,7 @@ export function coinsGastadasHoy(chat, usuario, prefijoMotivo) {
   inicioHoy.setHours(0, 0, 0, 0);
   const row = db
     .prepare(`SELECT COALESCE(SUM(-cantidad), 0) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND cantidad < 0 AND motivo LIKE ? AND fecha >= ?`)
-    .get(chat, usuario, prefijoMotivo + "%", inicioHoy.getTime());
+    .get(chat, usuario, `${prefijoMotivo}%`, inicioHoy.getTime());
   return row?.total || 0;
 }
 

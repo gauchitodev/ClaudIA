@@ -1,6 +1,7 @@
 import { getUser, updateUser } from "../database-functions.js";
+import { setTimeout as esperar } from "node:timers/promises";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["setmarry"];
 plugin.onlyOwner = true;
 
@@ -12,11 +13,11 @@ plugin.run = async (m, { client, text }) => {
   const numberMatches = text.match(numberRegex);
   const phoneMatches = text.match(/\+\d[\d\s]*/g);
   if (phoneMatches && phoneMatches.length >= 2) {
-    persona1 = phoneMatches[0].replace(/\+|\s+/g, "") + "@s.whatsapp.net";
-    persona2 = phoneMatches[1].replace(/\+|\s+/g, "") + "@s.whatsapp.net";
+    persona1 = `${phoneMatches[0].replace(/\+|\s+/g, "")}@s.whatsapp.net`;
+    persona2 = `${phoneMatches[1].replace(/\+|\s+/g, "")}@s.whatsapp.net`;
   } else if (numberMatches && numberMatches.length >= 2) {
-    persona1 = numberMatches[0].replace("@", "") + "@lid";
-    persona2 = numberMatches[1].replace("@", "") + "@lid";
+    persona1 = `${numberMatches[0].replace("@", "")}@lid`;
+    persona2 = `${numberMatches[1].replace("@", "")}@lid`;
   }
 
   if (persona1) {
@@ -55,11 +56,10 @@ Ejemplo válido:
 
   const convertToMilliseconds = (timeText) => {
     let totalMilliseconds = 0;
-    let regex = /(\d+)\s*(días?|dia?s?|horas?|hora?s?|minutos?|minuto?s?|segundos?|segundo?s?)/g;
-    let match;
-    while ((match = regex.exec(timeText)) !== null) {
-      let value = parseFloat(match[1]);
-      let unit = match[2].toLowerCase();
+    const regex = /(\d+)\s*(días?|dia?s?|horas?|hora?s?|minutos?|minuto?s?|segundos?|segundo?s?)/g;
+    for (const match of timeText.matchAll(regex)) {
+      const value = parseFloat(match[1]);
+      const unit = match[2].toLowerCase();
       if (unit === "días" || unit === "dia" || unit === "día" || unit === "dias") {
         totalMilliseconds += value * 24 * 60 * 60 * 1000;
       } else if (unit === "horas" || unit === "hora") {
@@ -88,17 +88,15 @@ Ejemplo válido:
   }
 
   // actualizar ambos usuarios en db
-  updateUser(persona1Lid, { married: persona2Jid, marriedTime: +new Date() - time });
-  updateUser(persona2Lid, { married: persona1Jid, marriedTime: +new Date() - time });
+  updateUser(persona1Lid, { married: persona2Jid, marriedTime: Date.now() - time });
+  updateUser(persona2Lid, { married: persona1Jid, marriedTime: Date.now() - time });
 
   const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(persona1Lid, persona2Lid), m);
-  await delay(700);
+  await esperar(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });
-    await delay(700);
+    await esperar(700);
   }
 };
 
 export default plugin;
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

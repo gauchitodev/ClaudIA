@@ -18,7 +18,7 @@ Corre 24/7 en una tablet Samsung Galaxy Tab A9, vía Termux.
 
 ## Stack
 
-Node.js · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini + Groq · yt-dlp
+Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini + Groq · yt-dlp
 
 ## Configuración
 
@@ -26,7 +26,7 @@ Copiá `config.example.toml` como `config.toml` y completá el número del bot, 
 
 ## Tests y lint
 
-`npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 24 y 26, en cada push a `main` y en cada pull request.
+`npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.
 
 ## Nota
 

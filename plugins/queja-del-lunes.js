@@ -1,7 +1,7 @@
 import { obtenerEntradasHashtag } from "../database-functions.js";
 import { semanaDe } from "../lib/hashtags.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["quejas", "quejadelunes"];
 plugin.onlyGroup = true;
 

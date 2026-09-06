@@ -5,7 +5,7 @@ import { duracion } from "../lib/tiempo.js";
 if (!globalThis.resumenCooldown) globalThis.resumenCooldown = new Map();
 const COOLDOWN_MS = 5 * 60 * 1000;
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["resumen", "quemeperdi"];
 plugin.onlyGroup = true;
 

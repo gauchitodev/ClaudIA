@@ -1,7 +1,7 @@
 import { repartir, pedir, plantarse, doblar, dividir, seguro, rendirse, estadoMano, BLACKJACK } from "../lib/blackjack.js";
 import { COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
 plugin.economia = true;
 plugin.juego = true;

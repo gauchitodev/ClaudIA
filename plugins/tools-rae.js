@@ -1,4 +1,5 @@
 import { load } from "cheerio";
+import { pedirHttp } from "../lib/http.js";
 
 const SUP_MAP = {
   0: "⁰",
@@ -21,7 +22,8 @@ const HEADERS = {
 async function fetch_page(word) {
   const url = `https://dle.rae.es/${encodeURIComponent(word)}`;
   try {
-    const resp = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+    // La RAE está detrás de Cloudflare y le responde 403 al fetch nativo; con el cliente del core de Node contesta bien.
+    const resp = await pedirHttp(url, { headers: HEADERS, timeoutMs: 10000 });
     return { resp, url };
   } catch (e) {
     console.error(`Error de conexión: ${e}`);
@@ -39,8 +41,8 @@ function clean_element_of_related($, el) {
     const classAttr = $(node).attr("class");
     if (classAttr) {
       const classes = classAttr.split(/\s+/);
-      for (let cls of classes) {
-        for (let pat of cls_pats) {
+      for (const cls of classes) {
+        for (const pat of cls_pats) {
           if (pat.test(cls)) {
             toRemove.push(node);
             return;
@@ -98,7 +100,7 @@ function extract_definitions_from_articles(html) {
     const intro_selector = '[class*="c-text-intro"], [class*="n2"], [class*="c-section__title"], [class*="c-page-header__title"], [class*="etimologia"]';
     const intro = $article.find(intro_selector).first();
     if (intro.length && intro.attr("class") && (intro.attr("class").includes("c-text-intro") || intro.attr("class").includes("etimologia") || intro.attr("class").includes("n2"))) {
-      let intro_text = intro.text().replace(/\s+/g, " ").trim();
+      const intro_text = intro.text().replace(/\s+/g, " ").trim();
       if (intro_text) {
         const prefix = intro_text.toLowerCase().startsWith("del") ? "" : "Del: ";
         parts.push(prefix + intro_text);
@@ -131,7 +133,7 @@ function extract_definitions_from_articles(html) {
       }
     } else {
       const h1 = $article.find("h1");
-      let start = h1.length ? h1.parent() : $article;
+      const start = h1.length ? h1.parent() : $article;
       const collected = [];
       const stop_patterns = /(sin[oó]nim|antonim|sin\.|ant\.|relacionad|otras locuciones|véase|véase también)/i;
 
@@ -180,7 +182,7 @@ function extract_definitions_from_articles(html) {
   return null;
 }
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["definición", "rae", "definicion"];
 plugin.botAdmin = true;
 

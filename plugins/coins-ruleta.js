@@ -1,7 +1,7 @@
 import { apostarRuleta, textoMesaRuleta, CASINO } from "../lib/casino.js";
 import { COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ruleta"];
 plugin.economia = true;
 plugin.juego = true;

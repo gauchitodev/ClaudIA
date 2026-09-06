@@ -1,7 +1,7 @@
 import { isBlacklisted } from "../database-functions.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, isBotAdmin, isRAdmin }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, isBotAdmin, isRAdmin }) => {
   if (isRAdmin) return;
   if (!isBotAdmin) return;
   if (!m.isGroup) return;

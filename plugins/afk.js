@@ -1,6 +1,6 @@
 import { updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["afk"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

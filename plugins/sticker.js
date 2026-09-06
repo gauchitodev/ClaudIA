@@ -1,6 +1,6 @@
 import { sticker } from "../lib/sticker.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["s", "sticker", "stiker"];
 plugin.botAdmin = true;
 

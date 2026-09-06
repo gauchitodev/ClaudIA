@@ -47,7 +47,7 @@ async function tiktokdl(url) {
   };
 }
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tt", "tiktok", "dltiktok"];
 plugin.botAdmin = true;
 

@@ -1,6 +1,6 @@
 import TicTacToe from "../lib/ttt.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["ttt"];
 plugin.juego = true;
 plugin.onlyGroup = true;
@@ -18,7 +18,7 @@ plugin.run = async (m, { client, text, chat }) => {
     room.o = m.chat;
     room.game.playerO = m.sender;
     room.state = "PLAYING";
-    let arr = room.game.render().map((v) => {
+    const arr = room.game.render().map((v) => {
       return {
         X: "❎",
         O: "⭕",
@@ -34,7 +34,7 @@ plugin.run = async (m, { client, text, chat }) => {
       }[v];
     });
 
-    let str = `❌ 𝙅𝙐𝙀𝙂𝙊 𝙏𝙍𝙀𝙎 𝙀𝙉 𝙍𝘼𝙔𝘼 ⭕
+    const str = `❌ 𝙅𝙐𝙀𝙂𝙊 𝙏𝙍𝙀𝙎 𝙀𝙉 𝙍𝘼𝙔𝘼 ⭕
 🫂 𝙅𝙐𝙂𝘼𝘿𝙊𝙍𝙀𝙎 *:*
 *┈┈┈┈┈┈┈┈┈*
 ❎ = @${room.game.playerX.split("@")[0]}
@@ -51,14 +51,14 @@ plugin.run = async (m, { client, text, chat }) => {
     await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
   } else {
     room = {
-      id: "tictactoe-" + +new Date(),
+      id: `tictactoe-${Date.now()}`,
       x: m.chat,
       o: "",
       game: new TicTacToe(m.sender, "o"),
       state: "WAITING",
     };
     if (text) room.name = text;
-    let caption = `❌ 𝙅𝙐𝙀𝙂𝙊 𝙏𝙍𝙀𝙎 𝙀𝙉 𝙍𝘼𝙔𝘼 ⭕
+    const caption = `❌ 𝙅𝙐𝙀𝙂𝙊 𝙏𝙍𝙀𝙎 𝙀𝙉 𝙍𝘼𝙔𝘼 ⭕
 🕹️Para ser segundo jugador, ponga .ttt
 
                 ✅2️⃣⭕

@@ -1,5 +1,6 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
-let plugin = {};
+import { elegirAlAzar } from "../lib/azar.js";
+const plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
 plugin.juego = true;
 plugin.botAdmin = true;
@@ -93,12 +94,12 @@ const response = [
   { pregunta: "Vive en el agua, pero si la sacas de ella, muere. ¿Qué es?", respuesta: "un pez", pista: "Nada en los océanos." },
 ];
 
-let acertijos = {};
+const acertijos = {};
 
 plugin.run = async (m, { client, chat }) => {
   if (acertijos[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
 
-  const acertijo = response[Math.floor(Math.random() * response.length)];
+  const acertijo = elegirAlAzar(response);
   const acertijoMsg = await client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m);
 
   acertijos[m.chat] = {
@@ -108,7 +109,7 @@ plugin.run = async (m, { client, chat }) => {
     timeout: setTimeout(() => {
       if (acertijos[m.chat]) {
         const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, "*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* " + acertijo.respuesta + resumen, m).catch(console.error);
+        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* ${acertijo.respuesta}${resumen}`, m).catch(console.error);
         delete acertijos[m.chat];
       }
     }, 30000), // 30 segundos para adivinar
@@ -116,7 +117,7 @@ plugin.run = async (m, { client, chat }) => {
   juegoIniciado(m.chat, "acertijo");
 };
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   // verificar si hay un acertijo en juego
   if (!acertijos[m.chat]) return;
 

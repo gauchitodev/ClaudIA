@@ -1,7 +1,7 @@
 import { updateUser } from "../database-functions.js";
 
-let plugin = (m) => m;
-plugin.before = async function (m, { client, user }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client, user }) => {
   if (!m.isGroup || !m.message) return;
   const groupData = user.inGroup[m.chat];
 

@@ -2,7 +2,7 @@ import fs from "fs";
 import toml from "@iarna/toml";
 import { getUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["addowner", "removeowner", "aowner", "rowner"];
 plugin.onlyOwner = true;
 
@@ -13,7 +13,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   if (numberMatchesPlus && numberMatchesPlus.length > 0) {
     who = numberMatchesPlus[0].replace(/[+\s]/g, "");
   } else if (numberMatches && numberMatches.length > 0) {
-    who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   } else if (m.quoted) {
     who = m.quoted.sender;
   } else who = "";
@@ -41,7 +41,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   }
 
   // owners reales, sin entradas vacías ""
-  let currentOwners = (config.owners || []).filter((o) => o && o.trim() !== "");
+  const currentOwners = (config.owners || []).filter((o) => o && o.trim() !== "");
 
   if (command === "addowner" || command === "aowner") {
     if (currentOwners.includes(who)) {

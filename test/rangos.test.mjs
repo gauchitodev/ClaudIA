@@ -40,7 +40,7 @@ test("rangos: la antigüedad sale de la primera actividad registrada si la entra
 
 test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
   fijar(111, { messageCount: 50, desde: Date.now() - 3 * DIA });
-  let r = R.rangoDe(G, "111@lid", F.getUser("111@lid"));
+  const r = R.rangoDe(G, "111@lid", F.getUser("111@lid"));
   assert.deepEqual([r.rango.clave, r.siguiente.clave, r.faltanDias, r.faltanMensajes], ["nuevo", "habitue", 4, 50]);
   assert.match(R.textoRango(G, "111@lid", F.getUser("111@lid"), true).texto, /Tu rango:\* 🌱 \*Nuevo\*\n3 días en el grupo · 50 mensajes\nSiguiente: 🧉 Habitué, faltan 4 días y 50 mensajes\./);
   // primera pasada: guarda el rango actual sin avisar

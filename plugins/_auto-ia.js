@@ -31,9 +31,9 @@ const ESQUEMA_RESPUESTA = {
   required: ["comando", "respuesta"],
 };
 
-let plugin = (m) => m;
+const plugin = (m) => m;
 
-plugin.before = async function (m, { client, participants, isMod, isBotAdmin, isOwner, user, chat }) {
+plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
     if (m.fromMe || m.isBaileys) return;
     if (!m.text) return;
@@ -140,7 +140,7 @@ plugin.before = async function (m, { client, participants, isMod, isBotAdmin, is
 
     const comando = (datos.comando || "ninguno").toLowerCase();
     const argumento = (datos.argumento || "").trim();
-    let respuesta = (datos.respuesta || "").trim();
+    const respuesta = (datos.respuesta || "").trim();
     const nuevoRecuerdo = datos.recordar ? String(datos.recordar).trim() : null;
     const quiereReintentar = datos.reintentar === true;
 

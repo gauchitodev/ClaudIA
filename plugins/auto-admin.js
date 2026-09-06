@@ -1,4 +1,4 @@
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["aa"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;

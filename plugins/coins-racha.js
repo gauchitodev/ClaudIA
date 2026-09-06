@@ -1,7 +1,7 @@
 import { textoRacha } from "../lib/actividad.js";
 import { COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["racha"];
 plugin.economia = true;
 plugin.onlyGroup = true;

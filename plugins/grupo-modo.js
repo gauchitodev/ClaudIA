@@ -1,6 +1,6 @@
 import { aplicarModo, textoModo } from "../lib/modo.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["modo"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;

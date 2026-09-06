@@ -4,7 +4,7 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["bass", "blown", "deep", "earrape", "fast", "fat", "nightcore", "reverse", "robot", "slow", "smooth", "tupai"];
 plugin.botAdmin = true;
 

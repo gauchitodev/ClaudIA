@@ -1,6 +1,6 @@
 import { getSaldoCoins } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["coins", "urucoins", "saldo", "bal", "balance"];
 plugin.economia = true;
 plugin.onlyGroup = true;

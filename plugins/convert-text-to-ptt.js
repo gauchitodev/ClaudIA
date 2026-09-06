@@ -1,8 +1,6 @@
-import gtts from "node-gtts";
-import { readFileSync, unlinkSync } from "fs";
-import { join } from "path";
+import { sintetizar } from "../lib/tts.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["tts"];
 plugin.botAdmin = true;
 
@@ -20,36 +18,15 @@ plugin.run = async (m, { client, args }) => {
   if (!text && m.quoted?.text) text = m.quoted.text;
   let res;
   try {
-    res = await tts(text, lang);
+    res = await sintetizar(text, lang);
   } catch (e) {
     text = args.join(" ");
     if (!text) return client.sendText(m.chat, txt.textToPTTNull, m);
     await client.sendPresenceUpdate("recording", m.chat);
-    res = await tts(text, defaultLang);
+    res = await sintetizar(text, defaultLang);
   } finally {
     if (res) await client.sendFile(m.chat, res, `textToPTT.mp3`, null, m, true, { seconds: "9999999999999" });
   }
 };
 
 export default plugin;
-
-function tts(text, lang = "es") {
-  return new Promise((resolve, reject) => {
-    try {
-      let tts = gtts(lang);
-      let filePath = join("./tmp", Date.now() + ".wav");
-      tts.save(filePath, text, (err) => {
-        if (err) return reject(err);
-        try {
-          const audio = readFileSync(filePath);
-          unlinkSync(filePath);
-          resolve(audio);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    } catch (e) {
-      reject(e);
-    }
-  });
-}

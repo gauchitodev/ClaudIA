@@ -25,7 +25,7 @@ test("recordatorios", async () => {
   assert.match(Rec.crearRecordatorio(G, "u", ["en", "2h"]).error, /¿Qué te recuerdo/);
   assert.match(Rec.crearRecordatorio(G, "u", ["sacar", "la", "pizza"]).error, /¿Cuándo/);
   assert.match(Rec.crearRecordatorio(G, "u", ["en", "90d", "x"]).error, /60 días/);
-  for (let i = 0; i < 7; i++) Rec.crearRecordatorio(G, "u", ["en", "1h", "x" + i]);
+  for (let i = 0; i < 7; i++) Rec.crearRecordatorio(G, "u", ["en", "1h", `x${i}`]);
   assert.match(Rec.crearRecordatorio(G, "u", ["en", "1h", "otro"]).error, /Ya tenés 10/);
   assert.match(Rec.textoRecordatorios("u"), /#1 · /);
   assert.ok(Rec.olvidarRecordatorio("u", 1).ok && !Rec.olvidarRecordatorio("u", 1).ok && !Rec.olvidarRecordatorio("otro", 2).ok);
@@ -56,7 +56,7 @@ test("cumpleaños", async () => {
 
 test("backup con la copia real de SQLite, rotación y envío semanal", async () => {
   const archivo = await B.hacerBackup();
-  assert.ok(fs.existsSync(archivo) && !fs.existsSync(archivo + ".tmp"));
+  assert.ok(fs.existsSync(archivo) && !fs.existsSync(`${archivo}.tmp`));
   for (let i = 1; i <= 9; i++) fs.writeFileSync(path.join(B.BACKUP.CARPETA, `database-2020-01-0${i % 10}.db`), "viejo");
   await B.hacerBackup();
   assert.equal(fs.readdirSync(B.BACKUP.CARPETA).filter((f) => f.endsWith(".db")).length, 7);
@@ -73,7 +73,7 @@ test("backup con la copia real de SQLite, rotación y envío semanal", async () 
 });
 
 test("memoria corta y memoria del grupo", () => {
-  for (let i = 0; i < 250; i++) CC.recordarMensaje("c", "u" + i, "mensaje " + i);
+  for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
   assert.equal(globalThis.contextoChat.get("c").length, 200);
   assert.equal(CC.textoContexto("c", false).split("\n").length, 14);
   assert.match(Mem.recordar(G, "u", "que Fulano siempre llega tarde").mensaje, /Anotado \(#1\): Fulano siempre llega tarde/);
@@ -101,4 +101,16 @@ test("economía", () => {
   assert.match(t.texto, /En circulación: \*110 UruCoins\* entre 2 personas/);
   assert.match(t.texto, /📈/);
   assert.deepEqual(t.mentions, ["a", "b"]);
+});
+
+test("economía: los movimientos de los laburos tienen rubro propio", () => {
+  F.moverCoins(G, "laburante@lid", 9, "sueldo_laburo");
+  F.moverCoins(G, "laburante@lid", -20, "cambio_laburo");
+  const rubros = E.resumenEconomia(G, 7).rubros;
+  const nombres = rubros.map((r) => r.nombre);
+  assert.ok(nombres.includes("Sueldos de laburos") && nombres.includes("Cambios de laburo"), nombres.join(", "));
+  assert.ok(!nombres.includes("Otros"), "antes caían en Otros");
+  assert.equal(rubros.find((r) => r.nombre === "Sueldos de laburos").entradas, 9);
+  assert.equal(rubros.find((r) => r.nombre === "Cambios de laburo").salidas, 20);
+  assert.match(E.textoEconomia(G).texto, /• Sueldos de laburos: \+9 \/ −0 \(1 mov\.\)/);
 });

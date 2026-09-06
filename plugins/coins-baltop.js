@@ -3,7 +3,7 @@ import { etiquetaLaburo } from "../lib/laburos.js";
 
 const TOP_N = 10;
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["baltop", "topcoins", "ricos"];
 plugin.economia = true;
 plugin.onlyGroup = true;

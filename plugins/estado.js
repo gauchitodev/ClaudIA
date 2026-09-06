@@ -5,7 +5,7 @@ import { ultimoBackup, tamano } from "../lib/backup.js";
 import { duracion, textoFecha } from "../lib/tiempo.js";
 import { COOLDOWN_REINTENTO_MS } from "../lib/gemini.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["estado", "status"];
 plugin.onlyMod = true;
 

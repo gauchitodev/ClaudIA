@@ -1,11 +1,11 @@
-let plugin = (m) => m;
-plugin.before = async function (m, { client }) {
+const plugin = (m) => m;
+plugin.before = async (m, { client }) => {
   let ok;
   let isWin = false;
   let isTie = false;
   let isSurrender;
   client.game = client.game ? client.game : {};
-  let room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state === "PLAYING");
+  const room = Object.values(client.game).find((room) => room.id && room.game && room.state && room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender) && room.state === "PLAYING");
   if (room) {
     if (!/^([1-9]|(me)?nyerah|\rendirse\|rendirse|RENDIRSE|SALIR|salir|Salir|out|OUT|Out|surr?ender)$/i.test(m.text)) return true;
     isSurrender = !/^[1-9]$/.test(m.text);
@@ -28,7 +28,7 @@ plugin.before = async function (m, { client }) {
     }
     if (m.sender === room.game.winner) isWin = true;
     else if (room.game.board === 511) isTie = true;
-    let arr = room.game.render().map((v) => {
+    const arr = room.game.render().map((v) => {
       return {
         X: "❎",
         O: "⭕",
@@ -44,11 +44,11 @@ plugin.before = async function (m, { client }) {
       }[v];
     });
     if (isSurrender) {
-      room.game._currentTurn = m.sender === room.game.playerX;
+      room.game.oTurn = m.sender === room.game.playerX;
       isWin = true;
     }
 
-    let str = `
+    const str = `
 🫂 𝙅𝙐𝙂𝘼𝘿𝙊𝙍𝙀𝙎 *:*
 *┈┈┈┈┈┈┈┈┈*
 ❎ = @${room.game.playerX.split("@")[0]}
@@ -60,7 +60,7 @@ plugin.before = async function (m, { client }) {
 *┈┈┈┈┈┈┈┈┈*
 ${isWin ? `@${(isSurrender ? room.game.currentTurn : room.game.winner).split("@")[0]} 😎🏆 *GANASTE!!*` : isTie ? `*EMPATE!!🙄🤨*` : `🪄 *TURNO DE* @${room.game.currentTurn.split("@")[0]}`}
 `.trim();
-    if ((room.game._currentTurn ^ isSurrender ? room.x : room.o) !== m.chat) room[room.game._currentTurn ^ isSurrender ? "x" : "o"] = m.chat;
+    if ((room.game.oTurn ^ isSurrender ? room.x : room.o) !== m.chat) room[room.game.oTurn ^ isSurrender ? "x" : "o"] = m.chat;
     if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: m });
     await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
 

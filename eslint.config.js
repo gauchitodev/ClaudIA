@@ -32,6 +32,10 @@ export default defineConfig([
       "no-empty": ["error", { allowEmptyCatch: true }],
       // Igualdad estricta siempre; "== null" se deja porque cubre null y undefined a la vez.
       eqeqeq: ["error", "always", { null: "ignore" }],
+      // Sintaxis actual: const cuando no se reasigna, template strings en vez de concatenar, propiedades abreviadas.
+      "prefer-const": "error",
+      "prefer-template": "error",
+      "object-shorthand": "error",
       // Los textos que manda el bot llevan espacios raros (zero-width) a propósito, para el formato de WhatsApp.
       "no-irregular-whitespace": ["error", { skipStrings: true, skipTemplates: true, skipComments: true, skipRegExps: true }],
     },

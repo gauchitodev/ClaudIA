@@ -1,4 +1,5 @@
 import { smsg } from "./lib/wa-socket.js";
+import { elegirAlAzar } from "./lib/azar.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { permisosDe } from "./lib/roles.js";
@@ -93,7 +94,7 @@ export async function handleMessage(nMsg) {
                     "¡Buenas buenas! ¿Qué se cuenta?",
                     "¡Hola grupo!"
                 ];
-                const respuestaElegida = respuestas[Math.floor(Math.random() * respuestas.length)];
+                const respuestaElegida = elegirAlAzar(respuestas);
 
                 // Mandamos el mensaje citando al que saludó
                 await this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m });
@@ -122,7 +123,7 @@ export async function handleMessage(nMsg) {
 
     // usuario baneado del bot
     if (user.banned) {
-      if (new Date() - user.lastmining < 3600000) return;
+      if (Date.now() - user.lastmining < 3600000) return;
       this.sendMessage(m.chat, { text: "🚫ESTÁS BANEADO(A)🚫", mentions: [m.sender] }, { quoted: m });
       updateUser(m.sender, { lastmining: Date.now() });
       return;

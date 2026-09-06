@@ -1,25 +1,18 @@
-let plugin = {};
+import { elegirAlAzar } from "../lib/azar.js";
+
+const plugin = {};
 plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas"];
 plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, command, chat }) => {
-  let user = (a) => "@" + a.split("@")[0];
-  let ps = groupMetadata.participants.map((v) => v.id);
-  let a = ps.getRandom();
-  let b = ps.getRandom();
-  let c = ps.getRandom();
-  let d = ps.getRandom();
-  let e = ps.getRandom();
-  let f = ps.getRandom();
-  let g = ps.getRandom();
-  let h = ps.getRandom();
-  let i = ps.getRandom();
-  let j = ps.getRandom();
+  const user = (a) => `@${a.split("@")[0]}`;
+  const ps = groupMetadata.participants.map((v) => v.id);
+  const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, () => elegirAlAzar(ps));
 
   if (command === "topgays") {
-    let top = `*🌈TOP 10 GAYS/LESBIANAS DEL GRUPO🌈*
+    const top = `*🌈TOP 10 GAYS/LESBIANAS DEL GRUPO🌈*
     
 *_1.- 🏳️‍🌈 ${user(a)}_* 🏳️‍🌈
 *_2.- 🪂 ${user(b)}_* 🪂
@@ -35,7 +28,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "topsucios") {
-    let top = `*🤢🤮TOP 10 SUCIOS QUE NUNCA SE BAÑAN🤮🤢*
+    const top = `*🤢🤮TOP 10 SUCIOS QUE NUNCA SE BAÑAN🤮🤢*
 
 *_1.- 🤢 ${user(a)}_* 🤮
 *_2.- 🤢 ${user(b)}_* 🤮
@@ -52,7 +45,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "topotakus") {
-    let top = `*🌸 TOP 10 OTAKUS DEL GRUPO 🌸*
+    const top = `*🌸 TOP 10 OTAKUS DEL GRUPO 🌸*
     
 *_1.- 💮 ${user(a)}_* 💮
 *_2.- 🌷 ${user(b)}_* 🌷
@@ -68,7 +61,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "toppajer@s") {
-    let top = `*_😏TOP L@S MAS PAJEROS/AS DEL GRUPO💦_* 
+    const top = `*_😏TOP L@S MAS PAJEROS/AS DEL GRUPO💦_* 
     
 *_1.- 🥵 ${user(a)}_* 💦
 *_2.- 🥵 ${user(b)}_* 💦
@@ -84,7 +77,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "toplind@s") {
-    let top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
+    const top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
     
 *_1.- ✨ ${user(a)}_* ✨
 *_2.- ✨ ${user(b)}_* ✨
@@ -100,7 +93,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "toplindos") {
-    let top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
+    const top = `*_😳TOP L@S MAS LIND@S Y SEXIS DEL GRUPO😳_*
     
 *_1.- ✨ ${user(a)}_* ✨
 *_2.- ✨ ${user(b)}_* ✨
@@ -116,7 +109,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "topput@s") {
-    let top = `*_😏TOP L@S MAS PUT@S DEL GRUPO SON🔥_* 
+    const top = `*_😏TOP L@S MAS PUT@S DEL GRUPO SON🔥_* 
     
 *_1.- 👉 ${user(a)}_* 👌
 *_2.- 👉 ${user(b)}_* 👌
@@ -132,7 +125,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "topchupadores" || command === "topmamadores" || command === "topchupapijas" || command === "topchupavergas") {
-    let top = `*_🥵TOP 5 DE LOS MÁS CHUPA PIJAS COMPULSIVOS🥵_* 
+    const top = `*_🥵TOP 5 DE LOS MÁS CHUPA PIJAS COMPULSIVOS🥵_* 
     
 *_1.- 😏 ${user(a)}_* 💦
 *_2.- 😏 ${user(b)}_* 💦
@@ -145,7 +138,7 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   }
 
   if (command === "top5parejas" || command === "topparejas") {
-    let top = `*_😍 Las 5 maravillosas parejas del grupo 😍_*
+    const top = `*_😍 Las 5 maravillosas parejas del grupo 😍_*
     
 *_1.- ${user(a)} 💘 ${user(b)}_* 
 Que hermosa pareja 💖, me invitan a su Boda 🛐

@@ -1,4 +1,6 @@
-let plugin = {};
+import { setTimeout as esperar } from "node:timers/promises";
+
+const plugin = {};
 plugin.cmd = ["avisartodos", "broadcast"];
 
 plugin.run = async (m, { client, text, isOwner }) => {
@@ -16,7 +18,7 @@ plugin.run = async (m, { client, text, isOwner }) => {
       await client.sendText(jid, text, null);
       enviados++;
       // pausa entre grupos para no mandar todo de golpe y que parezca spam.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await esperar(1500);
     } catch (e) {
       console.error(`[avisar-todos] falló en ${jid}:`, e.message);
       fallidos++;

@@ -69,7 +69,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.equal(T.responderRelampago({ chat: G, sender: "a", text: mal, quoted: { id: idMsg } }).reaccion, "❌");
   assert.equal(T.responderRelampago({ chat: G, sender: "a", text: estado.respuesta, quoted: { id: idMsg } }).reaccion, "🙅");
   assert.equal(T.responderRelampago({ chat: G, sender: "b", text: "hola", quoted: { id: idMsg } }), null);
-  const win = T.responderRelampago({ chat: G, sender: "b", text: estado.respuesta.toUpperCase() + ")", quoted: { id: idMsg } });
+  const win = T.responderRelampago({ chat: G, sender: "b", text: `${estado.respuesta.toUpperCase()})`, quoted: { id: idMsg } });
   assert.equal(win.reaccion, "✅");
   assert.equal(saldo("b"), 15);
   assert.ok(!globalThis.relampagos.has(G));

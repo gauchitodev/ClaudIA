@@ -1,7 +1,7 @@
 import { textoEconomia } from "../lib/economia.js";
 import { getUser, ganarCoins, gastarCoins, getSaldoCoins } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["economia", "economía", "ajustar"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
@@ -17,7 +17,7 @@ plugin.run = async (m, { client, args, text, command, isOwner }) => {
   if (!isOwner) return client.sendText(m.chat, txt.onlyOwner, m);
   let who;
   const numberMatches = text.match(/@[0-9\s]+/g);
-  if (numberMatches && numberMatches.length > 0) who = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+  if (numberMatches && numberMatches.length > 0) who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
   else if (m.quoted) who = m.quoted.sender;
   const destinatario = who ? getUser(who) : null;
   const cantidad = parseInt(args.find((a) => /^-?\d+$/.test(a)), 10);

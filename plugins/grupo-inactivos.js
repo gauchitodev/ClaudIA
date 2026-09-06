@@ -1,13 +1,13 @@
 import { getAllUsers } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["inactivos"];
 plugin.onlyMod = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, participants }) => {
   const allUsers = getAllUsers();
-  let inactivos = [];
+  const inactivos = [];
 
   for (const participant of participants) {
     const lid = participant.id;
@@ -26,7 +26,7 @@ plugin.run = async (m, { client, participants }) => {
   const readMore = more.repeat(4001);
 
   let texto = `📢 *Usuarios inactivos (${inactivos.length}):*\n`;
-  texto += readMore + "\n\n";
+  texto += `${readMore}\n\n`;
 
   for (const lid of inactivos) {
     const numero = lid.split("@")[0];

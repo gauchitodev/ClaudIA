@@ -2,7 +2,7 @@ import { exec } from "child_process";
 import { promises } from "fs";
 import { promisify } from "util";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["toimg", "img", "jpg"];
 plugin.botAdmin = true;
 

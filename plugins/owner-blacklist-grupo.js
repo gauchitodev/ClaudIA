@@ -1,7 +1,7 @@
 import { updateChat, addManyToChatBlacklist, removeManyFromChatBlacklist, getChatBlacklist, getChat } from "../database-functions.js";
 import { getComandosDeSeccion, getNombresSecciones } from "../lib/secciones.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["blgrupos", "blsecciones", "blon", "bloff", "bladd", "bldel", "bllist"];
 plugin.onlyOwner = true;
 
@@ -91,7 +91,7 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
       addManyToChatBlacklist(targetChat, [...aBloquear]);
 
       let msg = `🚫 Bloqueado en *${nombreGrupo}* (${aBloquear.size} comandos en total).`;
-      if (seccionesOk.length) msg += `\nSecciones: ${seccionesOk.map((s) => "+" + s).join(", ")}`;
+      if (seccionesOk.length) msg += `\nSecciones: ${seccionesOk.map((s) => `+${s}`).join(", ")}`;
       if (seccionesMal.length) msg += `\n⚠️ No existen: ${seccionesMal.join(", ")}`;
       return client.sendText(m.chat, msg, m);
     }
@@ -127,7 +127,7 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
       removeManyFromChatBlacklist(targetChat, [...aDesbloquear]);
 
       let msg = `✅ Desbloqueado en *${nombreGrupo}*.`;
-      if (seccionesOk.length) msg += `\nSecciones: ${seccionesOk.map((s) => "+" + s).join(", ")}`;
+      if (seccionesOk.length) msg += `\nSecciones: ${seccionesOk.map((s) => `+${s}`).join(", ")}`;
       if (seccionesMal.length) msg += `\n⚠️ No existen: ${seccionesMal.join(", ")}`;
       return client.sendText(m.chat, msg, m);
     }

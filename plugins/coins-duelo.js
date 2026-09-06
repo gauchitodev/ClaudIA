@@ -1,7 +1,7 @@
 import { desafiar, aceptar, rechazar, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
 import { COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
 plugin.economia = true;
 plugin.juego = true;
@@ -32,7 +32,7 @@ plugin.run = async (m, { client, args, text, command, chat }) => {
     }
     let retado = null;
     const numberMatches = text.match(/@[0-9\s]+/g);
-    if (numberMatches && numberMatches.length > 0) retado = numberMatches[0].replace("@", "").replace(/\s+/g, "") + "@lid";
+    if (numberMatches && numberMatches.length > 0) retado = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
     else if (m.quoted) retado = m.quoted.sender;
     const cantidad = parseInt(args.find((a) => /^\d+$/.test(a)), 10);
     const tipo = command === "pelea" ? "pelea" : args.find((a) => /^(dado|dados|carta|cartas|pelea|peleas|piñas|pinas)$/i.test(a)) || "dado";

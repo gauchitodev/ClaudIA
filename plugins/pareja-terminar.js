@@ -1,6 +1,6 @@
 import { getUser, updateUser } from "../database-functions.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["terminar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -12,13 +12,13 @@ plugin.run = async (m, { client, user }) => {
   const parejaCouple = parejaData?.couple;
 
   // owners narcisistas que no permiten que les terminen la pareja.
-  const ownerJids = globalThis.owners.map((owner) => owner + "@s.whatsapp.net");
+  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
   for (const ownerJid of ownerJids) {
     const ownerData = getUser(ownerJid);
     const ownerCouple = ownerData?.couple;
     if (user.couple === ownerJid && ownerCouple === m.senderJid) {
-      const sendOwner = globalThis.owners[0] + "@s.whatsapp.net";
-      if (ownerJid === globalThis.owners[0] + "@s.whatsapp.net") client.sendText(sendOwner, "", m);
+      const sendOwner = `${globalThis.owners[0]}@s.whatsapp.net`;
+      if (ownerJid === `${globalThis.owners[0]}@s.whatsapp.net`) client.sendText(sendOwner, "", m);
       return;
     }
   }

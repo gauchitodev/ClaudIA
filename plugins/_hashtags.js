@@ -2,9 +2,9 @@ import { agregarEntradaHashtag, contarEntradasUsuarioSemana, ganarCoins } from "
 import { HASHTAGS_CONFIG, semanaDe } from "../lib/hashtags.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
 
-let plugin = (m) => m;
+const plugin = (m) => m;
 
-plugin.before = async function (m, { client }) {
+plugin.before = async (m, { client }) => {
   try {
     if (!m.isGroup || !m.text) return;
     if (m.fromMe || m.isBaileys) return;

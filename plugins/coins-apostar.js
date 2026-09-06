@@ -1,6 +1,6 @@
 import { apostar, COINS } from "../lib/urucoins.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["apostar", "apuesta"];
 plugin.economia = true;
 plugin.onlyGroup = true;

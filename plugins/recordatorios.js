@@ -1,6 +1,6 @@
 import { crearRecordatorio, textoRecordatorios, olvidarRecordatorio } from "../lib/recordatorios.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["recordame", "recordar", "recordatorio", "recordatorios", "olvidar"];
 
 plugin.run = async (m, { client, args, command }) => {

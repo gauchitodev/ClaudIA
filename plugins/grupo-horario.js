@@ -1,6 +1,6 @@
 import { fijarHorarioGrupo, quitarHorarioGrupo, textoHorarioGrupo, chequearHorariosGrupo } from "../lib/horario-grupo.js";
 
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["horariogrupo", "horario"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
