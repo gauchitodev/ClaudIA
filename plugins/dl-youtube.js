@@ -11,10 +11,11 @@ import { encolarDescarga } from "../lib/cola-descargas.js";
 import { gastarCoins, getSaldoCoins } from "../database-functions.js";
 import { COINS } from "../lib/urucoins.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
+import { RUTA_YT_DLP } from "../load-functions.js";
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
-const ytDlpPath = path.resolve("node_modules", "gs", "ygs");
+const ytDlpPath = path.resolve(RUTA_YT_DLP);
 const cookiesPath = path.resolve("cookies.txt");
 const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
 const cookiesFlagStr = existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : "";

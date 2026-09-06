@@ -22,8 +22,7 @@ tmp/
 node_modules/
 
 # ===== BINARIOS DESCARGADOS =====
-yt-dlp
-yt-dlp.exe
+bin/
 
 # ===== ARCHIVOS DEL SISTEMA =====
 .DS_Store

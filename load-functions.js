@@ -1,14 +1,13 @@
 import { existsSync, mkdirSync, readdirSync, watch } from "fs";
 import { exec } from "child_process";
 
-// YTDLP INSTALL
-export async function installYtDlp() {
-  const filePath = process.platform === "win32" ? "./node_modules/gs/ygs.exe" : "./node_modules/gs/ygs";
-  if (existsSync(filePath)) return;
+// yt-dlp: se baja el binario a ./bin (ignorado por git) si no está. Antes vivía en node_modules/gs, y cada npm ci lo borraba.
+const BIN = "./bin";
+export const RUTA_YT_DLP = `${BIN}/${process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"}`;
 
-  if (!existsSync("./node_modules/gs")) {
-    mkdirSync("./node_modules/gs");
-  }
+export async function installYtDlp() {
+  if (existsSync(RUTA_YT_DLP)) return;
+  mkdirSync(BIN, { recursive: true });
 
   const runCommand = (command) =>
     new Promise((resolve, reject) => {
@@ -20,11 +19,12 @@ export async function installYtDlp() {
 
   try {
     if (process.platform === "win32") {
-      await runCommand("powershell -Command \"Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile './node_modules/gs/ygs.exe'\"");
+      await runCommand(`powershell -Command "Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile '${RUTA_YT_DLP}'"`);
     } else {
-      await runCommand("curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./node_modules/gs/ygs");
-      await runCommand("chmod +x ./node_modules/gs/ygs");
+      await runCommand(`curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${RUTA_YT_DLP}`);
+      await runCommand(`chmod +x ${RUTA_YT_DLP}`);
     }
+    console.log(`⬇️ yt-dlp descargado en ${RUTA_YT_DLP}`);
   } catch (e) {
     console.error("Error con instalacion de Youtube", e);
   }
