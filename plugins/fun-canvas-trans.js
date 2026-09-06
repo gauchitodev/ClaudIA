@@ -1,3 +1,4 @@
+import bajarFondo from "../lib/fondo-remoto.js";
 import Jimp from "jimp-legacy";
 import { unlinkSync } from "fs";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
@@ -30,7 +31,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
     const ppTrans = "https://openclipart.org/image/800px/345534";
 
     const foto1 = await Jimp.read(pp);
-    const foto2 = await Jimp.read(ppTrans);
+    const foto2 = await Jimp.read(await bajarFondo(ppTrans));
 
     const size = Math.min(foto2.getWidth(), foto2.getHeight());
     foto1.resize(size, size);

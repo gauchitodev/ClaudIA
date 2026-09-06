@@ -1,3 +1,4 @@
+import bajarFondo from "../lib/fondo-remoto.js";
 import Jimp from "jimp-legacy";
 import { unlinkSync } from "fs";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
@@ -30,7 +31,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
     const ppBi = "https://openclipart.org/image/800px/344896";
 
     const foto1 = await Jimp.read(pp);
-    const foto2 = await Jimp.read(ppBi);
+    const foto2 = await Jimp.read(await bajarFondo(ppBi));
 
     const scaleFactor = 1.05;
     const newWidth = Math.round(foto1.getWidth() * scaleFactor);
@@ -50,7 +51,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
     await client.sendFile(m.chat, outputPath, `${randomName}.jpg`, "🌈🏳️‍🌈", m);
     unlinkSync(outputPath);
   } catch (err) {
-    console.error(err);
+    console.error("[canvas]", err);
+    await client.sendText(m.chat, "❌ No pude armar la imagen: el servicio de donde saco el fondo no está respondiendo. Probá más tarde.", m);
   }
 };
 

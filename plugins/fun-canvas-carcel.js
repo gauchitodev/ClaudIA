@@ -1,3 +1,4 @@
+import bajarFondo from "../lib/fondo-remoto.js";
 import Jimp from "jimp-legacy";
 import { unlinkSync } from "fs";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
@@ -32,7 +33,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
     const ppCarcel = "https://i.ibb.co/1tKmnxRy/5856a83e4f6ae202fedf276d.png";
 
     const foto1 = await Jimp.read(pp);
-    const foto2 = await Jimp.read(ppCarcel);
+    const foto2 = await Jimp.read(await bajarFondo(ppCarcel));
 
     foto2.resize(foto1.getWidth(), foto1.getHeight());
     foto2.opacity(0.8);
@@ -43,7 +44,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, chat }) => {
     await client.sendFile(m.chat, outputPath, `${randomName}.jpg`, txt.carcelMsg(years, razon), m);
     unlinkSync(outputPath);
   } catch (err) {
-    console.error(err);
+    console.error("[canvas]", err);
+    await client.sendText(m.chat, "❌ No pude armar la imagen: el servicio de donde saco el fondo no está respondiendo. Probá más tarde.", m);
   }
 };
 
