@@ -14,6 +14,12 @@ plugin.run = async (m, { client, usedPrefix }) => {
 👤 *𝚄𝚂𝚄𝙰𝚁𝙸𝙾𝚂:* ${getTotalUsers()}
 🆙 *𝚅𝙴𝚁𝚂𝙸𝙾́𝙽:* ${globalThis.botVersion}
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+📂 *𝙾𝚃𝚁𝙾𝚂 𝙼𝙴𝙽𝚄́𝚂*
+▸ ${usedPrefix}menuuru 🇺🇾 – \`Juegos, temáticas, UruCoins, casino y actividad del grupo.\`
+▸ ${usedPrefix}menuventas 🛒 – \`Compraventa: publicar, buscar, alertas y calificaciones.\`
+▸ ${usedPrefix}menuaero ✈️ – \`Meteorología aeronáutica y reloj Zulu.\`
+▸ ${usedPrefix}info 💻 – \`Cómo instalar el bot.\`
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 📌 \`LISTA DE COMANDOS:\`
 ${readMore}
 
@@ -38,6 +44,7 @@ ${readMore}
 ▸ ${usedPrefix}calificar @mención 5 <comentario> ⭐ – \`Calificá a quien le compraste o vendiste.\`
 ▸ ${usedPrefix}reputacion @mención ⭐ – \`Promedio y últimas calificaciones.\`
 ▸ ${usedPrefix}reglas 📋 / ${usedPrefix}plantilla 📝 – \`Reglas del grupo y formato para publicar.\`
+▸ ${usedPrefix}menuventas 🛒 – \`Menú completo de compraventa.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛡️ *𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂*
 ▸ ${usedPrefix}g 🔒 – \`Abre o cierra el chat del grupo.\`
