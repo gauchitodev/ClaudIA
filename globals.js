@@ -66,6 +66,3 @@ globalThis.tarjetaGrupo = {
   cuerpo: config.tarjetaGrupo?.cuerpo || "Unite al grupo",
   enlace: config.tarjetaGrupo?.enlace || "",
 };
-
-// delirius api
-globalThis.deliriusApi = "https://api.delirius.store";

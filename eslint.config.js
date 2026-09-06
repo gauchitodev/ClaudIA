@@ -18,7 +18,6 @@ export default defineConfig([
         botVersion: "readonly",
         client: "readonly",
         db: "readonly",
-        deliriusApi: "readonly",
         numberBot: "readonly",
         owners: "readonly",
         plugins: "readonly",
