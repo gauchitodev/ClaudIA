@@ -166,7 +166,7 @@ ${readMore}
 ▸ ${usedPrefix}delttt 🗑️ – \`Elimina sala creada de TaTeTi.\`
 ▸ ${usedPrefix}ahorcado 💬 – \`Adivina la palabra en 9 intentos.\`
 ▸ ${usedPrefix}acertijo ❔ – \`Un acertijo y 30 segundos para resolverlo.\`
-▸ ${usedPrefix}trivia ❔ – \`¿Cual es la respuesta?\`
+▸ ${usedPrefix}trivia ❔ – \`Pregunta con cuatro opciones; respondé con la letra.\`
 ▸ ${usedPrefix}ordenar 🔠 – \`Ordenar la palabra.\`
 ▸ ${usedPrefix}bandera 🌍 – \`¿De que país es la bandera?\`
 ▸ ${usedPrefix}topgays 🌈
