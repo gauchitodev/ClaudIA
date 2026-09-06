@@ -2,10 +2,11 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 
-let A, P;
+let A, P, Cc;
 before(async () => {
   await prepararBase("aero");
   A = await import("../lib/aero.js");
+  Cc = await import("../lib/aero-calculos.js");
   P = (await import("../plugins/aero.js")).default;
 });
 
@@ -87,4 +88,94 @@ test("aero: pide a la NOAA con caché, y arma los textos de .metar y .taf", asyn
   assert.match(ultimoEnviado().msg.text, /Carrasco Intl/);
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "menuaero", text: "" });
   assert.match(ultimoEnviado().msg.text, /MENÚ AERO/);
+});
+
+// ---------- SIGMET, viento cruzado y sol ----------
+const SIGMET_SUEO = { icaoId: "SUMU", firId: "SUEO", firName: "SUEO MONTEVIDEO", validTimeFrom: 1788658200, validTimeTo: 1788672600, seriesId: "1", hazard: "ICE", qualifier: "SEV", base: 3000, top: 8000, dir: "E", spd: "05", chng: "NC", rawSigmet: "WSUY31 SUMU 060125\nSUEO SIGMET 1 VALID 060130/060530 SUMU-\nSUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=" };
+const SIGMET_SBCW = { icaoId: "SBGL", firId: "SBCW", firName: "SBCW CURITIBA", validTimeFrom: 1788651000, validTimeTo: 1788665400, seriesId: "96", hazard: "TS", qualifier: "EMBD", base: null, top: 45000, dir: "-", spd: "0", chng: "NC", rawSigmet: "WSBZ23 SBGL 052325\nSBCW SIGMET 96 VALID 052330/060330 SBCW - SBCW CURITIBA FIR EMBD TS FCST" };
+const SIGMET_VIEJO = { ...SIGMET_SUEO, seriesId: "0", validTimeFrom: 1788600000, validTimeTo: 1788610000 };
+
+test("aero: SIGMET de la FIR Montevideo, filtrado y descrito", async () => {
+  const ahora = 1788663480000; // 2026-09-06 02:58Z, dentro de la vigencia del SIGMET 1
+  A._dep.fetch = async (url) => (url.includes("/isigmet?format=json") ? respuesta(200, [SIGMET_SBCW, SIGMET_VIEJO, SIGMET_SUEO]) : respuesta(500, "x"));
+  const t = await A.textoSigmet(ahora);
+  assert.equal(
+    t,
+    [
+      "⚠️ *SIGMET · FIR Montevideo (SUEO)* · consultado 02:58Z",
+      "",
+      "*SIGMET 1* · engelamiento severo",
+      "⏱️ 01:30Z a 05:30Z (quedan 2 h 32 min)",
+      "📏 FL030 a FL080 · se mueve al E a 5 kt · sin cambios",
+      "`WSUY31 SUMU 060125 SUEO SIGMET 1 VALID 060130/060530 SUMU- SUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=`",
+    ].join("\n"),
+  );
+  assert.match(A.describirSigmet(SIGMET_SBCW, ahora), /\*SIGMET 96\* · tormentas embebidas\n⏱️ 23:30Z a 03:30Z \(quedan 32 min\)\n📏 hasta FL450 · estacionario · sin cambios/);
+  assert.match(A.describirSigmet({ ...SIGMET_SBCW, hazard: "VA", qualifier: "ETNA", chng: "INTSF", dir: "NE", spd: "15" }, ahora), /ceniza volcánica del volcán ETNA[\s\S]*se mueve al NE a 15 kt · intensificándose/);
+  const sin = await A.textoSigmet(ahora + 4 * 3600e3 + 60e3); // ya venció el 1 (y el caché sigue vigente 5 min, así que no vuelve a pedir)
+  assert.match(sin, /✅ Sin SIGMET vigente/);
+});
+
+test("aero: viento cruzado con los parámetros indicados", () => {
+  const C = Cc;
+  const r = C.vientoCruzado(60, 190, 19);
+  assert.equal(Math.round(r.actual.frente), -12);
+  assert.equal(Math.round(r.actual.cruzada), 15);
+  assert.equal(r.actual.lado, "derecha");
+  assert.deepEqual([r.opuesta.rumbo, Math.round(r.opuesta.frente), r.opuesta.lado], [240, 12, "izquierda"]);
+  assert.deepEqual([C.rumboDePista("06"), C.rumboDePista("6"), C.rumboDePista("060"), C.rumboDePista("24L"), C.rumboDePista("36"), C.rumboDePista("x")], [60, 60, 60, 240, 360, null]);
+  assert.deepEqual(C.parsearCruzado("06 19019G25KT"), { rumbo: 60, pista: "06", dir: 190, vel: 19, rafaga: 25 });
+  assert.deepEqual(C.parsearCruzado("24 190/19"), { rumbo: 240, pista: "24", dir: 190, vel: 19, rafaga: null });
+  assert.deepEqual(C.parsearCruzado("060 190 19 G 25"), { rumbo: 60, pista: "060", dir: 190, vel: 19, rafaga: 25 });
+  assert.match(C.parsearCruzado("06").error, /Uso: \.cruzado/);
+  assert.match(C.parsearCruzado("06 VRB05KT").error, /viento variable/);
+  assert.match(C.parsearCruzado("06 abc").error, /No entendí el viento/);
+  const t = C.textoCruzado("06 190 19G25");
+  assert.equal(
+    t,
+    [
+      "✈️ *Viento cruzado* · pista 06 (060°) · viento 190° 19 kt con ráfagas de 25",
+      "🟡 Cruzada: 15 kt desde la derecha",
+      "🔴 De cola: 12 kt",
+      "💨 Con la ráfaga: cruzada 19 kt, de cola 16 kt",
+      "↩️ Pista 24 (240°): 12 kt de frente, cruzada 15 kt desde la izquierda. Conviene la 24.",
+    ].join("\n"),
+  );
+  assert.match(C.textoCruzado("19 190 10"), /🟢 Sin cruzada\n🟢 De frente: 10 kt\n↩️ Pista 01 \(010°\): 10 kt de cola\./);
+  assert.match(C.textoCruzado("36 090 20"), /🔴 Cruzada: 20 kt desde la derecha\n⚪ Sin componente de frente ni de cola/);
+});
+
+test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el comando por ciudad", async () => {
+  const C = Cc;
+  const minutosLocal = (ms, tz) => { const [h, m] = C.horaEn(ms, tz).split(":").map(Number); return h * 60 + m; };
+  const cerca = (ms, tz, esperado, etiqueta) => { const [h, m] = esperado.split(":").map(Number); assert.ok(Math.abs(minutosLocal(ms, tz) - (h * 60 + m)) <= 2, `${etiqueta}: ${C.horaEn(ms, tz)} vs ${esperado}`); };
+  let ev = C.eventosSolares(-34.9033, -56.1882, 2026, 9, 6);
+  cerca(ev.salida, "America/Montevideo", "06:56", "Montevideo sale");
+  cerca(ev.puesta, "America/Montevideo", "18:29", "Montevideo se pone");
+  assert.ok(ev.crepusculoInicio < ev.salida && ev.crepusculoFin > ev.puesta);
+  ev = C.eventosSolares(-54.8019, -68.303, 2026, 6, 21);
+  cerca(ev.salida, "America/Argentina/Ushuaia", "09:58", "Ushuaia sale");
+  cerca(ev.puesta, "America/Argentina/Ushuaia", "17:11", "Ushuaia se pone");
+  ev = C.eventosSolares(60.1699, 24.9384, 2026, 6, 21);
+  cerca(ev.salida, "Europe/Helsinki", "03:54", "Helsinki sale");
+  cerca(ev.puesta, "Europe/Helsinki", "22:49", "Helsinki se pone");
+  assert.equal(C.eventosSolares(78.22, 15.63, 2026, 6, 21).polar, "dia", "Longyearbyen en junio: sol de medianoche");
+  assert.equal(C.eventosSolares(78.22, 15.63, 2026, 12, 21).polar, "noche");
+  // el comando: geocodifica con Open-Meteo (inyectado) y arma el texto en hora local
+  A._dep.fetch = async (url) => {
+    if (url.includes("search?name=Montevideo")) return respuesta(200, { results: [{ name: "Montevideo", country: "Uruguay", admin1: "Departamento de Montevideo", latitude: -34.90328, longitude: -56.18816, timezone: "America/Montevideo" }] });
+    if (url.includes("search?name=Xyzzy")) return respuesta(200, {});
+    throw new Error("url inesperada " + url);
+  };
+  const ahora = Date.parse("2026-09-06T15:00:00Z"); // 12:00 en Montevideo
+  let t = await A.textoSolDe("", ahora);
+  assert.match(t, /^☀️ \*Montevideo, Uruguay\* · 06\/09 · hora local\n🌅 Sale 06:5\d · 🌇 se pone 18:(29|3\d|28) · día de 11 h 3\d min\n🌆 Crepúsculo civil: de 06:\d\d a 06:5\d y de 18:\d\d a 18:5\d\nAhora: el sol está arriba\.$/);
+  t = await A.textoSolDe("montevideo", Date.parse("2026-09-06T23:00:00Z"));
+  assert.match(t, /Ahora: ya es de noche\./);
+  assert.match(await A.textoSolDe("Xyzzy", ahora), /No encontré "Xyzzy"/);
+  const cliente = globalThis.client;
+  await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "cruzado", text: "06 190 19" });
+  assert.match(ultimoEnviado().msg.text, /Viento cruzado/);
+  await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "sol", text: "Montevideo" });
+  assert.match(ultimoEnviado().msg.text, /☀️ \*Montevideo, Uruguay\*/);
 });
