@@ -1,7 +1,7 @@
 // Menú del modo compraventa: lo que sirve en un grupo de ventas, sin los juegos ni la economía.
 // Si se agregan comandos nuevos de compraventa, sumalos acá y también en lib/manual-claudia.js
 // para que Claudia sepa contestar cuando le pregunten cómo se hace algo.
-let plugin = {};
+const plugin = {};
 plugin.cmd = ["menuventas", "menuventa", "menucompraventa", "ventas"];
 plugin.onlyGroup = true;
 

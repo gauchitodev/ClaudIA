@@ -1,63 +1,24 @@
 import { getUser } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
+import { parejaDe, exParejasDe } from "../lib/parejas.js";
 
+// .ex [@x]: las ex de alguien (o tuyas) y su pareja actual.
 const plugin = {};
 plugin.cmd = ["ex", "miex", "exs"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  let who;
-  const numberRegex = /@[0-9]+/g;
-  const numberMatches = text.match(numberRegex);
+  const who = lidMencionado(m, text) || m.sender;
+  if (!getUser(who)) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
 
-  if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "")}@lid`;
-  } else if (m.quoted) {
-    who = m.quoted.sender;
-  } else {
-    who = m.sender;
-  }
-
-  if (who) {
-    who = getUser(who);
-  }
-
-  const whoLid = who?.lid;
-  const whoJid = who?.jid;
-
-  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
-
-  let mensaje = `*Historial de relaciones de @${whoLid.split("@")[0]}:*\n\n`;
-
-  const historialParejas = who?.couplesHistory;
-
-  if (!historialParejas || historialParejas.length === 0) {
-    mensaje += "No hay parejas anteriores.\n";
-  } else {
-    for (const pareja of historialParejas) {
-      const parejaData = getUser(pareja);
-      const parejaLid = parejaData?.lid;
-      if (!parejaData || !parejaLid) continue;
-      mensaje += `@${parejaLid.split("@")[0]}\n`;
-    }
-  }
-
-  const actual = who?.couple;
-  const actualData = getUser(actual);
-  const actualLid = actualData?.lid;
-  const parejaDeActual = actualData?.couple;
-
-  if (actual && actualLid && actualData) {
-    if (parejaDeActual === whoJid) {
-      mensaje += `\n*Pareja actual:* @${actualLid.split("@")[0]}`;
-    } else {
-      mensaje += `\n*Pareja actual: no tiene*`;
-    }
-  } else {
-    mensaje += `\n*Pareja actual: no tiene*`;
-  }
-
-  await client.sendText(m.chat, mensaje, m);
+  const exs = exParejasDe(who);
+  const p = parejaDe(who);
+  const lineas = [`*Historial de relaciones de @${who.split("@")[0]}:*`, ""];
+  if (exs.length) lineas.push(...exs.map((ex) => `@${ex.split("@")[0]}`));
+  else lineas.push("No hay parejas anteriores.");
+  lineas.push("", p ? `*Pareja actual:* @${p.pareja.split("@")[0]}` : "*Pareja actual: no tiene*");
+  await client.sendMessage(m.chat, { text: lineas.join("\n"), mentions: [who, ...exs, ...(p ? [p.pareja] : [])] }, { quoted: m });
 };
 
 export default plugin;

@@ -1,39 +1,20 @@
-import { getUser, updateUser } from "../database-functions.js";
+import { responderCasamiento } from "../lib/parejas.js";
 
+// .no: rechaza la propuesta de casamiento de tu pareja.
 const plugin = {};
 plugin.cmd = ["no"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, user }) => {
-  const pareja = user.couple;
-  if (pareja === "") return client.sendText(m.chat, txt.parejaCasamientoNull, m);
-
-  const matrim = user.married;
-  const parejaData = getUser(pareja);
-  const parejaLid = parejaData?.lid;
-
-  if (!parejaLid || !parejaData) {
-    updateUser(m.sender, { couple: "", coupleTime: -1 });
-    return client.sendText(m.chat, "Tu pareja ya no existe en la base de datos.", m);
+plugin.run = async (m, { client }) => {
+  const r = responderCasamiento(m.sender, false);
+  if (!r.ok) {
+    if (r.motivo === "sinPareja") return client.sendText(m.chat, txt.parejaCasamientoNull, m);
+    if (r.motivo === "yaCasados") return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
+    return;
   }
-
-  // Solo vale entre parejas oficiales (relación mutua).
-  if (parejaData.couple !== m.senderJid) return;
-
-  const matrimPasan = parejaData?.married;
-  const pTime = user.coupleTime;
-  const currentTime = Date.now() - pTime;
-
-  if (m.senderJid === matrimPasan && matrim === pareja) return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
-  if (currentTime < 604800000) return client.sendText(m.chat, txt.parejaCasamientoNoTime, m);
-
-  // Solo se rechaza una propuesta que la pareja le hizo a esta persona (antes cualquier valor en "married" alcanzaba).
-  if (matrimPasan === m.senderJid) {
-    updateUser(parejaLid, { married: "" });
-    const kz = await client.sendText(m.chat, txt.parejaCasamientoRechazar(m.sender, parejaLid), m);
-    client.sendMessage(m.chat, { react: { text: "💔", key: kz.key } });
-  } else return;
+  const kz = await client.sendText(m.chat, txt.parejaCasamientoRechazar(m.sender, r.pareja), m);
+  client.sendMessage(m.chat, { react: { text: "💔", key: kz.key } });
 };
 
 export default plugin;

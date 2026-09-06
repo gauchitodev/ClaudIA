@@ -1,89 +1,27 @@
-import { getUser, updateUser } from "../database-functions.js";
+import { parejaDe, solicitudDe, cancelarSolicitud, exParejasDe } from "../lib/parejas.js";
+import { duracionLarga } from "../lib/tiempo.js";
 
+// .mipareja: con quién estás, desde cuándo, y si están casados. Un pedido sin respuesta se anula al consultar.
 const plugin = {};
 plugin.cmd = ["mipareja"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, user }) => {
-  const totalParejas = user.couplesHistory.length;
-
-  if (user.couple === "") {
-    const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, totalParejas), m);
-    client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
-    return;
+plugin.run = async (m, { client }) => {
+  const exs = exParejasDe(m.sender);
+  const p = parejaDe(m.sender);
+  if (!p) {
+    const pendiente = solicitudDe(m.sender);
+    if (pendiente) {
+      cancelarSolicitud(m.sender);
+      return client.sendText(m.chat, txt.parejaMiParejaSinRespuesta(pendiente.para), m);
+    }
+    const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, exs.length), m);
+    return client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
   }
-
-  const persona = user.couple;
-  const parejaData = getUser(persona);
-  const parejaLid = parejaData?.lid;
-
-  if (!parejaLid || !parejaData) {
-    updateUser(m.sender, { couple: "" });
-    return client.sendText(m.chat, "Tu pareja ya no existe en la base de datos.", m);
-  }
-
-  if (parejaData.couple === m.senderJid) {
-    setTimeout(() => {
-      m.react("❤️");
-    }, 700);
-    const marriedMessage = user.married && parejaData.married ? `*💍Casados:* ✅\n*⏳Tiempo casados:*\n${timeSince(user.marriedTime)}` : `*💍Casados:* ❌`;
-    const kz = await client.sendText(m.chat, txt.parejaMiPareja(m.sender, parejaLid, timeSince(user.coupleTime), marriedMessage, totalParejas), m);
-    client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
-    return;
-  }
-
-  await client.sendText(m.chat, txt.parejaMiParejaSinRespuesta(parejaLid), m);
-  updateUser(m.sender, { couple: "" });
+  const casados = p.casadosDesde > 0 ? `*💍Casados:* ✅\n*⏳Tiempo casados:*\n${duracionLarga(Date.now() - p.casadosDesde)}` : `*💍Casados:* ❌`;
+  const kz = await client.sendText(m.chat, txt.parejaMiPareja(m.sender, p.pareja, duracionLarga(Date.now() - p.desde), casados, exs.length), m);
+  client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
 };
 
 export default plugin;
-
-function timeSince(time) {
-  let seconds = Math.floor((Date.now() - time) / 1000);
-  let interval;
-  const timeUnits = [];
-
-  // Calcular años
-  interval = Math.floor(seconds / 31536000);
-  if (interval >= 1) {
-    timeUnits.push(`${interval} año${interval !== 1 ? "s" : ""}`);
-    seconds -= interval * 31536000;
-  }
-
-  // Calcular meses
-  interval = Math.floor(seconds / 2592000);
-  if (interval >= 1) {
-    timeUnits.push(`${interval} mes${interval !== 1 ? "es" : ""}`);
-    seconds -= interval * 2592000;
-  }
-
-  // Calcular días
-  interval = Math.floor(seconds / 86400);
-  const daysPassed = interval >= 1; // Guardar si ha pasado al menos un día
-  if (interval >= 1) {
-    timeUnits.push(`${interval} día${interval !== 1 ? "s" : ""}`);
-    seconds -= interval * 86400;
-  }
-
-  // Calcular horas
-  interval = Math.floor(seconds / 3600);
-  if (interval >= 1) {
-    timeUnits.push(`${interval} hora${interval !== 1 ? "s" : ""}`);
-    seconds -= interval * 3600;
-  }
-
-  // Calcular minutos
-  interval = Math.floor(seconds / 60);
-  if (interval >= 1) {
-    timeUnits.push(`${interval} minuto${interval !== 1 ? "s" : ""}`);
-    seconds -= interval * 60;
-  }
-
-  // Calcular segundos solo si ha pasado menos de un día
-  if (!daysPassed && seconds >= 1) {
-    timeUnits.push(`${seconds} segundo${seconds !== 1 ? "s" : ""}`);
-  }
-
-  return timeUnits.join(", ");
-}

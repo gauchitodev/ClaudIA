@@ -1,59 +1,30 @@
-import { getUser, updateUser } from "../database-functions.js";
+import { getUser } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
+import { aceptarPareja } from "../lib/parejas.js";
 
+// .aceptar @x: acepta el pedido de pareja de x.
 const plugin = {};
 plugin.cmd = ["aceptar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  } else if (m.quoted) {
-    who = m.quoted.sender;
+plugin.run = async (m, { client, text, usedPrefix, command }) => {
+  const who = lidMencionado(m, text);
+  if (!who || !getUser(who)) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
+  if (who === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, who), m);
+  if (who === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);
+
+  const r = aceptarPareja(m.sender, who);
+  if (!r.ok) {
+    if (r.motivo === "yaJuntos") {
+      const kz = await client.sendText(m.chat, txt.parejaAlready(who), m);
+      return client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
+    }
+    if (r.motivo === "tenesPareja") return client.sendText(m.chat, txt.parejaInfiel(r.pareja, who), m);
+    if (r.motivo === "tienePareja") return client.sendText(m.chat, `@${who.split("@")[0]} ya tiene pareja, respete 🤨`, m, { mentions: [who] });
+    return client.sendText(m.chat, txt.parejaNoAccept(who), m);
   }
-
-  if (who) {
-    who = getUser(who);
-  }
-
-  const whoLid = who?.lid;
-  const whoJid = who?.jid;
-
-  if (!whoJid || !whoLid) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
-
-  if (whoLid === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, whoLid), m);
-  if (whoLid === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);
-
-  const pacar = who?.couple;
-
-  if (m.senderJid === pacar && user.couple === whoJid) {
-    const kz = await client.sendText(m.chat, txt.parejaAlready(whoLid), m);
-    client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
-    return;
-  }
-  if (pacar !== m.senderJid) {
-    return client.sendText(m.chat, txt.parejaNoAccept(whoLid), m);
-  }
-
-  // Si ya está en una relación mutua con otra persona, primero hay que terminarla con .terminar.
-  const parejaActual = user.couple && user.couple !== whoJid ? getUser(user.couple) : null;
-  if (parejaActual?.lid && parejaActual.couple === m.senderJid) return client.sendText(m.chat, txt.parejaInfiel(parejaActual.lid, whoLid), m);
-
-  // si anteriormente fueron pareja, limpiar historial
-  const oldHistorySender = Array.isArray(user.couplesHistory) ? user.couplesHistory : [];
-  const oldHistoryTarget = Array.isArray(who.couplesHistory) ? who.couplesHistory : [];
-
-  const esParejaAntigua = oldHistorySender.includes(whoJid);
-  const newHistorySender = esParejaAntigua ? oldHistorySender.filter((id) => id !== whoJid) : oldHistorySender;
-  const newHistoryTarget = esParejaAntigua ? oldHistoryTarget.filter((id) => id !== m.senderJid) : oldHistoryTarget;
-
-  // actualizar ambos usuarios en db (una relación nueva arranca sin casamiento previo)
-  updateUser(m.sender, { couplesHistory: JSON.stringify(newHistorySender), couple: whoJid, coupleTime: Date.now(), married: "", marriedTime: -1 });
-  updateUser(whoLid, { couplesHistory: JSON.stringify(newHistoryTarget), couple: m.senderJid, coupleTime: Date.now(), married: "", marriedTime: -1 });
-
-  const kz = await client.sendText(m.chat, txt.parejaAccept(m.sender, whoLid), m);
+  const kz = await client.sendText(m.chat, txt.parejaAccept(m.sender, who), m);
   client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
 };
 
