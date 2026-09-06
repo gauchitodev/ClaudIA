@@ -102,3 +102,15 @@ test("economía", () => {
   assert.match(t.texto, /📈/);
   assert.deepEqual(t.mentions, ["a", "b"]);
 });
+
+test("economía: los movimientos de los laburos tienen rubro propio", () => {
+  F.moverCoins(G, "laburante@lid", 9, "sueldo_laburo");
+  F.moverCoins(G, "laburante@lid", -20, "cambio_laburo");
+  const rubros = E.resumenEconomia(G, 7).rubros;
+  const nombres = rubros.map((r) => r.nombre);
+  assert.ok(nombres.includes("Sueldos de laburos") && nombres.includes("Cambios de laburo"), nombres.join(", "));
+  assert.ok(!nombres.includes("Otros"), "antes caían en Otros");
+  assert.equal(rubros.find((r) => r.nombre === "Sueldos de laburos").entradas, 9);
+  assert.equal(rubros.find((r) => r.nombre === "Cambios de laburo").salidas, 20);
+  assert.match(E.textoEconomia(G).texto, /• Sueldos de laburos: \+9 \/ −0 \(1 mov\.\)/);
+});
