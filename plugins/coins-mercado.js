@@ -5,6 +5,7 @@ const plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args, command, chat }) => {

@@ -6,6 +6,7 @@ const plugin = {};
 plugin.cmd = ["carrera", "caballos"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 
 // .carrera <cantidad> <número o nombre>: la primera apuesta abre la carrera; a los 45 s se corre para todos.

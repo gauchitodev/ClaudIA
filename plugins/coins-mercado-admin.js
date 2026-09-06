@@ -4,6 +4,7 @@ const plugin = {};
 plugin.cmd = ["evento", "resolver"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 

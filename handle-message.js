@@ -182,12 +182,13 @@ export async function handleMessage(nMsg) {
 
         // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
         // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
-        if (plugin.juego) {
-          if (!chat.games) return client.sendText(m.chat, txt.disabledGames, m);
-          if (m.isGroup && !juegosAbiertos(chat)) {
-            if (correspondeAvisar(m.chat)) return client.sendText(m.chat, mensajeJuegosCerrados(chat), m);
-            return m.react("🕒");
-          }
+        if (plugin.juego && !chat.games) return client.sendText(m.chat, txt.disabledGames, m);
+
+        // El horario de .horariojuegos frena SOLO el casino (plugin.casino). El resto de los juegos —trivia,
+        // ahorcado, banderas, canvas, sorteos— anda a cualquier hora.
+        if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {
+          if (correspondeAvisar(m.chat)) return client.sendText(m.chat, mensajeJuegosCerrados(chat), m);
+          return m.react("🕒");
         }
 
         // Economía (plugin.economia): con .monedas apagado (modo compraventa) los comandos de UruCoins no corren.

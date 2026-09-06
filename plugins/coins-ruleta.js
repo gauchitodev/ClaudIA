@@ -5,6 +5,7 @@ const plugin = {};
 plugin.cmd = ["ruleta"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 
 // .ruleta <cantidad> <apuesta>: la primera apuesta abre la mesa; durante unos segundos apuestan todos, y después

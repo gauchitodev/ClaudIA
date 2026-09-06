@@ -5,6 +5,7 @@ const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 
 const ACCIONES = new Set(["golpe", "patada", "cubrirse", "curar"]);

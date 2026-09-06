@@ -4,6 +4,7 @@ const plugin = {};
 plugin.cmd = ["loteria", "lotería", "boleto", "boletos"];
 plugin.economia = true;
 plugin.juego = true;
+plugin.casino = true; // el horario de .horariojuegos frena solo estos
 plugin.onlyGroup = true;
 
 // .loteria → estado del pozo · .loteria 2 → compra 2 boletos · .boleto → compra 1
