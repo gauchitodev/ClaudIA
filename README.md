@@ -24,6 +24,18 @@ Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) 
 
 Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. `config.toml` está en `.gitignore` y nunca se sube.
 
+## Termux (Android)
+
+better-sqlite3 no trae binario precompilado para Android, así que npm lo compila al instalar, y node-gyp necesita el toolchain y una variable que Termux no define. Antes del `npm ci`:
+
+```sh
+pkg install python build-essential
+export GYP_DEFINES="android_ndk_path=''"
+npm ci
+```
+
+Sin eso la instalación corta con un error de `android_ndk_path`. Por lo mismo better-sqlite3 se queda en la 12: la 13 no compiló en la tablet. Si algún día se sube, probar primero en Termux con esta receta.
+
 ## Tests y lint
 
 `npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.
