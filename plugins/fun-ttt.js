@@ -51,7 +51,7 @@ plugin.run = async (m, { client, text, chat }) => {
     await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
   } else {
     room = {
-      id: "tictactoe-" + +new Date(),
+      id: "tictactoe-" + Date.now(),
       x: m.chat,
       o: "",
       game: new TicTacToe(m.sender, "o"),

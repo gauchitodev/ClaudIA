@@ -32,8 +32,8 @@ plugin.run = async (m, { client, text }) => {
     let startIndex = html.indexOf("<p>") + "<p>".length;
     let endIndex = html.indexOf("</p>", startIndex);
     let horoscope = html.substring(startIndex, endIndex);
-    let tes1 = horoscope.split`-`[0];
-    let tes2 = horoscope.split`-`[1];
+    let tes1 = horoscope.split("-")[0];
+    let tes2 = horoscope.split("-")[1];
 
     let emoji = "";
     switch (text.toLowerCase()) {

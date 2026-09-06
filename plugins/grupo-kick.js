@@ -20,7 +20,7 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     if (who === client.user.lid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
     if (esOwner(who)) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
     const groupAdmins = participants.filter((p) => p.admin);
-    const owner = groupMetadata.owner || groupAdmins.find((p) => p.admin === "superadmin")?.id || m.chat.split`-`[0] + "@lid";
+    const owner = groupMetadata.owner || groupAdmins.find((p) => p.admin === "superadmin")?.id || m.chat.split("-")[0] + "@lid";
 
     if (who === owner) {
       m.react("❌");

@@ -88,8 +88,8 @@ Ejemplo válido:
   }
 
   // actualizar ambos usuarios en db
-  updateUser(persona1Lid, { married: persona2Jid, marriedTime: +new Date() - time });
-  updateUser(persona2Lid, { married: persona1Jid, marriedTime: +new Date() - time });
+  updateUser(persona1Lid, { married: persona2Jid, marriedTime: Date.now() - time });
+  updateUser(persona2Lid, { married: persona1Jid, marriedTime: Date.now() - time });
 
   const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(persona1Lid, persona2Lid), m);
   await delay(700);

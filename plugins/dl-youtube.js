@@ -55,7 +55,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
     }
   }
 
-  updateUser(m.sender, { lastmining: new Date() * 1, commandAttempts: 0 });
+  updateUser(m.sender, { lastmining: Date.now(), commandAttempts: 0 });
   m.react("🕐");
 
   const adelante = encolarDescarga(() =>

@@ -25,7 +25,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
     if (who === ownerData?.lid) return m.react("❌");
   }
 
-  const sp = "@" + who.split`@`[0];
+  const sp = "@" + who.split("@")[0];
   const splitText = text.split(sp);
 
   if (splitText.length < 2) return;

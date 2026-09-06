@@ -31,12 +31,12 @@ plugin.run = async (m, { client, text, usedPrefix, command, user }) => {
   let tekss = `
 ${teks}
 
-*💌Lo recibe:* @${who.split`@`[0]}
+*💌Lo recibe:* @${who.split("@")[0]}
 
 *😚De parte de:* @${m.sender.split("@")[0]}
 `.trim();
 
-  const tek1 = `@${who.split`@`[0]} rechazó el beso y le corrió la cara a @${m.sender.split("@")[0]} 🤣`;
+  const tek1 = `@${who.split("@")[0]} rechazó el beso y le corrió la cara a @${m.sender.split("@")[0]} 🤣`;
   const tekxx = [tekss, tek1].getRandom();
   let react;
   if (tekxx.includes("Lo recibe")) {

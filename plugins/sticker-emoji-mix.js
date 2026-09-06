@@ -20,4 +20,4 @@ plugin.run = async (m, { client, text, args, usedPrefix, command }) => {
 
 export default plugin;
 
-const fetchJson = (url, options) => fetch(url, options).then((response) => response.json());
+const fetchJson = async (url, options) => (await fetch(url, options)).json();
