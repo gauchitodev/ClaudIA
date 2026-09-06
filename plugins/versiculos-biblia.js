@@ -1,5 +1,19 @@
-import axios from "axios";
 import { elegirAlAzar } from "../lib/azar.js";
+
+// Versículos de la Reina-Valera 1960 desde bolls.life. Antes salían de bible-api.deno.dev, que dejó de existir cuando
+// Deno Deploy Classic cerró en julio de 2026.
+const API = "https://bolls.life";
+const TRADUCCION = "RV1960";
+const SALMOS = { id: 19, nombre: "Salmos", capitulos: 150 };
+let libros = null; // [{ bookid, name, chapters }], se carga una sola vez
+
+const pedir = async (ruta) => {
+  const res = await fetch(`${API}${ruta}`, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`bolls.life respondió ${res.status}`);
+  return res.json();
+};
+const limpiar = (t) => String(t).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+const textoVersiculo = (libro, capitulo, v) => `*📖 LIBRO DE:* ${libro}\n\n*✍️Capitulo:* ${capitulo}\n\n*Versiculo: #${v.verse}*\n\n📝 ${limpiar(v.text)}\n`;
 
 const plugin = {};
 plugin.cmd = ["versiculo", "versículo", "biblia", "salmo", "salmos"];
@@ -8,36 +22,18 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, command }) => {
   try {
     if (command === "salmo" || command === "salmos") {
-      const randomChapter = Math.floor(Math.random() * 150) + 1;
-      const url = `https://bible-api.deno.dev/api/read/rv1960/salmos/${randomChapter}`;
-      const chapterResponse = await axios.get(url);
-      if (chapterResponse.data) {
-        const verses = chapterResponse.data.vers;
-        const randomVerse = elegirAlAzar(verses);
-        let message = `*📖 LIBRO DE:* Salmos\n\n*✍️Capitulo:* ${randomChapter}\n\n`;
-        message += `*Versiculo: #${randomVerse.number}*\n\n📝 ${randomVerse.verse}\n`;
-        client.sendText(m.chat, message, m);
-      }
-    } else {
-      const response = await axios.get("https://bible-api.deno.dev/api/books");
-      const books = response.data;
-      const spanishBooks = books.filter((book) => book.names.length > 0 && book.names[0] !== "");
-      const randomBook = elegirAlAzar(spanishBooks);
-      const bookName = randomBook.names[0];
-      const totalChapters = randomBook.chapters;
-      const randomChapter = Math.floor(Math.random() * totalChapters) + 1;
-      const url = `https://bible-api.deno.dev/api/read/rv1960/${bookName}/${randomChapter}`;
-      const chapterResponse = await axios.get(url);
-      if (chapterResponse.data) {
-        const verses = chapterResponse.data.vers;
-        const randomVerse = elegirAlAzar(verses);
-        let message = `*📖 LIBRO DE:* ${bookName}\n\n*✍️Capitulo:* ${randomChapter}\n\n`;
-        message += `*Versiculo: #${randomVerse.number}*\n\n📝 ${randomVerse.verse}\n`;
-        client.sendText(m.chat, message, m);
-      }
+      const capitulo = Math.floor(Math.random() * SALMOS.capitulos) + 1;
+      const versos = await pedir(`/get-text/${TRADUCCION}/${SALMOS.id}/${capitulo}/`);
+      if (!versos.length) throw new Error(`el salmo ${capitulo} vino vacío`);
+      return client.sendText(m.chat, textoVersiculo(SALMOS.nombre, capitulo, elegirAlAzar(versos)), m);
     }
+    libros ??= await pedir(`/get-books/${TRADUCCION}/`);
+    const v = await pedir(`/get-random-verse/${TRADUCCION}/`);
+    const libro = libros.find((l) => l.bookid === v.book)?.name || `Libro ${v.book}`;
+    await client.sendText(m.chat, textoVersiculo(libro, v.chapter, v), m);
   } catch (error) {
-    console.error("Error al obtener los datos:", error);
+    console.error("[biblia]", error.message);
+    await client.sendText(m.chat, "No pude traer el versículo ahora, probá más tarde.", m);
   }
 };
 

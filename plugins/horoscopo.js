@@ -1,5 +1,3 @@
-import axios from "axios";
-
 const plugin = {};
 plugin.cmd = ["horoscopo", "horóscopo"];
 plugin.botAdmin = true;
@@ -27,8 +25,9 @@ plugin.run = async (m, { client, text }) => {
     sign = "escorpion";
   }
   try {
-    const response = await axios.get(`https://www.horoscopo.com/horoscopos/general-diaria-${sign}`);
-    const html = response.data;
+    const response = await fetch(`https://www.horoscopo.com/horoscopos/general-diaria-${sign}`, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`horoscopo.com respondió ${response.status}`);
+    const html = await response.text();
     const startIndex = html.indexOf("<p>") + "<p>".length;
     const endIndex = html.indexOf("</p>", startIndex);
     const horoscope = html.substring(startIndex, endIndex);
