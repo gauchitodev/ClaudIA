@@ -17,14 +17,12 @@
     "better-sqlite3": "^12.4.6",
     "cheerio": "^1.2.0",
     "file-type": "^21.3.4",
-    "formdata-node": "^4.3.2",
+    "form-data": "^4.0.6",
     "jimp": "^1.6.1",
-    "link-preview-js": "^3.0.0",
     "node-webpmux": "^3.1.1",
     "pino": "^10.3.1",
     "qrcode-terminal": "^0.12.0",
-    "tldts": "^7.0.12",
-    "yt-search": "^2.10.3"
+    "tldts": "^7.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
