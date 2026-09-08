@@ -40,7 +40,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 
 🎰 *Casino y lotería*
 ▸ .ruleta 20 rojo — abre la mesa; en 45 s apuestan todos y la bola sale una vez. Rojo, negro, par, impar, 1-18, 19-36 (x2), docenas y columnas (x3), seisena (x6), cuadro (x9), calle (x12), caballo (x18), pleno (x36; el 0 también como verde)
-▸ .tragamonedas 50 — cinco líneas de pago (tres filas y dos diagonales); por línea, dos cerezas x2 y tres iguales hasta x200
+▸ .tragamonedas 50 — cinco líneas de pago (tres filas y dos diagonales); cada línea paga sobre la apuesta entera: dos cerezas x0,4 y tres iguales de x1 a x40
 ▸ .blackjack 20 — contra la banca: .pedir, .plantarse, .doblar, .dividir, .seguro o .rendirse; gana x2, blackjack x2.5
 ▸ .mines 20 3 — grilla de 5x5 con minas: destapás con .destapar B3, cada segura sube el multiplicador y .retirar cobra; una mina y perdés
 ▸ .duelo @alguien 20 [dado|carta|pelea] — uno contra uno, el ganador se lleva todo; el otro responde .acepto o .rechazo
