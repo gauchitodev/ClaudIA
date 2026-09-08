@@ -411,6 +411,36 @@ export function loadDatabase() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exparejas_b ON exparejas (b)`);
   if (!habiaParejas) migrarParejasViejas(db);
 
+  // Familias: cada adopción es una fila con el hijo y sus dos padres (el matrimonio que lo adoptó); el resto del árbol se
+  // calcula. Los pedidos de adopción sin responder van aparte y vencen solos. El apellido es por persona.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS familia_hijos (
+      hijo TEXT PRIMARY KEY,
+      padre_a TEXT NOT NULL,
+      padre_b TEXT NOT NULL,
+      desde INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_familia_padre_a ON familia_hijos (padre_a)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_familia_padre_b ON familia_hijos (padre_b)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS solicitudes_adopcion (
+      hijo TEXT PRIMARY KEY,
+      padre_a TEXT NOT NULL,
+      padre_b TEXT NOT NULL,
+      chat TEXT DEFAULT "",
+      costo INTEGER DEFAULT 0,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS apellidos (
+      lid TEXT PRIMARY KEY,
+      apellido TEXT NOT NULL,
+      desde INTEGER NOT NULL
+    )
+  `);
+
   // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
@@ -1317,6 +1347,59 @@ export function borrarSolicitudesCon(lid) {
 export function guardarExPareja(x, y, desde, hasta) {
   const [a, b] = [x, y].sort();
   return db.prepare(`INSERT OR IGNORE INTO exparejas (a, b, desde, hasta) VALUES (?, ?, ?, ?)`).run(a, b, desde || 0, hasta || 0).changes > 0;
+}
+
+// ---------- Familias ----------
+export function padresDe(hijo) {
+  return db.prepare(`SELECT * FROM familia_hijos WHERE hijo = ?`).get(hijo) || null;
+}
+
+export function hijosDe(padre) {
+  return db.prepare(`SELECT hijo, desde FROM familia_hijos WHERE padre_a = ? OR padre_b = ? ORDER BY desde ASC`).all(padre, padre);
+}
+
+export function crearAdopcion(hijo, padreA, padreB, desde) {
+  return db.prepare(`INSERT OR REPLACE INTO familia_hijos (hijo, padre_a, padre_b, desde) VALUES (?, ?, ?, ?)`).run(hijo, padreA, padreB, desde).changes > 0;
+}
+
+export function borrarAdopcion(hijo) {
+  return db.prepare(`DELETE FROM familia_hijos WHERE hijo = ?`).run(hijo).changes > 0;
+}
+
+// cuántas adopciones hizo esta persona desde cierto momento (para el tope diario)
+export function adopcionesDesde(padre, desde) {
+  return db.prepare(`SELECT COUNT(*) AS n FROM familia_hijos WHERE (padre_a = ? OR padre_b = ?) AND desde >= ?`).get(padre, padre, desde).n;
+}
+
+export function guardarSolicitudAdopcion(hijo, padreA, padreB, chat, costo, fecha) {
+  db.prepare(`INSERT OR REPLACE INTO solicitudes_adopcion (hijo, padre_a, padre_b, chat, costo, fecha) VALUES (?, ?, ?, ?, ?, ?)`).run(hijo, padreA, padreB, chat || "", costo || 0, fecha);
+}
+
+export function getSolicitudAdopcion(hijo) {
+  return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE hijo = ?`).get(hijo) || null;
+}
+
+// el pedido que tiene hecho una persona como padre o madre adoptante
+export function getSolicitudAdopcionDe(padre) {
+  return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE padre_a = ? OR padre_b = ?`).get(padre, padre) || null;
+}
+
+export function borrarSolicitudAdopcion(hijo) {
+  return db.prepare(`DELETE FROM solicitudes_adopcion WHERE hijo = ?`).run(hijo).changes > 0;
+}
+
+export function getApellido(lid) {
+  return db.prepare(`SELECT apellido FROM apellidos WHERE lid = ?`).get(lid)?.apellido || "";
+}
+
+export function setApellido(lid, apellido, desde = Date.now()) {
+  if (!apellido) return db.prepare(`DELETE FROM apellidos WHERE lid = ?`).run(lid).changes > 0;
+  db.prepare(`INSERT OR REPLACE INTO apellidos (lid, apellido, desde) VALUES (?, ?, ?)`).run(lid, apellido, desde);
+  return true;
+}
+
+export function listaApellidos() {
+  return db.prepare(`SELECT lid, apellido FROM apellidos ORDER BY apellido ASC, desde ASC`).all();
 }
 
 // ex de una persona, sin repetir, de la más reciente a la más vieja

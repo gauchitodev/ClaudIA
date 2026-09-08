@@ -1,12 +1,15 @@
 import { responderCasamiento } from "../lib/parejas.js";
+import { responderAdopcion, textoRespuestaAdopcion } from "../lib/familia.js";
 
-// .no: rechaza la propuesta de casamiento de tu pareja.
+// .no: rechaza la propuesta de casamiento de tu pareja, o la adopción que te ofrecieron.
 const plugin = {};
 plugin.cmd = ["no"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client }) => {
+  const adopcion = textoRespuestaAdopcion(m.sender, responderAdopcion(m.sender, false));
+  if (adopcion) return client.sendMessage(m.chat, adopcion, { quoted: m });
   const r = responderCasamiento(m.sender, false);
   if (!r.ok) {
     if (r.motivo === "sinPareja") return client.sendText(m.chat, txt.parejaCasamientoNull, m);

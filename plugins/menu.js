@@ -154,7 +154,7 @@ ${readMore}
 📸 *𝙲𝙾𝙼𝙿𝙰𝚁𝚃𝙴 𝚃𝚄 𝙸𝙽𝚂𝚃𝙰𝙶𝚁𝙰𝙼*
 ▸ ${usedPrefix}ig <tuUsuario> 🤳 – \`Comparte tu instagram con los participantes.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-💞 *𝙿𝙰𝚁𝙴𝙹𝙰 𝚈 𝙲𝙰𝚂𝙰𝙼𝙸𝙴𝙽𝚃𝙾*
+💞 *𝙿𝙰𝚁𝙴𝙹𝙰, 𝙲𝙰𝚂𝙰𝙼𝙸𝙴𝙽𝚃𝙾 𝚈 𝙵𝙰𝙼𝙸𝙻𝙸𝙰*
 ▸ ${usedPrefix}pareja @mención ❤‍🔥 – \`Pídele a un participante que sea tu pareja en el grupo.\`
 ▸ ${usedPrefix}aceptar @mención ✅ – \`Acepta la petición si te la enviaron.\`
 ▸ ${usedPrefix}rechazar @mención ❌ – \`Rechaza la petición si te la enviaron.\`
@@ -164,6 +164,10 @@ ${readMore}
 ▸ ${usedPrefix}casarse 💍 – \`Pídele a tu pareja para casarse.\`
 ▸ ${usedPrefix}si ✅ – \`Acepta la petición de casarse si te la enviaron.\`
 ▸ ${usedPrefix}no ❌ – \`Rechaza la petición de casarse si te la enviaron.\`
+▸ ${usedPrefix}adoptar @mención 🍼 – \`Un matrimonio adopta a alguien, que responde con .si o .no.\`
+▸ ${usedPrefix}familia 👨‍👩‍👧 – \`Tu árbol: padres, hijos, hermanos, abuelos, tíos, primos… (.familia @mención para otro).\`
+▸ ${usedPrefix}apellido <apellido> 📜 – \`El matrimonio elige apellido y los hijos lo heredan. .familias las lista por tamaño.\`
+▸ ${usedPrefix}emancipar 🧳 – \`Te vas de tu familia. .desheredar @mención saca a un hijo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 📚 *𝙳𝙴𝙵𝙸𝙽𝙸𝙲𝙸𝙾𝙽𝙴𝚂 𝚁𝙰𝙴*
 ▸ ${usedPrefix}rae <palabra o expresión> 📚 – \`Definición en el diccionario de la RAE (ej: .rae mal de ojo)\`

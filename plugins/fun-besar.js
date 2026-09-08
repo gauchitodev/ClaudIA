@@ -1,6 +1,7 @@
 import { elegirAlAzar } from "../lib/azar.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { parejaDe, enojarPareja, besoEntrePareja } from "../lib/parejas.js";
+import { parentescoDe } from "../lib/familia.js";
 
 // .besar @x: beso virtual, salvo que alguno de los dos tenga pareja con otra persona. Un pedido de pareja pendiente no
 // cuenta como pareja. Entre novios o casados el beso llega siempre, salvo que la pareja esté enojada: por un intento de
@@ -14,6 +15,8 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const who = lidMencionado(m, text);
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (who === client.user.lid) return client.sendText(m.chat, txt.besarBot, m);
+  const parentesco = parentescoDe(m.sender, who);
+  if (parentesco) return client.sendText(m.chat, `🚫 ¡Es ${parentesco}! En la familia los besos van en la mejilla, y esos no cuentan.`, m);
 
   const mia = parejaDe(m.sender);
   if (mia && mia.pareja !== who) {
