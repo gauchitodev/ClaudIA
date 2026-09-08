@@ -61,7 +61,7 @@ test("tragamonedas: cinco líneas, diagonal de diamantes y esperanza", () => {
   C._rng.randomInt = () => secuencia[i++ % secuencia.length];
   cargar("u", 100);
   const r = C.jugarTragamonedas(G, "u", 50);
-  assert.match(r.mensaje, /Diagonal ↘: ¡tres 💎! x40\nCobrás \*2000\* UruCoins: ganás 1950\. Te quedan 2050\./);
+  assert.equal(r.mensaje, "🎰 *TRAGAMONEDAS* · 50 UruCoins\n💎 | 🍒 | 🍋\n🍒 | 💎 | 🍊\n🍋 | 🍊 | 💎\n\n▸ Diagonal ↘: 💎 💎 💎 → ¡tres 💎! x40\nCobrás *2000* UruCoins: ganás 1950. Te quedan 2050.");
   assert.equal(saldo("u"), 100 - 50 + 2000);
   const { randomInt } = await_crypto();
   C._rng.randomInt = randomInt;
@@ -83,7 +83,7 @@ test("tragamonedas: dice la verdad cuando cobrás menos de lo apostado, y redond
   let i = 0;
   C._rng.randomInt = () => dosCerezas[i++ % dosCerezas.length];
   cargar("v", 100);
-  assert.match(C.jugarTragamonedas(G, "v", 50).mensaje, /▶ 🍒 \| 🍒 \| 🍋 ◀\n.*\n.*\n\nFila 1: dos cerezas x0,4\nCobrás \*20\* UruCoins: perdés 30\. Te quedan 70\./);
+  assert.equal(C.jugarTragamonedas(G, "v", 50).mensaje, "🎰 *TRAGAMONEDAS* · 50 UruCoins\n🍒 | 🍒 | 🍋\n🍋 | 🔔 | 🍊\n🍊 | 🍋 | 🔔\n\n▸ Fila 1: 🍒 🍒 🍋 → dos cerezas x0,4\nCobrás *20* UruCoins: perdés 30. Te quedan 70.", "grilla limpia y la línea que pagó repetida abajo con sus símbolos");
   i = 0;
   assert.match(C.jugarTragamonedas(G, "v", 7).mensaje, /Cobrás \*3\* UruCoins: perdés 4\./, "7 x 0,4 = 2,8 se redondea a 3, no se trunca a 2");
   assert.equal(saldo("v"), 70 - 7 + 3);
@@ -91,7 +91,7 @@ test("tragamonedas: dice la verdad cuando cobrás menos de lo apostado, y redond
   const tresCerezas = [0, 5, 9, 0, 12, 5, 0, 9, 12];
   i = 0;
   C._rng.randomInt = () => tresCerezas[i++ % tresCerezas.length];
-  assert.match(C.jugarTragamonedas(G, "v", 50).mensaje, /Fila 1: ¡tres 🍒! x1\nCobrás \*50\* UruCoins: recuperás la apuesta\. Te quedan 66\./);
+  assert.match(C.jugarTragamonedas(G, "v", 50).mensaje, /\n\n▸ Fila 1: 🍒 🍒 🍒 → ¡tres 🍒! x1\nCobrás \*50\* UruCoins: recuperás la apuesta\. Te quedan 66\.$/);
   assert.equal(C.textoPagosTragamonedas(), "Se juegan 5 líneas a la vez, las tres filas y las dos diagonales, y cada una paga sobre la apuesta entera: 🍒🍒🍒 x1 · 🍋🍋🍋 x1,6 · 🍊🍊🍊 x3 · 🔔🔔🔔 x8 · ⭐⭐⭐ x20 · 💎💎💎 x40 · 🍒🍒 x0,4. Los premios de las líneas se suman.");
 });
 
