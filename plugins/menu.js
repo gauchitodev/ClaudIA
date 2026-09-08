@@ -166,7 +166,7 @@ ${readMore}
 ▸ ${usedPrefix}no ❌ – \`Rechaza la petición de casarse si te la enviaron.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 📚 *𝙳𝙴𝙵𝙸𝙽𝙸𝙲𝙸𝙾𝙽𝙴𝚂 𝚁𝙰𝙴*
-▸ ${usedPrefix}rae <palabra> 📚 – \`Buscar definición de palabra en la RAE\`
+▸ ${usedPrefix}rae <palabra o expresión> 📚 – \`Definición en el diccionario de la RAE (ej: .rae mal de ojo)\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🎮 *𝙹𝚄𝙴𝙶𝙾𝚂 𝙴𝚇𝚃𝚁𝙰*
 ▸ ${usedPrefix}ttt 🕹️ – \`TaTeTi\`
@@ -204,7 +204,7 @@ ${readMore}
 ▸ ${usedPrefix}orsi 🎙️ – \`Una respuesta al estilo Orsi.\`
 ▸ ${usedPrefix}say 🗣️ <texto>
 ▸ ${usedPrefix}sortear 🏆 <texto>
-▸ ${usedPrefix}clima 🌦️ <pais y/o ciudad>
+▸ ${usedPrefix}clima 🌦️ [ciudad] – \`Clima de ahora y de mañana; sin ciudad, Montevideo. Ej: .clima Salto, Argentina\`
 ▸ ${usedPrefix}traducir <texto>
 ▸ ${usedPrefix}links 🔗 – \`Links del grupo, el canal y el Discord.\`
 ▸ ${usedPrefix}discord 🎮 – \`Link del Discord.\`

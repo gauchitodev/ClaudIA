@@ -22,9 +22,6 @@ nvidiaApiKey = ""
 # API key de Tenor (Google). Solo la usa .emojimix. Opcional.
 tenorApiKey = ""
 
-# API key de OpenWeather. Solo la usa .clima. Opcional.
-openWeatherApiKey = ""
-
 # API key de Cerebras. Último respaldo de IA; sin saldo cargado no responde. Opcional.
 cerebrasApiKey = ""
 

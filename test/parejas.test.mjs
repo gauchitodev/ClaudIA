@@ -140,7 +140,19 @@ test("besar: un pedido de pareja pendiente no bloquea el beso, una pareja de ver
   assert.match(await besa("3@lid", "2@lid"), /TIENE PAREJA/);
   assert.match(await besa("1@lid", "3@lid"), /SOS INFIEL/);
   assert.doesNotMatch(await besa("1@lid", "2@lid"), /TIENE PAREJA|INFIEL/, "entre ellos sí");
+  // el intento con 3 dejó enojada a 2: un regalo lo arregla, y sin abandono de por medio el beso entre novios nunca se rechaza
+  P.contentarPareja("1@lid", "2@lid");
+  P._dep.azar = () => 0.9;
+  for (let i = 0; i < 25; i++) assert.match(await besa("1@lid", "2@lid"), /^💞 [\s\S]*Lo recibe:\* @2/);
+  assert.equal(globalThis.enviados.at(-1).msg.react.text, "💞");
+  P.fijarCasamiento("1@lid", "2@lid");
+  for (let i = 0; i < 25; i++) assert.match(await besa("2@lid", "1@lid"), /^💍 [\s\S]*Lo recibe:\* @1/);
+  assert.equal(globalThis.enviados.at(-1).msg.react.text, "💍");
+  // sin pareja, a veces se rechaza
   P.terminarPareja("1@lid");
+  const vistos = new Set();
+  for (let i = 0; i < 60; i++) vistos.add(/rechazó el beso/.test(await besa("1@lid", "2@lid")));
+  assert.equal(vistos.size, 2, "entre no parejas salen las dos variantes");
 });
 
 test("parejas: migración desde las columnas viejas de users", async () => {
@@ -161,4 +173,70 @@ test("parejas: migración desde las columnas viejas de users", async () => {
   assert.deepEqual(P.exParejasDe("1@lid"), ["4@lid"]);
   globalThis.db = F.loadDatabase(); // idempotente: no duplica ni pisa
   assert.equal(P.listaParejas().length, 1);
+});
+
+test("parejas: enojo por infidelidad, reconciliación con regalo y rechazo por abandono", async () => {
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  const t0 = Date.now();
+  P._dep.azar = () => 0.9; // sin rechazos por abandono salvo donde se fuerza
+  P.fijarPareja("1@lid", "2@lid", t0 - 10 * DIA_MS);
+  assert.equal(P.besoEntrePareja("1@lid", "3@lid", t0), null, "no son pareja");
+  // 1 intenta besar a 3: 2 se enoja una hora
+  assert.equal(P.enojarPareja("1@lid", "3@lid", t0), "2@lid");
+  assert.deepEqual(P.enojoVigente("1@lid", t0 + 5 * 60000), { por: "3@lid", hasta: t0 + P.PAREJAS.ENOJO_MS, minutos: 55 });
+  assert.equal(P.enojoVigente("2@lid", t0), null, "el enojo es de 2 contra 1, no al revés");
+  assert.equal(P.besoEntrePareja("1@lid", "2@lid", t0 + 5 * 60000).tipo, "enojo");
+  assert.equal(P.besoEntrePareja("2@lid", "1@lid", t0 + 5 * 60000).tipo, "ok", "2 puede besar a 1 igual");
+  assert.equal(P.besoEntrePareja("1@lid", "2@lid", t0 + P.PAREJAS.ENOJO_MS + 1).tipo, "ok", "pasada la hora se le pasa");
+  // de nuevo enojada, y un regalo lo arregla
+  P.enojarPareja("1@lid", "3@lid", t0);
+  assert.equal(P.contentarPareja("1@lid", "4@lid", t0), false, "un regalo a otra persona no cuenta");
+  assert.equal(P.contentarPareja("1@lid", "2@lid", t0), true);
+  assert.equal(P.enojoVigente("1@lid", t0), null);
+  assert.equal(P.contentarPareja("1@lid", "2@lid", t0), false, "ya no había enojo");
+
+  // abandono: tres días sin beso ni regalo, el primer beso puede ser rechazado una sola vez
+  const luego = t0 + 4 * DIA_MS;
+  P._dep.azar = () => 0; // sale el rechazo
+  const rechazo = P.besoEntrePareja("1@lid", "2@lid", luego);
+  assert.deepEqual(rechazo, { tipo: "abandono", dias: 4 });
+  assert.equal(P.besoEntrePareja("1@lid", "2@lid", luego + 1000).tipo, "ok", "el rechazo por abandono es uno solo");
+  P._dep.azar = () => 0.9; // esta vez no
+  assert.equal(P.besoEntrePareja("1@lid", "2@lid", luego + 5 * DIA_MS).tipo, "ok");
+  assert.equal(P.parejaDe("1@lid").ultimoBeso, luego + 5 * DIA_MS);
+
+  // el plugin: infiel deja enojada a la pareja, el beso se rechaza con el motivo, el regalo reconcilia
+  globalThis.txt = (await import("../lib/strings.js")).default;
+  const { default: besar } = await import("../plugins/fun-besar.js");
+  const { default: regalar } = await import("../plugins/coins-regalar.js");
+  const client = clienteFalso();
+  F.initDataDB({ chat: G, sender: "3@lid", senderJid: "3@s.whatsapp.net", pushName: "Tres" });
+  const besa = async (de, a) => {
+    globalThis.enviados = [];
+    await besar.run({ chat: G, sender: de, mentionedJid: [a] }, { client, text: `@${a.split("@")[0]}`, usedPrefix: ".", command: "besar" });
+    return globalThis.enviados.find((x) => x.msg?.text)?.msg.text;
+  };
+  assert.match(await besa("1@lid", "3@lid"), /SOS INFIEL[\s\S]*💢 @2 se enteró y quedó enojada: por una hora no te acepta besos/);
+  assert.match(await besa("1@lid", "2@lid"), /^💢 @2 te corrió la cara: todavía está enojada por lo de @3\. Le quedan 60 min, o regalale algo\./);
+  const { fijarSaldo } = await import("./helpers.mjs");
+  fijarSaldo(F, G, "1@lid", 50);
+  globalThis.enviados = [];
+  await regalar.run({ chat: G, sender: "1@lid", mentionedJid: ["2@lid"] }, { client, text: "@2 10", args: ["@2", "10"] });
+  assert.match(globalThis.enviados.at(-1).msg.text, /Le regalaste \*10 UruCoins\* a @2[\s\S]*💞 Y a tu pareja se le pasó el enojo\./);
+  P._dep.azar = () => 0.9;
+  assert.match(await besa("1@lid", "2@lid"), /^(💞|💍) [\s\S]*Lo recibe:\* @2/, "reconciliados, el beso llega (siguen casados del test anterior)");
+  P.terminarPareja("1@lid");
+});
+
+test("parejas: migración de las columnas de enojo en una base que ya tenía la tabla", () => {
+  db.exec(`DROP TABLE parejas`);
+  db.exec(`CREATE TABLE parejas (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT NOT NULL UNIQUE, b TEXT NOT NULL UNIQUE, desde INTEGER NOT NULL, casados_desde INTEGER DEFAULT 0, propuso_casamiento TEXT DEFAULT "")`);
+  db.prepare(`INSERT INTO parejas (a, b, desde) VALUES (?, ?, ?)`).run("1@lid", "2@lid", 1000);
+  globalThis.db = F.loadDatabase();
+  const cols = db.prepare(`PRAGMA table_info(parejas)`).all().map((c) => c.name);
+  for (const c of ["ultimo_beso", "enojo_hasta", "enojo_por", "enojada"]) assert.ok(cols.includes(c), `falta ${c}`);
+  const p = P.parejaDe("1@lid");
+  assert.equal(p.pareja, "2@lid");
+  assert.deepEqual([p.ultimoBeso, p.enojoHasta, p.enojoPor, p.enojada], [0, 0, "", ""]);
+  P.terminarPareja("1@lid");
 });

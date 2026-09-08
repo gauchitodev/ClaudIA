@@ -15,7 +15,7 @@ const cargar = (u, n) => fijarSaldo(F, G, u, n);
 
 test("ruleta: interpreta todas las apuestas y rechaza las inválidas", () => {
   const I = C.interpretarApuestaRuleta;
-  const casos = [["rojo", "rojo", 2, 1, 2], ["Negro", "negro", 2, 2, 1], ["par", "par", 2, 2, 0], ["impar", "impar", 2, 1, 0], ["1-18", "1-18", 2, 18, 19], ["19-36", "19-36", 2, 36, 0], ["13-24", "la docena 13-24", 3, 13, 12], ["columna 2", "la columna 2", 3, 17, 18], ["0", "el 0", 36, 0, 1], ["17-18", "caballo 17-18", 18, 18, 19], ["17-20", "caballo 17-20", 18, 20, 23], ["0-1", "caballo 0-1", 18, 0, 2], ["16-17-18", "calle 16-17-18", 12, 16, 19], ["0-2-3", "calle 0-2-3", 12, 0, 1], ["17-18-20-21", "cuadro 17-18-20-21", 9, 21, 19], ["0-1-2-3", "cuadro 0-1-2-3", 9, 0, 4], ["16-17-18-19-20-21", "seisena 16-17-18-19-20-21", 6, 21, 22], ["18, 17", "caballo 17-18", 18, 17, 16]];
+  const casos = [["rojo", "rojo", 2, 1, 2], ["Negro", "negro", 2, 2, 1], ["par", "par", 2, 2, 0], ["impar", "impar", 2, 1, 0], ["1-18", "1-18", 2, 18, 19], ["19-36", "19-36", 2, 36, 0], ["13-24", "la docena 13-24", 3, 13, 12], ["columna 2", "la columna 2", 3, 17, 18], ["0", "el 0", 36, 0, 1], ["verde", "el 0", 36, 0, 1], ["Cero", "el 0", 36, 0, 5], ["17-18", "caballo 17-18", 18, 18, 19], ["17-20", "caballo 17-20", 18, 20, 23], ["0-1", "caballo 0-1", 18, 0, 2], ["16-17-18", "calle 16-17-18", 12, 16, 19], ["0-2-3", "calle 0-2-3", 12, 0, 1], ["17-18-20-21", "cuadro 17-18-20-21", 9, 21, 19], ["0-1-2-3", "cuadro 0-1-2-3", 9, 0, 4], ["16-17-18-19-20-21", "seisena 16-17-18-19-20-21", 6, 21, 22], ["18, 17", "caballo 17-18", 18, 17, 16]];
   for (const [t, nombre, paga, gana, noGana] of casos) {
     const a = I(t);
     assert.equal(a?.nombre, nombre, t);
@@ -80,7 +80,12 @@ test("tragamonedas: cinco líneas, diagonal de diamantes y esperanza", () => {
 test("casino: límites de apuesta y tope diario", () => {
   cargar("l", 1000);
   assert.match(C.jugarTragamonedas(G, "l", 4).error, /mínima/);
-  assert.match(C.jugarTragamonedas(G, "l", 101).error, /máxima/);
+  // el máximo es 100 o el 20 % del saldo, lo que sea mayor: con 1000 son 200
+  assert.match(C.jugarTragamonedas(G, "l", 201).error, /Tu apuesta máxima en el casino es 200 UruCoins \(100 o el 20 % de tu saldo, lo que sea mayor\)/);
+  cargar("p", 100);
+  assert.match(C.jugarTragamonedas(G, "p", 101).error, /máxima en el casino es 100 UruCoins/);
+  assert.ok(C.jugarTragamonedas(G, "p", 100).ok);
+  cargar("l", 1000);
   const gastadoHoy = F.coinsGastadasHoy(G, "l", "casino_");
   assert.equal(gastadoHoy, 0);
 });

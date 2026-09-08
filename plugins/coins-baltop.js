@@ -1,5 +1,6 @@
 import { topCoins, puestoCoins, getSaldoCoins, totalEnCirculacion } from "../database-functions.js";
 import { etiquetaLaburo } from "../lib/laburos.js";
+import { nombreDe } from "../lib/menciones.js";
 
 const TOP_N = 10;
 
@@ -9,13 +10,14 @@ plugin.economia = true;
 plugin.onlyGroup = true;
 
 // Los más ricos del grupo (antes salía dentro de .coins). Si no entrás en el top, te dice en qué puesto estás.
+// Va con nombres y sin menciones: etiquetar a diez personas por consulta les llenaba el teléfono de avisos.
 plugin.run = async (m, { client }) => {
   const top = topCoins(m.chat, TOP_N);
   if (top.length === 0) return client.sendText(m.chat, "💰 Acá nadie tiene UruCoins todavía. Se ganan reaccionando, con los hashtags y ganando juegos.", m);
 
   const lineas = top.map((r, i) => {
     const laburo = etiquetaLaburo(m.chat, r.usuario);
-    return `${i + 1}. @${r.usuario.split("@")[0]}${laburo ? ` (${laburo})` : ""} — *${r.saldo}*`;
+    return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo})` : ""} — *${r.saldo}*`;
   });
 
   const pie = [];
@@ -27,7 +29,7 @@ plugin.run = async (m, { client }) => {
   pie.push(`En circulación: *${total} UruCoins* entre ${personas} ${personas === 1 ? "persona" : "personas"}.`);
 
   const texto = `💰 *LOS MÁS RICOS DEL GRUPO*\n\n${lineas.join("\n")}\n\n${pie.join("\n")}`;
-  await client.sendMessage(m.chat, { text: texto, mentions: top.map((r) => r.usuario) }, { quoted: m });
+  await client.sendText(m.chat, texto, m);
 };
 
 export default plugin;

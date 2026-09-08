@@ -69,7 +69,7 @@ test("modo: con la economía apagada nada reparte coins, pero lo social sigue", 
 
 test("modo: el perfil esconde la economía cuando está apagada", () => {
   fijarSaldo(F, G, "111@lid", 50);
-  assert.match(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /🪙 50 UruCoins · puesto 1 del grupo\n💼 Sin laburo/);
+  assert.match(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /🪙 50 UruCoins · puesto 1 del grupo · apuesta máxima 100\n💼 Sin laburo/);
   F.updateChat(G, { monedas: 0 });
   const t = Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto;
   assert.doesNotMatch(t, /UruCoins|laburo|racha/i);

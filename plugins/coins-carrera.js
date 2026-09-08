@@ -17,7 +17,7 @@ plugin.run = async (m, { client, args, chat }) => {
     if (abierta) return client.sendMessage(m.chat, { text: abierta.texto, mentions: abierta.mentions }, { quoted: m });
     return client.sendText(
       m.chat,
-      `🏇 *Carrera de caballos* — uso: .carrera <cantidad> <número o nombre del caballo>\n\nLa primera apuesta abre la carrera y muestra los cinco caballos con sus cuotas, que cambian en cada carrera. Se puede apostar hasta ${CARRERA.MAX_APUESTAS_POR_PERSONA} veces por persona, a distintos caballos si querés. A los ${CARRERA.SEGUNDOS} segundos largan y se corre para todos; el que acierta cobra su apuesta por la cuota.\nMínimo ${COINS.APUESTA_MIN}, máximo ${COINS.CASINO_APUESTA_MAX} por apuesta, tope ${COINS.CASINO_TOPE_DIA} por día en el casino.\nEj: .carrera 20 3`,
+      `🏇 *Carrera de caballos* — uso: .carrera <cantidad> <número o nombre del caballo>\n\nLa primera apuesta abre la carrera y muestra los cinco caballos con sus cuotas, que cambian en cada carrera. Se puede apostar hasta ${CARRERA.MAX_APUESTAS_POR_PERSONA} veces por persona, a distintos caballos si querés. A los ${CARRERA.SEGUNDOS} segundos largan y se corre para todos; el que acierta cobra su apuesta por la cuota.\nMínimo ${COINS.APUESTA_MIN}, máximo ${COINS.CASINO_APUESTA_MAX} por apuesta (o el ${COINS.APUESTA_MAX_PORCENTAJE} % de tu saldo, lo que sea mayor), tope ${COINS.CASINO_TOPE_DIA} por día en el casino.\nEj: .carrera 20 3`,
       m,
     );
   }

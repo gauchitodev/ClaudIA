@@ -1,5 +1,6 @@
 import { textoEconomia } from "../lib/economia.js";
 import { getUser, ganarCoins, gastarCoins, getSaldoCoins } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["economia", "economía", "ajustar"];
@@ -15,10 +16,7 @@ plugin.run = async (m, { client, args, text, command, isOwner }) => {
   }
 
   if (!isOwner) return client.sendText(m.chat, txt.onlyOwner, m);
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  if (numberMatches && numberMatches.length > 0) who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  else if (m.quoted) who = m.quoted.sender;
+  const who = lidMencionado(m, text); // la regex vieja se tragaba la cantidad que venía después de la mención
   const destinatario = who ? getUser(who) : null;
   const cantidad = parseInt(args.find((a) => /^-?\d+$/.test(a)), 10);
   if (!destinatario?.lid || Number.isNaN(cantidad) || cantidad === 0) return client.sendText(m.chat, "Uso: .ajustar @persona 50 [motivo] para dar, o .ajustar @persona -50 [motivo] para sacar.", m);

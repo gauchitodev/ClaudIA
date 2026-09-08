@@ -96,3 +96,39 @@ test("trivia: el comando abre la ronda con premio, avisa si ya hay una abierta y
     U.juegoTerminado(G, null);
   }
 });
+
+test("trivia: una sola por grupo, aunque dos se pidan al mismo tiempo o llegue una relámpago", async () => {
+  const client = clienteFalso();
+  const m = { chat: G, sender: "y@lid", isGroup: true };
+  Tr.cerrarRonda(G);
+  U.juegoTerminado(G, null);
+  // dos .trivia a la vez: la segunda encuentra el turno reservado mientras la primera arma la pregunta
+  await Promise.all([plugin.run(m, { client }), plugin.run(m, { client })]);
+  const textos = globalThis.enviados.map((e) => e.msg?.text || "");
+  assert.equal(textos.filter((t) => t.startsWith("🎓 *Trivia*")).length, 1, "una sola pregunta");
+  assert.equal(textos.filter((t) => t === "Ya se está armando una trivia, un segundo.").length, 1);
+  assert.equal(Tr.rondaDe(G).tipo, "trivia");
+
+  // la relámpago no pisa una trivia abierta
+  const R = await import("../lib/trivia-relampago.js");
+  const antes = globalThis.enviados.length;
+  await R.lanzarTriviaRelampago(client, G);
+  assert.equal(globalThis.enviados.length, antes, "no manda nada");
+  assert.equal(Tr.rondaDe(G).tipo, "trivia");
+
+  // mientras se arma una ronda no se aceptan respuestas, y si el armado falla el turno se suelta
+  Tr.cerrarRonda(G);
+  U.juegoTerminado(G, null);
+  assert.ok(Tr.reservarRonda(G, "trivia"));
+  assert.ok(!Tr.reservarRonda(G, "relampago"), "el turno está tomado");
+  assert.equal(Tr.responderTrivia({ chat: G, sender: "a@lid", text: "a" }), null);
+  assert.ok(Tr.liberarRonda(G));
+  assert.equal(Tr.rondaDe(G), null);
+  const roto = { ...client, sendText: async () => { throw new Error("se cayó WhatsApp"); } };
+  await assert.rejects(() => plugin.run(m, { client: roto }), /se cayó WhatsApp/);
+  assert.equal(Tr.rondaDe(G), null, "la reserva se soltó al fallar");
+  await plugin.run(m, { client });
+  assert.equal(Tr.rondaDe(G).tipo, "trivia");
+  Tr.cerrarRonda(G);
+  U.juegoTerminado(G, null);
+});

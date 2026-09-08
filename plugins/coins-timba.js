@@ -3,9 +3,11 @@
 // .timba mes → solo lo de este mes.
 
 import { etiquetaLaburo } from "../lib/laburos.js";
+import { nombreDe } from "../lib/menciones.js";
 
-const MOTIVOS_APUESTA = ["casino_ruleta", "casino_tragamonedas", "apuesta_%", "loteria_boletos", "mercado_apuesta_%"];
-const MOTIVOS_COBRO = ["casino_ruleta_premio", "casino_tragamonedas_premio", "apuesta_ganada", "escudo_devolucion", "loteria_premio", "loteria_devolucion", "mercado_premio_%", "mercado_devolucion_%"];
+// Lo que se pone (cantidad negativa) y lo que vuelve (positiva). Si se agrega un juego, van sus motivos acá.
+const MOTIVOS_APUESTA = ["casino_ruleta", "casino_tragamonedas", "casino_blackjack", "casino_blackjack_seguro", "casino_carrera", "casino_mines", "duelo_apuesta", "apuesta_%", "loteria_boletos", "mercado_apuesta_%"];
+const MOTIVOS_COBRO = ["casino_ruleta_premio", "casino_tragamonedas_premio", "casino_blackjack_premio", "casino_blackjack_empate", "casino_blackjack_rendicion", "casino_blackjack_seguro_premio", "casino_carrera_premio", "casino_mines_premio", "casino_mines_devolucion", "duelo_premio", "duelo_devolucion", "apuesta_ganada", "escudo_devolucion", "loteria_premio", "loteria_devolucion", "mercado_premio_%", "mercado_devolucion_%"];
 
 const TITULOS = ["🎰 Ludópata mayor", "🎲 Timbero serial", "🃏 Aprendiz del vicio", "🎯 Ocasional", "🪙 Turista"];
 
@@ -40,11 +42,11 @@ plugin.run = async (m, { client, args }) => {
     const signo = r.neto > 0 ? `+${r.neto}` : `${r.neto}`;
     const estado = r.neto > 0 ? "🟢" : r.neto < 0 ? "🔴" : "⚪";
     const laburo = etiquetaLaburo(m.chat, r.usuario);
-    return `${i + 1}. @${r.usuario.split("@")[0]}${laburo ? ` (${laburo})` : ""} — ${TITULOS[i]}\n   apostó *${r.apostado}* en ${r.jugadas} ${r.jugadas === 1 ? "jugada" : "jugadas"} · balance ${estado} ${signo}`;
+    return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo})` : ""} — ${TITULOS[i]}\n   apostó *${r.apostado}* en ${r.jugadas} ${r.jugadas === 1 ? "jugada" : "jugadas"} · balance ${estado} ${signo}`;
   });
 
-  const texto = `🎰 *LOS MÁS LUDÓPATAS${soloMes ? " DEL MES" : ""}*\n\n${lineas.join("\n")}\n\nCuenta casino, apuestas en juegos, lotería y mercados.${soloMes ? "" : " Probá .timba mes para solo este mes."}`;
-  await client.sendMessage(m.chat, { text: texto, mentions: top.map((r) => r.usuario) }, { quoted: m });
+  const texto = `🎰 *LOS MÁS LUDÓPATAS${soloMes ? " DEL MES" : ""}*\n\n${lineas.join("\n")}\n\nCuenta casino, duelos, apuestas en juegos, lotería y mercados.${soloMes ? "" : " Probá .timba mes para solo este mes."}`;
+  await client.sendText(m.chat, texto, m); // sin menciones: un ranking no tiene por qué avisarle a cada uno
 };
 
 export default plugin;

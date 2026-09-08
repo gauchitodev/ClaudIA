@@ -379,9 +379,18 @@ export function loadDatabase() {
       b TEXT NOT NULL UNIQUE,
       desde INTEGER NOT NULL,
       casados_desde INTEGER DEFAULT 0,
-      propuso_casamiento TEXT DEFAULT ""
+      propuso_casamiento TEXT DEFAULT "",
+      ultimo_beso INTEGER DEFAULT 0,
+      enojo_hasta INTEGER DEFAULT 0,
+      enojo_por TEXT DEFAULT "",
+      enojada TEXT DEFAULT ""
     )
   `);
+  // Migración: enojos y último beso de la pareja (bases que ya tenían la tabla parejas sin esas columnas)
+  const columnasParejas = db.prepare(`PRAGMA table_info(parejas)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["ultimo_beso", "INTEGER DEFAULT 0"], ["enojo_hasta", "INTEGER DEFAULT 0"], ["enojo_por", "TEXT DEFAULT \"\""], ["enojada", "TEXT DEFAULT \"\""]]) {
+    if (!columnasParejas.includes(columna)) db.exec(`ALTER TABLE parejas ADD COLUMN ${columna} ${definicion}`);
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS solicitudes_pareja (
       de TEXT PRIMARY KEY,
@@ -1265,7 +1274,7 @@ function migrarParejasViejas(db) {
   console.log(`🟢 Migración: parejas pasadas a tablas propias (${parejas} parejas, ${pedidos} pedidos pendientes, ${ex} ex)`);
 }
 
-const filaPareja = (p, lid) => ({ id: p.id, pareja: p.a === lid ? p.b : p.a, desde: p.desde, casadosDesde: p.casados_desde || 0, propusoCasamiento: p.propuso_casamiento || "" });
+const filaPareja = (p, lid) => ({ id: p.id, pareja: p.a === lid ? p.b : p.a, desde: p.desde, casadosDesde: p.casados_desde || 0, propusoCasamiento: p.propuso_casamiento || "", ultimoBeso: p.ultimo_beso || 0, enojoHasta: p.enojo_hasta || 0, enojoPor: p.enojo_por || "", enojada: p.enojada || "" });
 
 export function parejaDe(lid) {
   const p = db.prepare(`SELECT * FROM parejas WHERE a = ? OR b = ?`).get(lid, lid);
