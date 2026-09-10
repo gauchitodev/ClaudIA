@@ -100,7 +100,8 @@ test("economía", () => {
   const t = E.textoEconomia(G, 7);
   assert.match(t.texto, /En circulación: \*110 UruCoins\* entre 2 personas/);
   assert.match(t.texto, /📈/);
-  assert.deepEqual(t.mentions, ["a", "b"]);
+  assert.deepEqual(t.mentions, [], "el panel nombra sin etiquetar");
+  assert.match(t.texto, /Saldos más altos:\*\n1\. (a|b) — /);
 });
 
 test("economía: los movimientos de los laburos tienen rubro propio", () => {

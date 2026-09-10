@@ -19,7 +19,6 @@ globalThis.numberBot = config.numberBot || "";
 globalThis.geminiApiKey = config.geminiApiKey || "";
 globalThis.groqApiKey = config.groqApiKey || "";
 globalThis.tenorApiKey = config.tenorApiKey || "";
-globalThis.openWeatherApiKey = config.openWeatherApiKey || "";
 globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
 globalThis.openrouterApiKey = config.openrouterApiKey || "";
 globalThis.nvidiaApiKey = config.nvidiaApiKey || "";

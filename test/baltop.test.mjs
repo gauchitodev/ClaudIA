@@ -15,7 +15,11 @@ const correr = (P, sender, chat = G) => P.run({ chat, sender, isGroup: true }, {
 test(".bal muestra solo tu saldo", async () => {
   fijarSaldo(F, G, "a@lid", 120);
   await correr(Bal, "a@lid");
-  assert.equal(ultimoEnviado().msg.text, "🪙 Tenés *120 UruCoins*");
+  assert.equal(ultimoEnviado().msg.text, "🪙 Tenés *120 UruCoins* · podés apostar hasta 100 por jugada");
+  fijarSaldo(F, G, "a@lid", 1250);
+  await correr(Bal, "a@lid");
+  assert.equal(ultimoEnviado().msg.text, "🪙 Tenés *1250 UruCoins* · podés apostar hasta 250 por jugada", "con más saldo, el 20 %");
+  fijarSaldo(F, G, "a@lid", 120);
   await correr(Bal, "nadie@lid");
   assert.equal(ultimoEnviado().msg.text, "🪙 Tenés *0 UruCoins*");
 });
@@ -28,10 +32,11 @@ test(".baltop lista a los más ricos y te ubica si no entrás", async () => {
   await correr(Top, "u1@lid");
   const { text, mentions } = ultimoEnviado().msg;
   assert.match(text, /LOS MÁS RICOS DEL GRUPO/);
-  assert.match(text, /1\. @u12 — \*120\*\n2\. @u11 — \*110\*/);
-  assert.match(text, /10\. @u3 — \*30\*\n\n/);
-  assert.doesNotMatch(text, /@u1 |@u2 /, "los que no entran en el top 10 no se listan");
-  assert.equal(mentions.length, 10);
+  // con nombre (o número si no lo hay) y sin etiquetar a nadie
+  assert.match(text, /1\. u12 — \*120\*\n2\. u11 — \*110\*/);
+  assert.match(text, /10\. u3 — \*30\*\n\n/);
+  assert.doesNotMatch(text, /\bu1 |\bu2 |@/, "los que no entran en el top 10 no se listan, y no hay menciones");
+  assert.equal(mentions, undefined);
   assert.equal(F.puestoCoins(G, "u1@lid"), 12);
   assert.match(text, /Vos: puesto 12 con 10 UruCoins/);
   assert.match(text, /En circulación: \*785 UruCoins\* entre 13 personas/);

@@ -107,7 +107,7 @@ test("aero: SIGMET de la FIR Montevideo, filtrado y descrito", async () => {
       "*SIGMET 1* · engelamiento severo",
       "⏱️ 01:30Z a 05:30Z (quedan 2 h 32 min)",
       "📏 FL030 a FL080 · se mueve al E a 5 kt · sin cambios",
-      "`WSUY31 SUMU 060125 SUEO SIGMET 1 VALID 060130/060530 SUMU- SUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=`",
+      "`WSUY31 SUMU 060125 SUEO SIGMET 1 VALID 060130/060530 SUMU- SUEO MONTEVIDEO FIR SEV ICE FCST WI S3259W05805 S3239W05310 FL030/080 MOV E 05KT NC=`\n\n_Fuente: NOAA, Aviation Weather Center._",
     ].join("\n"),
   );
   assert.match(A.describirSigmet(SIGMET_SBCW, ahora), /\*SIGMET 96\* · tormentas embebidas\n⏱️ 23:30Z a 03:30Z \(quedan 32 min\)\n📏 hasta FL450 · estacionario · sin cambios/);
@@ -169,7 +169,7 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   };
   const ahora = Date.parse("2026-09-06T15:00:00Z"); // 12:00 en Montevideo
   let t = await A.textoSolDe("", ahora);
-  assert.match(t, /^☀️ \*Montevideo, Uruguay\* · 06\/09 · hora local\n🌅 Sale 06:5\d · 🌇 se pone 18:(29|3\d|28) · día de 11 h 3\d min\n🌆 Crepúsculo civil: de 06:\d\d a 06:5\d y de 18:\d\d a 18:5\d\nAhora: el sol está arriba\.$/);
+  assert.match(t, /^☀️ \*Montevideo, Uruguay\* · 06\/09 · hora local\n🌅 Sale 06:5\d · 🌇 se pone 18:(29|3\d|28) · día de 11 h 3\d min\n🌆 Crepúsculo civil: de 06:\d\d a 06:5\d y de 18:\d\d a 18:5\d\nAhora: el sol está arriba\.\n_Fuente: ubicación de Open-Meteo; los horarios son cálculo propio\._$/);
   t = await A.textoSolDe("montevideo", Date.parse("2026-09-06T23:00:00Z"));
   assert.match(t, /Ahora: ya es de noche\./);
   assert.match(await A.textoSolDe("Xyzzy", ahora), /No encontré "Xyzzy"/);
@@ -178,4 +178,33 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   assert.match(ultimoEnviado().msg.text, /Viento cruzado/);
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "sol", text: "Montevideo" });
   assert.match(ultimoEnviado().msg.text, /☀️ \*Montevideo, Uruguay\*/);
+});
+
+test("aero: rumbo recíproco de rumbos y de pistas", () => {
+  assert.equal(Cc.reciproco(45), 225);
+  assert.equal(Cc.reciproco(270), 90);
+  assert.equal(Cc.reciproco(180), 360);
+  assert.equal(Cc.reciproco(360), 180);
+  assert.deepEqual(Cc.parsearRumbo("06L"), { tipo: "pista", pista: "06L", lado: "L", rumbo: 60 });
+  assert.deepEqual(Cc.parsearRumbo("18"), { tipo: "pista", pista: "18", lado: "", rumbo: 180 }, "dos cifras hasta 36 es pista");
+  assert.deepEqual(Cc.parsearRumbo("018"), { tipo: "rumbo", rumbo: 18 }, "tres cifras es rumbo");
+  assert.deepEqual(Cc.parsearRumbo("0"), { tipo: "rumbo", rumbo: 360 });
+  assert.equal(Cc.parsearRumbo("361"), null);
+  assert.equal(Cc.parsearRumbo("norte"), null);
+  assert.equal(Cc.textoReciproco("045 270 18 06L 24R 09C 360 x"), ["✈️ *Rumbo recíproco*", "🧭 045° ↔ 225°", "🧭 270° ↔ 090°", "🛬 Pista 18 ↔ 36 (180° ↔ 360°)", "🛬 Pista 06L ↔ 24R (060° ↔ 240°)", "🛬 Pista 24R ↔ 06L (240° ↔ 060°)", "🛬 Pista 09C ↔ 27C (090° ↔ 270°)", "🧭 360° ↔ 180°", '❌ "x": poné un rumbo de 0 a 360 o una pista como 06 o 24L.'].join("\n"));
+  assert.match(Cc.textoReciproco(""), /^Uso: \.reciproco/);
+});
+
+test("aero: factor de carga según el ángulo de viraje", () => {
+  assert.ok(Math.abs(Cc.factorDeCarga(60) - 2) < 1e-9);
+  assert.ok(Math.abs(Cc.factorDeCarga(45) - Math.SQRT2) < 1e-9);
+  assert.equal(Cc.factorDeCarga(0), 1);
+  assert.equal(Cc.textoFactorCarga("45"), "✈️ *Factor de carga* · viraje nivelado de 45°\n⚖️ n = 1,41 G (1 / cos 45°)\n📈 Velocidad de pérdida: ×1,19, un 19 % más");
+  assert.equal(Cc.textoFactorCarga("60 50"), "✈️ *Factor de carga* · viraje nivelado de 60°\n⚖️ n = 2,00 G (1 / cos 60°)\n📈 Velocidad de pérdida: ×1,41, un 41 % más → 71 kt con una Vs de 50 kt\n🟡 Ya vas a 2 G o más: ojo con la velocidad y la pérdida acelerada.");
+  assert.match(Cc.textoFactorCarga("80"), /n = 5,76 G[\s\S]*🔴 Supera el límite de la categoría normal \(3,8 G\)/);
+  assert.match(Cc.textoFactorCarga("90"), /tiende a infinito/);
+  assert.match(Cc.textoFactorCarga("mucho"), /Poné el ángulo/);
+  assert.match(Cc.textoFactorCarga("45 rapido"), /La velocidad de pérdida va en nudos/);
+  const tabla = Cc.textoFactorCarga("");
+  assert.match(tabla, /^✈️ \*Factor de carga en viraje nivelado\*\n15° → 1,04 G · Vs ×1,02\n30° → 1,15 G · Vs ×1,07\n45° → 1,41 G · Vs ×1,19\n60° → 2,00 G · Vs ×1,41 🟡\n75° → 3,86 G · Vs ×1,97 🔴\n\nUso: /);
 });

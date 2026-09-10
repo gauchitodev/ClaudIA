@@ -18,6 +18,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const numero = who.split("@")[0];
   const r = pedirPareja(m.sender, who, m.chat);
   if (!r.ok) {
+    if (r.motivo === "parientes") return client.sendText(m.chat, `🤢 ¡Es ${r.parentesco}! Pareja con un familiar no, respete.`, m);
     if (r.motivo === "teLoPidio") return client.sendText(m.chat, `La persona ya te pidió ser tu pareja! Responde su petición con:\n\n${usedPrefix}aceptar @${numero}\n${usedPrefix}rechazar @${numero}`, m, { mentions: [who] });
     if (r.motivo === "tienePareja") return client.sendText(m.chat, `@${numero} ya tiene pareja, respete 🤨`, m, { mentions: [who] });
     if (r.motivo === "vosTenesPareja") {

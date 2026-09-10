@@ -129,3 +129,19 @@ test("una mano por persona, límites y tiempo agotado", async () => {
   assert.ok(vencida && /se te pasó el tiempo/.test(vencida.mensaje) && globalThis.manosBlackjack.size === 0);
   B.BLACKJACK.SEGUNDOS_DECISION = 60;
 });
+
+test("seguro con apuesta chica: vale la mitad aunque quede por debajo del mínimo del casino, y no se avisa dos veces", () => {
+  nueva();
+  let r = B.repartir(G, "u", 6, null, mazoDe("10♠", "8♥", "A♦", "K♣"));
+  assert.match(r.mensaje, /podés pedir \.seguro \(cuesta 3/);
+  r = B.seguro(G, "u");
+  assert.ok(r.ok, r.error);
+  assert.match(r.mensaje, /El seguro pagó 9/);
+  assert.equal(saldo(), 100, "con apuesta par, el seguro deja a mano");
+  nueva();
+  B.repartir(G, "u", 20, null, mazoDe("10♠", "8♥", "A♦", "7♣"));
+  assert.match(B.seguro(G, "u").mensaje, /el seguro \(10\) se pierde y seguís jugando/);
+  const fin = B.plantarse(G, "u").mensaje;
+  assert.doesNotMatch(fin, /seguro/, "al cierre no se repite el aviso del seguro perdido");
+  assert.equal(saldo(), 90);
+});

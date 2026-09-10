@@ -1,5 +1,5 @@
 import { repartir, pedir, plantarse, doblar, dividir, seguro, rendirse, estadoMano, BLACKJACK } from "../lib/blackjack.js";
-import { COINS } from "../lib/urucoins.js";
+import { textoLimitesCasino } from "../lib/casino.js";
 
 const plugin = {};
 plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
@@ -21,7 +21,7 @@ plugin.run = async (m, { client, args, command, chat }) => {
       if (enJuego) return client.sendText(m.chat, enJuego, m);
       return client.sendText(
         m.chat,
-        `🃏 *Blackjack* — uso: .blackjack <cantidad>\n\nJugás contra la banca: te reparte dos cartas y una a la vista de ella. La banca pide hasta 17 y se planta. Ganar paga x2, blackjack natural x2.5, empate devuelve.\n\n▸ .pedir / .plantarse\n▸ .doblar — con las dos primeras cartas: otra apuesta igual, una carta y te plantás\n▸ .dividir — con dos cartas del mismo valor: dos manos con otra apuesta igual (los ases reciben una carta cada uno)\n▸ .seguro — si la banca muestra un as: cuesta la mitad y paga 2 a 1 si tiene blackjack\n▸ .rendirse — con las dos primeras cartas: recuperás la mitad\n\nSi no decidís en ${BLACKJACK.SEGUNDOS_DECISION} segundos, te plantás solo. Mínimo ${COINS.APUESTA_MIN}, máximo ${COINS.CASINO_APUESTA_MAX} por mano, tope ${COINS.CASINO_TOPE_DIA} por día en el casino.\nEj: .blackjack 20`,
+        `🃏 *Blackjack* — uso: .blackjack <cantidad>\n\nJugás contra la banca: te reparte dos cartas y una a la vista de ella. La banca pide hasta 17 y se planta. Ganar paga x2, blackjack natural x2.5, empate devuelve.\n\n▸ .pedir / .plantarse\n▸ .doblar — con las dos primeras cartas: otra apuesta igual, una carta y te plantás\n▸ .dividir — con dos cartas del mismo valor: dos manos con otra apuesta igual (los ases reciben una carta cada uno)\n▸ .seguro — si la banca muestra un as: cuesta la mitad y paga 2 a 1 si tiene blackjack\n▸ .rendirse — con las dos primeras cartas: recuperás la mitad\n\nSi no decidís en ${BLACKJACK.SEGUNDOS_DECISION} segundos, te plantás solo. ${textoLimitesCasino("mano")}\nEj: .blackjack 20`,
         m,
       );
     }

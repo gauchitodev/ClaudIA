@@ -20,6 +20,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
       const kz = await client.sendText(m.chat, txt.parejaAlready(who), m);
       return client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
     }
+    if (r.motivo === "parientes") return client.sendText(m.chat, `🤢 ¡Es ${r.parentesco}! Pareja con un familiar no, respete.`, m);
     if (r.motivo === "tenesPareja") return client.sendText(m.chat, txt.parejaInfiel(r.pareja, who), m);
     if (r.motivo === "tienePareja") return client.sendText(m.chat, `@${who.split("@")[0]} ya tiene pareja, respete 🤨`, m, { mentions: [who] });
     return client.sendText(m.chat, txt.parejaNoAccept(who), m);
