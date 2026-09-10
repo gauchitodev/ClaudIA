@@ -184,6 +184,10 @@ export async function handleMessage(nMsg) {
         // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
         if (plugin.juego && !chat.games) return client.sendText(m.chat, txt.disabledGames, m);
 
+        // Casino (plugin.casino): interruptor propio, aparte de .juegos. Sirve para apagar solo las apuestas
+        // —ruleta, tragamonedas, blackjack, duelos, carrera, lotería y mercados— dejando el resto andando.
+        if (plugin.casino && m.isGroup && chat.casino === 0) return client.sendText(m.chat, "🎰 El casino está apagado en este grupo. Un admin lo prende con .casino on", m);
+
         // El horario de .horariojuegos frena SOLO el casino (plugin.casino). El resto de los juegos —trivia,
         // ahorcado, banderas, canvas, sorteos— anda a cualquier hora.
         if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {

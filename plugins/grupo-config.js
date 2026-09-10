@@ -7,7 +7,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, charla, saludos, monedas, ascensos, horarioGrupo, reglas } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, reglas } = chat;
   const roles = rolesGrupo(m.chat);
   const admins = roles.filter((r) => r.rol === "admin").map((r) => `@${r.usuario.split("@")[0]}`);
   const mods = roles.filter((r) => r.rol === "mod").map((r) => `@${r.usuario.split("@")[0]}`);
@@ -30,6 +30,7 @@ ${antiInstagram ? "✅" : "❌"} Anti links Instagram
 ${antiTiktok ? "✅" : "❌"} Anti links TikTok
 ${antiTelegram ? "✅" : "❌"} Anti links Telegram
 ${games ? "✅" : "❌"} Uso de juegos
+${casino ? "✅" : "❌"} Casino y apuestas (.casino)
 🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
 🌙 Horario del grupo: ${horarioGrupo ? `${horarioGrupo.replace("-", " a ")} (se cierra solo fuera de eso)` : "sin horario (.horariogrupo)"}
 📋 Reglas: ${reglas ? "cargadas (.reglas)" : "sin cargar (.reglas set <texto>)"}

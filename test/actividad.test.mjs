@@ -56,6 +56,10 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   A.ACTIVIDAD.RELAMPAGO_DESDE = 0;
   A.ACTIVIDAD.RELAMPAGO_HASTA = 23;
   A.ACTIVIDAD.RELAMPAGO_SEGUNDOS = 0.05;
+  // En producción cada relámpago se tira a la suerte y solo en grupos con movimiento; acá se fuerza
+  // para que el test sea determinista.
+  A.ACTIVIDAD.RELAMPAGO_PROBABILIDAD = 1;
+  A.ACTIVIDAD.RELAMPAGO_MENSAJES_MINIMOS = 0;
   // hora fija dentro de la ventana: a la noche (después de RELAMPAGO_HASTA) no queda nada para agendar y el test fallaba
   const mediodia = new Date();
   mediodia.setHours(12, 0, 0, 0);

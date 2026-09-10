@@ -3,6 +3,7 @@ import { updateUser } from "../database-functions.js";
 import { recordarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
+import { tipear } from "../lib/ritmo.js";
 import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 
@@ -10,7 +11,9 @@ import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
 
 // Freno: tiempo mínimo entre respuestas automáticas por chat (evita spam y que WhatsApp marque el chip).
-const COOLDOWN_MS = 3000; // 3 segundos
+// Espera mínima entre dos respuestas de charla en el mismo grupo. Subido a 20 s: además de evitar spam,
+// es lo que más baja el volumen de mensajes del bot, que es lo que hace que WhatsApp banee cuentas.
+const COOLDOWN_MS = 20000; // 20 segundos
 
 if (!globalThis.autoIaCooldown) globalThis.autoIaCooldown = new Map();
 if (!globalThis.autoIaSinCuotaAviso) globalThis.autoIaSinCuotaAviso = new Map();
@@ -114,7 +117,8 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
 
     const consulta = partes.join("\n\n");
 
-    await client.sendPresenceUpdate("composing", m.chat);
+    // el 'escribiendo...' arranca antes de preguntarle a la IA, como haría una persona
+    await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
 
     const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA });
 
@@ -152,8 +156,14 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
     }
 
     // lo que Claudia dice también entra en la memoria corta
+    // Solo el primer mensaje lleva la demora de tipeo: si Claudia manda dos seguidos, el segundo sale al hilo.
+    let yaTipeo = false;
     const decir = async (texto, quoted = null) => {
       if (!texto) return;
+      if (!yaTipeo) {
+        yaTipeo = true;
+        await tipear(client, m.chat, texto);
+      }
       recordarMensaje(m.chat, "Claudia", texto, true);
       await client.sendText(m.chat, texto, quoted);
     };

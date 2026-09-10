@@ -1,7 +1,7 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings }) => {
@@ -43,6 +43,7 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     games: { key: "games", from: "chat" },
     preguntadeldia: { key: "preguntaDia", from: "chat" },
     triviarelampago: { key: "triviaRelampago", from: "chat" },
+    casino: { key: "casino", from: "chat" },
     recapsemanal: { key: "recapSemanal", from: "chat" },
     // interruptores del modo compraventa: charla automática de Claudia, saludo automático, economía de UruCoins y avisos de ascenso
     charla: { key: "charla", from: "chat" },
