@@ -144,60 +144,87 @@ export async function handleMessage(nMsg) {
     const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
     if (matchPlugins.length === 0 && usedPrefix !== "@" && !command.includes("_")) return client.sendText(m.chat, txt.noCommandMatch(command), m);
 
-    // Ejecutar los plugins coincidentes
+    // Ejecutar los plugins coincidentes.
+    // Un permiso que falta frena SOLO al plugin que lo pide, no a los demás que comparten el comando: de ahí el
+    // "continue" en vez de "return". El aviso del primer rechazo queda guardado y sale una sola vez, al final, y
+    // únicamente si ningún plugin llegó a correr; así dos plugins con el mismo cmd no se tapan entre ellos ni
+    // mandan dos mensajes.
+    let corrioAlguno = false;
+    let avisarRechazo = null;
+    const rechazar = (aviso) => {
+      if (!avisarRechazo) avisarRechazo = aviso;
+    };
+
     for (const plugin of matchPlugins) {
-      if (plugin.run) {
-        // Verificar si el comando requiere ser OWNER
-        if (plugin.onlyOwner && !isOwner) {
-          return client.sendText(m.chat, txt.onlyOwner, m);
-        }
+      if (!plugin.run) continue;
 
-        // Verificar si el comando requiere grupo
-        if (plugin.onlyGroup && !m.isGroup) {
-          return client.sendText(m.chat, txt.onlyGroup, m);
-        }
-
-        // Verificar si el comando requiere que el bot sea admin
-        if (plugin.botAdmin && !isBotAdmin) {
-          // La metadata guardada puede estar vieja. Antes de rechazar, consultamos a WhatsApp
-          // y, si el bot sí es admin, actualizamos la caché para no volver a consultar.
-          const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
-          const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
-          if (!botFresco?.admin) {
-            return client.sendText(m.chat, txt.botAdmin, m);
-          }
-          client.chats[m.chat] = { ...(client.chats[m.chat] || {}), id: m.chat, subject: metadataFresca.subject, isChats: true, metadata: metadataFresca };
-          isBotAdmin = true;
-        }
-
-        // Verificar si el comando requiere que el usuario sea admin
-        if (plugin.onlyAdmin && !isAdmin) {
-          return client.sendText(m.chat, txt.onlyAdmin, m);
-        }
-
-        // Verificar si el comando requiere ser moderador del bot (los admins también pasan)
-        if (plugin.onlyMod && !isMod) {
-          return client.sendText(m.chat, txt.onlyMod, m);
-        }
-
-        // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
-        // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
-        if (plugin.juego && !chat.games) return client.sendText(m.chat, txt.disabledGames, m);
-
-        // El horario de .horariojuegos frena SOLO el casino (plugin.casino). El resto de los juegos —trivia,
-        // ahorcado, banderas, canvas, sorteos— anda a cualquier hora.
-        if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {
-          if (correspondeAvisar(m.chat)) return client.sendText(m.chat, mensajeJuegosCerrados(chat), m);
-          return m.react("🕒");
-        }
-
-        // Economía (plugin.economia): con .monedas apagado (modo compraventa) los comandos de UruCoins no corren.
-        if (plugin.economia && m.isGroup && chat.monedas === 0) return client.sendText(m.chat, txt.disabledEconomy, m);
-
-        // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.
-        await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
+      // Verificar si el comando requiere ser OWNER
+      if (plugin.onlyOwner && !isOwner) {
+        rechazar(() => client.sendText(m.chat, txt.onlyOwner, m));
+        continue;
       }
+
+      // Verificar si el comando requiere grupo
+      if (plugin.onlyGroup && !m.isGroup) {
+        rechazar(() => client.sendText(m.chat, txt.onlyGroup, m));
+        continue;
+      }
+
+      // Verificar si el comando requiere que el bot sea admin
+      if (plugin.botAdmin && !isBotAdmin) {
+        // La metadata guardada puede estar vieja. Antes de rechazar, consultamos a WhatsApp
+        // y, si el bot sí es admin, actualizamos la caché para no volver a consultar.
+        const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
+        const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
+        if (!botFresco?.admin) {
+          rechazar(() => client.sendText(m.chat, txt.botAdmin, m));
+          continue;
+        }
+        client.chats[m.chat] = { ...(client.chats[m.chat] || {}), id: m.chat, subject: metadataFresca.subject, isChats: true, metadata: metadataFresca };
+        isBotAdmin = true;
+      }
+
+      // Verificar si el comando requiere que el usuario sea admin
+      if (plugin.onlyAdmin && !isAdmin) {
+        rechazar(() => client.sendText(m.chat, txt.onlyAdmin, m));
+        continue;
+      }
+
+      // Verificar si el comando requiere ser moderador del bot (los admins también pasan)
+      if (plugin.onlyMod && !isMod) {
+        rechazar(() => client.sendText(m.chat, txt.onlyMod, m));
+        continue;
+      }
+
+      // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
+      // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
+      if (plugin.juego && !chat.games) {
+        rechazar(() => client.sendText(m.chat, txt.disabledGames, m));
+        continue;
+      }
+
+      // El horario de .horariojuegos frena SOLO el casino (plugin.casino). El resto de los juegos —trivia,
+      // ahorcado, banderas, canvas, sorteos— anda a cualquier hora.
+      // correspondeAvisar() marca el grupo como ya avisado, así que va adentro del aviso y no acá: si el comando
+      // termina corriendo por otro plugin, no se gasta el aviso de los 10 minutos.
+      if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {
+        rechazar(() => (correspondeAvisar(m.chat) ? client.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
+        continue;
+      }
+
+      // Economía (plugin.economia): con .monedas apagado (modo compraventa) los comandos de UruCoins no corren.
+      if (plugin.economia && m.isGroup && chat.monedas === 0) {
+        rechazar(() => client.sendText(m.chat, txt.disabledEconomy, m));
+        continue;
+      }
+
+      // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.
+      corrioAlguno = true;
+      await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
     }
+
+    // Si ningún plugin del comando pudo correr, ahí sí se avisa por qué.
+    if (!corrioAlguno && avisarRechazo) await avisarRechazo();
   } catch (e) {
     console.error(e);
   }
