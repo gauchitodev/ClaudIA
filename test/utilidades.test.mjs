@@ -157,3 +157,22 @@ test("IA por mención: el comando con el número del bot se resuelve al usarse, 
   globalThis.client = previo;
 });
 
+test("el .s no manda nada cuando la descarga del archivo viene vacía, y el log dice por qué", async () => {
+  const P = (await import("../plugins/sticker.js")).default;
+  const enviados = [];
+  const client = { sendText: async (c, t) => enviados.push(t), sendFile: async () => enviados.push("archivo") };
+  const errores = [];
+  const original = console.error;
+  console.error = (...a) => errores.push(a.join(" "));
+  try {
+    // Un citado que dice ser imagen pero al que el serializador le borró download(): wa-socket.js lo hace cuando el
+    // mensaje no tiene mediaMessage, y con el optional chaining del plugin eso devolvía undefined en silencio.
+    await P.run({ chat: G, sender: "u@lid", message: {}, quoted: { msg: { mimetype: "image/jpeg" } } }, { client, isOwner: false });
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(enviados, [], "no se le pasa basura a sendFile");
+  assert.match(errores.join("\n"), /la descarga del archivo vino vacía/);
+  assert.match(errores.join("\n"), /NO es problema de ffmpeg/, "el log tiene que descartar ffmpeg explícitamente");
+});
+
