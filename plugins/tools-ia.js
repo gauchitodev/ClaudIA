@@ -1,8 +1,14 @@
 import { preguntarGemini } from "../lib/gemini.js";
 
-const plugin = {};
-const botLid = client.user.lid.split("@")[0];
-plugin.cmd = [botLid, "gemini", "ia", "bot"];
+const plugin = {
+  // El número del bot es uno de los comandos: como "@" es prefijo, mencionarla con "@<número> algo" le habla a la IA.
+  // Se resuelve al leer cmd y no al importar el plugin, porque los plugins se cargan antes de que exista el socket
+  // y ahí client todavía no está. Si por algo se lee sin conexión, quedan los alias de siempre.
+  get cmd() {
+    const botLid = globalThis.client?.user?.lid?.split("@")[0];
+    return botLid ? [botLid, "gemini", "ia", "bot"] : ["gemini", "ia", "bot"];
+  },
+};
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

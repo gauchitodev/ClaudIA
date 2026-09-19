@@ -1,6 +1,6 @@
 import "./globals.js";
 const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
-import { readdirSync, rmSync, mkdirSync } from "fs";
+import { rmSync, mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
@@ -10,6 +10,7 @@ import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
+import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { avisoReglasParaNuevos } from "./lib/reglas.js";
 import qrcode from "qrcode-terminal";
@@ -109,7 +110,6 @@ async function startBot() {
       console.log("🟢 Conexión exitosa a WhatsApp");
       intentosReconexion = 0;
       reconectando = false;
-      loadPlugins();
       resolverCanal();
       globalThis.horaConexion = horaConexion;
       // Aviso al owner: al arrancar el proceso, y cuando vuelve después de una caída larga.
@@ -244,24 +244,15 @@ iniciarTareasProgramadas();
 
 await installYtDlp();
 
-function clearTmp() {
-  const tmpDir = "./tmp";
-  let borrados = 0;
-  try {
-    const filenames = readdirSync(tmpDir);
-    filenames.forEach((file) => {
-      try {
-        rmSync(`${tmpDir}/${file}`, { recursive: true, force: true });
-        borrados++;
-      } catch (e) {}
-    });
-  } catch (e) {}
-  return borrados;
-}
 setInterval(() => {
   if (!globalThis.client || !globalThis.client.user) return;
-  const borrados = clearTmp();
+  const borrados = limpiarTmp();
   if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
 }, 1000 * 60 * 30);
+
+// Los plugins se cargan una sola vez, antes de conectar. Cuando se cargaban al abrir la conexión había una ventana
+// en la que globalThis.plugins estaba vacío y un comando que llegara justo ahí no encontraba ningún plugin; además
+// se volvían a importar en cada reconexión al aire. Los cambios en caliente los sigue tomando watchPlugins().
+await loadPlugins();
 
 startBot();
