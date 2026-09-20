@@ -63,6 +63,34 @@ test("lista negra por grupo y global", async () => {
   assert.ok(F.isBlacklisted("444@s.whatsapp.net", G));
 });
 
+test("migra una lista negra sin la columna lid y guarda el LID cuando se lo descubre", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-lid-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE lista_negra (chat TEXT NOT NULL, jid TEXT NOT NULL, reason TEXT, dateAdded INTEGER, addedBy TEXT, PRIMARY KEY (chat, jid))`);
+  vieja.prepare(`INSERT INTO lista_negra VALUES (?, ?, ?, ?, ?)`).run(G, "111@s.whatsapp.net", "spam", 1700000000000, "admin@s.whatsapp.net");
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  globalThis.db = F.loadDatabase();
+  assert.ok(db.prepare(`PRAGMA table_info(lista_negra)`).all().some((c) => c.name === "lid"), "se agregó la columna lid");
+  assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).reason, "spam", "la entrada vieja sigue valiendo");
+  assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, null);
+
+  // Al reconocerla en un grupo se le guarda el LID, y desde ahí se la encuentra por cualquiera de los dos.
+  assert.equal(F.recordarLidEnListaNegra(G, "111@s.whatsapp.net", "111@lid"), true);
+  assert.equal(F.isBlacklisted("111@lid", G).reason, "spam");
+  assert.equal(F.recordarLidEnListaNegra(G, "111@s.whatsapp.net", "otro@lid"), false, "no pisa un LID ya guardado");
+  assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, "111@lid");
+
+  // Actualizar el motivo no borra el LID.
+  F.addToBlacklist("111@s.whatsapp.net", "sigue", "admin@s.whatsapp.net", G);
+  assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, "111@lid");
+  assert.equal(F.removeFromBlacklist("111@lid", G), true, "se puede sacar por LID");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

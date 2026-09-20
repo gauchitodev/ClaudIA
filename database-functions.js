@@ -108,16 +108,25 @@ export function loadDatabase() {
   `);
 
   // Lista negra de personas, por grupo. chat = "*" es la lista de todos los grupos (la maneja el owner desde el privado).
+  // En jid va el mejor identificador que se tenga de la persona (el número; el LID si el número no se conoce) y en lid
+  // su LID cuando se sabe: en los grupos nuevos WhatsApp identifica a la gente por LID y muchas veces no manda el
+  // número, así que sin el LID guardado no hay forma de reconocerla en la lista de participantes ni de expulsarla.
   db.exec(`
     CREATE TABLE IF NOT EXISTS lista_negra (
       chat TEXT NOT NULL,
       jid TEXT NOT NULL,
+      lid TEXT,
       reason TEXT,
       dateAdded INTEGER,
       addedBy TEXT,
       PRIMARY KEY (chat, jid)
     )
   `);
+  // Migración: columna lid en listas negras ya creadas.
+  if (!db.prepare(`PRAGMA table_info(lista_negra)`).all().some((c) => c.name === "lid")) {
+    db.exec(`ALTER TABLE lista_negra ADD COLUMN lid TEXT`);
+    console.log("🟢 Migración: columna 'lid' agregada a la lista negra");
+  }
   // Migración: la lista negra vieja era una sola para todos los grupos; sus entradas pasan a "*" y la tabla vieja se borra.
   if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blacklist'`).get()) {
     db.transaction(() => {
@@ -581,22 +590,41 @@ export function updateSettings(botJid, data) {
   return updateRow("settings", "botJid", botJid, data);
 }
 
-// añadir persona a la lista negra de un grupo ("*" = todos los grupos). Si ya estaba, solo se actualiza el motivo.
-export function addToBlacklist(jid, reason, addedBy, chat = "*") {
+// añadir persona a la lista negra de un grupo ("*" = todos los grupos). Si ya estaba, se actualiza el motivo, y el LID
+// solo si ahora se conoce: un lid nulo no pisa al que ya estaba guardado.
+export function addToBlacklist(jid, reason, addedBy, chat = "*", lid = null) {
   db.prepare(
-    `INSERT INTO lista_negra (chat, jid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(chat, jid) DO UPDATE SET reason = excluded.reason`,
-  ).run(chat, jid, reason, Date.now(), addedBy);
+    `INSERT INTO lista_negra (chat, jid, lid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(chat, jid) DO UPDATE SET reason = excluded.reason, lid = COALESCE(excluded.lid, lista_negra.lid)`,
+  ).run(chat, jid, lid || null, reason, Date.now(), addedBy);
 }
 
-// sacar de la lista negra de un grupo; true si estaba
-export function removeFromBlacklist(jid, chat = "*") {
-  return db.prepare(`DELETE FROM lista_negra WHERE chat = ? AND jid = ?`).run(chat, jid).changes > 0;
+// guardar el LID de alguien que ya estaba en la lista, cuando se lo descubre después (al entrar al grupo, al escribir).
+// Así la próxima vez se lo reconoce de una.
+export function recordarLidEnListaNegra(chat, jid, lid) {
+  if (!chat || !jid || !lid) return false;
+  return db.prepare(`UPDATE lista_negra SET lid = ? WHERE chat = ? AND jid = ? AND (lid IS NULL OR lid = '')`).run(lid, chat, jid).changes > 0;
 }
 
-// ¿está en la lista negra de ese grupo, o en la de todos los grupos? Devuelve la entrada (la del grupo antes que la global) o null.
-export function isBlacklisted(jid, chat = "*") {
-  return db.prepare(`SELECT * FROM lista_negra WHERE jid = ? AND chat IN (?, '*') ORDER BY CASE WHEN chat = '*' THEN 1 ELSE 0 END LIMIT 1`).get(jid, chat) || null;
+// sacar de la lista negra de un grupo; true si estaba. Acepta número o LID.
+export function removeFromBlacklist(id, chat = "*") {
+  if (!id) return false;
+  return db.prepare(`DELETE FROM lista_negra WHERE chat = ? AND (jid = ? OR lid = ?)`).run(chat, id, id).changes > 0;
+}
+
+// ¿está en la lista negra de ese grupo, o en la de todos los grupos? Devuelve la entrada (la del grupo antes que la
+// global) o null. Acepta un identificador o varios (número y LID de la misma persona), y compara contra las dos columnas.
+export function isBlacklisted(id, chat = "*") {
+  const ids = (Array.isArray(id) ? id : [id]).filter(Boolean);
+  if (ids.length === 0) return null;
+  const marcadores = ids.map(() => "?").join(", ");
+  return (
+    db
+      .prepare(
+        `SELECT * FROM lista_negra WHERE (jid IN (${marcadores}) OR lid IN (${marcadores})) AND chat IN (?, '*') ORDER BY CASE WHEN chat = '*' THEN 1 ELSE 0 END LIMIT 1`,
+      )
+      .get(...ids, ...ids, chat) || null
+  );
 }
 
 // entradas de un grupo más las globales; sin chat, todas las de todos los grupos

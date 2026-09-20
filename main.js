@@ -13,6 +13,7 @@ import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { avisoReglasParaNuevos } from "./lib/reglas.js";
+import { expulsarDeListaNegra } from "./lib/lista-negra.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -158,14 +159,23 @@ async function startBot() {
       if (!id?.endsWith("@g.us")) return;
       // El que sale del grupo (o lo sacan) pierde el rol del bot que tenía ahí.
       if (action === "remove") limpiarRolesAlSalir(id, participants);
-      // Al que entra se le mandan las reglas del grupo, si un admin las cargó con .reglas set.
+
+      // La metadata se refresca antes que nada: la lista negra necesita saber con qué id lista el grupo a cada uno.
+      // Si no se pudo traer, se sigue igual: las reglas del grupo se mandan lo mismo.
+      const metadata = await client.groupMetadata(id).catch(() => null);
+      if (metadata) client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
+
       if (action === "add") {
-        const aviso = avisoReglasParaNuevos(id, participants);
+        // Lista negra: al que está anotado se lo saca apenas entra, sin esperar a que escriba.
+        const soyAdmin = metadata?.participants?.find((p) => p.id === client.user?.lid || p.id === client.user?.jid)?.admin;
+        const { expulsados, fallados } = soyAdmin ? await expulsarDeListaNegra(client, id, participants, metadata.participants) : { expulsados: [], fallados: [] };
+
+        // Al que entra se le mandan las reglas del grupo, si un admin las cargó con .reglas set. Al de la lista negra no.
+        const anotados = [...expulsados, ...fallados].map((e) => e.original);
+        const bienvenidos = (participants || []).filter((p) => !anotados.includes(p));
+        const aviso = avisoReglasParaNuevos(id, bienvenidos);
         if (aviso) await client.sendMessage(id, { text: aviso.texto, mentions: aviso.mentions }).catch((e) => console.error("[reglas] no se pudieron mandar:", e.message));
       }
-      const metadata = await client.groupMetadata(id).catch(() => null);
-      if (!metadata) return;
-      client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
     } catch (e) {
       console.error("[grupos] error refrescando metadata:", e);
     }

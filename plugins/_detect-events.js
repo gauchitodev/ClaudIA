@@ -1,4 +1,5 @@
-import { getUser, isBlacklisted } from "../database-functions.js";
+import { getUser } from "../database-functions.js";
+import { estaEnListaNegra } from "../lib/lista-negra.js";
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
@@ -17,12 +18,13 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
       const usuariosRechazar = [];
 
       for (const participante of pendientes) {
-        const phone = participante.phone_number || null;
-
-        const userReject = rejectUsers(phone, m.chat);
-        if (userReject) {
-          usuariosRechazar.push(phone);
-        }
+        // La solicitud trae el LID y, cuando WhatsApp lo manda, el número: se mira la lista negra por los dos y se
+        // rechaza con el id con el que la solicitud vino listada. Antes se miraba solo el número y, si no venía, se
+        // colaba (y se empujaba un null a la lista de rechazos).
+        const ids = [participante.jid, participante.phone_number].filter(Boolean);
+        if (ids.length === 0) continue;
+        if (!estaEnListaNegra(ids, m.chat)) continue;
+        usuariosRechazar.push(ids[0]);
       }
 
       if (usuariosRechazar.length > 0) {
@@ -56,10 +58,6 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
 };
 
 export default plugin;
-
-function rejectUsers(jid, chat) {
-  return Boolean(isBlacklisted(jid, chat));
-}
 
 function safeJSON(value) {
   try {
