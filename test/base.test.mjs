@@ -91,6 +91,30 @@ test("migra una lista negra sin la columna lid y guarda el LID cuando se lo desc
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("migra publicaciones sin la columna mensajeBot y encuentra la publicación por cualquiera de sus mensajes", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-mensajebot-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE publicaciones (id INTEGER PRIMARY KEY AUTOINCREMENT, chat TEXT NOT NULL, numero INTEGER NOT NULL, usuario TEXT NOT NULL, tipo TEXT NOT NULL, texto TEXT NOT NULL, precio TEXT DEFAULT "", messageId TEXT, estado TEXT DEFAULT "activa", creada INTEGER NOT NULL, actualizada INTEGER NOT NULL, aviso INTEGER DEFAULT 0, UNIQUE (chat, numero))`);
+  vieja.prepare(`INSERT INTO publicaciones (chat, numero, usuario, tipo, texto, messageId, creada, actualizada) VALUES (?, 1, ?, 'vendo', 'bici', 'MSGVIEJO', ?, ?)`).run(G, "111@lid", 1700000000000, 1700000000000);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  globalThis.db = F.loadDatabase();
+  assert.ok(db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot"), "se agregó la columna mensajeBot");
+  assert.equal(F.getPublicacion(G, 1).texto, "bici", "la publicación vieja sigue estando");
+
+  // Se la encuentra por el mensaje de la persona, y después también por el de la confirmación del bot.
+  assert.equal(F.getPublicacionPorMensaje(G, "MSGVIEJO").numero, 1);
+  assert.equal(F.getPublicacionPorMensaje(G, "NOEXISTE"), null);
+  assert.equal(F.getPublicacionPorMensaje(G, null), null);
+  F.actualizarPublicacion(G, 1, { mensajeBot: "MSGBOT" });
+  assert.equal(F.getPublicacionPorMensaje(G, "MSGBOT").numero, 1);
+  assert.equal(F.getPublicacionPorMensaje("otro@g.us", "MSGBOT"), null, "no se cruza entre grupos");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

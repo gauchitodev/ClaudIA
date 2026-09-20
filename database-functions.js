@@ -347,6 +347,7 @@ export function loadDatabase() {
       texto TEXT NOT NULL,
       precio TEXT DEFAULT "",
       messageId TEXT,
+      mensajeBot TEXT,
       estado TEXT DEFAULT "activa",
       creada INTEGER NOT NULL,
       actualizada INTEGER NOT NULL,
@@ -354,7 +355,14 @@ export function loadDatabase() {
       UNIQUE (chat, numero)
     )
   `);
+  // messageId es el mensaje de la persona (la foto, o el que trae #vendo) y mensajeBot el de la confirmación: citando
+  // cualquiera de los dos se sabe de qué publicación se está hablando, sin tener que acordarse del número.
+  if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot")) {
+    db.exec(`ALTER TABLE publicaciones ADD COLUMN mensajeBot TEXT`);
+    console.log("🟢 Migración: columna 'mensajeBot' agregada a publicaciones");
+  }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_chat_estado ON publicaciones (chat, estado)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_mensajes ON publicaciones (chat, messageId, mensajeBot)`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS alertas_compraventa (
       chat TEXT NOT NULL,
@@ -1196,6 +1204,13 @@ export function crearPublicacion({ chat, usuario, tipo, texto, precio = "", mess
 
 export function getPublicacion(chat, numero) {
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND numero = ?`).get(chat, numero) || null;
+}
+
+// La publicación a la que pertenece un mensaje: sirve tanto el mensaje de la persona como el de la confirmación del
+// bot, porque cualquiera de los dos es lo que se cita para operar sin el número.
+export function getPublicacionPorMensaje(chat, messageId) {
+  if (!messageId) return null;
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND (messageId = ? OR mensajeBot = ?)`).get(chat, messageId, messageId) || null;
 }
 
 // vigentes (activas o reservadas), de un tipo o de todos, de la más nueva a la más vieja

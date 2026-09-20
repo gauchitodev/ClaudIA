@@ -1,4 +1,4 @@
-import { detectarPublicacion, publicar } from "../lib/compraventa.js";
+import { detectarPublicacion, publicar, anunciarPublicacion } from "../lib/compraventa.js";
 
 // #vendo / #compro (y #busco, #venta, #necesito) en un mensaje de grupo registran la publicación con un número.
 const plugin = (m) => m;
@@ -10,8 +10,8 @@ plugin.before = async (m, { client }) => {
     if (!d) return;
     const r = publicar(m.chat, m.sender, d.tipo, d.texto, m.key?.id || null);
     if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
-    await client.sendText(m.chat, r.mensaje, m);
-    if (r.avisos) await client.sendMessage(m.chat, { text: r.avisos.texto, mentions: r.avisos.mentions });
+    // Mismo anuncio que el de .vendo, así una publicación hecha por hashtag también se puede cerrar respondiéndola.
+    await anunciarPublicacion(client, m, r);
   } catch (e) {
     console.error("[compraventa] ERROR:", e);
   }

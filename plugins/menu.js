@@ -3,6 +3,9 @@ import { getTotalUsers, getChat, getChatBlacklist } from "../database-functions.
 const plugin = {};
 plugin.cmd = ["menu", "menú", "help", "comandos", "ayuda"];
 
+// Formato: cada línea "▸" lleva UN comando principal pegado al ▸ — es el único que ve el parser de candados de más
+// abajo. Los secundarios van en la descripción, y ahí no llevan candado. test/menus.test.mjs verifica que todo
+// comando nombrado acá exista de verdad en algún plugin.
 plugin.run = async (m, { client, usedPrefix }) => {
   const more = String.fromCharCode(8206);
   const readMore = more.repeat(4001);
@@ -34,16 +37,17 @@ ${readMore}
 ▸ ${usedPrefix}menuuru 🇺🇾 – \`Cómo funcionan las temáticas del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛒 *COMPRAVENTA*
-▸ #vendo / #compro en un mensaje 🏷️ – \`Registra la publicación con un número.\`
-▸ ${usedPrefix}vendo / ${usedPrefix}compro 📋 – \`Catálogo activo (o publicá con .vendo <texto>).\`
+▸ #vendo / #compro en un mensaje 🏷️ – \`Registra la publicación con un número. Sirve en el pie de una foto.\`
+▸ ${usedPrefix}vendo <qué, precio, zona> 🏷️ – \`Publica. Sin texto muestra el catálogo; respondiendo a una foto, publica esa foto.\`
+▸ ${usedPrefix}compro <qué buscás> 🔎 – \`Lo mismo, para lo que estás buscando.\`
+▸ ${usedPrefix}catalogo 📋 – \`Todo lo activo del grupo. Con un número, el detalle de esa.\`
 ▸ ${usedPrefix}buscar <palabra> 🔎 – \`Busca en las publicaciones activas.\`
-▸ ${usedPrefix}publicacion N 📄 – \`Detalle de una publicación.\`
-▸ ${usedPrefix}vendido N / ${usedPrefix}baja N / ${usedPrefix}reservado N / ${usedPrefix}sigue N ✅ – \`Cerrar, bajar, reservar o renovar la tuya.\`
-▸ ${usedPrefix}mias 🗂️ – \`Tus publicaciones activas.\`
+▸ ${usedPrefix}mias 🗂️ – \`Tus publicaciones activas, con su número.\`
+▸ ${usedPrefix}vendido ✅ – \`Respondé a tu publicación cuando se concrete. También .baja, .reservado y .sigue.\`
 ▸ ${usedPrefix}avisame <palabra> 🔔 – \`Te menciono cuando aparezca algo con esa palabra.\`
 ▸ ${usedPrefix}calificar @mención 5 <comentario> ⭐ – \`Calificá a quien le compraste o vendiste.\`
 ▸ ${usedPrefix}reputacion @mención ⭐ – \`Promedio y últimas calificaciones.\`
-▸ ${usedPrefix}reglas 📋 / ${usedPrefix}plantilla 📝 – \`Reglas del grupo y formato para publicar.\`
+▸ ${usedPrefix}reglas 📋 – \`Reglas del grupo. .plantilla muestra el formato para publicar.\`
 ▸ ${usedPrefix}menuventas 🛒 – \`Menú completo de compraventa.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛡️ *𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂*

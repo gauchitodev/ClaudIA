@@ -1,6 +1,6 @@
 // Menú del modo compraventa: lo que sirve en un grupo de ventas, sin los juegos ni la economía.
-// Si se agregan comandos nuevos de compraventa, sumalos acá y también en lib/manual-claudia.js
-// para que Claudia sepa contestar cuando le pregunten cómo se hace algo.
+// Si se agregan comandos nuevos de compraventa, sumalos acá y también en lib/manual-claudia.js para que Claudia sepa
+// contestar cuando le pregunten cómo se hace algo. test/menus.test.mjs verifica que lo que se nombra acá exista.
 const plugin = {};
 plugin.cmd = ["menuventas", "menuventa", "menucompraventa", "ventas"];
 plugin.onlyGroup = true;
@@ -12,47 +12,30 @@ plugin.run = async (m, { client, chat }) => {
 🏷️ *MENÚ DE COMPRAVENTA*
 
 📢 *Publicar*
-▸ .vendo <qué, precio, zona> — publicás algo en venta
-▸ .compro <qué buscás> — publicás que buscás algo
-▸ Ej: .vendo bici rodado 26, 4500, Mercedes
+▸ .vendo <qué, precio, zona> — lo ponés a la venta. Ej: .vendo bici rodado 26, 4500, Mercedes
+▸ .compro <qué buscás> — publicás que lo estás buscando
+▸ #vendo o #compro en un mensaje, o en el pie de una foto, hacen lo mismo
+▸ .vendo respondiendo a una foto — la publica con la descripción que tenga (el dueño de la foto, o un admin)
 
 🔎 *Ver y buscar*
-▸ .catalogo — todo lo publicado en el grupo
-▸ .vendo / .compro (sin texto) — solo las de ese tipo
+▸ .catalogo — todo lo activo · .catalogo N — el detalle de la #N
+▸ .vendo o .compro sin texto — solo las de ese tipo
 ▸ .buscar <palabra> — filtra por palabra
-▸ .publicacion N — ver una en detalle
-▸ .mias — tus publicaciones
+▸ .mias — las tuyas, con su número
+▸ .avisame <palabra> — te aviso acá cuando aparezca · sin nada las lista · .avisame quitar <palabra> la saca
 
-🔔 *Alertas*
-▸ .avisame <palabra> — te aviso cuando alguien publique eso
-▸ .avisame quitar <palabra> — la sacás
-▸ .alertas — las que tenés puestas
+✅ *Cerrar la tuya* — respondé a tu publicación y escribí el comando, o agregá el número
+▸ .vendido — se concretó · .baja — la sacás de la lista
+▸ .reservado — está señada · .sigue — vuelve a estar libre (y la renueva)
 
-✅ *Cerrar tu aviso*
-▸ .vendido N — se vendió
-▸ .conseguido N — conseguiste lo que buscabas
-▸ .reservado N — reservado, sigue en pie
-▸ .sigue N — vuelve a estar disponible
-▸ .baja N — lo das de baja
+⭐ *Confianza y grupo*
+▸ .calificar @persona 5 buen vendedor — después de operar · .reputacion — la tuya
+▸ .calificaciones @persona — el detalle, con números (los admins corrigen con borrar N o editar N)
+▸ .perfil · .rango · .reglas · .plantilla
 
-⭐ *Reputación* (vale en todos los grupos)
-▸ .calificar @persona 5 buen vendedor — después de operar
-▸ .reputacion — la tuya · .reputacion @persona — la de otro
-▸ .calificaciones @persona — el detalle, con números
-▸ Admins: .calificaciones borrar N · .calificaciones editar N <estrellas>
-
-👤 *Personas*
-▸ .perfil — tu ficha · .perfil @alguien — la de otro
-▸ .rango — tu antigüedad en el grupo · .rangos — la escalera
-▸ .reglas — las reglas del grupo · .plantilla — cómo publicar
-
-🛡️ *Para admins*
-▸ .modo compraventa — apaga juegos, economía y charla
-▸ .modo amigos — vuelve a prender todo
-▸ .roles — quién modera · .adminbot @persona · .moderador @persona
-▸ .reglas set <texto> · .plantilla set <texto>
-▸ .horario 8:00-22:00 — abre y cierra el grupo solo
-▸ .config — anti-links y demás interruptores
+🛡️ *Admins*
+▸ .modo compraventa — apaga juegos, economía y charla (.modo amigos los vuelve a prender)
+▸ .roles · .adminbot @persona · .moderador @persona · .reglas set <texto> · .horario 8:00-22:00 · .config
 
 ${enModo ? "Este grupo está en modo compraventa." : "Este grupo NO está en modo compraventa: los juegos y la economía siguen prendidos. Un admin lo cambia con .modo compraventa"}
 Menú general: .menu
