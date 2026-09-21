@@ -210,7 +210,7 @@ ${readMore}
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 ✨ *𝙴𝚇𝚃𝚁𝙰𝚂*
 ▸ ${usedPrefix}orsi 🎙️ – \`Una respuesta al estilo Orsi.\`
-▸ ${usedPrefix}say 🗣️ <texto>
+▸ ${usedPrefix}say 🗣️ <texto> – \`El bot lo repite como propio. Solo admins y mods.\`
 ▸ ${usedPrefix}sortear 🏆 <texto>
 ▸ ${usedPrefix}clima 🌦️ [ciudad] – \`Clima de ahora y de mañana; sin ciudad, Montevideo. Ej: .clima Salto, Argentina\`
 ▸ ${usedPrefix}traducir <texto>
