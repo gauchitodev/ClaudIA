@@ -88,6 +88,19 @@ test("escudo: blackjack devuelve la mano perdida, incluida la doblada", () => {
   r = B.doblar(G, "u"); // 13 doblado contra 17
   assert.match(r.mensaje, /devolvió los 25 de la mano perdida/, "el reintegro tiene techo");
   assert.equal(saldo("u"), 85);
+
+  // Con la mano dividida el escudo cubre lo perdido en las dos, que es lo que promete el ítem ("te devuelve lo
+  // apostado"): antes solo cubría la primera. El techo de 25 sigue siendo el que manda.
+  globalThis.manosBlackjack.clear();
+  fijarSaldo(F, G, "u", 100);
+  conEscudo("u");
+  B.repartir(G, "u", 20, null, mazoDe("8♠", "8♥", "10♦", "9♣", "3♠", "2♥"));
+  B.dividir(G, "u"); // 11 y 10 contra 19: pierde las dos, 40 en total
+  B.plantarse(G, "u");
+  r = B.plantarse(G, "u");
+  assert.match(r.mensaje, /devolvió los 25 de lo que perdiste/);
+  assert.equal(saldo("u"), 85, "100 - 20 - 20 + 25");
+  assert.equal(escudos("u"), 0, "un solo escudo para toda la jugada");
 });
 
 test("escudo: duelos y mercados", () => {
