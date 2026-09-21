@@ -52,7 +52,7 @@ ${readMore}
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 🛡️ *𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂*
 ▸ ${usedPrefix}g 🔒 – \`Abre o cierra el chat del grupo.\`
-▸ ${usedPrefix}k @mención ❌ – \`Expulsa a un participante.\`
+▸ ${usedPrefix}kick @mención ❌ – \`Expulsa a un participante. También .k y .rifle\`
 ▸ ${usedPrefix}p @mención 🎫 – \`Dar admin al participante.\`
 ▸ ${usedPrefix}d @mención 🎫 – \`Quitar admin al participante.\`
 ▸ ${usedPrefix}del 🗑️ – \`Elimina un mensaje.\`
@@ -60,8 +60,8 @@ ${readMore}
 ▸ ${usedPrefix}tagall2 👈 – \`Envía el tagall pero x10 veces seguidas.\`
 ▸ ${usedPrefix}ht 👈 – \`Mención oculta a todos los participantes.\`
 ▸ ${usedPrefix}ht2 👈 – \`Igual que ".ht" pero x10 veces seguidas.\`
-▸ ${usedPrefix}silenciar @mención 🔇 – \`Silencia un participante.\`
-▸ ${usedPrefix}desilenciar @mención 🔇 – \`Desilencia un participante.\`
+▸ ${usedPrefix}silenciar @mención 🔇 – \`Silencia un participante. También .mute\`
+▸ ${usedPrefix}desilenciar @mención 🔇 – \`Desilencia un participante. También .unmute\`
 ▸ ${usedPrefix}advertir @mención <motivo> 🤚 – \`Advertir a un participante.\`
 ▸ ${usedPrefix}unwarn @mención 🤚 – \`Quitar advertencia a un participante.\`
 ▸ ${usedPrefix}setpp 📸 – \`Cambia la foto del grupo.\`

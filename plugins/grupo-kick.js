@@ -3,7 +3,7 @@ import { destinatario, expulsar } from "../lib/identidad.js";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const plugin = {};
-plugin.cmd = ["k", "kick", "andate", "morite", "chau"];
+plugin.cmd = ["k", "kick", "rifle", "andate", "morite", "chau"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;

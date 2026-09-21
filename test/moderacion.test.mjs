@@ -70,6 +70,12 @@ test(".kick por número resuelve a la persona, no a un LID inventado", async () 
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }], "lo encuentra por el número del grupo");
 });
 
+test(".kick responde a todos sus alias", async () => {
+  for (const alias of ["k", "kick", "rifle", "andate", "morite", "chau"]) {
+    assert.ok(Kick.cmd.includes(alias), `falta .${alias} en plugin.cmd`);
+  }
+});
+
 test(".kick no saca al bot ni al dueño del grupo", async () => {
   await correr(Kick, "@999", "kick", { mentionedJid: ["999@lid"] });
   assert.match(ultimo(), /No me quiero ir/);
@@ -232,4 +238,30 @@ test(".addowner saca el teléfono de una mención por LID", async () => {
   assert.match(ultimo(), /No se encontró el numero telefonico/);
 
   globalThis.owners = ownersAntes;
+});
+
+test(".silenciar y .mute son lo mismo, y .desilenciar y .unmute también", async () => {
+  const Silenciar = (await import("../plugins/grupo-silenciar.js")).default;
+  const muteDe = () => F.getUser("111@lid").inGroup[G].mute;
+
+  // Los cuatro nombres tienen que estar declarados: los tests llaman a run con el comando directo y no pasan por
+  // plugin.cmd, así que sin esto se podría borrar un alias sin que nada se queje.
+  for (const alias of ["silenciar", "mute", "desilenciar", "unmute"]) {
+    assert.ok(Silenciar.cmd.includes(alias), `falta .${alias} en plugin.cmd`);
+  }
+
+  // Los que ponen el silencio
+  for (const alias of ["silenciar", "mute", "silencio", "hacesilencio"]) {
+    await correr(Silenciar, "@111", "unmute", { mentionedJid: ["111@lid"] }); // dejarlo hablando
+    await correr(Silenciar, "@111", alias, { mentionedJid: ["111@lid"] });
+    assert.equal(muteDe(), true, `.${alias} tendría que silenciar`);
+  }
+
+  // Los que lo sacan
+  for (const alias of ["desilenciar", "unmute"]) {
+    await correr(Silenciar, "@111", "mute", { mentionedJid: ["111@lid"] }); // silenciarlo primero
+    assert.equal(muteDe(), true);
+    await correr(Silenciar, "@111", alias, { mentionedJid: ["111@lid"] });
+    assert.equal(muteDe(), false, `.${alias} tendría que devolverle la voz`);
+  }
 });

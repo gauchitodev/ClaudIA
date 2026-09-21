@@ -1,8 +1,12 @@
 import { updateUserInGroup, esOwner } from "../database-functions.js";
 import { destinatario } from "../lib/identidad.js";
 
+// Los alias que SACAN el silencio. El resto de plugin.cmd lo pone. Salen de una sola lista para que un alias nuevo
+// no quede declarado como comando pero interpretado al revés.
+const QUITAN_SILENCIO = ["desilenciar", "unmute"];
+
 const plugin = {};
-plugin.cmd = ["silenciar", "mute", "desilenciar", "unmute", "silencio", "hacesilencio"];
+plugin.cmd = ["silenciar", "mute", "silencio", "hacesilencio", ...QUITAN_SILENCIO];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
@@ -17,7 +21,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
   if (!quien) return client.sendText(m.chat, "No existen datos del usuario, puede que aun no haya enviado mensajes", m);
 
-  const silenciar = !(command === "desilenciar" || command === "unmute");
+  const silenciar = !QUITAN_SILENCIO.includes(command);
   if (!updateUserInGroup(quien, m.chat, { mute: silenciar })) return client.sendText(m.chat, "No pude guardar el cambio.", m);
   m.react("☑️");
 };
