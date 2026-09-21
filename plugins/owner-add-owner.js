@@ -7,7 +7,7 @@ plugin.cmd = ["addowner", "removeowner", "aowner", "rowner"];
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  // config.toml guarda el teléfono pelado, así que de las dos identidades hace falta el número.
+  // config.toml stores the bare phone number, so of the two identities it's the number we need.
   const { jid } = destinatario(m, text, participants);
   const who = jid ? jid.split("@")[0] : "";
   if (!who) return client.sendText(m.chat, `No se encontró el numero telefonico del usuario mencionado. Pruebe: ${usedPrefix}${command} +598 99 999 999`, m);
@@ -26,7 +26,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     return client.sendText(m.chat, "❌ Error al parsear config.toml", m);
   }
 
-  // owners reales, sin entradas vacías ""
+  // the real owners, without empty "" entries
   const currentOwners = (config.owners || []).filter((o) => o && o.trim() !== "");
 
   if (command === "addowner" || command === "aowner") {
@@ -34,11 +34,11 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
       return client.sendText(m.chat, `El número *${who}* ya es owner.`, m);
     }
 
-    // añadir el nuevo owner
+    // add the new owner
     config.owners = [...currentOwners, who];
 
     fs.writeFileSync("config.toml", toml.stringify(config));
-    globalThis.owners = config.owners; // actualiza en memoria
+    globalThis.owners = config.owners; // update it in memory
 
     return client.sendText(m.chat, `✅ El numero *${who}* fué añadido como owner.`, m);
   }
@@ -48,16 +48,16 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
       return client.sendText(m.chat, `❌ El número *${who}* no es owner.`, m);
     }
 
-    // no  permitir quitar el último owner real que haya
+    // don't allow removing the last real owner
     if (currentOwners.length === 1) {
       return client.sendText(m.chat, "❌ No se puede eliminar el último owner.", m);
     }
 
-    // quitar el owner especificado
+    // remove the given owner
     config.owners = currentOwners.filter((o) => o !== who);
 
     fs.writeFileSync("config.toml", toml.stringify(config));
-    globalThis.owners = config.owners; // actualizar en memoria
+    globalThis.owners = config.owners; // update it in memory
 
     return client.sendText(m.chat, `✅ *${who}* fué removido de owners.`, m);
   }

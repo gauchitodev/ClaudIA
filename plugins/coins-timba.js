@@ -1,11 +1,11 @@
-// .timba: ranking de los más ludópatas del grupo. Cuenta todo lo apostado (casino, apuestas en juegos,
-// lotería y mercados) y el resultado neto (premios y devoluciones menos lo apostado).
+// .timba: a ranking of the group's biggest gamblers. It counts everything staked (casino, bets on games, the
+// lottery and the markets) and the net result (prizes and refunds minus what was staked).
 // .timba mes → solo lo de este mes.
 
 import { etiquetaLaburo } from "../lib/laburos.js";
 import { nombreDe } from "../lib/menciones.js";
 
-// Lo que se pone (cantidad negativa) y lo que vuelve (positiva). Si se agrega un juego, van sus motivos acá.
+// What goes in (a negative amount) and what comes back (positive). If a game is added, its reasons go here.
 const MOTIVOS_APUESTA = ["casino_ruleta", "casino_tragamonedas", "casino_blackjack", "casino_blackjack_seguro", "casino_carrera", "casino_mines", "duelo_apuesta", "apuesta_%", "loteria_boletos", "mercado_apuesta_%"];
 const MOTIVOS_COBRO = ["casino_ruleta_premio", "casino_tragamonedas_premio", "casino_blackjack_premio", "casino_blackjack_empate", "casino_blackjack_rendicion", "casino_blackjack_seguro_premio", "casino_carrera_premio", "casino_mines_premio", "casino_mines_devolucion", "duelo_premio", "duelo_devolucion", "apuesta_ganada", "escudo_devolucion", "loteria_premio", "loteria_devolucion", "mercado_premio_%", "mercado_devolucion_%"];
 
@@ -46,7 +46,7 @@ plugin.run = async (m, { client, args }) => {
   });
 
   const texto = `🎰 *LOS MÁS LUDÓPATAS${soloMes ? " DEL MES" : ""}*\n\n${lineas.join("\n")}\n\nCuenta casino, duelos, apuestas en juegos, lotería y mercados.${soloMes ? "" : " Probá .timba mes para solo este mes."}`;
-  await client.sendText(m.chat, texto, m); // sin menciones: un ranking no tiene por qué avisarle a cada uno
+  await client.sendText(m.chat, texto, m); // no mentions: a ranking has no business notifying everyone on it
 };
 
 export default plugin;

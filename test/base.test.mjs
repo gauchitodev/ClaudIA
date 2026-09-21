@@ -78,13 +78,13 @@ test("migra una lista negra sin la columna lid y guarda el LID cuando se lo desc
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).reason, "spam", "la entrada vieja sigue valiendo");
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, null);
 
-  // Al reconocerla en un grupo se le guarda el LID, y desde ahí se la encuentra por cualquiera de los dos.
+  // Once recognized in a group their LID is stored, and from then on either one finds them.
   assert.equal(F.recordarLidEnListaNegra(G, "111@s.whatsapp.net", "111@lid"), true);
   assert.equal(F.isBlacklisted("111@lid", G).reason, "spam");
   assert.equal(F.recordarLidEnListaNegra(G, "111@s.whatsapp.net", "otro@lid"), false, "no pisa un LID ya guardado");
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, "111@lid");
 
-  // Actualizar el motivo no borra el LID.
+  // Updating the reason doesn't wipe the LID.
   F.addToBlacklist("111@s.whatsapp.net", "sigue", "admin@s.whatsapp.net", G);
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G).lid, "111@lid");
   assert.equal(F.removeFromBlacklist("111@lid", G), true, "se puede sacar por LID");
@@ -105,7 +105,7 @@ test("migra publicaciones sin la columna mensajeBot y encuentra la publicación 
   assert.ok(db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot"), "se agregó la columna mensajeBot");
   assert.equal(F.getPublicacion(G, 1).texto, "bici", "la publicación vieja sigue estando");
 
-  // Se la encuentra por el mensaje de la persona, y después también por el de la confirmación del bot.
+  // It's found by the person's message, and afterwards by the bot's confirmation too.
   assert.equal(F.getPublicacionPorMensaje(G, "MSGVIEJO").numero, 1);
   assert.equal(F.getPublicacionPorMensaje(G, "NOEXISTE"), null);
   assert.equal(F.getPublicacionPorMensaje(G, null), null);
@@ -122,7 +122,7 @@ test("migra las advertencias globales al formato por grupo", async () => {
   const H = "otro@g.us";
   const vieja = new Database("./database/database.db");
   vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, timestamp INTEGER)`);
-  // Estaba en dos grupos con 2 advertencias que valían en los dos, y alguien sin grupos tenía una suelta.
+  // They were in two groups with 2 warnings that applied in both, and someone with no groups had a loose one.
   vieja.prepare(`INSERT INTO users (lid, jid, inGroup, warn) VALUES (?, ?, ?, 2)`).run("111@lid", "111@s.whatsapp.net", JSON.stringify({ [G]: { mute: false, messageCount: 7 }, [H]: {} }));
   vieja.prepare(`INSERT INTO users (lid, jid, inGroup, warn) VALUES (?, ?, '{}', 1)`).run("222@lid", "222@s.whatsapp.net");
   vieja.close();
@@ -139,7 +139,7 @@ test("migra las advertencias globales al formato por grupo", async () => {
   globalThis.db = F.loadDatabase();
   assert.equal(F.advertenciasDe("111@lid", G), 2);
 
-  // Y a partir de acá cada grupo lleva la suya.
+  // And from here on each group keeps its own.
   F.setAdvertencias("111@lid", G, 3);
   assert.equal(F.advertenciasDe("111@lid", G), 3);
   assert.equal(F.advertenciasDe("111@lid", H), 2);

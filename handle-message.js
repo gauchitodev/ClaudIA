@@ -4,12 +4,12 @@ import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo,
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { permisosDe } from "./lib/roles.js";
 
-// Memoria para guardar la última vez que se saludó por grupo
+// Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
-// Tiempo de espera: 30 minutos (en milisegundos)
+// Cooldown: 30 minutes (in milliseconds)
 const TIEMPO_COOLDOWN = 30 * 60 * 1000; 
 
-// Manejo de mensaje entrante desde msgQueue en main.js
+// Handles an incoming message from msgQueue in main.js
 export async function handleMessage(nMsg) {
   if (!nMsg) return;
   this.pushMessage(nMsg).catch(console.error);
@@ -20,61 +20,61 @@ export async function handleMessage(nMsg) {
     m = smsg(this, m) || m;
 
     // ==========================================
-    // 0. FILTRO ANTI-RESACA (Ignorar mensajes viejos)
+    // 0. HANGOVER FILTER (ignore stale messages)
     // ==========================================
-    // messageTimestamp puede venir como número o como Long (protobuf); se normaliza a segundos.
+    // messageTimestamp may arrive as a number or as a Long (protobuf); it's normalized to seconds.
     const crudo = m.messageTimestamp ?? m.timestamp ?? 0;
     const tiempoMensaje = Number(typeof crudo?.toNumber === "function" ? crudo.toNumber() : crudo) || 0;
-    // Si el mensaje tiene más de 60 segundos de antigüedad, lo descartamos de una
+    // If the message is more than 60 seconds old, drop it right away
     if (tiempoMensaje && (Date.now() / 1000) - tiempoMensaje > 60) return;
 
-    // Evitar que el bot responda a mensajes de comandos de cuando estaba offline.
+    // Keeps the bot from answering command messages from while it was offline.
     if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return;
 
-    // inicializar datos si no existen
+    // initialize data if it doesn't exist yet
     initDataDB(m);
     syncUserInfo(m);
 
-    // Obtención de datos del usuario, el chat, y settings del bot.
+    // Fetch the user's data, the chat's, and the bot settings.
     const user = getUser(m.sender, m.chat);
     const chat = getChat(m.chat);
     const botSettings = getBotSettings(client.user.lid);
 
     // autoRead msg
     if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
-    // Usuario silenciado
+    // Muted user
     if (user.inGroup[m.chat]?.mute && m.message) return m.delete();
 
-    // Obtención de permisos actuales
+    // Current permissions
     const groupMetadata = (m.isGroup ? (client.chats[m.chat] || {}).metadata || (await this.groupMetadata(m.chat).catch((_) => null)) : {}) || {};
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
     const userSender = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === m.sender) : {}) || {};
     const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === client.user.lid) : {}) || {};
-    // esOwner acepta @lid o @s.whatsapp.net (resuelve el lid del owner por la base), así el owner se reconoce aunque
-    // el mensaje venga solo con su LID.
+    // esOwner takes @lid or @s.whatsapp.net (it resolves the owner's lid through the database), so the owner is
+    // recognized even when the message only carries their LID.
     const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
     const isRAdmin = userSender?.admin === "superadmin" || false;
     const isWaAdmin = isRAdmin || userSender?.admin === "admin" || false;
-    // Roles del bot por grupo (.adminbot / .moderador): el admin del bot cuenta como admin y el moderador solo como
-    // mod. Los admins de WhatsApp y el owner tienen los dos sin necesidad de rol.
+    // Per-group bot roles (.adminbot / .moderador): the bot admin counts as admin and the moderator only as mod.
+    // WhatsApp admins and the owner get both without needing a role.
     const { rol: rolBot, isAdmin, isMod } = permisosDe(m.chat, m.sender, { esOwner: isOwner, esAdminWhatsApp: isWaAdmin });
     let isBotAdmin = !m.isGroup || bot?.admin || false;
 
-    // Retornar si el mensaje es de baileys para evitar conflictos en mensajes propios del bot.
+    // Bail out on baileys messages to avoid clashing with the bot's own.
     if (m.isBaileys) return;
 
     // antiPrivate
     if (botSettings.antiPrivate && !m.isGroup && !isOwner && m.senderJid !== "18002428478@s.whatsapp.net") return;
 
-    // Extracción de text y argumentos separados.
+    // Pull out the text and its arguments.
     let text, args;
     text = m.text || "";
     args = text.trim().split(/\s+/);
 
     // ==========================================
-    // 1. LÓGICA DE SALUDOS CON COOLDOWN
+    // 1. GREETINGS, WITH A COOLDOWN
     // ==========================================
-    // El saludo se apaga por grupo con .saludos (o .modo compraventa).
+    // Greetings are turned off per group with .saludos (or .modo compraventa).
     if (m.isGroup && text && chat.saludos !== 0) {
         const regexSaludo = /^(hola+|buenas+|buen día|buenos días|holis|q onda)/i;
         
@@ -82,10 +82,10 @@ export async function handleMessage(nMsg) {
             const ahora = Date.now();
             const ultimoSaludo = cooldownSaludos.get(m.chat) || 0;
 
-            // Si ya pasaron los 30 minutos para ESTE grupo...
+            // If the 30 minutes are up for THIS group...
             if (ahora - ultimoSaludo > TIEMPO_COOLDOWN) {
                 
-                // Actualizamos el reloj
+                // Reset the clock
                 cooldownSaludos.set(m.chat, ahora);
 
                 const respuestas = [
@@ -96,14 +96,14 @@ export async function handleMessage(nMsg) {
                 ];
                 const respuestaElegida = elegirAlAzar(respuestas);
 
-                // Mandamos el mensaje citando al que saludó
+                // Reply quoting whoever said hello
                 await this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m });
             }
         }
     }
     // ==========================================
 
-    // Ejecutar plugins de tipo 'before'
+    // Run the 'before' plugins
     for (const pluginName in globalThis.plugins) {
       const plugin = globalThis.plugins[pluginName];
       if (typeof plugin.before === "function") {
@@ -111,17 +111,17 @@ export async function handleMessage(nMsg) {
       }
     }
 
-    // verificar banchat
+    // check banchat
     if (chat.isBanned && !isOwner) return;
 
-    // verificar modoadmin
+    // check admin mode
     if (chat.adminMode && !isOwner && !isMod && m.isGroup) return;
 
-    // verificar si el mensaje comienza con un prefijo válido
+    // check whether the message starts with a valid prefix
     const usedPrefix = globalThis.prefix.find((p) => m.text.startsWith(p));
     if (!usedPrefix) return;
 
-    // usuario baneado del bot
+    // user banned from the bot
     if (user.banned) {
       if (Date.now() - user.lastmining < 3600000) return;
       this.sendMessage(m.chat, { text: "🚫ESTÁS BANEADO(A)🚫", mentions: [m.sender] }, { quoted: m });
@@ -129,26 +129,25 @@ export async function handleMessage(nMsg) {
       return;
     }
 
-    // obtener el comando y argumentos
+    // get the command and its arguments
     args = m.text.slice(usedPrefix.length).trim().split(/\s+/);
     const command = args.shift().toLowerCase();
     if (!command) return;
-    // ignorar comandos que sean solo puntos
+    // ignore commands that are just dots
     if (/^\.+$/.test(command)) return;
     text = args.join(" ");
 
-    // Modo blacklist del grupo (.blon + .bladd): los comandos bloqueados no corren para nadie salvo el owner.
+    // Group blacklist mode (.blon + .bladd): blocked commands run for nobody except the owner.
     if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
-    // Verificar si el comando existe en algún plugin
+    // Check whether the command exists in any plugin
     const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
     if (matchPlugins.length === 0 && usedPrefix !== "@" && !command.includes("_")) return client.sendText(m.chat, txt.noCommandMatch(command), m);
 
-    // Ejecutar los plugins coincidentes.
-    // Un permiso que falta frena SOLO al plugin que lo pide, no a los demás que comparten el comando: de ahí el
-    // "continue" en vez de "return". El aviso del primer rechazo queda guardado y sale una sola vez, al final, y
-    // únicamente si ningún plugin llegó a correr; así dos plugins con el mismo cmd no se tapan entre ellos ni
-    // mandan dos mensajes.
+    // Run every matching plugin.
+    // A missing permission stops ONLY the plugin that asks for it, not the others sharing the command: hence the
+    // "continue" instead of "return". The first rejection notice is stored and sent once, at the end, and only if
+    // no plugin got to run; that way two plugins with the same cmd neither mask each other nor send two messages.
     let corrioAlguno = false;
     let avisarRechazo = null;
     const rechazar = (aviso) => {
@@ -158,22 +157,22 @@ export async function handleMessage(nMsg) {
     for (const plugin of matchPlugins) {
       if (!plugin.run) continue;
 
-      // Verificar si el comando requiere ser OWNER
+      // Check whether the command requires being the OWNER
       if (plugin.onlyOwner && !isOwner) {
         rechazar(() => client.sendText(m.chat, txt.onlyOwner, m));
         continue;
       }
 
-      // Verificar si el comando requiere grupo
+      // Check whether the command requires a group
       if (plugin.onlyGroup && !m.isGroup) {
         rechazar(() => client.sendText(m.chat, txt.onlyGroup, m));
         continue;
       }
 
-      // Verificar si el comando requiere que el bot sea admin
+      // Check whether the command requires the bot to be admin
       if (plugin.botAdmin && !isBotAdmin) {
-        // La metadata guardada puede estar vieja. Antes de rechazar, consultamos a WhatsApp
-        // y, si el bot sí es admin, actualizamos la caché para no volver a consultar.
+        // The stored metadata may be stale. Before rejecting, ask WhatsApp and, if the bot is admin after all,
+        // refresh the cache so we don't ask again.
         const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
         const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
         if (!botFresco?.admin) {
@@ -184,53 +183,53 @@ export async function handleMessage(nMsg) {
         isBotAdmin = true;
       }
 
-      // Verificar si el comando requiere que el usuario sea admin
+      // Check whether the command requires the user to be admin
       if (plugin.onlyAdmin && !isAdmin) {
         rechazar(() => client.sendText(m.chat, txt.onlyAdmin, m));
         continue;
       }
 
-      // Verificar si el comando requiere ser moderador del bot (los admins también pasan)
+      // Check whether the command requires being a bot moderator (admins pass too)
       if (plugin.onlyMod && !isMod) {
         rechazar(() => client.sendText(m.chat, txt.onlyMod, m));
         continue;
       }
 
-      // Juegos (plugin.juego): apagados con .juegos, o fuera del horario del grupo (.horariojuegos). Antes cada plugin
-      // de juego chequeaba chat.games por su cuenta; acá se frena una sola vez para todos.
+      // Games (plugin.juego): turned off with .juegos, or outside the group's hours (.horariojuegos). Each game
+      // plugin used to check chat.games on its own; here it's stopped once for all of them.
       if (plugin.juego && !chat.games) {
         rechazar(() => client.sendText(m.chat, txt.disabledGames, m));
         continue;
       }
 
-      // Casino (plugin.casino): interruptor propio, aparte de .juegos. Sirve para apagar solo las apuestas
-      // —ruleta, tragamonedas, blackjack, duelos, carrera, lotería y mercados— dejando el resto andando.
+      // Casino (plugin.casino): its own switch, separate from .juegos. Lets you turn off just the betting
+      // —roulette, slots, blackjack, duels, races, lottery and markets— leaving the rest running.
       if (plugin.casino && m.isGroup && chat.casino === 0) {
         rechazar(() => client.sendText(m.chat, "🎰 El casino está apagado en este grupo. Un admin lo prende con .casino on", m));
         continue;
       }
 
-      // El horario de .horariojuegos frena SOLO el casino (plugin.casino). El resto de los juegos —trivia,
-      // ahorcado, banderas, canvas, sorteos— anda a cualquier hora.
-      // correspondeAvisar() marca el grupo como ya avisado, así que va adentro del aviso y no acá: si el comando
-      // termina corriendo por otro plugin, no se gasta el aviso de los 10 minutos.
+      // The .horariojuegos schedule stops ONLY the casino (plugin.casino). The rest of the games —trivia, hangman,
+      // flags, canvas, raffles— run at any hour.
+      // correspondeAvisar() marks the group as already notified, so it goes inside the notice and not here: if the
+      // command ends up running through another plugin, the 10-minute notice isn't spent.
       if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {
         rechazar(() => (correspondeAvisar(m.chat) ? client.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
         continue;
       }
 
-      // Economía (plugin.economia): con .monedas apagado (modo compraventa) los comandos de UruCoins no corren.
+      // Economy (plugin.economia): with .monedas off (marketplace mode) the UruCoins commands don't run.
       if (plugin.economia && m.isGroup && chat.monedas === 0) {
         rechazar(() => client.sendText(m.chat, txt.disabledEconomy, m));
         continue;
       }
 
-      // Ejecutar plugin de comando si hubo coincidencia de command con algun plugin.
+      // Run the command plugin if the command matched one.
       corrioAlguno = true;
       await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
     }
 
-    // Si ningún plugin del comando pudo correr, ahí sí se avisa por qué.
+    // If no plugin for the command could run, now we say why.
     if (!corrioAlguno && avisarRechazo) await avisarRechazo();
   } catch (e) {
     console.error(e);

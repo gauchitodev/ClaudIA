@@ -8,11 +8,11 @@ plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, text, args }) => {
-  // a quién: la mención, o el autor del mensaje citado (con la regex vieja, ".regalar @persona 20" se tragaba el 20)
+  // who to: the mention, or the quoted message's author (with the old regex, ".regalar @persona 20" swallowed the 20)
   const who = lidMencionado(m, text);
   const destinatario = who ? getUser(who) : null;
 
-  // cuánto: el primer número que aparezca en los argumentos que no sea parte de la mención
+  // how much: the first number in the arguments that isn't part of the mention
   const cantidad = parseInt(args.find((a) => /^\d+$/.test(a)), 10);
 
   if (!destinatario?.lid || Number.isNaN(cantidad)) {
@@ -25,7 +25,7 @@ plugin.run = async (m, { client, text, args }) => {
     return client.sendText(m.chat, `No te alcanza — tenés ${getSaldoCoins(m.chat, m.sender)} UruCoins.`, m);
   }
 
-  // un regalo a la pareja le pasa el enojo, si lo había
+  // a gift to your partner gets them over a huff, if there was one
   const reconciliado = contentarPareja(m.sender, destinatario.lid);
   await client.sendMessage(
     m.chat,

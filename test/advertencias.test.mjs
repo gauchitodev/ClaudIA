@@ -30,7 +30,7 @@ beforeEach(() => {
   for (const n of [111, 222]) for (const chat of [G, H]) F.setAdvertencias(`${n}@lid`, chat, 0);
 });
 
-// El grupo lista a la gente por LID y trae el número de quien lo comparte.
+// The group lists people by LID and carries the number of whoever shares it.
 const participants = [
   { id: "111@lid", admin: null, phoneNumber: "5989911111@s.whatsapp.net" },
   { id: "222@lid", admin: null },
@@ -43,8 +43,8 @@ const correr = (P, text, opciones = {}) =>
   P.run(m(text, opciones), { client: globalThis.client, text, command: "adv", usedPrefix: ".", participants });
 
 test("una razón que empieza con número no le cambia el destinatario", async () => {
-  // El bug viejo: el regex incluía \s y seguía comiéndose dígitos, así que ".adv @5989911111 3 veces" advertía
-  // a "59899111113" —alguien que no era— y dejaba la razón en "veces".
+  // The old bug: the regex included \s and kept swallowing digits, so ".adv @5989911111 3 veces" warned
+  // "59899111113" —someone else entirely— and left the reason as "veces".
   await correr(Warn, "@5989911111 3 veces seguidas", { mentionedJid: ["111@lid"] });
 
   assert.equal(F.advertenciasDe("111@lid", G), 1);
@@ -53,8 +53,8 @@ test("una razón que empieza con número no le cambia el destinatario", async ()
 });
 
 test("advertir por número guarda de verdad, no solo lo anuncia", async () => {
-  // El bug viejo: getUser encontraba a la persona por la columna jid, pero updateUser escribía siempre contra lid,
-  // así que el UPDATE no tocaba ninguna fila y el bot igual anunciaba "2/3".
+  // The old bug: getUser found the person through the jid column, but updateUser always wrote against lid, so the
+  // UPDATE touched no row and the bot announced "2/3" regardless.
   await correr(Warn, "molesta", { mentionedJid: ["5989911111@s.whatsapp.net"] });
   assert.equal(F.advertenciasDe("111@lid", G), 1, "quedó guardada");
   assert.match(ultimo(), /1\/3/);
@@ -93,7 +93,7 @@ test("las advertencias son de cada grupo: las de uno no echan de otro", async ()
   assert.equal(F.advertenciasDe("111@lid", G), 2);
   assert.equal(F.advertenciasDe("111@lid", H), 0, "el otro grupo sigue en cero");
 
-  // La primera en el otro grupo es la primera, no la tercera
+  // The first one in the other group is the first, not the third
   await correr(Warn, "@111 una allá", { mentionedJid: ["111@lid"], chat: H });
   assert.match(ultimo(), /1\/3/);
   assert.equal(expulsiones.length, 0, "no lo echa por lo que hizo en otro lado");
@@ -137,9 +137,9 @@ test("la lista de advertidos es la del grupo donde se pide", async () => {
   assert.equal(F.advertidos(H).length, 1);
 });
 
-// Va acá porque es la raíz del bug de arriba: updateUser escribía siempre contra la columna lid, así que al pasarle
-// un número el UPDATE no tocaba ninguna fila y devolvía true igual. Hoy los plugins normalizan a LID antes de
-// escribir, pero si esa normalización se rompe alguna vez, esto tiene que seguir fallando ruidosamente.
+// This lives here because it is the root of the bug above: updateUser always wrote against the lid column, so given
+// a number the UPDATE touched no row and returned true anyway. The plugins now normalize to LID before writing, but
+// if that normalization ever breaks, this has to keep failing loudly.
 test("updateUser escribe encontrando la fila por número, y avisa si no hay ninguna", () => {
   assert.equal(F.updateUser("5989911111@s.whatsapp.net", { pushName: "Por número" }), true);
   assert.equal(F.getUser("111@lid").pushName, "Por número", "escribió en la fila de esa persona");

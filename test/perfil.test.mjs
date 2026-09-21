@@ -34,7 +34,7 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
   F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
   F.moverCoins(G, "111@lid", -10, "duelo_apuesta");
-  F.moverCoins(G, "111@lid", 10, "duelo_devolucion"); // un desafío rechazado no cuenta como jugado
+  F.moverCoins(G, "111@lid", 10, "duelo_devolucion"); // a declined challenge doesn't count as played
   F.moverCoins(G, "111@lid", 20, "duelo_premio");
   F.updateUser("111@lid", { apodo: "Tito", inGroup: JSON.stringify({ [G]: { messageCount: 600, desde: Date.now() - 40 * DIA } }) });
   Pj.fijarPareja("111@lid", "222@lid", Date.now() - 2 * DIA);
@@ -59,7 +59,7 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   ].join("\n");
   assert.equal(r.texto, esperado);
   assert.deepEqual(r.mentions, ["111@lid", "222@lid"]);
-  // si la relación terminó, no se muestra
+  // if the relationship ended, it isn't shown
   Pj.terminarPareja("222@lid");
   assert.doesNotMatch(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /Pareja/);
 });

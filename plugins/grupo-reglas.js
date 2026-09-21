@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["reglas", "plantilla"];
 plugin.onlyGroup = true;
 
-// .reglas / .plantilla las muestran (cualquiera) · .reglas set <texto>, .reglas borrar (admins) · lo mismo con .plantilla
+// .reglas / .plantilla show them (anyone) · .reglas set <text>, .reglas borrar (admins) · same for .plantilla
 plugin.run = async (m, { client, command, args, text, isAdmin }) => {
   const esReglas = command === "reglas";
   if (!args.length) return client.sendText(m.chat, esReglas ? textoReglas(m.chat) : textoPlantilla(m.chat), m);

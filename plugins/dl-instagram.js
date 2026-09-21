@@ -1,8 +1,9 @@
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { bajarYEnviar, esInstagram } from "../lib/ytdlp.js";
 
-// .instagram <link>: baja el post, reel o video con yt-dlp. Antes usaba la API de Delirius, cuyo dominio ya no existe.
-// Instagram pide sesión iniciada: hacen falta cookies de Instagram en cookies.txt, el mismo archivo que usa .play.
+// .instagram <link>: downloads the post, reel or video with yt-dlp. It used to use Delirius's API, whose domain no
+// longer exists. Instagram demands a logged-in session: Instagram cookies are needed in cookies.txt, the same file
+// .play uses.
 const plugin = {};
 plugin.cmd = ["instagram", "igdl"];
 plugin.botAdmin = true;

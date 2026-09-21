@@ -7,21 +7,21 @@ import { tipear } from "../lib/ritmo.js";
 import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 
-// Palabras con las que el bot se da por aludido (en minúscula).
+// The words that make the bot consider itself addressed (lowercase).
 const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
 
-// Freno: tiempo mínimo entre respuestas automáticas por chat (evita spam y que WhatsApp marque el chip).
-// Espera mínima entre dos respuestas de charla en el mismo grupo. Subido a 20 s: además de evitar spam,
-// es lo que más baja el volumen de mensajes del bot, que es lo que hace que WhatsApp banee cuentas.
+// Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
+// Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
+// what cuts the bot's message volume the most, which is what gets accounts banned.
 const COOLDOWN_MS = 20000; // 20 segundos
 
 if (!globalThis.autoIaCooldown) globalThis.autoIaCooldown = new Map();
 if (!globalThis.autoIaSinCuotaAviso) globalThis.autoIaSinCuotaAviso = new Map();
-const AVISO_SIN_CUOTA_MS = 30 * 60 * 1000; // no repetir el aviso de "sin cuota" más de una vez cada 30 min por chat
+const AVISO_SIN_CUOTA_MS = 30 * 60 * 1000; // don't repeat the "out of quota" notice more than once every 30 min per chat
 
 const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
 
-// Esquema de salida: la IA está OBLIGADA a devolver exactamente esta forma, no una sugerencia de texto.
+// Output schema: the AI is REQUIRED to return exactly this shape, not a suggestion in prose.
 const ESQUEMA_RESPUESTA = {
   type: "object",
   properties: {
@@ -41,42 +41,42 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
     if (m.fromMe || m.isBaileys) return;
     if (!m.text) return;
 
-    // Memoria corta: todo mensaje del grupo (comandos incluidos) queda en el contexto reciente.
+    // Short-term memory: every group message (commands included) stays in the recent context.
     const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
     recordarMensaje(m.chat, nombre, m.text, false);
 
-    // Charla automática apagada en este grupo (.charla / .modo compraventa): Claudia solo responde a comandos.
+    // Automatic chat off in this group (.charla / .modo compraventa): Claudia only answers commands.
     if (chat?.charla === 0) return;
 
     if (!globalThis.geminiApiKey) return;
 
-    // si el mensaje es un comando (empieza con prefijo), lo maneja el sistema normal
+    // if the message is a command (starts with a prefix), the normal system handles it
     if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;
 
     const textoLower = m.text.toLowerCase();
 
-    // ¿el mensaje es una respuesta a un mensaje del propio bot?
+    // is the message a reply to one of the bot's own messages?
     const esRespuestaAlBot = m.quoted && m.quoted.fromMe;
 
-    // ¿el mensaje menciona alguna palabra clave?
+    // does the message mention any of the keywords?
     const mencionaPalabra = PALABRAS_CLAVE.some((palabra) => {
       const regex = new RegExp(`\\b${palabra}\\b`, "i");
       return regex.test(textoLower);
     });
 
-    // responde si la nombran O si le contestan un mensaje suyo
+    // she answers if she's named OR if someone replies to a message of hers
     if (!esRespuestaAlBot && !mencionaPalabra) return;
 
-    // FRENO: cooldown por chat
+    // THROTTLE: per-chat cooldown
     const ahora = Date.now();
     const ultimaVez = globalThis.autoIaCooldown.get(m.chat) || 0;
     if (ahora - ultimaVez < COOLDOWN_MS) return;
     globalThis.autoIaCooldown.set(m.chat, ahora);
 
-    // ---------- armar el prompt ----------
+    // ---------- build the prompt ----------
     const partes = [];
 
-    // lo que Claudia sabe de sí misma y del bot (el manual completo solo si el mensaje pregunta por funciones)
+    // what Claudia knows about herself and the bot (the full manual only if the message asks about features)
     partes.push(conocimientoPara(m.text));
 
     const contexto = textoContexto(m.chat, true);
@@ -88,19 +88,19 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores: ${user.memoria}`);
     }
 
-    // memoria del grupo (.recordá que ...): chistes internos y datos que el grupo le anotó
+    // group memory (.recordá que ...): inside jokes and facts the group noted down for her
     if (m.isGroup) {
       const hechos = memoriaDelGrupo(m.chat);
       if (hechos) partes.push(hechos);
     }
 
-    // laburo del juego de roles: Claudia lo sabe y puede chicanear con eso
+    // their role-play job: Claudia knows it and can tease them about it
     const laburo = laburoDe(m.chat, m.sender);
     if (laburo) {
       partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${laburo.oficio.nombre.toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
     }
 
-    // apodo comprado en la tienda: Claudia le habla así
+    // nickname bought in the shop: Claudia addresses them that way
     if (user?.apodo) {
       partes.push(`Esta persona te pidió que le digas "${user.apodo}" — usá ese apodo cuando le hables.`);
     }
@@ -117,7 +117,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
 
     const consulta = partes.join("\n\n");
 
-    // el 'escribiendo...' arranca antes de preguntarle a la IA, como haría una persona
+    // the 'typing...' starts before asking the AI, the way a person would
     await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
 
     const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA });
@@ -155,8 +155,8 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       updateUser(m.sender, { memoria: memoriaNueva });
     }
 
-    // lo que Claudia dice también entra en la memoria corta
-    // Solo el primer mensaje lleva la demora de tipeo: si Claudia manda dos seguidos, el segundo sale al hilo.
+    // what Claudia says also goes into the short-term memory
+    // Only the first message carries the typing delay: if Claudia sends two in a row, the second follows right after.
     let yaTipeo = false;
     const decir = async (texto, quoted = null) => {
       if (!texto) return;
@@ -168,7 +168,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       await client.sendText(m.chat, texto, quoted);
     };
 
-    // Reintento de descarga: la IA solo lo marca; el sistema decide si corresponde y confirma.
+    // Download retry: the AI only flags it; the system decides whether it applies and confirms.
     if (quiereReintentar) {
       await decir(respuesta);
       const r = programarReintento(m.chat, m.sender);
@@ -181,7 +181,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       return;
     }
 
-    // play y video: la IA ya no ejecuta la descarga, solo indica el comando exacto para pedirla.
+    // play and video: the AI no longer runs the download, it just gives the exact command to ask for it.
     if (comando === "play" || comando === "video") {
       const comandoSugerido = comando === "play" ? ".play" : ".video";
       const ejemplo = argumento ? ` ${argumento}` : " nombre de la canción";
@@ -189,7 +189,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       return;
     }
 
-    // tagall y llamar: solo en grupo, y solo si quien pide es admin
+    // tagall and llamar: groups only, and only if whoever asks is an admin
     if (comando === "tagall" || comando === "llamar") {
       if (!m.isGroup) {
         await decir(respuesta);

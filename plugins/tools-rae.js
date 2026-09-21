@@ -1,6 +1,6 @@
 import { definir } from "../lib/rae.js";
 
-// .rae <palabra o expresión>: definiciones del diccionario de la RAE.
+// .rae <word or phrase>: definitions from the RAE dictionary.
 const plugin = {};
 plugin.cmd = ["definición", "rae", "definicion"];
 plugin.botAdmin = true;

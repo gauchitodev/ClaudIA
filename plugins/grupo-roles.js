@@ -6,8 +6,9 @@ const plugin = {};
 plugin.cmd = ["adminbot", "adminbots", "moderador", "moderadores", "mod", "mods", "roles"];
 plugin.onlyGroup = true;
 
-// .adminbot @persona / .moderador @persona dan el rol (solo en este grupo) · con "quitar" antes de la mención lo sacan ·
-// .roles (o cualquiera sin argumentos) lista quiénes tienen rol. Quién puede dar qué lo decide lib/roles.js.
+// .adminbot @person / .moderador @person grant the role (in this group only) · with "quitar" before the mention they
+// revoke it · .roles (or either one with no arguments) lists who holds a role. Who may grant what is decided by
+// lib/roles.js.
 plugin.run = async (m, { client, command, args, text, participants, isOwner, isWaAdmin, isAdmin }) => {
   if (["adminbots", "moderadores", "mods", "roles"].includes(command) || !args.length) {
     const r = textoRoles(m.chat);

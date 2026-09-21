@@ -36,7 +36,7 @@ test("lotería: boletos, tope, sorteo ponderado y devolución", () => {
   assert.ok(!L.comprarBoletos(G, "a", 3).ok);
   assert.ok(L.comprarBoletos(G, "b", 1).ok);
   assert.match(L.textoEstadoLoteria(G, "a"), /Pozo: \*40 UruCoins\*/);
-  L._rng.randomInt = () => 0; // el primer boleto es de "a"
+  L._rng.randomInt = () => 0; // the first ticket belongs to "a"
   const s = L.sortearLoteria(G, semana);
   assert.deepEqual(s.mentions, ["a"]);
   assert.match(s.texto, /Ganó @a con 3 boletos \(75 % de chance\)/);

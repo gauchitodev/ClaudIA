@@ -10,8 +10,8 @@ plugin.onlyMod = true;
 
 plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command }) => {
   try {
-    // Se resuelve la identidad antes de expulsar: el recorte viejo armaba "<dígitos>@lid" con lo que estuviera
-    // escrito, y con un teléfono eso es un LID que no existe.
+    // The identity is resolved before removing: the old parsing built "<digits>@lid" from whatever was typed, and
+    // with a phone number that is a LID which doesn't exist.
     const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
     if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
@@ -30,8 +30,8 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     await m.delete();
     await esperar(1000);
 
-    // Se expulsa con el id con el que el grupo lista a la persona, y se mira lo que contesta WhatsApp: mandarle el
-    // número a un grupo que trabaja por LID no tira error, devuelve un status que antes nadie leía.
+    // Removal uses the id the group lists the person under, and WhatsApp's answer is checked: handing the number to
+    // a LID-addressed group throws no error, it returns a status nobody used to read.
     const { ok, status } = await expulsar(client, m.chat, participante?.id || lid || quien || mencionado);
     if (!ok) return client.sendText(m.chat, `No pude sacarlo (error ${status}).`, m);
   } catch (e) {

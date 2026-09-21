@@ -12,9 +12,9 @@ before(async () => {
   globalThis.client.user.lid = "999000@lid";
 });
 const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
-// 100 es admin de WhatsApp; 111, 222 y 333 gente común; el bot también es admin del grupo
+// 100 is a WhatsApp admin; 111, 222 and 333 are ordinary people; the bot is a group admin too
 const participants = [{ id: "100@lid", admin: "superadmin" }, { id: "111@lid", admin: null }, { id: "222@lid", admin: null }, { id: "333@lid", admin: null }, { id: "999000@lid", admin: "admin" }];
-// imita al dispatcher: calcula isAdmin con los roles guardados y pasa isWaAdmin aparte
+// mimics the dispatcher: it works out isAdmin from the stored roles and passes isWaAdmin separately
 const correr = (sender, command, text = "", { esOwner = false } = {}) => {
   const esAdminWhatsApp = !!participants.find((p) => p.id === sender)?.admin;
   const { isAdmin } = R.permisosDe(G, sender, { esOwner, esAdminWhatsApp });
@@ -48,13 +48,13 @@ test("roles: quién puede dar y sacar cada rol", async () => {
   assert.equal(F.rolGrupo(G, "222@lid"), "admin");
   await correr("100@lid", "adminbot", "@222");
   assert.match(ultimo(), /@222 ya es admin del bot acá/);
-  // un admin del bot nombra moderadores, pero no admins del bot
+  // a bot admin appoints moderators, but not bot admins
   await correr("222@lid", "moderador", "@333");
   assert.match(ultimo(), /🧹 @333 ahora es \*moderador\* en este grupo: puede advertir, silenciar, expulsar/);
   assert.equal(F.rolGrupo(G, "333@lid"), "mod");
   await correr("222@lid", "adminbot", "@111");
   assert.match(ultimo(), /Solo un admin de WhatsApp/);
-  // alguien común no nombra a nadie
+  // an ordinary person appoints nobody
   await correr("111@lid", "mod", "@333");
   assert.match(ultimo(), /Solo un admin puede nombrar moderadores/);
   // subir un moderador a admin lo reemplaza; bajar un admin a moderador se hace en dos pasos
@@ -63,7 +63,7 @@ test("roles: quién puede dar y sacar cada rol", async () => {
   await correr("100@lid", "adminbot", "@333");
   assert.match(ultimo(), /Deja de ser moderador porque esto lo incluye/);
   assert.equal(F.rolGrupo(G, "333@lid"), "admin");
-  // sacar: admin del bot solo por un admin de WhatsApp; con el comando del rol que tiene
+  // revoking: a bot admin only by a WhatsApp admin; using the command of the role they hold
   await correr("222@lid", "adminbot", "quitar @333");
   assert.match(ultimo(), /Solo un admin de WhatsApp \(o el owner\) puede sacar admins del bot/);
   await correr("100@lid", "moderador", "quitar @333");
@@ -73,7 +73,7 @@ test("roles: quién puede dar y sacar cada rol", async () => {
   assert.equal(F.rolGrupo(G, "333@lid"), null);
   await correr("100@lid", "adminbot", "quitar @333");
   assert.match(ultimo(), /@333 no tiene rol del bot en este grupo/);
-  // el owner puede todo aunque no sea admin del grupo
+  // the owner can do everything even without being a group admin
   await correr("111@lid", "adminbot", "@333", { esOwner: true });
   assert.equal(F.rolGrupo(G, "333@lid"), "admin");
 });
@@ -95,7 +95,7 @@ test("roles: validaciones del objetivo y listado", async () => {
   await correr("111@lid", "roles", "");
   assert.match(ultimo(), /🧹 \*Moderadores:\* @111/);
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["111@lid", "222@lid", "333@lid"]);
-  // respondiendo a un mensaje también sirve
+  // replying to a message works too
   await P.run({ chat: G, sender: "100@lid", isGroup: true, quoted: { sender: "111@lid" } }, { client: globalThis.client, command: "moderador", args: ["quitar"], text: "quitar", participants, isOwner: false, isWaAdmin: true, isAdmin: true });
   assert.match(ultimo(), /@111 ya no es moderador acá/);
 });

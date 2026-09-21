@@ -3,9 +3,9 @@ import { lidMencionado } from "../lib/menciones.js";
 import { parejaDe, enojarPareja, besoEntrePareja } from "../lib/parejas.js";
 import { parentescoDe } from "../lib/familia.js";
 
-// .besar @x: beso virtual, salvo que alguno de los dos tenga pareja con otra persona. Un pedido de pareja pendiente no
-// cuenta como pareja. Entre novios o casados el beso llega siempre, salvo que la pareja esté enojada: por un intento de
-// infidelidad (una hora, o hasta un regalo) o por días sin un beso ni un regalo, donde el primero puede ser rechazado.
+// .besar @x: a virtual kiss, unless either of them is partnered with someone else. A pending couple request doesn't
+// count as a couple. Between partners or spouses the kiss always lands, unless the partner is in a huff: over an
+// attempted infidelity (an hour, or until a gift) or over days with no kiss or gift, where the first can be turned down.
 const plugin = {};
 plugin.cmd = ["kiss", "beso", "besar"];
 plugin.onlyGroup = true;

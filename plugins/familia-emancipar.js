@@ -2,8 +2,8 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado, nombreDe } from "../lib/menciones.js";
 import { emanciparse, desheredar } from "../lib/familia.js";
 
-// .emancipar: te vas de tu familia. .desheredar @hijo: un padre o madre saca a un hijo. En los dos casos, si llevaba el
-// apellido de la familia, lo deja.
+// .emancipar: you leave your family. .desheredar @child: a parent removes a child. In both cases, if they bore the
+// family surname, they drop it.
 const plugin = {};
 plugin.cmd = ["emancipar", "emanciparse", "emanciparme", "desheredar"];
 plugin.onlyGroup = true;

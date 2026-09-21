@@ -17,7 +17,7 @@ plugin.run = async (m, { client, text, isOwner }) => {
     try {
       await client.sendText(jid, text, null);
       enviados++;
-      // pausa entre grupos para no mandar todo de golpe y que parezca spam.
+      // a pause between groups so it doesn't all go out at once and look like spam.
       await esperar(1500);
     } catch (e) {
       console.error(`[avisar-todos] falló en ${jid}:`, e.message);

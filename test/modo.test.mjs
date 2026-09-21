@@ -31,7 +31,7 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(msg, { client: globalThis.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
-  // un interruptor suelto desde .config lo deja "mixto"
+  // a single switch flipped from .config leaves it "mixto"
   await Config.run(msg, { client: globalThis.client, command: "charla", isOwner: false, isAdmin: true, chat: F.getChat(G), botSettings: {} });
   assert.match(ultimo(), /Opción: `charla`\n• Estado: Activado/);
   assert.equal(F.getChat(G).charla, 1);
@@ -60,7 +60,7 @@ test("modo: con la economía apagada nada reparte coins, pero lo social sigue", 
   assert.equal(aviso.texto, "🧉 @444 subió a *Habitué* (7 días en el grupo y 100 mensajes).", "el ascenso sale sin premio");
   assert.equal(F.getSaldoCoins(G, "444@lid"), 0);
   assert.equal(F.getUser("444@lid").inGroup[G].rango, "habitue");
-  // prendida de nuevo, el mismo juego paga
+  // switched back on, the same game pays
   F.updateChat(G, { monedas: 1 });
   U.juegoIniciado(G, "trivia");
   assert.match(U.juegoTerminado(G, "111@lid"), /\+10 UruCoins por ganar/);

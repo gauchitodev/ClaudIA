@@ -1,7 +1,7 @@
 const plugin = {};
 plugin.cmd = ["faggi"];
 
-// Responde con el texto configurado en config.toml (textofaggi).
+// Answers with the text configured in config.toml (textofaggi).
 plugin.run = async (m, { client }) => {
   const texto = globalThis.textoFaggi || "";
   if (!texto) return client.sendText(m.chat, "Falta configurar el texto de .faggi en config.toml (textofaggi).", m);

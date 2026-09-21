@@ -5,7 +5,7 @@ const plugin = {};
 plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // el horario de .horariojuegos frena solo estos
+plugin.casino = true; // the .horariojuegos schedule stops only these
 plugin.onlyGroup = true;
 
 const ACCIONES = { pedir, plantarse, plantarme: plantarse, doblar, dividir, seguro, rendirse, rendirme: rendirse };

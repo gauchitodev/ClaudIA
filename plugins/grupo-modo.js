@@ -5,7 +5,7 @@ plugin.cmd = ["modo"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 
-// .modo compraventa / .modo amigos cambian de una todos los interruptores "de grupo de amigos" · .modo muestra cómo está
+// .modo compraventa / .modo amigos flip all the "group of friends" switches at once · .modo shows how it stands
 plugin.run = async (m, { client, text }) => {
   if (!(text || "").trim()) return client.sendText(m.chat, textoModo(m.chat), m);
   const r = aplicarModo(m.chat, text);

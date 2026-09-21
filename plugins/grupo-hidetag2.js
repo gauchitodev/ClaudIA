@@ -27,7 +27,7 @@ plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
     }
   };
 
-  // Enviar 10 veces con intervalos de 10 segundos
+  // Send it 10 times, 10 seconds apart
   for (let i = 0; i < 10; i++) {
     setTimeout(() => {
       sendMessage().catch(console.error);

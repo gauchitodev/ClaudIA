@@ -5,7 +5,7 @@ plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", 
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings }) => {
-  // Mapa de comandos, campo real en DB
+  // Command map, with the real DB field
   const optionsMap = {
     antiestados: { key: "antiStatus", from: "chat" },
     antistatus: { key: "antiStatus", from: "chat" },
@@ -45,7 +45,7 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     triviarelampago: { key: "triviaRelampago", from: "chat" },
     casino: { key: "casino", from: "chat" },
     recapsemanal: { key: "recapSemanal", from: "chat" },
-    // interruptores del modo compraventa: charla automática de Claudia, saludo automático, economía de UruCoins y avisos de ascenso
+    // marketplace mode switches: Claudia's automatic chat, the automatic greeting, the UruCoins economy and promotion notices
     charla: { key: "charla", from: "chat" },
     saludos: { key: "saludos", from: "chat" },
     monedas: { key: "monedas", from: "chat" },
@@ -58,18 +58,18 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
   const esChat = opcion.from === "chat";
   const esBot = opcion.from === "bot";
 
-  // comprobación de permisos.
+  // permission check.
   if (esChat && !m.isGroup) {
     return client.sendText(m.chat, txt.onlyGroup, m);
   }
 
-  // comandos que requieren ser owner
+  // commands that require being the owner
   if (["mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall"].includes(command)) {
     if (!isOwner) {
       return client.sendMessage(m.chat, { text: txt.onlyOwner }, { quoted: m });
     }
   }
-  // Verificacion de admin
+  // admin check
   else if (!isAdmin && !isOwner) {
     return client.sendText(m.chat, txt.onlyAdmin, m);
   }
@@ -85,7 +85,7 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     updateSettings(client.user.lid, { [opcion.key]: nuevoValor });
   }
 
-  // mensaje de confirmación.
+  // confirmation message.
   const estado = nuevoValor ? "Activado" : "Desactivado";
   const nombreComando = command === "18" ? "modoadulto" : command;
 

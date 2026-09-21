@@ -3,7 +3,7 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default defineConfig([
-  // Carpetas que genera el bot al correr (no tienen código fuente).
+  // Folders the bot generates while running (no source code in them).
   { ignores: ["database/", "tmp/", "botSession*/"] },
 
   js.configs.recommended,
@@ -12,7 +12,7 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.node,
-        // Globales del bot: se definen en globals.js y main.js y el resto del código los usa a secas.
+        // Bot globals: defined in globals.js and main.js, and used bare by the rest of the code.
         authFile: "readonly",
         baileys: "readonly",
         botVersion: "readonly",
@@ -26,16 +26,16 @@ export default defineConfig([
       },
     },
     rules: {
-      // Los plugins destructuran muchos argumentos que no siempre usan, y los catch vacíos son a propósito.
+      // Plugins destructure many arguments they don't always use, and the empty catches are deliberate.
       "no-unused-vars": ["error", { args: "none", caughtErrors: "none", ignoreRestSiblings: true, varsIgnorePattern: "^_" }],
       "no-empty": ["error", { allowEmptyCatch: true }],
-      // Igualdad estricta siempre; "== null" se deja porque cubre null y undefined a la vez.
+      // Always strict equality; "== null" is allowed because it covers null and undefined at once.
       eqeqeq: ["error", "always", { null: "ignore" }],
-      // Sintaxis actual: const cuando no se reasigna, template strings en vez de concatenar, propiedades abreviadas.
+      // Modern syntax: const when never reassigned, template strings instead of concatenation, shorthand properties.
       "prefer-const": "error",
       "prefer-template": "error",
       "object-shorthand": "error",
-      // Los textos que manda el bot llevan espacios raros (zero-width) a propósito, para el formato de WhatsApp.
+      // The texts the bot sends carry odd (zero-width) spaces on purpose, for WhatsApp formatting.
       "no-irregular-whitespace": ["error", { skipStrings: true, skipTemplates: true, skipComments: true, skipRegExps: true }],
     },
   },

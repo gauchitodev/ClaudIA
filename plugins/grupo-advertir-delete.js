@@ -1,7 +1,7 @@
 import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
 import { destinatario } from "../lib/identidad.js";
 
-// Saca una advertencia de las de este grupo.
+// Removes one of this group's warnings.
 const plugin = {};
 plugin.cmd = ["unwarn", "quitaradvertencia"];
 plugin.onlyGroup = true;

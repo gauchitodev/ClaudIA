@@ -12,7 +12,7 @@ plugin.run = async (m, { client, text, chat }) => {
 
   client.game = client.game ? client.game : {};
   if (Object.values(client.game).find((room) => room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender))) return client.sendText(m.chat, txt.tttSalaExistente, m);
-  // Solo se une a salas en espera de ESTE chat: antes alguien de otro grupo podía meterse en la partida.
+  // It only joins rooms waiting in THIS chat: someone from another group used to be able to walk into the game.
   let room = Object.values(client.game).find((room) => room.state === "WAITING" && room.x === m.chat);
   if (room) {
     room.o = m.chat;

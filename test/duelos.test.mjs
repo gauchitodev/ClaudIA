@@ -35,16 +35,16 @@ test("dados empatados se repiten; cartas con desempate por palo", () => {
   D.desafiar(G, "a", "b", 10, "dados", null);
   const j = D.aceptar(G, "b");
   assert.ok(j.ganador === "b" && /tiró \*2\* · @b tiró \*6\*/.test(j.texto));
-  // cartas: índice 0 = 2♣ ... 12 = A♣, 13 = 2♦ ... ; c2 se corre si coincide con c1
+  // cards: index 0 = 2♣ ... 12 = A♣, 13 = 2♦ ... ; c2 shifts up if it lands on c1
   fijarSaldo(F, G, "a", 100);
   fijarSaldo(F, G, "b", 100);
-  const cartas = [12, 12]; // a saca A♣ (12); b pide 12 -> se corre a 13 = 2♦
+  const cartas = [12, 12]; // a draws A♣ (12); b asks for 12 -> shifts to 13 = 2♦
   i = 0;
   D._rng.randomInt = () => cartas[i++];
   D.desafiar(G, "a", "b", 10, "carta", null);
   const c = D.aceptar(G, "b");
   assert.ok(/@a sacó \*A♣\* · @b sacó \*2♦\*/.test(c.texto) && c.ganador === "a");
-  const mismoValor = [0, 12]; // a: 2♣ ; b pide 12 -> 13 = 2♦: mismo valor, gana el palo ♦ > ♣
+  const mismoValor = [0, 12]; // a: 2♣ ; b asks for 12 -> 13 = 2♦: same value, the suit wins ♦ > ♣
   i = 0;
   D._rng.randomInt = () => mismoValor[i++];
   fijarSaldo(F, G, "a", 100);
@@ -83,46 +83,46 @@ test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", (
   D.PELEA.SEGUNDOS_TURNO = 600;
   const cola = [];
   D._rng.randomInt = () => { if (!cola.length) throw new Error("la prueba se quedó sin valores de azar"); return cola.shift(); };
-  cola.push(0); // empieza el retador (a)
+  cola.push(0); // the challenger starts (a)
   D.desafiar(G, "a", "b", 20, "pelea", null);
   let r = D.aceptar(G, "b", null);
   assert.ok(/¡Empieza la pelea!/.test(r.texto) && /Turno de @a/.test(r.texto) && !r.terminada);
   assert.equal(saldo("a") + saldo("b"), 160, "los dos pusieron 20");
   assert.match(D.accionPelea(G, "b", "golpe").error, /No es tu turno/);
-  cola.push(0, 20, 99); // a: golpe que conecta, daño 20, sin crítico
+  cola.push(0, 20, 99); // a: a punch that lands, 20 damage, no crit
   r = D.accionPelea(G, "a", "golpe");
   assert.match(r.texto, /@a lanza un golpe y conecta: −20/);
   assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 80);
   r = D.accionPelea(G, "b", "cubrirse");
   assert.match(r.texto, /@b se cubre/);
-  cola.push(0, 34, 99); // a: patada que conecta con 34, pero b estaba cubierto -> 17
+  cola.push(0, 34, 99); // a: a kick landing for 34, but b was guarding -> 17
   r = D.accionPelea(G, "a", "patada");
   assert.match(r.texto, /conecta: −17 \(a medias, @b estaba cubierto\)/);
   assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 63);
-  cola.push(25); // b se cura +25
+  cola.push(25); // b heals +25
   r = D.accionPelea(G, "b", "curar");
   assert.match(r.texto, /@b se cura \+25/);
   assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 88);
   assert.match(r.texto, /\.curar \(2\)/.test(r.texto) ? /\.curar \(2\)/ : /Turno de @a/);
   D.accionPelea(G, "a", "cubrirse");
-  cola.push(99, 10, 10); // b: golpe que falla (99 >= 85), contraataque sale (10 < 40) por 10
+  cola.push(99, 10, 10); // b: a punch that misses (99 >= 85), the counter lands (10 < 40) for 10
   r = D.accionPelea(G, "b", "golpe");
   assert.ok(/@b lanza un golpe\.\.\. y falla/.test(r.texto) && /@a contraataca desde la guardia: −10/.test(r.texto));
   assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.b.hp, 78);
-  cola.push(0, 20, 0); // a: golpe crítico 20 -> 30
+  cola.push(0, 20, 0); // a: a critical punch 20 -> 30
   r = D.accionPelea(G, "a", "golpe");
   assert.match(r.texto, /−30 ✨ crítico/);
   assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.b.hp, 48);
-  // b se queda sin curas al segundo uso, y a remata
+  // b runs out of heals on the second use, and a finishes it
   cola.push(20);
   D.accionPelea(G, "b", "curar");
   assert.match(D.accionPelea(G, "a", "cubrirse").texto, /se cubre/);
   assert.match(D.accionPelea(G, "b", "curar").error, /Ya usaste tus curas/);
-  cola.push(0, 34, 0); // b patada crítica 51 contra a cubierto -> 26
+  cola.push(0, 34, 0); // b: a critical kick 51 against a guarding a -> 26
   D.accionPelea(G, "b", "patada");
   assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.a.hp, 74);
   for (const _ of [1, 2, 3]) {
-    cola.push(0, 34, 0); // a: patada crítica 51 a b (68 -> 17 -> 0)
+    cola.push(0, 34, 0); // a: a critical kick 51 on b (68 -> 17 -> 0)
     r = D.accionPelea(G, "a", "patada");
     if (r.terminada) break;
     cola.push(0, 12, 99);
@@ -140,12 +140,12 @@ test("pelea: turno vencido tira un golpe solo, y a los turnos máximos gana el q
   fijarSaldo(F, G, "b", 100);
   D.PELEA.SEGUNDOS_TURNO = 0.05;
   D.PELEA.MAX_TURNOS = 2;
-  const cola = [0, 0, 12, 99]; // empieza a; su golpe automático conecta con 12 y sin crítico
+  const cola = [0, 0, 12, 99]; // a starts; their automatic punch lands for 12 with no crit
   D._rng.randomInt = () => { if (!cola.length) throw new Error("la prueba se quedó sin valores de azar"); return cola.shift(); };
   let aviso = null;
   D.desafiar(G, "a", "b", 10, "pelea", null);
   D.aceptar(G, "b", (msg) => (aviso = msg));
-  D.PELEA.SEGUNDOS_TURNO = 600; // el turno de b ya no vence solo
+  D.PELEA.SEGUNDOS_TURNO = 600; // b's turn no longer expires on its own
   await esperar(120);
   assert.ok(aviso && /se quedó pensando y tira un golpe solo/.test(aviso.texto) && /conecta: −12/.test(aviso.texto), aviso?.texto);
   const r = D.accionPelea(G, "b", "cubrirse");

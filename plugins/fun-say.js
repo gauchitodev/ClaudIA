@@ -1,5 +1,5 @@
-// El bot dice el texto como propio, sin citar a quien lo pidió: queda para admins y moderadores, porque si no
-// cualquiera puede hacerlo hablar y no queda rastro de quién escribió.
+// The bot says the text as its own, without quoting whoever asked: it's for admins and moderators, because
+// otherwise anyone can make it talk and no trace is left of who wrote it.
 const plugin = {};
 plugin.cmd = ["say", "decir"];
 plugin.onlyGroup = true;

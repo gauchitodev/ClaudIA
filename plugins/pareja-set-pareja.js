@@ -1,6 +1,6 @@
 import { fijarPareja, dosPersonas, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
 
-// .setpareja @a @b [| 3 días]: el owner arma una pareja de una, con el tiempo que lleven.
+// .setpareja @a @b [| 3 días]: the owner forms a couple outright, with however long they've been together.
 const plugin = {};
 plugin.cmd = ["setpareja"];
 plugin.onlyOwner = true;

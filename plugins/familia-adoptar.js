@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado, nombreDe } from "../lib/menciones.js";
 import { pedirAdopcion, FAMILIA } from "../lib/familia.js";
 
-// .adoptar @x: un matrimonio adopta a alguien. Queda pendiente hasta que x responda con .si o .no.
+// .adoptar @x: a married couple adopts someone. It stays pending until x answers with .si or .no.
 const plugin = {};
 plugin.cmd = ["adoptar"];
 plugin.onlyGroup = true;

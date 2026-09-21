@@ -5,7 +5,7 @@ plugin.cmd = ["traducir", "translate"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {
-  // Si no hay texto pero se responde a un mensaje, se traduce el mensaje citado (antes este orden estaba invertido).
+  // With no text but replying to a message, the quoted message is translated (this order used to be reversed).
   if (!text && m.quoted && m.quoted.text) text = m.quoted.text;
   if (!text) return client.sendText(m.chat, txt.translateNull, m);
   try {

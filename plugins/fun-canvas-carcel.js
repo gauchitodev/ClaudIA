@@ -9,7 +9,7 @@ plugin.juego = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  // Antes se armaba "<dígitos>@lid" con lo que estuviera escrito: con un teléfono, eso es un LID que no existe.
+  // It used to build "<digits>@lid" from whatever was typed: with a phone number, that is a LID which doesn't exist.
   const { objetivo: who, mencionado } = destinatario(m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 

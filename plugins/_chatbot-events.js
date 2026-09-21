@@ -19,7 +19,7 @@ plugin.before = async (m, { client, isOwner, isMod, user, chat }) => {
     client.sendText(m.chat, teks, m, { mentions: [m.sender] });
   }
 
-  // Chiste de la plantilla: antes además EXPULSABA a quien escribía exactamente "te eliminó." (o "te eliminó!").
+  // A joke from the template: it also used to REMOVE anyone who wrote exactly "te eliminó." (or "te eliminó!").
   if (/^te eliminó[.!]?$/i.test(m.text) && !isOwner) {
     client.sendText(m.chat, `No, pensionista.`, m, { mentions: [m.sender] });
   }

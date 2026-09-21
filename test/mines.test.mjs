@@ -15,7 +15,7 @@ const nueva = (n = 100) => {
   globalThis.partidasMines.clear();
   fijarSaldo(F, G, "u", n);
 };
-// minas en las casillas que diga la lista, en orden
+// mines on the tiles the list names, in order
 const minasEn = (...indices) => {
   let i = 0;
   X._rng.randomInt = () => indices[i++ % indices.length];
@@ -58,7 +58,7 @@ test("mines: destapar seguras sube el multiplicador, retirar paga, la mina pierd
   assert.equal(saldo(), 119);
   assert.match(X.retirar(G, "u").error, /No tenés ninguna partida/);
 
-  // mina: se pierde la apuesta; con escudo, devuelve
+  // a mine: the bet is lost; with a shield, it's refunded
   nueva();
   minasEn(0, 1, 2);
   X.iniciar(G, "u", 20, "3", null);
@@ -74,16 +74,16 @@ test("mines: destapar seguras sube el multiplicador, retirar paga, la mina pierd
 });
 
 test("mines: retiro automático al techo o al destapar todas las seguras, sin destapar devuelve, y vence por tiempo", async () => {
-  // 24 minas: la única segura paga x24,25 y se retira sola
+  // 24 mines: the single safe tile pays x24.25 and cashes out on its own
   nueva();
-  minasEn(...Array.from({ length: 24 }, (_, i) => i)); // minas de A1 a E4; E5 es la segura
+  minasEn(...Array.from({ length: 24 }, (_, i) => i)); // mines from A1 to E4; E5 is the safe one
   X.iniciar(G, "u", 20, "24", null);
   let r = X.destapar(G, "u", "E5");
   assert.ok(r.terminada);
   assert.match(r.mensaje, /^💎 E5 segura, y no quedan más: retiro automático\.\n💰 \*Retiraste\* con 1 segura: x24,25 → cobrás \*485\* UruCoins\./);
   assert.equal(saldo(), 565);
 
-  // 10 minas: el techo de x50 llega a las 7 seguras
+  // 10 mines: the x50 cap is reached at 7 safe tiles
   nueva();
   minasEn(...Array.from({ length: 10 }, (_, i) => i)); // A1..B5
   X.iniciar(G, "u", 10, "10", null);
@@ -97,7 +97,7 @@ test("mines: retiro automático al techo o al destapar todas las seguras, sin de
   assert.match(r.mensaje, /llegaste al techo de x50: retiro automático[\s\S]*x50,00 → cobrás \*500\* UruCoins/);
   assert.equal(saldo(), 590);
 
-  // sin destapar nada, retirar devuelve la apuesta
+  // with nothing uncovered, cashing out returns the bet
   nueva();
   minasEn(0, 1, 2);
   X.iniciar(G, "u", 20, "3", null);
@@ -105,7 +105,7 @@ test("mines: retiro automático al techo o al destapar todas las seguras, sin de
   assert.match(r.mensaje, /^↩️ Retiraste sin destapar nada: te devuelvo los 20 UruCoins\./);
   assert.equal(saldo(), 100);
 
-  // se vence el tiempo: retiro automático con lo que haya
+  // the time runs out: an automatic cash-out with whatever there is
   nueva();
   minasEn(0, 1, 2);
   X.MINES.SEGUNDOS_DECISION = 0.05;

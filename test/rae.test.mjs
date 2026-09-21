@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { parsearRae, textoRae, definir, superindices, _dep, RAE } from "../lib/rae.js";
 
-// Páginas reales de dle.rae.es guardadas el 5/9/2026 (recortadas al #resultados; a "hacer" se le sacaron los pies de sinónimos).
+// Real dle.rae.es pages saved on 2026-09-05 (trimmed to #resultados; the synonym footers were stripped from "hacer").
 const pagina = (nombre) => fs.readFileSync(new URL(`./fixtures/rae/${nombre}.html`, import.meta.url), "utf8");
 
 test("una entrada con dos homógrafos: títulos con superíndice, etimología y acepciones", () => {

@@ -26,7 +26,7 @@ plugin.before = async (m, { client }) => {
         semana,
       });
 
-      // premio en UruCoins, hasta un tope de entradas por hashtag por semana
+      // a UruCoins prize, up to a cap of entries per hashtag per week
       let premio = "";
       if (monedasActivas(m.chat) && contarEntradasUsuarioSemana(m.chat, tag, m.sender, semana) <= COINS.TOPE_HASHTAG_SEMANA) {
         ganarCoins(m.chat, m.sender, COINS.HASHTAG, `hashtag_${tag}`);

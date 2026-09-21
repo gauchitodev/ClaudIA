@@ -7,7 +7,7 @@ plugin.cmd = ["economia", "economía", "ajustar"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 
-// .economia [días]: panel para admins · .ajustar @x 50 [motivo] o .ajustar @x -50 [motivo]: corrección a mano, solo owner
+// .economia [days]: dashboard for admins · .ajustar @x 50 [reason] or .ajustar @x -50 [reason]: manual correction, owner only
 plugin.run = async (m, { client, args, text, command, isOwner }) => {
   if (command !== "ajustar") {
     const dias = Math.min(90, Math.max(1, parseInt(args[0], 10) || 7));
@@ -16,7 +16,7 @@ plugin.run = async (m, { client, args, text, command, isOwner }) => {
   }
 
   if (!isOwner) return client.sendText(m.chat, txt.onlyOwner, m);
-  const who = lidMencionado(m, text); // la regex vieja se tragaba la cantidad que venía después de la mención
+  const who = lidMencionado(m, text); // the old regex swallowed the amount that came after the mention
   const destinatario = who ? getUser(who) : null;
   const cantidad = parseInt(args.find((a) => /^-?\d+$/.test(a)), 10);
   if (!destinatario?.lid || Number.isNaN(cantidad) || cantidad === 0) return client.sendText(m.chat, "Uso: .ajustar @persona 50 [motivo] para dar, o .ajustar @persona -50 [motivo] para sacar.", m);

@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata }) => {
-  // Se consulta el estado real: el metadata cacheado puede estar viejo y hacer que .g repita "cerrar" en vez de abrir.
+  // The real state is queried: cached metadata may be stale and make .g repeat "close" instead of opening.
   const metadataFresca = await client.groupMetadata(m.chat).catch(() => null);
   const isClosed = (metadataFresca || groupMetadata).announce;
   const newState = isClosed ? "not_announcement" : "announcement";

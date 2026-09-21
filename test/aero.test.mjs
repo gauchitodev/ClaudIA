@@ -10,7 +10,7 @@ before(async () => {
   P = (await import("../plugins/aero.js")).default;
 });
 
-// respuesta real de la API de la NOAA para Carrasco (6/9/2026 02:00Z)
+// a real response from NOAA's API for Carrasco (2026-09-06 02:00Z)
 const SUMU = { icaoId: "SUMU", reportTime: "2026-09-06T02:00:00.000Z", temp: 7, dewp: 3, wdir: 190, wspd: 19, visib: "6+", altim: 1028, rawOb: "METAR SUMU 060200Z 19019KT 9999 FEW012 BKN033 OVC060 07/03 Q1028 TEMPO 5000 SHRA", name: "Carrasco Intl, CA, UY", clouds: [{ cover: "FEW", base: 1200 }, { cover: "BKN", base: 3300 }, { cover: "OVC", base: 6000 }], fltCat: "VFR" };
 const SULS = { icaoId: "SULS", reportTime: "2026-09-06T02:00:00.000Z", temp: 8, dewp: 1, wdir: 200, wspd: 13, wgst: 23, visib: "6+", altim: 1026, rawOb: "METAR SULS 060200Z 20013G23KT 9999 SCT030 08/01 Q1026", name: "Laguna del Sauce, MA, UY", clouds: [{ cover: "SCT", base: 3000 }], fltCat: "VFR" };
 const AHORA = Date.parse("2026-09-06T02:21:00.000Z");
@@ -82,7 +82,7 @@ test("aero: pide a la NOAA con caché, y arma los textos de .metar y .taf", asyn
   t = await A.textoTaf("melo", AHORA);
   assert.match(t, /Sin TAF para SUMO/);
   assert.match(A.textoMenuAero(), /✈️ \*MENÚ AERO\*[\s\S]*carrasco → SUMU/);
-  // el plugin
+  // the plugin
   const cliente = globalThis.client;
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "metar", text: "" });
   assert.match(ultimoEnviado().msg.text, /Carrasco Intl/);
@@ -96,7 +96,7 @@ const SIGMET_SBCW = { icaoId: "SBGL", firId: "SBCW", firName: "SBCW CURITIBA", v
 const SIGMET_VIEJO = { ...SIGMET_SUEO, seriesId: "0", validTimeFrom: 1788600000, validTimeTo: 1788610000 };
 
 test("aero: SIGMET de la FIR Montevideo, filtrado y descrito", async () => {
-  const ahora = 1788663480000; // 2026-09-06 02:58Z, dentro de la vigencia del SIGMET 1
+  const ahora = 1788663480000; // 2026-09-06 02:58Z, while SIGMET 1 is still valid
   A._dep.fetch = async (url) => (url.includes("/isigmet?format=json") ? respuesta(200, [SIGMET_SBCW, SIGMET_VIEJO, SIGMET_SUEO]) : respuesta(500, "x"));
   const t = await A.textoSigmet(ahora);
   assert.equal(
@@ -112,7 +112,7 @@ test("aero: SIGMET de la FIR Montevideo, filtrado y descrito", async () => {
   );
   assert.match(A.describirSigmet(SIGMET_SBCW, ahora), /\*SIGMET 96\* · tormentas embebidas\n⏱️ 23:30Z a 03:30Z \(quedan 32 min\)\n📏 hasta FL450 · estacionario · sin cambios/);
   assert.match(A.describirSigmet({ ...SIGMET_SBCW, hazard: "VA", qualifier: "ETNA", chng: "INTSF", dir: "NE", spd: "15" }, ahora), /ceniza volcánica del volcán ETNA[\s\S]*se mueve al NE a 15 kt · intensificándose/);
-  const sin = await A.textoSigmet(ahora + 4 * 3600e3 + 60e3); // ya venció el 1 (y el caché sigue vigente 5 min, así que no vuelve a pedir)
+  const sin = await A.textoSigmet(ahora + 4 * 3600e3 + 60e3); // 1 has expired (and the cache lives 5 min, so it doesn't refetch)
   assert.match(sin, /✅ Sin SIGMET vigente/);
 });
 
@@ -161,7 +161,7 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   cerca(ev.puesta, "Europe/Helsinki", "22:49", "Helsinki se pone");
   assert.equal(C.eventosSolares(78.22, 15.63, 2026, 6, 21).polar, "dia", "Longyearbyen en junio: sol de medianoche");
   assert.equal(C.eventosSolares(78.22, 15.63, 2026, 12, 21).polar, "noche");
-  // el comando: geocodifica con Open-Meteo (inyectado) y arma el texto en hora local
+  // the command: geocodes with Open-Meteo (injected) and builds the text in local time
   A._dep.fetch = async (url) => {
     if (url.includes("search?name=Montevideo")) return respuesta(200, { results: [{ name: "Montevideo", country: "Uruguay", admin1: "Departamento de Montevideo", latitude: -34.90328, longitude: -56.18816, timezone: "America/Montevideo" }] });
     if (url.includes("search?name=Xyzzy")) return respuesta(200, {});

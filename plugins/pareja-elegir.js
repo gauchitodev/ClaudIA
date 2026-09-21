@@ -3,7 +3,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { pedirPareja } from "../lib/parejas.js";
 
-// .pareja @x: le pide a x ser pareja. Queda pendiente hasta que x responda con .aceptar o .rechazar.
+// .pareja @x: asks x to be your partner. It stays pending until x answers with .aceptar or .rechazar.
 const plugin = {};
 plugin.cmd = ["pareja"];
 plugin.onlyGroup = true;

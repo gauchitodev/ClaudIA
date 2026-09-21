@@ -12,11 +12,11 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const { objetivo: who, lid, jid, mencionado } = destinatario(m, text, participants);
   if (!mencionado) return client.sendText(m.chat, `Uso incorrecto.\nEjemplo:\n${usedPrefix}${command} *textoDelBot* @usuario *textoFake*`, m);
 
-  // no afectar a owners del bot
+  // leave the bot's owners alone
   if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
 
-  // El texto se parte por el "@número" tal como está escrito, que puede no ser el id con el que quedó resuelta
-  // la persona: si se partiera por el resuelto, el mensaje no se cortaría donde corresponde.
+  // The text is split on the "@number" exactly as written, which may not be the id the person resolved to: splitting
+  // on the resolved one would cut the message in the wrong place.
   const sp = text.match(/@\d{3,}/)?.[0] || `@${String(who).split("@")[0]}`;
   const splitText = text.split(sp);
 

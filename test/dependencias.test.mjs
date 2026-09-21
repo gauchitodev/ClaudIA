@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// Baileys importa jimp de forma dinámica (import("jimp")) para las miniaturas de las imágenes que manda el bot: si
-// falta, tira "No image processing library available". Como ningún archivo del repo lo importa, un grep no lo ve;
-// este test evita que se vuelva a sacar de package.json por "no usarse".
+// Baileys imports jimp dynamically (import("jimp")) for the thumbnails of the images the bot sends: without it, it
+// throws "No image processing library available". Since no file in the repo imports it, a grep won't find it; this
+// test keeps it from being dropped from package.json again for "not being used".
 test("jimp 1.x está instalado para las miniaturas de Baileys", async () => {
   const jimp = await import("jimp");
   assert.equal(typeof jimp.Jimp, "function");

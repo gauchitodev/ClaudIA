@@ -1,6 +1,6 @@
 import { proponerCasamiento } from "../lib/parejas.js";
 
-// .casarse: le propone casamiento a tu pareja. Hace falta una semana de relación.
+// .casarse: proposes marriage to your partner. A week of relationship is required.
 const plugin = {};
 plugin.cmd = ["casarse", "casarme", "boda", "matrimonio", "casar"];
 plugin.onlyGroup = true;

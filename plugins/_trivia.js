@@ -1,6 +1,6 @@
 import { responderTrivia } from "../lib/trivia.js";
 
-// Corre en cada mensaje: si hay una trivia abierta en el chat (de .trivia o relámpago), lee la respuesta.
+// Runs on every message: if a trivia is open in the chat (from .trivia or lightning), it reads the answer.
 const plugin = (m) => m;
 plugin.before = async (m, { client }) => {
   try {

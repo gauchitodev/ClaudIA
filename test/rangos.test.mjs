@@ -28,12 +28,12 @@ test("rangos: la antigüedad sale de la primera actividad registrada si la entra
   F.initDataDB(persona(111));
   F.sumarMensajeDiario(G, "111@lid", "2026-08-01");
   F.sumarMensajeDiario(G, "111@lid", "2026-08-20");
-  fijar(111, { messageCount: 5 }); // entrada anterior a los rangos: sin "desde"
+  fijar(111, { messageCount: 5 }); // a row predating the ranks: no "desde"
   const desde = R.desdeCuando(G, "111@lid", F.getUser("111@lid"));
   assert.equal(new Date(desde).toDateString(), new Date(2026, 7, 1).toDateString());
   assert.equal(F.getUser("111@lid").inGroup[G].desde, desde, "quedó guardada");
   F.initDataDB(persona(222));
-  const nuevo = F.getUser("222@lid", G); // getUser con chat inicializa la entrada con "desde" = ahora
+  const nuevo = F.getUser("222@lid", G); // getUser with a chat initializes the row with "desde" = now
   assert.ok(Date.now() - nuevo.inGroup[G].desde < 5000);
   assert.equal(R.rangoDe(G, "222@lid", nuevo).dias, 0);
 });
@@ -43,10 +43,10 @@ test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
   const r = R.rangoDe(G, "111@lid", F.getUser("111@lid"));
   assert.deepEqual([r.rango.clave, r.siguiente.clave, r.faltanDias, r.faltanMensajes], ["nuevo", "habitue", 4, 50]);
   assert.match(R.textoRango(G, "111@lid", F.getUser("111@lid"), true).texto, /Tu rango:\* 🌱 \*Nuevo\*\n3 días en el grupo · 50 mensajes\nSiguiente: 🧉 Habitué, faltan 4 días y 50 mensajes\./);
-  // primera pasada: guarda el rango actual sin avisar
+  // first pass: it stores the current rank silently
   assert.equal(R.chequearAscenso(G, "111@lid", F.getUser("111@lid")), null);
   assert.equal(F.getUser("111@lid").inGroup[G].rango, "nuevo");
-  // ahora cumple habitué
+  // now they meet habitué's requirements
   fijar(111, { messageCount: 100, desde: Date.now() - 8 * DIA, rango: "nuevo" });
   const saldoAntes = F.getSaldoCoins(G, "111@lid");
   const aviso = R.chequearAscenso(G, "111@lid", F.getUser("111@lid"));
@@ -55,7 +55,7 @@ test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
   assert.equal(F.getSaldoCoins(G, "111@lid") - saldoAntes, 10);
   assert.equal(F.getUser("111@lid").inGroup[G].rango, "habitue");
   assert.equal(R.chequearAscenso(G, "111@lid", F.getUser("111@lid")), null, "no se anuncia dos veces");
-  // leyenda: rango máximo
+  // leyenda: the top rank
   fijar(111, { messageCount: 10000, desde: Date.now() - 400 * DIA, rango: "veterano" });
   assert.match(R.chequearAscenso(G, "111@lid", F.getUser("111@lid")).texto, /subió a \*Leyenda\*.*\+100 UruCoins/);
   assert.match(R.textoRango(G, "111@lid", F.getUser("111@lid")).texto, /Rango de @111:\* 👑 \*Leyenda\*[\s\S]*Es el rango máximo/);
@@ -71,7 +71,7 @@ test("rangos: los comandos y el hook de mensajes", async () => {
   assert.match(ultimoEnviado().msg.text, /RANGOS DEL GRUPO/);
   await P.run({ chat: G, sender: "222@lid", isGroup: true }, { client: cliente, command: "rango", text: "@999" });
   assert.match(ultimoEnviado().msg.text, /No tengo datos/);
-  // el hook anuncia el ascenso en el grupo
+  // the hook announces the promotion in the group
   fijar(222, { messageCount: 500, desde: Date.now() - 31 * DIA, rango: "habitue" });
   const enviados = globalThis.enviados.length;
   await Hook.before({ chat: G, sender: "222@lid", isGroup: true, message: {} }, { client: cliente, user: F.getUser("222@lid") });

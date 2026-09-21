@@ -6,7 +6,7 @@ const plugin = {};
 plugin.cmd = ["rango", "rangos"];
 plugin.onlyGroup = true;
 
-// .rango → tu rango y qué te falta para el próximo · .rango @persona → el de otra · .rangos → la escalera
+// .rango → your rank and what's left to the next · .rango @person → someone else's · .rangos → the ladder
 plugin.run = async (m, { client, command, text }) => {
   if (command === "rangos") return client.sendText(m.chat, textoRangos(), m);
 

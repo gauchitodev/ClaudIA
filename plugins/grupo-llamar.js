@@ -16,8 +16,8 @@ plugin.run = async (m, { client, text, command }) => {
     return client.sendText(m.chat, `Menciones canceladas.`, m);
   }
 
-  // El recorte viejo usaba un regex con \s que seguía tragando dígitos: ".llamar @111 5 minutos" terminaba llamando
-  // a "1115", que no es nadie.
+  // The old parsing used a regex with \s that kept swallowing digits: ".llamar @111 5 minutos" ended up calling
+  // "1115", who is nobody.
   const who = lidsMencionados(m, text);
   if (!who.length) return client.sendText(m.chat, "Mencione al menos una persona", m);
   const mencion = who.map((w) => `@${w.split("@")[0]}`).join(" ");

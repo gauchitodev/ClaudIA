@@ -1,5 +1,5 @@
-// Utilidades compartidas por las pruebas. Cada archivo de prueba corre en su propio proceso (node --test) con una
-// base SQLite nueva en una carpeta temporal, así que no se pisan entre sí ni tocan la base real del bot.
+// Shared helpers for the tests. Each test file runs in its own process (node --test) with a fresh SQLite database
+// in a temp folder, so they don't step on each other or touch the bot's real database.
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -7,7 +7,7 @@ import path from "path";
 export const G = "grupo@g.us";
 export { setTimeout as esperar } from "node:timers/promises";
 export const carta = (s) => ({ v: s.slice(0, -1), p: s.slice(-1) });
-// las cartas se reparten con pop(): la primera de la lista sale primero
+// cards are dealt with pop(): the first in the list comes out first
 export const mazoDe = (...cartas) => cartas.map(carta).reverse();
 
 export function clienteFalso() {
@@ -30,7 +30,7 @@ export function clienteFalso() {
   };
 }
 
-// Crea una base nueva en una carpeta temporal y deja los globales que el bot espera.
+// Creates a fresh database in a temp folder and sets the globals the bot expects.
 export async function prepararBase(nombre = "prueba") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudia-test-${nombre}-`));
   process.chdir(dir);
@@ -49,7 +49,7 @@ export async function prepararBase(nombre = "prueba") {
 
 export const ultimoEnviado = () => globalThis.enviados[globalThis.enviados.length - 1];
 
-// Deja el saldo exactamente en n (moverCoins admite negativos; ganarCoins ignora cantidades <= 0).
+// Sets the balance to exactly n (moverCoins takes negatives; ganarCoins ignores amounts <= 0).
 export function fijarSaldo(F, chat, usuario, n) {
   const diferencia = n - F.getSaldoCoins(chat, usuario);
   if (diferencia !== 0) F.moverCoins(chat, usuario, diferencia, "test_carga");

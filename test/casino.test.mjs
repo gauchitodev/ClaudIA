@@ -8,7 +8,7 @@ before(async () => {
   ({ F } = await prepararBase("casino"));
   C = await import("../lib/casino.js");
   K = await import("../lib/carrera.js");
-  COINS.CASINO_TOPE_DIA = 1e9; // las pruebas juegan muchas veces con la misma persona
+  COINS.CASINO_TOPE_DIA = 1e9; // the tests play many times as the same person
 });
 const saldo = (u) => F.getSaldoCoins(G, u);
 const cargar = (u, n) => fijarSaldo(F, G, u, n);
@@ -78,7 +78,7 @@ test("tragamonedas: cinco líneas, diagonal de diamantes y esperanza", () => {
 });
 
 test("tragamonedas: dice la verdad cuando cobrás menos de lo apostado, y redondea justo", () => {
-  // fila 1 con dos cerezas y nada más: paga 0,4 de la apuesta
+  // row 1 with two cherries and nothing else: pays 0.4 of the bet
   const dosCerezas = [0, 5, 9, 0, 12, 5, 5, 9, 12];
   let i = 0;
   C._rng.randomInt = () => dosCerezas[i++ % dosCerezas.length];
@@ -87,7 +87,7 @@ test("tragamonedas: dice la verdad cuando cobrás menos de lo apostado, y redond
   i = 0;
   assert.match(C.jugarTragamonedas(G, "v", 7).mensaje, /Cobrás \*3\* UruCoins: perdés 4\./, "7 x 0,4 = 2,8 se redondea a 3, no se trunca a 2");
   assert.equal(saldo("v"), 70 - 7 + 3);
-  // fila 1 con tres cerezas: paga la apuesta justa
+  // row 1 with three cherries: pays the bet exactly
   const tresCerezas = [0, 5, 9, 0, 12, 5, 0, 9, 12];
   i = 0;
   C._rng.randomInt = () => tresCerezas[i++ % tresCerezas.length];
@@ -107,7 +107,7 @@ test("la ayuda del casino no nombra el tope diario si está apagado", () => {
 test("casino: límites de apuesta y tope diario", () => {
   cargar("l", 1000);
   assert.match(C.jugarTragamonedas(G, "l", 4).error, /mínima/);
-  // el máximo es 100 o el 20 % del saldo, lo que sea mayor: con 1000 son 200
+  // the maximum is 100 or 20 % of the balance, whichever is larger: with 1000 that's 200
   assert.match(C.jugarTragamonedas(G, "l", 201).error, /Tu apuesta máxima en el casino es 200 UruCoins \(100 o el 20 % de tu saldo, lo que sea mayor\)/);
   cargar("p", 100);
   assert.match(C.jugarTragamonedas(G, "p", 101).error, /máxima en el casino es 100 UruCoins/);

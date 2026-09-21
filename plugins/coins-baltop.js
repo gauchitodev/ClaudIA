@@ -9,8 +9,8 @@ plugin.cmd = ["baltop", "topcoins", "ricos"];
 plugin.economia = true;
 plugin.onlyGroup = true;
 
-// Los más ricos del grupo (antes salía dentro de .coins). Si no entrás en el top, te dice en qué puesto estás.
-// Va con nombres y sin menciones: etiquetar a diez personas por consulta les llenaba el teléfono de avisos.
+// The group's richest (this used to live inside .coins). If you don't make the top, it tells you your place.
+// It uses names and no mentions: tagging ten people per query filled their phones with notifications.
 plugin.run = async (m, { client }) => {
   const top = topCoins(m.chat, TOP_N);
   if (top.length === 0) return client.sendText(m.chat, "💰 Acá nadie tiene UruCoins todavía. Se ganan reaccionando, con los hashtags y ganando juegos.", m);

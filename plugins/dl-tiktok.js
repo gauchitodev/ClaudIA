@@ -1,7 +1,7 @@
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { bajarYEnviar, esTikTok } from "../lib/ytdlp.js";
 
-// .tt <link>: baja el video con yt-dlp. Antes usaba la API de TikMate, que dejó de responder.
+// .tt <link>: downloads the video with yt-dlp. It used to use TikMate's API, which stopped answering.
 const plugin = {};
 plugin.cmd = ["tt", "tiktok", "dltiktok"];
 plugin.botAdmin = true;

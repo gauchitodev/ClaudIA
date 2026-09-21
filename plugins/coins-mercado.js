@@ -5,7 +5,7 @@ const plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // el horario de .horariojuegos frena solo estos
+plugin.casino = true; // the .horariojuegos schedule stops only these
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args, command, chat }) => {
@@ -19,7 +19,7 @@ plugin.run = async (m, { client, args, command, chat }) => {
     return client.sendText(m.chat, textoMercado(mercado), m);
   }
 
-  // .jugar <id> <opción> <cantidad>: la cantidad es lo último, la opción puede tener espacios
+  // .jugar <id> <option> <amount>: the amount comes last, the option may contain spaces
   const id = parseInt(args[0], 10);
   const cantidad = parseInt(args[args.length - 1], 10);
   const opcion = args.slice(1, -1).join(" ");

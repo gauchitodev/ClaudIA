@@ -1,7 +1,7 @@
-// Probado en Linux, Windows, y Termux Android. Usa cookies.txt (cuenta real de YouTube) para
-// evitar los bloqueos anti-bot. Si YouTube falla en todos los candidatos, cae a SoundCloud
-// como segunda fuente antes de rendirse. Si aun así falla, la persona puede pedir un reintento
-// con .reintentar (o pidiéndoselo a Claudia), y el bot lo vuelve a probar solo más tarde.
+// Tested on Linux, Windows and Termux Android. It uses cookies.txt (a real YouTube account) to get around the
+// anti-bot blocks. If YouTube fails on every candidate, it falls back to SoundCloud as a second source before
+// giving up. If it still fails, the person can ask for a retry with .reintentar (or by asking Claudia), and the bot
+// tries again on its own later.
 import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
@@ -25,11 +25,11 @@ plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
-  // .playya / .videoya: igual que .play / .video, pero si hay espera la salta pagando UruCoins.
+  // .playya / .videoya: same as .play / .video, but if there's a queue it skips it by paying UruCoins.
   const saltarCooldown = /ya$/i.test(command);
   const cmdBase = command.toLowerCase().replace(/ya$/, "");
 
-  // Sin título no hay nada que bajar: se chequea antes de cobrar UruCoins o de contar el intento como spam.
+  // With no title there is nothing to download: checked before charging UruCoins or counting the attempt as spam.
   if (!text) return client.sendText(m.chat, txt.ingresarTitulo, m);
 
   const waitTime = m.isGroup ? 60000 : 210000;
@@ -44,7 +44,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
       if (!gastarCoins(m.chat, m.sender, COINS.SALTAR_COOLDOWN, "saltar_cooldown")) {
         return client.sendText(m.chat, `Saltar la espera cuesta *${COINS.SALTAR_COOLDOWN} UruCoins* y tenés ${getSaldoCoins(m.chat, m.sender)}. Esperá ${formattedTime} o juntá más.`, m);
       }
-      // pagó: sigue como si no hubiera espera
+      // they paid: carry on as if there were no queue
     } else {
       updateUser(m.sender, { commandAttempts: user.commandAttempts + 1 });
       const newAttempts = user.commandAttempts + 1;
@@ -79,8 +79,8 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
 
 export default plugin;
 
-// La descarga en sí, separada del comando para poder llamarla también desde los reintentos.
-// quoted: el mensaje original (para responderle y reaccionar) o null si es un reintento automático.
+// The download itself, split off from the command so the retries can call it too.
+// quoted: the original message (to reply and react to) or null when it's an automatic retry.
 export async function descargarMultimedia({ client, chat, usuario, texto, tipo, quoted = null, isOwner = false, esReintento = false }) {
   const isAudio = tipo === "audio";
   const prohibido = ["anuel"];
@@ -97,7 +97,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       const outputTemplate = path.join("./tmp", `${randomFileName}.%(ext)s`);
 
       const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
-      // Con timeout: una descarga colgada bloqueaba la cola entera hasta reiniciar el bot.
+      // With a timeout: a hung download used to block the whole queue until the bot was restarted.
       const { stderr } = await execAsync(commandStr, { timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
         stdout: error.stdout || "",
         stderr: error.stderr || error.message || "",
@@ -140,8 +140,8 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       }
 
       if (!miniaturaEnviadaRef.enviada) {
-        // Aviso de "enviando" citando el pedido (antes citaba un contacto falso que se veía como "WhatsApp · Status").
-        // En los reintentos automáticos no hay pedido que citar y va sin cita.
+        // The "sending" notice quotes the request (it used to quote a fake contact that showed up as "WhatsApp · Status").
+        // On automatic retries there is no request to quote, so it goes without one.
         const aviso = txt.sendPreview(isAudio, candidato.title);
         if (candidato.thumbnail) {
           await client.sendFile(chat, candidato.thumbnail, null, aviso, quoted).catch(() => client.sendText(chat, aviso, quoted));
@@ -157,7 +157,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
     return false;
   };
 
-  // Al fallar: guarda el fallo para poder reintentarlo y avisa cómo pedirlo (solo la primera vez).
+  // On failure: it stores the failure so it can be retried and says how to ask for it (the first time only).
   const fallar = async (mensaje) => {
     reaccionar("❌");
     if (esReintento) {
@@ -226,8 +226,8 @@ function parsearResultados(stdout, fuente) {
     const url = lineas[i + 1];
     let thumbnail = lineas[i + 2] || "";
     const id = lineas[i + 3] || "";
-    // YouTube suele devolver la miniatura en .webp, y sendFile manda cualquier .webp como sticker (y pierde el texto).
-    // La versión .jpg de la miniatura siempre existe a partir del ID del video.
+    // YouTube usually returns the thumbnail as .webp, and sendFile sends any .webp as a sticker (losing the caption).
+    // The .jpg version of the thumbnail always exists, derived from the video ID.
     if (fuente === "youtube" && /^[\w-]{11}$/.test(id)) thumbnail = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
     else if (/\.webp(\?|$)/i.test(thumbnail)) thumbnail = "";
     if (title && url) resultados.push({ title, url, thumbnail, fuente });

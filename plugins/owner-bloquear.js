@@ -5,7 +5,7 @@ plugin.cmd = ["bloquear", "desbloquear"];
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, command, participants }) => {
-  // Bloquear es por número: WhatsApp no acepta un LID acá, y antes se le pasaba justamente eso.
+  // Blocking goes by number: WhatsApp takes no LID here, and a LID is exactly what it used to be handed.
   const { jid, mencionado } = destinatario(m, text, participants);
   if (!mencionado) return;
   if (!jid) return client.sendText(m.chat, "No sé el número de esa persona, así que no la puedo bloquear.", m);

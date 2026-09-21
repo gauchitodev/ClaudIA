@@ -37,7 +37,7 @@ test("escudo: la tienda lo describe para todos los juegos y protegerApuesta lo g
 });
 
 test("escudo: ruleta y tragamonedas", async () => {
-  C._rng.randomInt = () => 17; // sale el 17 negro
+  C._rng.randomInt = () => 17; // black 17 comes up
   C.CASINO.RULETA_SEGUNDOS = 0.05;
   conEscudo("a");
   fijarSaldo(F, G, "b", 100);
@@ -51,7 +51,7 @@ test("escudo: ruleta y tragamonedas", async () => {
   assert.equal(saldo("b"), 80);
   assert.equal(escudos("a"), 0);
 
-  // tragamonedas: tres columnas sin ninguna línea ganadora
+  // slots: three reels with no winning line
   const rodillos = [0, 5, 9, 5, 9, 12, 12, 14, 15];
   let i = 0;
   C._rng.randomInt = () => rodillos[i++ % rodillos.length];
@@ -65,7 +65,7 @@ test("escudo: ruleta y tragamonedas", async () => {
 });
 
 test("escudo: carrera", async () => {
-  K._rng.randomInt = (min) => min; // gana el primer caballo
+  K._rng.randomInt = (min) => min; // the first horse wins
   K.CARRERA.SEGUNDOS = 0.05;
   conEscudo("a");
   let largada = null;

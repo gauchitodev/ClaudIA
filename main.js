@@ -24,7 +24,7 @@ const MAX_REINTENTOS = 5;
 let reconectando = false;
 let horaConexion = 0;
 
-// Reacciones ya contadas (mensaje + quien reacciona), en RAM y con tope, para no contar dos veces la misma.
+// Reactions already counted (message + who reacted), in RAM and capped, so the same one is never counted twice.
 const reaccionesContadas = new Map();
 const MAX_REACCIONES_RECORDADAS = 5000;
 function marcarReaccionContada(messageId, reactorLid) {
@@ -113,7 +113,7 @@ async function startBot() {
       reconectando = false;
       resolverCanal();
       globalThis.horaConexion = horaConexion;
-      // Aviso al owner: al arrancar el proceso, y cuando vuelve después de una caída larga.
+      // Notify the owner: on process start, and when coming back from a long outage.
       if (!globalThis.avisoArranqueEnviado) {
         globalThis.avisoArranqueEnviado = true;
         avisarOwner(`Arranqué (${globalThis.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
@@ -121,7 +121,7 @@ async function startBot() {
         avisarOwner(`Volví después de ${Math.round((Date.now() - globalThis.horaCaida) / 60000)} min sin conexión.`, "reconexion");
       }
       globalThis.horaCaida = 0;
-      // El watcher se registra una sola vez: en cada reconexión se volvía a registrar y cada cambio de plugin se recargaba varias veces.
+      // The watcher is registered once: it used to re-register on every reconnect, so each plugin change reloaded several times.
       if (!globalThis.watchPluginsIniciado) {
         watchPlugins();
         globalThis.watchPluginsIniciado = true;
@@ -131,18 +131,18 @@ async function startBot() {
 
   client.handler = handler.handleMessage.bind(globalThis.client);
 
-  // Se procesan TODOS los mensajes del lote (Baileys puede entregar varios juntos), no solo el último.
-  // Van en orden y de a uno para no mezclar el orden de las respuestas dentro de un mismo chat.
+  // ALL messages in the batch are processed (Baileys may deliver several at once), not just the last one.
+  // They go in order and one at a time, so replies within a chat don't get interleaved.
   client.ev.on("messages.upsert", async (chatUpdate) => {
     if (!client.handler) return;
     for (const m of chatUpdate.messages || []) {
       try {
-        // Los avisos de grupo (alguien entró, lo hicieron admin, pidió unirse, etc.) vienen sin "message" pero con
-        // messageStubType, y los necesitan _detect-events, la lista negra y el refresco de metadatos del grupo.
+        // Group notices (someone joined, was promoted, requested to join, etc.) arrive without "message" but with
+        // messageStubType, and _detect-events, the blacklist and the group metadata refresh all need them.
         if (!m?.message && !m?.messageStubType) continue;
         if (m.message && Object.keys(m.message)[0] === "ephemeralMessage") m.message = m.message.ephemeralMessage.message;
         if (m.key && m.key.remoteJid === "status@broadcast") continue;
-        // "notify" = llegó en vivo; "append" = vino del historial. handle-message lo usa para ignorar comandos viejos.
+        // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.
         m._upsertType = chatUpdate.type;
         await client.handler(m, chatUpdate);
       } catch (e) {
@@ -151,26 +151,26 @@ async function startBot() {
     }
   });
 
-  // Cuando cambian los participantes o admins de un grupo, refrescamos la metadata guardada.
-  // Sin esto, la lista de admins queda como estaba al conectar, y el bot no se entera de que
-  // lo hicieron (o le sacaron) admin hasta el próximo reinicio.
+  // When a group's participants or admins change, the stored metadata is refreshed.
+  // Without this the admin list stays as it was on connect, and the bot doesn't find out it was
+  // given (or stripped of) admin until the next restart.
   client.ev.on("group-participants.update", async ({ id, participants, action }) => {
     try {
       if (!id?.endsWith("@g.us")) return;
-      // El que sale del grupo (o lo sacan) pierde el rol del bot que tenía ahí.
+      // Whoever leaves the group (or is removed) loses the bot role they had there.
       if (action === "remove") limpiarRolesAlSalir(id, participants);
 
-      // La metadata se refresca antes que nada: la lista negra necesita saber con qué id lista el grupo a cada uno.
-      // Si no se pudo traer, se sigue igual: las reglas del grupo se mandan lo mismo.
+      // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
+      // If it couldn't be fetched, carry on anyway: the group rules still get sent.
       const metadata = await client.groupMetadata(id).catch(() => null);
       if (metadata) client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
 
       if (action === "add") {
-        // Lista negra: al que está anotado se lo saca apenas entra, sin esperar a que escriba.
+        // Blacklist: anyone on it is removed as soon as they join, without waiting for them to talk.
         const soyAdmin = metadata?.participants?.find((p) => p.id === client.user?.lid || p.id === client.user?.jid)?.admin;
         const { expulsados, fallados } = soyAdmin ? await expulsarDeListaNegra(client, id, participants, metadata.participants) : { expulsados: [], fallados: [] };
 
-        // Al que entra se le mandan las reglas del grupo, si un admin las cargó con .reglas set. Al de la lista negra no.
+        // Newcomers get the group rules, if an admin set them with .reglas set. Blacklisted ones don't.
         const anotados = [...expulsados, ...fallados].map((e) => e.original);
         const bienvenidos = (participants || []).filter((p) => !anotados.includes(p));
         const aviso = avisoReglasParaNuevos(id, bienvenidos);
@@ -181,7 +181,7 @@ async function startBot() {
     }
   });
 
-  // Puntos por reacciones: suma "recibidas" a quien escribió el mensaje, "emitidas" a quien reacciona.
+  // Reaction points: adds "received" to whoever wrote the message, "given" to whoever reacted.
   client.ev.on("messages.reaction", (reactions) => {
     for (const { key, reaction } of reactions) {
       try {
@@ -192,10 +192,10 @@ async function startBot() {
         const reactorLid = reaction.key?.participant;
         if (!autorLid || !reactorLid) continue;
         if (autorLid === reactorLid) continue;
-        // Las reacciones del propio bot (🕐 en descargas, 🔥 de racha, 🪙 de la pregunta del día) no reparten coins ni ranking.
+        // The bot's own reactions (🕐 on downloads, 🔥 for streaks, 🪙 for the daily question) hand out no coins or ranking.
         if (reaction.key?.fromMe || reactorLid === client.user?.lid) continue;
-        // Sacar y volver a poner la reacción (o cambiar el emoji) dispara el evento de nuevo: sin esto sumaba
-        // ranking, UruCoins y votos de hashtags sin límite.
+        // Removing and re-adding a reaction (or changing the emoji) fires the event again: without this it piled up
+        // ranking, UruCoins and hashtag votes without limit.
         if (!marcarReaccionContada(key.id, reactorLid)) continue;
 
         const mes = mesDe();
@@ -208,8 +208,8 @@ async function startBot() {
     }
   });
 
-  // Cuando cambia la configuración del grupo (abierto/cerrado, nombre, etc.), se descarta el caché de metadatos para
-  // que se vuelva a leer fresco en el próximo mensaje. Los cambios de participantes los refresca el handler de arriba.
+  // When the group settings change (open/closed, name, etc.) the metadata cache is dropped so it's read fresh on
+  // the next message. Participant changes are refreshed by the handler above.
   client.ev.on("groups.update", (cambios) => {
     for (const cambio of cambios || []) {
       if (cambio?.id && client.chats?.[cambio.id]) delete client.chats[cambio.id].metadata;
@@ -219,8 +219,8 @@ async function startBot() {
   return client;
 }
 
-// Resuelve el ID interno del canal configurado en [canal] de config.toml a partir de su link de invitación.
-// Se hace una sola vez por proceso; si falla, los archivos salen sin la etiqueta de canal.
+// Resolves the internal ID of the channel configured under [canal] in config.toml from its invite link.
+// Done once per process; if it fails, files go out without the channel tag.
 async function resolverCanal() {
   const enlace = globalThis.canalConfig?.enlace;
   if (!enlace || globalThis.canal) return;
@@ -239,16 +239,16 @@ async function resolverCanal() {
 
 globalThis.db = loadDatabase();
 
-// Carpeta temporal para descargas, stickers y canvas (está en .gitignore, así que en un clon nuevo no existe).
+// Temp folder for downloads, stickers and canvas (it's in .gitignore, so a fresh clone won't have it).
 mkdirSync("./tmp", { recursive: true });
 
-// Red de contención: una promesa rechazada sin manejar (por ejemplo un envío que falla con la conexión caída
-// dentro de un setTimeout) no debe tumbar el proceso entero.
+// Safety net: an unhandled promise rejection (say, a send that fails with the connection down inside a
+// setTimeout) must not take the whole process down.
 process.on("unhandledRejection", (error) => {
   console.error("[unhandledRejection]", error);
 });
 
-// Pendientes (reintentos de descargas): revisa cada un minuto si hay algo que ejecutar.
+// Pending items (download retries): checks every minute whether there's anything to run.
 iniciarPendientes();
 iniciarTareasProgramadas();
 
@@ -260,9 +260,9 @@ setInterval(() => {
   if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
 }, 1000 * 60 * 30);
 
-// Los plugins se cargan una sola vez, antes de conectar. Cuando se cargaban al abrir la conexión había una ventana
-// en la que globalThis.plugins estaba vacío y un comando que llegara justo ahí no encontraba ningún plugin; además
-// se volvían a importar en cada reconexión al aire. Los cambios en caliente los sigue tomando watchPlugins().
+// Plugins are loaded once, before connecting. Loading them when the connection opened left a window where
+// globalThis.plugins was empty and a command arriving right then matched no plugin; on top of that they were
+// re-imported on every reconnect. Hot changes are still picked up by watchPlugins().
 await loadPlugins();
 
 startBot();

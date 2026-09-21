@@ -7,7 +7,7 @@ before(async () => {
   ({ F } = await prepararBase("horario-juegos"));
   H = await import("../lib/horario-juegos.js");
 });
-// hora local fija (los chequeos usan getHours/getMinutes, como el resto del bot)
+// a fixed local time (the checks use getHours/getMinutes, like the rest of the bot)
 const en = (hora, minutos = 0) => new Date(2026, 8, 5, hora, minutos, 0);
 
 test("horario de juegos: parseo de franjas", () => {
@@ -54,7 +54,7 @@ test("horario de juegos: se guarda por grupo y el aviso se limita", () => {
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00", "un pedido inválido no toca el horario guardado");
   assert.ok(H.quitarHorario(G).ok);
   assert.equal(F.getChat(G).horarioJuegos, "");
-  const t0 = 1_800_000_000_000; // una fecha real: el "último aviso" arranca en 0 y se compara con la ventana de 10 min
+  const t0 = 1_800_000_000_000; // a real date: the "last notice" starts at 0 and is compared against the 10 min window
   assert.equal(H.correspondeAvisar(G, t0), true);
   assert.equal(H.correspondeAvisar(G, t0 + 1000), false, "dentro de los 10 min solo se reacciona");
   assert.equal(H.correspondeAvisar(OTRO, t0 + 1000), true, "el límite es por grupo");

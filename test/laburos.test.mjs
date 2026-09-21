@@ -13,13 +13,13 @@ const conteo = (parcial = {}) => ({ ...Object.fromEntries(Object.keys(L.OFICIOS)
 test("laburos: el sueldo sube en los oficios con poca gente y nunca baja en los llenos", () => {
   assert.equal(L.factorSueldo("tambero", conteo()), 1, "sin nadie laburando, sueldo base");
 
-  // Con gente amontonada en un oficio, ese oficio se queda en el sueldo base (no hay castigo) y los vacíos suben.
+  // With people piled into one trade, that trade stays at the base wage (no penalty) and the empty ones rise.
   const c = conteo({ tambero: 3 });
   assert.equal(L.factorSueldo("tambero", c), 1, "el oficio lleno no cobra menos que el base");
   assert.ok(L.factorSueldo("camionero", c) > 1, "el oficio vacío cobra más");
   assert.equal(L.sueldoActual("tambero", c), L.OFICIOS.tambero.sueldo);
 
-  // Topes: el bonus no pasa de DINAMICO_BONUS_MAX y el saturado nunca baja del base.
+  // Caps: the bonus never exceeds DINAMICO_BONUS_MAX and the crowded one never falls below the base.
   assert.equal(L.factorSueldo("tambero", conteo({ tambero: 120 })), 1);
   assert.equal(L.factorSueldo("dj", conteo({ tambero: 120 })), 1 + L.LABURO.DINAMICO_BONUS_MAX);
 
@@ -41,7 +41,7 @@ test("laburos: la gente se cuenta en todos los grupos y una persona cuenta una v
 });
 
 test("laburos: .cobrar paga el sueldo del oficio por el evento del día", () => {
-  // tambero está lleno, así que cobra el sueldo base (25) multiplicado por el evento: 0,5 / 1 / 1,5 / 2
+  // tambero is crowded, so it pays the base wage (25) times the event: 0.5 / 1 / 1.5 / 2
   const antes = F.getSaldoCoins(G, "a@lid");
   const r = L.cobrar(G, "a@lid");
   assert.ok(r.ok, r.error);
@@ -60,13 +60,13 @@ test("laburos: niveles por cobros, con bonus por nivel y aviso al subir", () => 
   assert.equal(L.textoNivel(7), "nivel 3 (+10 %); faltan 5 cobros para el nivel 4");
   assert.equal(L.textoNivel(11), "nivel 3 (+10 %); falta 1 cobro para el nivel 4");
   assert.equal(L.textoNivel(63), "nivel 10 (+45 %), el máximo");
-  // "a@lid" es tambero en G con 6 cobros (nivel 2): cobra con +5 % y con este cobro llega a 7, nivel 3
+  // "a@lid" is a tambero in G with 6 paydays (level 2): they get paid with +5 % and this payday takes them to 7, level 3
   globalThis.db.prepare(`UPDATE laburos SET cobros = 6, ultimo_cobro = '' WHERE chat = ? AND usuario = ?`).run(G, "a@lid");
   assert.equal(L.etiquetaLaburo(G, "a@lid"), "🐄 Tambero nv.2");
   const r = L.cobrar(G, "a@lid");
   assert.ok(r.ok, r.error);
   const cobrado = Number(r.mensaje.match(/Cobraste \*(\d+) UruCoins\*/)[1]);
-  assert.ok([13, 26, 39, 53].includes(cobrado), `cobró ${cobrado}`); // 25 × 1,05 × evento (0,5 / 1 / 1,5 / 2)
+  assert.ok([13, 26, 39, 53].includes(cobrado), `cobró ${cobrado}`); // 25 × 1.05 × the event (0.5 / 1 / 1.5 / 2)
   assert.match(r.mensaje, /\(nivel 2, \+5 %\)\. Tenés/);
   assert.match(r.mensaje, /⬆️ Subiste a nivel 3 de tambero: \+10 % de sueldo de ahora en más\./);
   assert.equal(L.etiquetaLaburo(G, "a@lid"), "🐄 Tambero nv.3");

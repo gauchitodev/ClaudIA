@@ -1,7 +1,7 @@
 import { nombreDe } from "../lib/menciones.js";
 import { elegirApellido, apellidoDe, FAMILIA } from "../lib/familia.js";
 
-// .apellido Rodríguez: el matrimonio elige apellido; lo llevan los dos y lo heredan los hijos. Sin nada, muestra el tuyo.
+// .apellido Rodríguez: the couple picks a surname; both bear it and the children inherit it. With nothing, it shows yours.
 const plugin = {};
 plugin.cmd = ["apellido"];
 plugin.onlyGroup = true;

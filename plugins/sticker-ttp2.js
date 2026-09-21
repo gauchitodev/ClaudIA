@@ -10,7 +10,7 @@ const plugin = {};
 plugin.cmd = ["ttp2", "attp2"];
 plugin.botAdmin = true;
 
-// Sticker animado: el texto en 16 colores del arcoíris, un cuadro cada 100 ms, armado con ffmpeg.
+// Animated sticker: the text in 16 rainbow colours, one frame every 100 ms, assembled with ffmpeg.
 plugin.run = async (m, { client, text }) => {
   if (!text && !m.quoted) return client.sendText(m.chat, "Ingresa un texto.", m);
   m.react("⏳");

@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { textoFamilia, textoFamilias } from "../lib/familia.js";
 
-// .familia [@x]: el árbol de alguien (o el tuyo). .familias: las familias con apellido, por tamaño.
+// .familia [@x]: someone's tree (or yours). .familias: the families that have a surname, by size.
 const plugin = {};
 plugin.cmd = ["familia", "mifamilia", "familias"];
 plugin.onlyGroup = true;

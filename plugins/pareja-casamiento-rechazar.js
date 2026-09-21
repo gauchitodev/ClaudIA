@@ -1,7 +1,7 @@
 import { responderCasamiento } from "../lib/parejas.js";
 import { responderAdopcion, textoRespuestaAdopcion } from "../lib/familia.js";
 
-// .no: rechaza la propuesta de casamiento de tu pareja, o la adopción que te ofrecieron.
+// .no: turns down your partner's marriage proposal, or the adoption you were offered.
 const plugin = {};
 plugin.cmd = ["no"];
 plugin.onlyGroup = true;

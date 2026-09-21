@@ -1,5 +1,5 @@
 // Anti-links de grupos y canales de WhatsApp.
-// Solo salta con un link de verdad (chat.whatsapp.com/CODIGO); escribir "grupo de whatsapp" no cuenta.
+// It only fires on a real link (chat.whatsapp.com/CODE); writing "grupo de whatsapp" doesn't count.
 const groupLinkRegex = /chat\.whatsapp\.com\/[A-Za-z0-9]{6,}/i;
 const channelLinkRegex = /whatsapp\.com\/channel\/[A-Za-z0-9]{6,}/i;
 
@@ -14,7 +14,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
   if (chat.antiGroups && isGroupLink) {
     if (!isBotAdmin) return client.sendText(m.chat, txt.antiGroups, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
-    // el link de este mismo grupo no se castiga
+    // this group's own link isn't punished
     const thisGroup = await client.groupInviteCode(m.chat).catch(() => null);
     if (thisGroup && m.text.includes(thisGroup)) return client.sendText(m.chat, "El link es de este mismo grupo 😄", m);
 

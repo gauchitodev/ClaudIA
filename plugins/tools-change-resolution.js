@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["res"];
 plugin.botAdmin = true;
 
-// .res 500 (alto, manteniendo proporción) o .res 300x600, respondiendo a una imagen
+// .res 500 (height, keeping the aspect ratio) or .res 300x600, replying to an image
 plugin.run = async (m, { client, text, usedPrefix, command }) => {
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || "";
@@ -24,7 +24,7 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
     if (isNaN(newWidth) || isNaN(newHeight)) return client.sendText(m.chat, txt.changeResolutionNumbers(usedPrefix, command), m);
   }
 
-  // Tope de tamaño: sin esto ".res 20000x20000" reserva gigas de RAM y tumba la tablet.
+  // Size cap: without it ".res 20000x20000" reserves gigabytes of RAM and takes the tablet down.
   const MAX_LADO = 4096;
   if (newWidth < 1 || newHeight < 1 || newWidth > MAX_LADO || newHeight > MAX_LADO) return client.sendText(m.chat, `Tamaño inválido: cada lado tiene que estar entre 1 y ${MAX_LADO} píxeles.`, m);
 

@@ -1,16 +1,16 @@
 import { existsSync, mkdirSync } from "fs";
 import Database from "better-sqlite3";
 
-// Cargar base de datos SQLite
+// Load the SQLite database
 export function loadDatabase() {
-  // Si la carpeta "databases" no existe, se crea.
+  // Create the "databases" folder if it isn't there.
   if (!existsSync("./database")) mkdirSync("./database");
 
-  // Cargar db (better-sqlite3 es síncrono)
+  // Open the db (better-sqlite3 is synchronous)
   const db = new Database("./database/database.db");
   console.log("🟢 Base de datos SQLite (better-sqlite3) conectada");
 
-  // Crear tabla users
+  // Create the users table
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       lid TEXT PRIMARY KEY,
@@ -32,14 +32,14 @@ export function loadDatabase() {
     )
   `);
 
-  // Migración: si la tabla users ya existía de antes sin la columna "memoria", se la agrega.
+  // Migration: if the users table already existed without the "memoria" column, add it.
   const columnasUsers = db.prepare(`PRAGMA table_info(users)`).all();
   if (!columnasUsers.some((c) => c.name === "memoria")) {
     db.exec(`ALTER TABLE users ADD COLUMN memoria TEXT DEFAULT ""`);
     console.log("🟢 Migración: columna 'memoria' agregada a la tabla users");
   }
 
-  // Crear tabla chats
+  // Create the chats table
   db.exec(`
     CREATE TABLE IF NOT EXISTS chats (
       remoteJid TEXT PRIMARY KEY,
@@ -77,8 +77,8 @@ export function loadDatabase() {
     )
   `);
 
-  // Migración: interruptores de actividad (pregunta del día, trivia relámpago, recap semanal), horario de juegos e
-  // interruptores del modo compraventa (charla, saludos, monedas, ascensos) en bases ya creadas.
+  // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours and the marketplace
+  // mode switches (chat, greetings, coins, promotions) on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
   for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"]]) {
     if (!columnasChats.includes(columna)) {
@@ -87,7 +87,7 @@ export function loadDatabase() {
     }
   }
 
-  // Crear tabla de comandos bloqueados por chat (modo blacklist)
+  // Create the per-chat blocked commands table (blacklist mode)
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_blacklist (
       remoteJid TEXT NOT NULL,
@@ -96,7 +96,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Crear tabla settings
+  // Create the settings table
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       botJid TEXT PRIMARY KEY,
@@ -107,10 +107,10 @@ export function loadDatabase() {
     )
   `);
 
-  // Lista negra de personas, por grupo. chat = "*" es la lista de todos los grupos (la maneja el owner desde el privado).
-  // En jid va el mejor identificador que se tenga de la persona (el número; el LID si el número no se conoce) y en lid
-  // su LID cuando se sabe: en los grupos nuevos WhatsApp identifica a la gente por LID y muchas veces no manda el
-  // número, así que sin el LID guardado no hay forma de reconocerla en la lista de participantes ni de expulsarla.
+  // Per-group blacklist. chat = "*" is the all-groups list (the owner manages it from a private chat).
+  // jid holds the best identifier known for the person (their number; the LID when the number isn't known) and lid
+  // holds their LID when it is known: in newer groups WhatsApp identifies people by LID and often doesn't send the
+  // number, so without the stored LID there is no way to recognize them among the participants or to remove them.
   db.exec(`
     CREATE TABLE IF NOT EXISTS lista_negra (
       chat TEXT NOT NULL,
@@ -122,12 +122,12 @@ export function loadDatabase() {
       PRIMARY KEY (chat, jid)
     )
   `);
-  // Migración: columna lid en listas negras ya creadas.
+  // Migration: lid column on blacklists that already exist.
   if (!db.prepare(`PRAGMA table_info(lista_negra)`).all().some((c) => c.name === "lid")) {
     db.exec(`ALTER TABLE lista_negra ADD COLUMN lid TEXT`);
     console.log("🟢 Migración: columna 'lid' agregada a la lista negra");
   }
-  // Migración: la lista negra vieja era una sola para todos los grupos; sus entradas pasan a "*" y la tabla vieja se borra.
+  // Migration: the old blacklist was a single list for every group; its entries move to "*" and the old table is dropped.
   if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blacklist'`).get()) {
     db.transaction(() => {
       db.exec(`INSERT OR IGNORE INTO lista_negra (chat, jid, reason, dateAdded, addedBy) SELECT '*', jid, reason, dateAdded, addedBy FROM blacklist`);
@@ -136,7 +136,7 @@ export function loadDatabase() {
     console.log("🟢 Migración: lista negra pasada al formato por grupo");
   }
 
-  // Crear tabla de entradas de hashtags (historias random, etc.)
+  // Create the hashtag entries table (random stories, etc.)
   db.exec(`
     CREATE TABLE IF NOT EXISTS hashtag_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +150,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Crear tabla de interacciones mensuales (puntos por reaccionar / recibir reacciones)
+  // Create the monthly interactions table (points for reacting / being reacted to)
   db.exec(`
     CREATE TABLE IF NOT EXISTS interacciones_mensuales (
       mes TEXT NOT NULL,
@@ -162,7 +162,7 @@ export function loadDatabase() {
     )
   `);
 
-  // UruCoins: saldo por persona y por grupo (cada grupo tiene su propia economía)
+  // UruCoins: balance per person and per group (each group has its own economy)
   db.exec(`
     CREATE TABLE IF NOT EXISTS urucoins (
       chat TEXT NOT NULL,
@@ -172,7 +172,7 @@ export function loadDatabase() {
     )
   `);
 
-  // UruCoins: registro de cada movimiento (para auditar, y para los topes diarios)
+  // UruCoins: a log of every movement (for auditing, and for the daily caps)
   db.exec(`
     CREATE TABLE IF NOT EXISTS urucoins_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,11 +184,11 @@ export function loadDatabase() {
     )
   `);
 
-  // Índices: el registro de movimientos crece sin límite y se consulta en cada reacción y en cada apuesta (topes diarios)
+  // Indexes: the movement log grows without bound and is queried on every reaction and every bet (daily caps)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_urucoins_log_persona ON urucoins_log (chat, usuario, fecha)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_urucoins_log_chat_fecha ON urucoins_log (chat, fecha)`);
 
-  // Períodos ya cerrados (anuncio de ganadores del mes / historia de la semana), para no repetirlos
+  // Periods already closed (monthly winners / story of the week announcements), so they aren't repeated
   db.exec(`
     CREATE TABLE IF NOT EXISTS periodos_cerrados (
       chat TEXT NOT NULL,
@@ -198,14 +198,14 @@ export function loadDatabase() {
     )
   `);
 
-  // Migración: contador de reacciones en las entradas de hashtags (para la historia de la semana)
+  // Migration: reaction counter on hashtag entries (for the story of the week)
   const columnasHashtag = db.prepare(`PRAGMA table_info(hashtag_entries)`).all();
   if (!columnasHashtag.some((c) => c.name === "reacciones")) {
     db.exec(`ALTER TABLE hashtag_entries ADD COLUMN reacciones INTEGER DEFAULT 0`);
     console.log("🟢 Migración: columna 'reacciones' agregada a hashtag_entries");
   }
 
-  // Inventario de la tienda de UruCoins (ítems por persona y por grupo)
+  // UruCoins shop inventory (items per person and per group)
   db.exec(`
     CREATE TABLE IF NOT EXISTS inventario (
       chat TEXT NOT NULL,
@@ -218,7 +218,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Pendientes: cosas que el bot tiene que hacer más tarde (por ahora, reintentar descargas fallidas)
+  // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -234,7 +234,7 @@ export function loadDatabase() {
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pendientes_estado ON pendientes (estado, ejecutar_en)`);
 
-  // Lotería semanal: boletos comprados por persona y semana
+  // Weekly lottery: tickets bought per person and week
   db.exec(`
     CREATE TABLE IF NOT EXISTS loteria_boletos (
       chat TEXT NOT NULL,
@@ -246,7 +246,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Mercados de apuestas sobre eventos reales (los abre un admin) y las apuestas de cada persona
+  // Betting markets on real events (opened by an admin) and each person's bets
   db.exec(`
     CREATE TABLE IF NOT EXISTS mercados (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -271,7 +271,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Cumpleaños: día y mes por persona y grupo (Claudia saluda en el grupo donde se anotó)
+  // Birthdays: day and month per person and group (Claudia says happy birthday in the group they signed up in)
   db.exec(`
     CREATE TABLE IF NOT EXISTS cumpleanos (
       chat TEXT NOT NULL,
@@ -283,7 +283,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Actividad: mensajes por persona y día (racha diaria y recap), rachas, y la pregunta del día de cada grupo
+  // Activity: messages per person and day (daily streak and recap), streaks, and each group's daily question
   db.exec(`
     CREATE TABLE IF NOT EXISTS actividad_diaria (
       chat TEXT NOT NULL,
@@ -313,7 +313,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Memoria del grupo: datos y chistes internos que el grupo le anota a Claudia con .recordá que
+  // Group memory: facts and inside jokes the group tells Claudia to remember with .recordá que
   db.exec(`
     CREATE TABLE IF NOT EXISTS memoria_grupo (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -324,7 +324,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Roles del bot por grupo (.adminbot / .moderador): una persona tiene a lo sumo un rol por grupo
+  // Per-group bot roles (.adminbot / .moderador): a person holds at most one role per group
   db.exec(`
     CREATE TABLE IF NOT EXISTS roles_grupo (
       chat TEXT NOT NULL,
@@ -336,7 +336,7 @@ export function loadDatabase() {
     )
   `);
 
-  // Compraventa: publicaciones (#vendo / #compro) numeradas por grupo, alertas por palabra y calificaciones entre personas
+  // Marketplace: posts (#vendo / #compro) numbered per group, keyword alerts and ratings between people
   db.exec(`
     CREATE TABLE IF NOT EXISTS publicaciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,8 +355,8 @@ export function loadDatabase() {
       UNIQUE (chat, numero)
     )
   `);
-  // messageId es el mensaje de la persona (la foto, o el que trae #vendo) y mensajeBot el de la confirmación: citando
-  // cualquiera de los dos se sabe de qué publicación se está hablando, sin tener que acordarse del número.
+  // messageId is the person's message (the photo, or the one carrying #vendo) and mensajeBot the confirmation:
+  // quoting either one identifies the post, with no need to remember its number.
   if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot")) {
     db.exec(`ALTER TABLE publicaciones ADD COLUMN mensajeBot TEXT`);
     console.log("🟢 Migración: columna 'mensajeBot' agregada a publicaciones");
@@ -385,10 +385,10 @@ export function loadDatabase() {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_calificaciones_para ON calificaciones (para, fecha)`);
 
-  // Parejas: una fila por pareja, con quién propuso casamiento y desde cuándo están casados. Los pedidos sin responder
-  // van en solicitudes_pareja y las relaciones terminadas en exparejas. Antes todo vivía en las columnas couple/married
-  // de cada usuario, y "tener pareja" dependía de que las dos fichas se apuntaran mutuamente: un pedido sin contestar se
-  // confundía con una pareja. Las columnas viejas quedan, pero ya no se usan.
+  // Couples: one row per couple, with who proposed and since when they've been married. Unanswered requests go in
+  // solicitudes_pareja and ended relationships in exparejas. This all used to live in each user's couple/married
+  // columns, where "being in a couple" depended on both records pointing at each other: an unanswered request looked
+  // just like a couple. The old columns remain, but are no longer used.
   const habiaParejas = !!db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'parejas'`).get();
   db.exec(`
     CREATE TABLE IF NOT EXISTS parejas (
@@ -404,7 +404,7 @@ export function loadDatabase() {
       enojada TEXT DEFAULT ""
     )
   `);
-  // Migración: enojos y último beso de la pareja (bases que ya tenían la tabla parejas sin esas columnas)
+  // Migration: a couple's spats and last kiss (databases that already had the parejas table without those columns)
   const columnasParejas = db.prepare(`PRAGMA table_info(parejas)`).all().map((c) => c.name);
   for (const [columna, definicion] of [["ultimo_beso", "INTEGER DEFAULT 0"], ["enojo_hasta", "INTEGER DEFAULT 0"], ["enojo_por", "TEXT DEFAULT \"\""], ["enojada", "TEXT DEFAULT \"\""]]) {
     if (!columnasParejas.includes(columna)) db.exec(`ALTER TABLE parejas ADD COLUMN ${columna} ${definicion}`);
@@ -429,8 +429,8 @@ export function loadDatabase() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_exparejas_b ON exparejas (b)`);
   if (!habiaParejas) migrarParejasViejas(db);
 
-  // Familias: cada adopción es una fila con el hijo y sus dos padres (el matrimonio que lo adoptó); el resto del árbol se
-  // calcula. Los pedidos de adopción sin responder van aparte y vencen solos. El apellido es por persona.
+  // Families: each adoption is a row with the child and their two parents (the married couple who adopted them); the
+  // rest of the tree is derived. Unanswered adoption requests live apart and expire on their own. Surnames are per person.
   db.exec(`
     CREATE TABLE IF NOT EXISTS familia_hijos (
       hijo TEXT PRIMARY KEY,
@@ -459,15 +459,15 @@ export function loadDatabase() {
     )
   `);
 
-  // Migración: apodo con el que Claudia le habla a cada persona (se compra en la tienda)
+  // Migration: the nickname Claudia uses for each person (bought in the shop)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
     db.exec(`ALTER TABLE users ADD COLUMN apodo TEXT DEFAULT ""`);
     console.log("🟢 Migración: columna 'apodo' agregada a la tabla users");
   }
 
-  // Migración: las advertencias eran una sola cuenta para todos los grupos (users.warn), así que dos advertencias en
-  // un grupo y una en otro terminaban echando a la persona del segundo. Pasan a inGroup[chat].warn, copiadas a cada
-  // grupo donde la persona esté: es donde el contador viejo ya valía, así que nadie queda más cerca del kick que antes.
+  // Migration: warnings used to be a single count across every group (users.warn), so two warnings in one group and
+  // one in another ended up kicking the person from the second. They move to inGroup[chat].warn, copied to every group
+  // the person is in: that's where the old counter already applied, so nobody ends up closer to a kick than before.
   const conAdvertencias = db.prepare(`SELECT lid, warn, inGroup FROM users WHERE warn > 0`).all();
   if (conAdvertencias.length) {
     db.transaction(() => {
@@ -488,23 +488,23 @@ export function loadDatabase() {
   return db;
 }
 
-// Función que se llama en cada mensaje
+// Called on every message
 export function initDataDB(m) {
   const chatJid = m.chat;
   const botJid = client?.user?.lid;
   const pushName = m?.pushName || "";
 
-  // Asegurar datos defaults de usuario
+  // Make sure the user's default data exists
   db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName) VALUES (?, ?, ?)`).run(m.sender, m.senderJid, pushName);
 
-  // Asegurar datos defaults del chat
+  // Make sure the chat's default data exists
   db.prepare(`INSERT OR IGNORE INTO chats (remoteJid) VALUES (?)`).run(chatJid);
 
-  // Asegurar settings defaults del bot
+  // Make sure the bot's default settings exist
   db.prepare(`INSERT OR IGNORE INTO settings (botJid) VALUES (?)`).run(botJid);
 }
 
-// Obtener datos de usuario
+// Get a user's data
 export function getUser(userId, chatJid = null) {
   let lidJid;
   if (userId.endsWith("@lid")) {
@@ -515,7 +515,7 @@ export function getUser(userId, chatJid = null) {
   const row = db.prepare(`SELECT * FROM users WHERE ${lidJid} = ?`).get(userId);
   if (!row) return null;
 
-  // Parsear JSON
+  // Parse the JSON
   try {
     row.inGroup = JSON.parse(row.inGroup || "{}");
   } catch {
@@ -528,7 +528,7 @@ export function getUser(userId, chatJid = null) {
     row.couplesHistory = [];
   }
 
-  // Si es necesario inicializar inGroup[m.chat]
+  // Initialize inGroup[m.chat] if needed
   if (chatJid) {
     if (!row.inGroup[chatJid]) {
       row.inGroup[chatJid] = {
@@ -536,7 +536,7 @@ export function getUser(userId, chatJid = null) {
         afkReason: "",
         mute: false,
         messageCount: 0,
-        desde: Date.now(), // primera vez que el bot vio a la persona en este grupo (antigüedad para los rangos)
+        desde: Date.now(), // first time the bot saw this person in this group (seniority, for the ranks)
       };
 
       updateUser(userId, {
@@ -548,17 +548,17 @@ export function getUser(userId, chatJid = null) {
   return row;
 }
 
-// Obtener datos de chat
+// Get a chat's data
 export function getChat(jid) {
   return db.prepare(`SELECT * FROM chats WHERE remoteJid = ?`).get(jid) || null;
 }
 
-// Obtener datos de configuración del bot
+// Get the bot's settings
 export function getBotSettings(botJid) {
   return db.prepare(`SELECT * FROM settings WHERE botJid = ?`).get(botJid) || null;
 }
 
-// Actualizar pushName, jid, timestamp en la entrada del usuario.
+// Update pushName, jid and timestamp on the user's row.
 export function syncUserInfo(m) {
   const lid = m.sender;
   const newJid = m.senderJid;
@@ -575,12 +575,12 @@ export function syncUserInfo(m) {
   if (!finalJid || !isRegularJid) finalJid = newJid;
 
   const datos = { jid: finalJid, timestamp };
-  // Los avisos de grupo y algunos tipos de mensaje vienen sin pushName: no pisar el nombre guardado con null.
+  // Group notices and some message types come without a pushName: don't overwrite the stored name with null.
   if (newPush) datos.pushName = newPush;
   updateUser(lid, datos);
 }
 
-// actualizar datos en db
+// update data in the db
 function updateRow(table, primaryKey, primaryValue, data) {
   if (!data || Object.keys(data).length === 0) return true;
 
@@ -588,7 +588,7 @@ function updateRow(table, primaryKey, primaryValue, data) {
   const setClause = keys.map((k) => `${k} = ?`).join(", ");
   const values = Object.values(data);
 
-  // normalizar booleanos para better-sqlite3: convertir true/false en 1/0
+  // normalize booleans for better-sqlite3: turn true/false into 1/0
   for (let i = 0; i < values.length; i++) {
     const v = values[i];
     if (typeof v === "boolean") {
@@ -598,19 +598,19 @@ function updateRow(table, primaryKey, primaryValue, data) {
 
   const sql = `UPDATE ${table} SET ${setClause} WHERE ${primaryKey} = ?`;
 
-  // Devuelve si de verdad tocó una fila: antes devolvía true siempre, y un UPDATE que no encontraba a nadie pasaba
-  // por bueno (así se "guardaban" advertencias que nunca se guardaron).
+  // Reports whether it actually touched a row: it used to return true always, so an UPDATE that matched nobody
+  // passed as good (that's how warnings got "saved" without ever being saved).
   return db.prepare(sql).run(...values, primaryValue).changes > 0;
 }
 
-// actualizar datos de un usuario
-// Acepta LID o número, igual que getUser: antes filtraba siempre por lid, así que con un número el UPDATE no tocaba
-// ninguna fila y no se notaba.
+// update a user's data
+// Takes a LID or a number, like getUser: it used to filter by lid always, so with a number the UPDATE matched no
+// row and nobody noticed.
 export function updateUser(userId, data) {
   return updateRow("users", String(userId).endsWith("@lid") ? "lid" : "jid", userId, data);
 }
 
-// Datos de una persona dentro de un grupo puntual (users.inGroup), mergeados con los que ya tenía.
+// A person's data inside one particular group (users.inGroup), merged with whatever they already had.
 export function updateUserInGroup(userId, chat, data) {
   const row = getUser(userId);
   if (!row) return false;
@@ -618,9 +618,9 @@ export function updateUserInGroup(userId, chat, data) {
   return updateUser(userId, { inGroup: JSON.stringify(inGroup) });
 }
 
-// ===================== Advertencias (.adv / .warn), por grupo =====================
-// Viven en inGroup[chat].warn. Antes eran una sola cuenta para todos los grupos, en la columna users.warn.
-export const MAX_ADVERTENCIAS = 3; // a la tercera se lo echa del grupo
+// ===================== Warnings (.adv / .warn), per group =====================
+// They live in inGroup[chat].warn. They used to be a single count across every group, in the users.warn column.
+export const MAX_ADVERTENCIAS = 3; // on the third one they're kicked from the group
 export function advertenciasDe(userId, chat) {
   return getUser(userId)?.inGroup?.[chat]?.warn || 0;
 }
@@ -629,7 +629,7 @@ export function setAdvertencias(userId, chat, cantidad) {
   return updateUserInGroup(userId, chat, { warn: Math.max(0, cantidad) });
 }
 
-// Quiénes tienen advertencias: las de un grupo, o las de todos si no se pasa ninguno.
+// Who has warnings: those of one group, or of every group when none is given.
 export function advertidos(chat = null) {
   const lista = [];
   for (const u of getAllUsers()) {
@@ -641,18 +641,18 @@ export function advertidos(chat = null) {
   return lista.sort((a, b) => b.warn - a.warn);
 }
 
-// actualizar datos de chat
+// update a chat's data
 export function updateChat(remoteJid, data) {
   return updateRow("chats", "remoteJid", remoteJid, data);
 }
 
-// actualizar configuración del bot
+// update the bot's settings
 export function updateSettings(botJid, data) {
   return updateRow("settings", "botJid", botJid, data);
 }
 
-// añadir persona a la lista negra de un grupo ("*" = todos los grupos). Si ya estaba, se actualiza el motivo, y el LID
-// solo si ahora se conoce: un lid nulo no pisa al que ya estaba guardado.
+// add a person to a group's blacklist ("*" = every group). If they were already on it, the reason is updated, and the
+// LID only if it is known now: a null lid does not overwrite the stored one.
 export function addToBlacklist(jid, reason, addedBy, chat = "*", lid = null) {
   db.prepare(
     `INSERT INTO lista_negra (chat, jid, lid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?, ?)
@@ -660,21 +660,21 @@ export function addToBlacklist(jid, reason, addedBy, chat = "*", lid = null) {
   ).run(chat, jid, lid || null, reason, Date.now(), addedBy);
 }
 
-// guardar el LID de alguien que ya estaba en la lista, cuando se lo descubre después (al entrar al grupo, al escribir).
-// Así la próxima vez se lo reconoce de una.
+// store the LID of someone already on the list, once it turns up later (when they join, when they write).
+// That way they're recognized right away next time.
 export function recordarLidEnListaNegra(chat, jid, lid) {
   if (!chat || !jid || !lid) return false;
   return db.prepare(`UPDATE lista_negra SET lid = ? WHERE chat = ? AND jid = ? AND (lid IS NULL OR lid = '')`).run(lid, chat, jid).changes > 0;
 }
 
-// sacar de la lista negra de un grupo; true si estaba. Acepta número o LID.
+// remove from a group's blacklist; true if they were on it. Takes a number or a LID.
 export function removeFromBlacklist(id, chat = "*") {
   if (!id) return false;
   return db.prepare(`DELETE FROM lista_negra WHERE chat = ? AND (jid = ? OR lid = ?)`).run(chat, id, id).changes > 0;
 }
 
-// ¿está en la lista negra de ese grupo, o en la de todos los grupos? Devuelve la entrada (la del grupo antes que la
-// global) o null. Acepta un identificador o varios (número y LID de la misma persona), y compara contra las dos columnas.
+// are they on that group's blacklist, or on the all-groups one? Returns the entry (the group's before the global
+// one) or null. Takes one identifier or several (a person's number and LID), and checks both columns.
 export function isBlacklisted(id, chat = "*") {
   const ids = (Array.isArray(id) ? id : [id]).filter(Boolean);
   if (ids.length === 0) return null;
@@ -688,23 +688,23 @@ export function isBlacklisted(id, chat = "*") {
   );
 }
 
-// entradas de un grupo más las globales; sin chat, todas las de todos los grupos
+// a group's entries plus the global ones; with no chat, every entry of every group
 export function getBlacklist(chat = null) {
   if (!chat) return db.prepare(`SELECT * FROM lista_negra ORDER BY dateAdded ASC`).all();
   return db.prepare(`SELECT * FROM lista_negra WHERE chat IN (?, '*') ORDER BY dateAdded ASC`).all(chat);
 }
 
-// obtener numero total de usuarios en db tabla users
+// total number of users in the users table
 export function getTotalUsers() {
   const row = db.prepare("SELECT COUNT(*) AS total FROM users").get();
   return row?.total || 0;
 }
 
-// función para obtener todos los usuarios de tabla users en db
+// every user in the users table
 export function getAllUsers() {
   const rows = db.prepare(`SELECT * FROM users`).all();
 
-  // Parsear JSON por cada usuario
+  // Parse the JSON for each user
   for (const row of rows) {
     try {
       row.inGroup = JSON.parse(row.inGroup || "{}");
@@ -722,22 +722,22 @@ export function getAllUsers() {
   return rows;
 }
 
-// eliminar usuario completo de tabla users
+// delete a user entirely from the users table
 export function deleteUser(lid) {
   return db.prepare(`DELETE FROM users WHERE lid = ?`).run(lid);
 }
 
-// añadir comando bloqueado a la blacklist de un chat
+// add a blocked command to a chat's blacklist
 export function addToChatBlacklist(remoteJid, command) {
   db.prepare(`INSERT OR IGNORE INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`).run(remoteJid, command);
 }
 
-// quitar comando bloqueado de la blacklist de un chat
+// remove a blocked command from a chat's blacklist
 export function removeFromChatBlacklist(remoteJid, command) {
   db.prepare(`DELETE FROM chat_blacklist WHERE remoteJid = ? AND command = ?`).run(remoteJid, command);
 }
 
-// añadir varios comandos de una sola vez a la blacklist de un chat
+// add several commands at once to a chat's blacklist
 export function addManyToChatBlacklist(remoteJid, commands) {
   const stmt = db.prepare(`INSERT OR IGNORE INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`);
   const insertMany = db.transaction((cmds) => {
@@ -746,7 +746,7 @@ export function addManyToChatBlacklist(remoteJid, commands) {
   insertMany(commands);
 }
 
-// quitar varios comandos de una sola vez de la blacklist de un chat
+// remove several commands at once from a chat's blacklist
 export function removeManyFromChatBlacklist(remoteJid, commands) {
   const stmt = db.prepare(`DELETE FROM chat_blacklist WHERE remoteJid = ? AND command = ?`);
   const deleteMany = db.transaction((cmds) => {
@@ -755,7 +755,7 @@ export function removeManyFromChatBlacklist(remoteJid, commands) {
   deleteMany(commands);
 }
 
-// obtener todos los comandos bloqueados de un chat
+// every blocked command of a chat
 export function getChatBlacklist(remoteJid) {
   return db
     .prepare(`SELECT command FROM chat_blacklist WHERE remoteJid = ?`)
@@ -763,13 +763,13 @@ export function getChatBlacklist(remoteJid) {
     .map((row) => row.command);
 }
 
-// verificar si un comando está bloqueado en un chat (modo blacklist)
+// is a command blocked in this chat? (blacklist mode)
 export function isCommandBlacklisted(remoteJid, command) {
   return !!db.prepare(`SELECT 1 FROM chat_blacklist WHERE remoteJid = ? AND command = ?`).get(remoteJid, command);
 }
 
-// registrar una entrada de hashtag (ej. una historia random). Devuelve el número que le tocó
-// dentro de esa semana (para poder avisar "Historia #4 registrada").
+// record a hashtag entry (a random story, say). Returns the number it got within that week
+// (so we can say "Story #4 recorded").
 export function agregarEntradaHashtag({ chat, hashtag, usuario, contenido, messageId, semana }) {
   const fecha = Date.now();
   db.prepare(
@@ -781,23 +781,23 @@ export function agregarEntradaHashtag({ chat, hashtag, usuario, contenido, messa
   return row?.total || 1;
 }
 
-// obtener todas las entradas de un hashtag en un chat, para una semana puntual, en orden de llegada.
+// every entry of a hashtag in a chat, for one particular week, in arrival order.
 export function obtenerEntradasHashtag(chat, hashtag, semana) {
   return db
     .prepare(`SELECT * FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ? ORDER BY id ASC`)
     .all(chat, hashtag, semana);
 }
 
-// sumar una interacción (reacción) del mes, ya sea "recibidas" (el autor del mensaje reaccionado)
-// o "emitidas" (quien reacciona). Crea la fila del usuario en ese mes/chat si todavía no existe.
+// add a monthly interaction (a reaction), either "received" (the author of the message reacted to)
+// or "given" (whoever reacted). Creates the user's row for that month/chat if it isn't there yet.
 export function sumarInteraccion(mes, chat, usuario, tipo) {
   if (tipo !== "recibidas" && tipo !== "emitidas") return;
   db.prepare(`INSERT OR IGNORE INTO interacciones_mensuales (mes, chat, usuario) VALUES (?, ?, ?)`).run(mes, chat, usuario);
   db.prepare(`UPDATE interacciones_mensuales SET ${tipo} = ${tipo} + 1 WHERE mes = ? AND chat = ? AND usuario = ?`).run(mes, chat, usuario);
 }
 
-// obtener el top 5 de "más votado" (recibidas) y "más activo" (emitidas) de un chat, en un mes dado.
-// puesto de una persona en el ranking del mes por reacciones recibidas (1 = la más votada); null si no tiene nada
+// the top 5 "most voted" (received) and "most active" (given) of a chat, for a given month.
+// a person's place in the month's ranking by reactions received (1 = most voted); null if they have none
 export function puestoRankingMensual(mes, chat, usuario) {
   const fila = db.prepare(`SELECT recibidas, emitidas FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND usuario = ?`).get(mes, chat, usuario);
   if (!fila || (fila.recibidas <= 0 && fila.emitidas <= 0)) return null;
@@ -811,8 +811,8 @@ export function obtenerRankingMensual(chat, mes) {
   return { masVotado, masActivo };
 }
 
-// ¿El identificador (lid o jid) pertenece a un owner del bot? Los owners se configuran por número de teléfono,
-// pero en los grupos los participantes llegan como @lid, así que se resuelve el lid del owner por la tabla users.
+// Does this identifier (lid or jid) belong to a bot owner? Owners are configured by phone number, but in groups
+// participants arrive as @lid, so the owner's lid is resolved through the users table.
 export function esOwner(id) {
   if (!id || typeof id !== "string") return false;
   for (const numero of globalThis.owners || []) {
@@ -828,13 +828,13 @@ export function esOwner(id) {
 
 // ===================== UruCoins =====================
 
-// saldo actual de una persona en un grupo
+// a person's current balance in a group
 export function getSaldoCoins(chat, usuario) {
   const row = db.prepare(`SELECT saldo FROM urucoins WHERE chat = ? AND usuario = ?`).get(chat, usuario);
   return row?.saldo || 0;
 }
 
-// mueve coins (positivo = gana, negativo = gasta) y deja registro. Devuelve el saldo nuevo.
+// moves coins (positive = earned, negative = spent) and logs it. Returns the new balance.
 export function moverCoins(chat, usuario, cantidad, motivo) {
   const tx = db.transaction(() => {
     db.prepare(`INSERT OR IGNORE INTO urucoins (chat, usuario, saldo) VALUES (?, ?, 0)`).run(chat, usuario);
@@ -850,7 +850,7 @@ export function ganarCoins(chat, usuario, cantidad, motivo) {
   return moverCoins(chat, usuario, cantidad, motivo);
 }
 
-// intenta gastar; devuelve true si alcanzaba el saldo, false si no (y no toca nada)
+// tries to spend; returns true if the balance covered it, false otherwise (and touches nothing)
 export function gastarCoins(chat, usuario, cantidad, motivo) {
   if (!(cantidad > 0)) return false;
   const tx = db.transaction(() => {
@@ -861,7 +861,7 @@ export function gastarCoins(chat, usuario, cantidad, motivo) {
   return tx();
 }
 
-// transferencia entre dos personas del mismo grupo
+// transfer between two people in the same group
 export function transferirCoins(chat, de, para, cantidad) {
   const tx = db.transaction(() => {
     if (!gastarCoins(chat, de, cantidad, "regalo_enviado")) return false;
@@ -871,7 +871,7 @@ export function transferirCoins(chat, de, para, cantidad) {
   return tx();
 }
 
-// suma de lo ganado HOY por motivos que empiecen con un prefijo (ej. "reaccion_") — para el tope diario
+// total earned TODAY from reasons starting with a prefix (say "reaccion_") — for the daily cap
 export function coinsGanadasHoy(chat, usuario, prefijoMotivo) {
   const inicioHoy = new Date();
   inicioHoy.setHours(0, 0, 0, 0);
@@ -885,39 +885,39 @@ export function topCoins(chat, n = 5) {
   return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
 }
 
-// puesto de una persona en el ranking de saldos del grupo (1 = la más rica; empatados comparten puesto); null si no tiene coins
+// a person's place in the group's balance ranking (1 = richest; ties share a place); null if they have no coins
 export function puestoCoins(chat, usuario) {
   const saldo = getSaldoCoins(chat, usuario);
   if (saldo <= 0) return null;
   return db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM urucoins WHERE chat = ? AND saldo > ?`).get(chat, saldo).puesto;
 }
 
-// cuántos movimientos con ese motivo tiene una persona en el grupo (por ejemplo, duelos ganados = "duelo_premio")
+// how many movements with that reason a person has in the group (duels won = "duelo_premio", for instance)
 export function contarMovimientos(chat, usuario, motivo) {
   return db.prepare(`SELECT COUNT(*) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND motivo = ?`).get(chat, usuario, motivo)?.total || 0;
 }
 
-// cuántas entradas mandó una persona de un hashtag en una semana (para el tope de premios)
+// how many entries a person sent for a hashtag in one week (for the prize cap)
 export function contarEntradasUsuarioSemana(chat, hashtag, usuario, semana) {
   const row = db.prepare(`SELECT COUNT(*) AS total FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND usuario = ? AND semana = ?`).get(chat, hashtag, usuario, semana);
   return row?.total || 0;
 }
 
-// sumar una reacción a la entrada de hashtag que corresponda a ese mensaje (si existe)
+// add a reaction to the hashtag entry matching that message (if there is one)
 export function sumarReaccionEntradaHashtag(chat, messageId, cantidad = 1) {
   if (!messageId) return false;
   const res = db.prepare(`UPDATE hashtag_entries SET reacciones = reacciones + ? WHERE chat = ? AND messageId = ?`).run(cantidad, chat, messageId);
-  return res.changes > 0; // true si el mensaje reaccionado era una entrada de hashtag
+  return res.changes > 0; // true if the message reacted to was a hashtag entry
 }
 
-// la entrada más reaccionada de un hashtag en una semana (con desempate por orden de llegada)
+// the most-reacted entry of a hashtag in one week (ties broken by arrival order)
 export function entradaMasVotada(chat, hashtag, semana) {
   return db
     .prepare(`SELECT * FROM hashtag_entries WHERE chat = ? AND hashtag = ? AND semana = ? AND reacciones > 0 ORDER BY reacciones DESC, id ASC LIMIT 1`)
     .get(chat, hashtag, semana);
 }
 
-// períodos cerrados (para anunciar ganadores una sola vez)
+// closed periods (so winners are announced only once)
 export function periodoCerrado(chat, tipo, periodo) {
   return !!db.prepare(`SELECT 1 FROM periodos_cerrados WHERE chat = ? AND tipo = ? AND periodo = ?`).get(chat, tipo, periodo);
 }
@@ -926,7 +926,7 @@ export function marcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
 }
 
-// ===================== Inventario (tienda de UruCoins) =====================
+// ===================== Inventory (UruCoins shop) =====================
 
 export function getItem(chat, usuario, item) {
   return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND item = ?`).get(chat, usuario, item) || null;
@@ -936,7 +936,7 @@ export function getInventario(chat, usuario) {
   return db.prepare(`SELECT * FROM inventario WHERE chat = ? AND usuario = ? AND cantidad > 0 ORDER BY fecha ASC`).all(chat, usuario);
 }
 
-// suma unidades de un ítem (y opcionalmente guarda un dato extra, ej. vencimiento de la racha)
+// adds units of an item (and optionally stores an extra value, like a streak's expiry)
 export function agregarItem(chat, usuario, item, cantidad = 1, extra = null) {
   db.prepare(
     `INSERT INTO inventario (chat, usuario, item, cantidad, extra, fecha) VALUES (?, ?, ?, ?, ?, ?)
@@ -944,7 +944,7 @@ export function agregarItem(chat, usuario, item, cantidad = 1, extra = null) {
   ).run(chat, usuario, item, cantidad, extra, Date.now());
 }
 
-// resta una unidad; devuelve true si había para consumir. Si llega a 0, borra la fila.
+// subtracts one unit; returns true if there was something to consume. At 0, the row is deleted.
 export function consumirItem(chat, usuario, item) {
   const tx = db.transaction(() => {
     const row = getItem(chat, usuario, item);
@@ -969,7 +969,7 @@ export function crearPendiente(chat, usuario, tipo, datos, ejecutarEn) {
   return res.lastInsertRowid;
 }
 
-// ¿ya hay un pendiente de este tipo esperando para esta persona en este chat?
+// is there already a pending item of this kind waiting for this person in this chat?
 export function hayPendiente(chat, usuario, tipo) {
   return !!db.prepare(`SELECT 1 FROM pendientes WHERE chat = ? AND usuario = ? AND tipo = ? AND estado = 'pendiente'`).get(chat, usuario, tipo);
 }
@@ -981,7 +981,7 @@ export function contarPendientesHoy(chat, tipo) {
   return row?.total || 0;
 }
 
-// los que ya tocan ejecutar; los marca como "ejecutando" en la misma operación para no repetirlos
+// the ones due to run; marks them as "running" in the same operation so they aren't repeated
 export function tomarPendientesVencidos() {
   const tx = db.transaction(() => {
     const filas = db.prepare(`SELECT * FROM pendientes WHERE estado = 'pendiente' AND ejecutar_en <= ? ORDER BY ejecutar_en ASC`).all(Date.now());
@@ -995,14 +995,14 @@ export function cerrarPendiente(id, estado = "hecho") {
   db.prepare(`UPDATE pendientes SET estado = ? WHERE id = ?`).run(estado, id);
 }
 
-// si el bot se apagó a mitad de una ejecución, esos quedan "ejecutando" para siempre: los volvemos a pendientes al arrancar
+// if the bot went down mid-run, those stay "running" forever: they go back to pending on startup
 export function recuperarPendientesColgados() {
   return db.prepare(`UPDATE pendientes SET estado = 'pendiente' WHERE estado = 'ejecutando'`).run().changes;
 }
 
-// ===================== Casino y lotería =====================
+// ===================== Casino and lottery =====================
 
-// suma de lo GASTADO hoy por motivos que empiecen con un prefijo (ej. "casino_") — para el tope diario de apuestas
+// total SPENT today on reasons starting with a prefix (say "casino_") — for the daily betting cap
 export function coinsGastadasHoy(chat, usuario, prefijoMotivo) {
   const inicioHoy = new Date();
   inicioHoy.setHours(0, 0, 0, 0);
@@ -1019,7 +1019,7 @@ export function agregarBoletosLoteria(chat, semana, usuario, cantidad) {
   ).run(chat, semana, usuario, cantidad, Date.now());
 }
 
-// boletos de una semana en un chat, en orden de compra
+// a week's tickets in a chat, in purchase order
 export function boletosLoteria(chat, semana) {
   return db.prepare(`SELECT usuario, cantidad FROM loteria_boletos WHERE chat = ? AND semana = ? ORDER BY fecha ASC`).all(chat, semana);
 }
@@ -1028,7 +1028,7 @@ export function boletosLoteriaDe(chat, semana, usuario) {
   return db.prepare(`SELECT cantidad FROM loteria_boletos WHERE chat = ? AND semana = ? AND usuario = ?`).get(chat, semana, usuario)?.cantidad || 0;
 }
 
-// ===================== Mercados de apuestas =====================
+// ===================== Betting markets =====================
 
 function parsearMercado(row) {
   if (!row) return null;
@@ -1064,7 +1064,7 @@ export function apuestaEnMercado(mercadoId, usuario) {
   return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? AND usuario = ?`).get(mercadoId, usuario) || null;
 }
 
-// una apuesta por persona y mercado; si repite la misma opción, se suma
+// one bet per person and market; betting the same option again adds to it
 export function apostarEnMercado(mercadoId, usuario, opcion, cantidad) {
   db.prepare(
     `INSERT INTO apuestas_mercado (mercado_id, usuario, opcion, cantidad, fecha) VALUES (?, ?, ?, ?, ?)
@@ -1076,7 +1076,7 @@ export function apuestasDeMercado(mercadoId) {
   return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? ORDER BY fecha ASC`).all(mercadoId);
 }
 
-// ===================== Pendientes: consultas para recordatorios y .estado =====================
+// ===================== Pending work: queries for reminders and .estado =====================
 
 export function pendientesDeUsuario(usuario, tipo) {
   return db
@@ -1085,7 +1085,7 @@ export function pendientesDeUsuario(usuario, tipo) {
     .map((f) => ({ ...f, datos: JSON.parse(f.datos || "{}") }));
 }
 
-// cancela un pendiente propio; true si existía y estaba pendiente
+// cancels one of your own pending items; true if it existed and was pending
 export function cancelarPendiente(id, usuario, tipo) {
   return db.prepare(`UPDATE pendientes SET estado = 'cancelado' WHERE id = ? AND usuario = ? AND tipo = ? AND estado = 'pendiente'`).run(id, usuario, tipo).changes > 0;
 }
@@ -1094,7 +1094,7 @@ export function contarPendientesPorTipo() {
   return db.prepare(`SELECT tipo, COUNT(*) AS total FROM pendientes WHERE estado = 'pendiente' GROUP BY tipo ORDER BY total DESC`).all();
 }
 
-// ===================== Cumpleaños =====================
+// ===================== Birthdays =====================
 
 export function setCumple(chat, usuario, dia, mes) {
   db.prepare(
@@ -1119,15 +1119,15 @@ export function cumplesDeHoy(dia, mes) {
   return db.prepare(`SELECT chat, usuario FROM cumpleanos WHERE dia = ? AND mes = ?`).all(dia, mes);
 }
 
-// ===================== Actividad: racha diaria, pregunta del día, recap =====================
+// ===================== Activity: daily streak, daily question, recap =====================
 
-// suma un mensaje al contador del día y devuelve cuántos lleva
+// adds a message to the day's counter and returns the running total
 export function sumarMensajeDiario(chat, usuario, fecha) {
   db.prepare(`INSERT INTO actividad_diaria (chat, usuario, fecha, mensajes) VALUES (?, ?, ?, 1) ON CONFLICT(chat, usuario, fecha) DO UPDATE SET mensajes = mensajes + 1`).run(chat, usuario, fecha);
   return db.prepare(`SELECT mensajes FROM actividad_diaria WHERE chat = ? AND usuario = ? AND fecha = ?`).get(chat, usuario, fecha)?.mensajes || 0;
 }
 
-// primer día con actividad registrada de una persona en un grupo ("YYYY-MM-DD"), o null
+// a person's first day with recorded activity in a group ("YYYY-MM-DD"), or null
 export function primeraActividad(chat, usuario) {
   return db.prepare(`SELECT MIN(fecha) AS fecha FROM actividad_diaria WHERE chat = ? AND usuario = ?`).get(chat, usuario)?.fecha || null;
 }
@@ -1170,7 +1170,7 @@ export function ultimasPreguntasDia(chat, n = 10) {
   return db.prepare(`SELECT pregunta FROM preguntas_dia WHERE chat = ? AND pregunta != '' ORDER BY fecha DESC LIMIT ?`).all(chat, n).map((r) => r.pregunta);
 }
 
-// grupos con un interruptor de actividad prendido (solo columnas conocidas, para no armar SQL con texto libre)
+// groups with an activity switch on (known columns only, so no SQL is built from free text)
 const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal"]);
 export function chatsConOpcion(columna) {
   if (!OPCIONES_ACTIVIDAD.has(columna)) return [];
@@ -1189,13 +1189,13 @@ export function mercadosResueltosDesde(chat, desdeMs) {
   return db.prepare(`SELECT * FROM mercados WHERE chat = ? AND estado = 'resuelto' AND cierra_en >= ? ORDER BY cierra_en ASC`).all(chat, desdeMs).map(parsearMercado);
 }
 
-// ===================== Economía (.economia) =====================
+// ===================== Economy (.economia) =====================
 
 export function totalEnCirculacion(chat) {
   return db.prepare(`SELECT COALESCE(SUM(saldo), 0) AS total, COUNT(*) AS personas FROM urucoins WHERE chat = ? AND saldo > 0`).get(chat);
 }
 
-// entradas y salidas por motivo desde una fecha
+// money in and out by reason since a given date
 export function movimientosPorMotivo(chat, desdeMs) {
   return db
     .prepare(
@@ -1205,7 +1205,7 @@ export function movimientosPorMotivo(chat, desdeMs) {
     .all(chat, desdeMs);
 }
 
-// ===================== Memoria del grupo =====================
+// ===================== Group memory =====================
 
 export function agregarMemoriaGrupo(chat, texto, autor) {
   return Number(db.prepare(`INSERT INTO memoria_grupo (chat, texto, autor, fecha) VALUES (?, ?, ?, ?)`).run(chat, texto, autor, Date.now()).lastInsertRowid);
@@ -1227,7 +1227,7 @@ export function limpiarMemoriaGrupo(chat) {
   return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ?`).run(chat).changes;
 }
 
-// ===================== Roles del bot por grupo =====================
+// ===================== Per-group bot roles =====================
 export function setRolGrupo(chat, usuario, rol, dadoPor = "") {
   db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha`).run(chat, usuario, rol, dadoPor, Date.now());
 }
@@ -1259,14 +1259,14 @@ export function getPublicacion(chat, numero) {
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND numero = ?`).get(chat, numero) || null;
 }
 
-// La publicación a la que pertenece un mensaje: sirve tanto el mensaje de la persona como el de la confirmación del
-// bot, porque cualquiera de los dos es lo que se cita para operar sin el número.
+// The post a message belongs to: either the person's message or the bot's confirmation works, since quoting either
+// one is how you act on a post without its number.
 export function getPublicacionPorMensaje(chat, messageId) {
   if (!messageId) return null;
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND (messageId = ? OR mensajeBot = ?)`).get(chat, messageId, messageId) || null;
 }
 
-// vigentes (activas o reservadas), de un tipo o de todos, de la más nueva a la más vieja
+// live ones (active or reserved), of one type or all, newest first
 export function publicacionesActivas(chat, tipo = null, limite = 30) {
   if (tipo) return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND tipo = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, tipo, limite);
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, limite);
@@ -1286,7 +1286,7 @@ export function actualizarPublicacion(chat, numero, data) {
   db.prepare(`UPDATE publicaciones SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE chat = ? AND numero = ?`).run(...keys.map((k) => data[k]), chat, numero);
 }
 
-// vigentes que hay que revisar: sin aviso y viejas, o con aviso ya vencido
+// live ones due for a check: old with no notice sent, or with the notice already expired
 export function publicacionesParaRevisar(limiteActualizada, limiteAviso) {
   return db.prepare(`SELECT * FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} AND ((aviso = 0 AND actualizada < ?) OR (aviso > 0 AND aviso < ?)) ORDER BY chat, numero`).all(limiteActualizada, limiteAviso);
 }
@@ -1309,7 +1309,7 @@ export function alertasDelChat(chat) {
 }
 
 // ===================== Compraventa: calificaciones =====================
-// Una por persona calificada y mes: si ya había una de este mes, se reemplaza. Devuelve { actualizada }.
+// One per rated person and month: an existing one for this month is replaced. Returns { actualizada }.
 export function guardarCalificacion(chat, de, para, estrellas, comentario, desdeMs, ahora = Date.now()) {
   const previa = db.prepare(`SELECT id FROM calificaciones WHERE de = ? AND para = ? AND fecha >= ? ORDER BY fecha DESC LIMIT 1`).get(de, para, desdeMs);
   if (previa) {
@@ -1320,7 +1320,7 @@ export function guardarCalificacion(chat, de, para, estrellas, comentario, desde
   return { actualizada: false };
 }
 
-// promedio y cantidad de calificaciones de una persona, contando todos los grupos
+// a person's rating average and count, across every group
 export function reputacionDe(para) {
   const r = db.prepare(`SELECT AVG(estrellas) AS promedio, COUNT(*) AS cantidad FROM calificaciones WHERE para = ?`).get(para);
   return { promedio: r.promedio || 0, cantidad: r.cantidad || 0 };
@@ -1330,13 +1330,13 @@ export function ultimasCalificaciones(para, n = 3) {
   return db.prepare(`SELECT de, estrellas, comentario, fecha FROM calificaciones WHERE para = ? ORDER BY fecha DESC LIMIT ?`).all(para, n);
 }
 
-// ===================== Horario del grupo =====================
+// ===================== Group hours =====================
 export function chatsConHorarioGrupo() {
   return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario FROM chats WHERE horarioGrupo != ''`).all();
 }
 
-// Una calificación por id, todas las que recibió una persona (con el grupo donde se hicieron), y edición o borrado
-// para que un admin pueda corregir una maliciosa.
+// One rating by id, all the ones a person received (with the group they were made in), plus editing and deleting
+// so an admin can fix a malicious one.
 export function getCalificacion(id) {
   return db.prepare(`SELECT * FROM calificaciones WHERE id = ?`).get(id) || null;
 }
@@ -1354,8 +1354,8 @@ export function borrarCalificacion(id) {
 }
 
 // ---------- Parejas ----------
-// Pasa las columnas couple/coupleTime/married/marriedTime/couplesHistory de users a las tablas nuevas. Corre una sola
-// vez, cuando la tabla parejas recién se crea. Los punteros mutuos son parejas; los de un solo lado, pedidos pendientes.
+// Moves the couple/coupleTime/married/marriedTime/couplesHistory columns from users into the new tables. Runs once,
+// when the parejas table is first created. Mutual pointers are couples; one-sided ones are pending requests.
 function migrarParejasViejas(db) {
   const usuarios = db.prepare(`SELECT lid, jid, couple, coupleTime, couplesHistory, married, marriedTime FROM users WHERE couple != '' OR (couplesHistory != '' AND couplesHistory != '[]')`).all();
   if (!usuarios.length) return;
@@ -1436,7 +1436,7 @@ export function borrarSolicitudPareja(de) {
   return db.prepare(`DELETE FROM solicitudes_pareja WHERE de = ?`).run(de).changes > 0;
 }
 
-// borra los pedidos hechos por y para esta persona (al formarse una pareja no queda nada pendiente)
+// deletes the requests made by and for this person (once a couple forms, nothing stays pending)
 export function borrarSolicitudesCon(lid) {
   return db.prepare(`DELETE FROM solicitudes_pareja WHERE de = ? OR para = ?`).run(lid, lid).changes;
 }
@@ -1463,7 +1463,7 @@ export function borrarAdopcion(hijo) {
   return db.prepare(`DELETE FROM familia_hijos WHERE hijo = ?`).run(hijo).changes > 0;
 }
 
-// cuántas adopciones hizo esta persona desde cierto momento (para el tope diario)
+// how many adoptions this person made since a given moment (for the daily cap)
 export function adopcionesDesde(padre, desde) {
   return db.prepare(`SELECT COUNT(*) AS n FROM familia_hijos WHERE (padre_a = ? OR padre_b = ?) AND desde >= ?`).get(padre, padre, desde).n;
 }
@@ -1476,7 +1476,7 @@ export function getSolicitudAdopcion(hijo) {
   return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE hijo = ?`).get(hijo) || null;
 }
 
-// el pedido que tiene hecho una persona como padre o madre adoptante
+// the request a person has open as an adopting parent
 export function getSolicitudAdopcionDe(padre) {
   return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE padre_a = ? OR padre_b = ?`).get(padre, padre) || null;
 }
@@ -1499,7 +1499,7 @@ export function listaApellidos() {
   return db.prepare(`SELECT lid, apellido FROM apellidos ORDER BY apellido ASC, desde ASC`).all();
 }
 
-// ex de una persona, sin repetir, de la más reciente a la más vieja
+// a person's exes, deduplicated, most recent first
 export function exParejasDe(lid) {
   const vistos = new Set();
   const lista = [];

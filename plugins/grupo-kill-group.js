@@ -1,4 +1,4 @@
-// comentado por el momento, faltan ajustes para seguridad de no eliminar un grupo erroneamente
+// commented out for now, it still needs safeguards against wiping the wrong group
 
 /*let plugin = {};
 plugin.cmd = ["k5"];

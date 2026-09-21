@@ -3,9 +3,9 @@ import { getTotalUsers, getChat, getChatBlacklist } from "../database-functions.
 const plugin = {};
 plugin.cmd = ["menu", "menú", "help", "comandos", "ayuda"];
 
-// Formato: cada línea "▸" lleva UN comando principal pegado al ▸ — es el único que ve el parser de candados de más
-// abajo. Los secundarios van en la descripción, y ahí no llevan candado. test/menus.test.mjs verifica que todo
-// comando nombrado acá exista de verdad en algún plugin.
+// Format: each "▸" line carries ONE main command right against the ▸ — that is the only one the lock parser below
+// sees. Secondary ones go in the description, and get no lock there. test/menus.test.mjs checks that every command
+// named here really exists in some plugin.
 plugin.run = async (m, { client, usedPrefix }) => {
   const more = String.fromCharCode(8206);
   const readMore = more.repeat(4001);
@@ -239,7 +239,7 @@ Ver mas información con el siguiente comando:
 ▸ ${usedPrefix}info
 `.trim();
 
-  // Agregar candado 🔒 a los comandos que estén bloqueados en este grupo (modo blacklist).
+  // Add a 🔒 to the commands blocked in this group (blacklist mode).
   let menuFinal = menuText;
   const datosChat = m.isGroup ? getChat(m.chat) : null;
   if (datosChat?.blacklistMode) {

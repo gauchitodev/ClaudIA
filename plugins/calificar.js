@@ -7,8 +7,8 @@ plugin.cmd = ["calificar", "reputacion", "reputación", "calificaciones"];
 plugin.onlyGroup = true;
 
 // .calificar @persona 5 <comentario> (o respondiendo a un mensaje suyo) · .reputacion [@persona] ·
-// .calificaciones [@persona] lista con números · .calificaciones borrar N · .calificaciones editar N <estrellas> [comentario]
-// (borrar y editar: admins del grupo donde se hizo, el owner, y borrar también quien la hizo)
+// .calificaciones [@person] lists them numbered · .calificaciones borrar N · .calificaciones editar N <stars> [comment]
+// (deleting and editing: admins of the group it was made in, the owner, and deleting also whoever made it)
 plugin.run = async (m, { client, command, args, text, isAdmin, isOwner }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.ok === false ? `❌ ${r.error}` : r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
   const lid = lidMencionado(m, text);

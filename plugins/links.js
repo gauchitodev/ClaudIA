@@ -9,7 +9,7 @@ plugin.run = async (m, { client, command, isBotAdmin }) => {
     return client.sendText(m.chat, `🎮 Discord del grupo:\n${discord}`, m);
   }
 
-  // .links: grupo (el del config o, si no está, el link de invitación del grupo actual cuando el bot es admin), canal y Discord
+  // .links: the group (the one from the config or, failing that, the current group's invite link when the bot is admin), the channel and Discord
   let grupo = globalThis.tarjetaGrupo?.enlace || "";
   if (!grupo && m.isGroup && isBotAdmin) {
     const codigo = await client.groupInviteCode(m.chat).catch(() => null);

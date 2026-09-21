@@ -17,7 +17,7 @@ before(async () => {
 });
 let k = 0;
 const msg = (sender, text, quoted = null) => ({ chat: G, sender, text, isGroup: true, key: { id: `K${++k}` }, quoted });
-// Un mensaje citado como lo arma lib/wa-socket.js: su id, quién lo mandó y su texto (el pie, si es una foto).
+// A quoted message as lib/wa-socket.js builds it: its id, who sent it and its text (the caption, if it's a photo).
 const cita = (sender, text, extra = {}) => ({ id: `Q${++k}`, sender, text, fromMe: false, isBaileys: false, ...extra });
 const cliente = () => globalThis.client;
 const ultimo = () => ultimoEnviado().msg.text;
@@ -197,7 +197,7 @@ test("compraventa: el horario del grupo cierra y abre solo", async () => {
 
 test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   const run = (sender, text, extra = {}) => Cal.run(msg(sender, text), { client: cliente(), command: "calificaciones", args: text.trim() ? text.trim().split(/\s+/) : [], text, isAdmin: false, isOwner: false, ...extra });
-  // 111 tiene dos calificaciones de este grupo (de 222 y 333); una tercera hecha en otro grupo
+  // 111 has two ratings from this group (from 222 and 333); a third one made in another group
   const otra = F.guardarCalificacion("otro@g.us", "444@lid", "111@lid", 1, "estafador", 0);
   assert.equal(otra.actualizada, false);
   await run("222@lid", "@111");
@@ -206,13 +206,13 @@ test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   assert.match(lista, /\*#3\* ⭐ "estafador" — @444 · hace .* · en otro grupo/);
   assert.match(lista, /\*#2\* ⭐⭐ "me arrepentí" — @333/);
   assert.match(lista, /Admins: \.calificaciones borrar N/);
-  // alguien común no puede borrar la de otro
+  // an ordinary person can't delete someone else's
   await run("222@lid", "borrar 2");
   assert.match(ultimo(), /Solo un admin del grupo, quien la hizo, o el owner puede borrar/);
-  // un admin de este grupo no toca la que se hizo en otro grupo
+  // an admin of this group can't touch one made in another group
   await run("222@lid", "borrar 3", { isAdmin: true });
   assert.match(ultimo(), /La #3 se hizo en otro grupo/);
-  // ... pero sí edita y borra las de acá
+  // ... but can edit and delete the ones from here
   await run("222@lid", "editar 2 4 se arregló", { isAdmin: true });
   assert.match(ultimo(), /✏️ La calificación #2 de @333 a @111 quedó en ⭐⭐⭐⭐ "se arregló"\. @111 ahora tiene 3,3 de 5/);
   assert.deepEqual([F.getCalificacion(2).estrellas, F.getCalificacion(2).comentario], [4, "se arregló"]);
@@ -222,11 +222,11 @@ test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   assert.match(ultimo(), /No hay ninguna calificación #99/);
   await run("222@lid", "borrar x", { isAdmin: true });
   assert.match(ultimo(), /¿Cuál\? Poné el número/);
-  // el owner puede con la de otro grupo
+  // the owner can handle one from another group
   await run("222@lid", "borrar 3", { isOwner: true });
   assert.match(ultimo(), /🗑️ Borré la calificación #3 \(⭐ de @444 a @111\)\. @111 ahora tiene 4,5 de 5 \(2 calificaciones\)/);
   assert.equal(F.getCalificacion(3), null);
-  // quien la hizo puede borrar la suya
+  // whoever made it can delete their own
   await run("333@lid", "borrar 2");
   assert.match(ultimo(), /Borré la calificación #2/);
   await run("333@lid", "borrar 1");
@@ -236,7 +236,7 @@ test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
 });
 
 test("compraventa: publicar respondiendo a un mensaje", async () => {
-  // El caso que motivó todo: una foto con la descripción en el pie, y su dueño la publica respondiéndola.
+  // The case that started all this: a photo with the description in its caption, and its owner posts it by replying.
   const foto = cita("444@lid", "ropero de pino, $ 3.000, Malvín");
   await correr("444@lid", "vendo", "", { quoted: foto });
   const suyas = F.publicacionesDe(G, "444@lid");
@@ -245,39 +245,39 @@ test("compraventa: publicar respondiendo a un mensaje", async () => {
   assert.equal(suyas[0].precio, "$ 3.000");
   assert.equal(suyas[0].messageId, foto.id, "la publicación apunta a la foto, no al mensaje del comando");
 
-  // un mod publica la foto de otro: queda a nombre del otro, y el hashtag no se repite en el texto
+  // a mod posts someone else's photo: it's filed under their name, and the hashtag isn't repeated in the text
   await correr("111@lid", "vendo", "", { quoted: cita("555@lid", "#vendo heladera Consul, $ 6.000"), isMod: true });
   const de555 = F.publicacionesDe(G, "555@lid");
   assert.equal(de555.length, 1);
   assert.equal(de555[0].texto, "heladera Consul, $ 6.000");
   assert.match(ultimo(), /Queda a nombre de @555/);
 
-  // alguien común no puede publicar lo de otro
+  // an ordinary person can't post someone else's
   await correr("222@lid", "vendo", "", { quoted: cita("555@lid", "mesa ratona $ 900") });
   assert.match(ultimo(), /solo quien lo mandó, o un moderador/);
   assert.equal(F.publicacionesDe(G, "555@lid").length, 1, "no se creó nada");
 
-  // una foto sin descripción no se puede publicar
+  // a photo with no description can't be posted
   await correr("444@lid", "vendo", "", { quoted: cita("444@lid", "") });
   assert.match(ultimo(), /no tiene descripción/);
 
-  // responder a un mensaje del bot NO publica: muestra el catálogo, que es lo que la persona esperaba
+  // replying to one of the bot's messages does NOT post: it shows the catalogue, which is what the person expected
   await correr("444@lid", "vendo", "", { quoted: cita("bot@lid", "🏷️ *EN VENTA* (4)", { fromMe: true }) });
   assert.match(ultimo(), /EN VENTA/);
 
-  // el mismo mensaje no se publica dos veces (ya pasó por el hook de #vendo, o por otro mod)
+  // the same message isn't posted twice (it already went through the #vendo hook, or through another mod)
   await correr("444@lid", "vendo", "", { quoted: foto });
   assert.match(ultimo(), /ya es la publicación/);
 
-  // .compro también
+  // .compro too
   await correr("555@lid", "compro", "", { quoted: cita("555@lid", "monitor 24 pulgadas") });
   assert.equal(F.publicacionesDe(G, "555@lid").find((p) => p.tipo === "compro")?.texto, "monitor 24 pulgadas");
 
-  // regresión: sin responder nada y sin texto sigue siendo el catálogo
+  // regression: replying to nothing and with no text still gives the catalogue
   await correr("444@lid", "vendo");
   assert.match(ultimo(), /EN VENTA/);
 
-  // regresión: respondiendo Y con texto, publica lo tuyo a tu nombre (como siempre)
+  // regression: replying AND with text, it posts yours under your name (as always)
   await correr("111@lid", "vendo", "silla gamer $ 5.000", { quoted: cita("555@lid", "cualquier cosa") });
   assert.ok(
     F.publicacionesDe(G, "111@lid").some((p) => p.texto === "silla gamer $ 5.000"),
@@ -290,12 +290,12 @@ test("compraventa: cerrar respondiendo a la publicación", async () => {
   await correr("444@lid", "vendo", "", { quoted: foto });
   const numero = F.publicacionesDe(G, "444@lid").find((p) => p.texto.startsWith("bicicleta")).numero;
 
-  // respondiendo al mensaje original, sin decir el número
+  // replying to the original message, without giving the number
   await correr("444@lid", "vendido", "", { quoted: foto });
   assert.match(ultimo(), new RegExp(`la #${numero} quedó como concretada`));
   assert.equal(F.getPublicacion(G, numero).estado, "vendida");
 
-  // respondiendo a la confirmación del bot, que es a lo que la gente le contesta
+  // replying to the bot's confirmation, which is what people actually answer
   const otra = cita("444@lid", "monopatín eléctrico $ 8.000");
   await correr("444@lid", "vendo", "", { quoted: otra });
   const n2 = F.publicacionesDe(G, "444@lid").find((p) => p.texto.startsWith("monopatín")).numero;
@@ -304,11 +304,11 @@ test("compraventa: cerrar respondiendo a la publicación", async () => {
   await correr("444@lid", "baja", "", { quoted: cita("bot@lid", "…", { id: confirmacion, fromMe: true }) });
   assert.equal(F.getPublicacion(G, n2).estado, "cerrada");
 
-  // regresión: con el número sigue andando igual
+  // regression: with the number it still works the same
   await correr("444@lid", "sigue", String(n2));
   assert.equal(F.getPublicacion(G, n2).estado, "activa");
 
-  // responder a un mensaje cualquiera no alcanza
+  // replying to just any message isn't enough
   await correr("444@lid", "vendido", "", { quoted: cita("222@lid", "qué lindo día") });
   assert.match(ultimo(), /¿Cuál\? Respondé a la publicación/);
 
@@ -331,8 +331,8 @@ test("compraventa: .catalogo lista todo y muestra el detalle de una", async () =
 
 test("compraventa: quedaron solo los 11 comandos que se usan", () => {
   assert.deepEqual(Cmd.cmd, ["vendo", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"]);
-  // Los tests llaman a Cmd.run con el comando directo, sin pasar por plugin.cmd: sin esta vuelta, se podría borrar
-  // medio plugin.cmd y la suite seguiría verde.
+  // The tests call Cmd.run with the command directly, never through plugin.cmd: without this check, half of
+  // plugin.cmd could be deleted and the suite would stay green.
   for (const viejo of ["busco", "publicaciones", "publicacion", "publicación", "conseguido", "mispublicaciones", "alertas"]) {
     assert.ok(!Cmd.cmd.includes(viejo), `.${viejo} sigue declarado`);
   }

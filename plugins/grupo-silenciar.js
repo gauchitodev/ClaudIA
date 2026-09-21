@@ -1,8 +1,8 @@
 import { updateUserInGroup, esOwner } from "../database-functions.js";
 import { destinatario } from "../lib/identidad.js";
 
-// Los alias que SACAN el silencio. El resto de plugin.cmd lo pone. Salen de una sola lista para que un alias nuevo
-// no quede declarado como comando pero interpretado al revés.
+// The aliases that LIFT the mute. The rest of plugin.cmd applies it. They come from a single list so a new alias
+// can't end up declared as a command but interpreted backwards.
 const QUITAN_SILENCIO = ["desilenciar", "unmute"];
 
 const plugin = {};
@@ -12,12 +12,12 @@ plugin.botAdmin = true;
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  // Igual que el resto de la moderación: se resuelve la identidad antes de escribir, y el silencio es de este grupo.
+  // Like the rest of the moderation: the identity is resolved before writing, and the mute belongs to this group.
   const { quien, lid, jid, mencionado } = destinatario(m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  // no afectar a owners del bot
+  // leave the bot's owners alone
   if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
   if (!quien) return client.sendText(m.chat, "No existen datos del usuario, puede que aun no haya enviado mensajes", m);
 

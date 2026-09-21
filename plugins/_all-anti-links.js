@@ -1,13 +1,13 @@
-// Anti-links general: borra mensajes con cualquier link.
-// Antes analizaba cada palabra como si fuera un dominio, así que "no.se" (Suecia), "si.no" (Noruega)
-// o "bueno.al" (Albania) — escritos sin espacio después del punto — contaban como links.
-// Ahora la palabra tiene que PARECER un link: http/www, o dominio con una terminación conocida.
+// General anti-links: it deletes messages containing any link.
+// It used to parse every word as if it were a domain, so "no.se" (Sweden), "si.no" (Norway) or "bueno.al" (Albania)
+// — written without a space after the dot — counted as links.
+// Now the word has to LOOK like a link: http/www, or a domain with a known suffix.
 import { parse } from "tldts";
 
 const TERMINACIONES = /\.(com|net|org|io|co|app|gg|tv|xyz|info|dev|link|ly|to|uy|ar|cl|br|mx|tk|ml|lat)(\/|$)/i;
 
 function detectarLink(palabra) {
-  const w = palabra.replace(/^[("'<[¡¿]+|[)"'>\].,;:!?¡¿]+$/g, ""); // limpia puntuación alrededor
+  const w = palabra.replace(/^[("'<[¡¿]+|[)"'>\].,;:!?¡¿]+$/g, ""); // strips surrounding punctuation
   if (!w) return null;
   const explicito = /^(https?:\/\/|www\.)/i.test(w);
   const pareceDominio = /^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(w) && TERMINACIONES.test(w);

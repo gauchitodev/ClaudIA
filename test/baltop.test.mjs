@@ -32,7 +32,7 @@ test(".baltop lista a los más ricos y te ubica si no entrás", async () => {
   await correr(Top, "u1@lid");
   const { text, mentions } = ultimoEnviado().msg;
   assert.match(text, /LOS MÁS RICOS DEL GRUPO/);
-  // con nombre (o número si no lo hay) y sin etiquetar a nadie
+  // with a name (or the number when there is none) and without tagging anyone
   assert.match(text, /1\. u12 — \*120\*\n2\. u11 — \*110\*/);
   assert.match(text, /10\. u3 — \*30\*\n\n/);
   assert.doesNotMatch(text, /\bu1 |\bu2 |@/, "los que no entran en el top 10 no se listan, y no hay menciones");

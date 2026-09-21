@@ -6,7 +6,7 @@ import { textoClaro } from "../lib/claros.js";
 const plugin = {};
 plugin.cmd = ["metar", "taf", "sigmet", "claro", "claros", "cruzado", "reciproco", "recíproco", "opuesto", "factorcarga", "factordecarga", "sol", "zulu", "reloj", "utc", "dtg", "menuaero", "aero"];
 
-// .metar [ICAO o nombre ...] · .taf [ICAO o nombre ...] · .sigmet · .claro [actualizar] [ciudad] · .cruzado <pista> <viento> · .reciproco <rumbo o pista> · .factorcarga <ángulo> [Vs] · .sol [ciudad] · .zulu · .dtg · .menuaero
+// .metar [ICAO or name ...] · .taf [ICAO or name ...] · .sigmet · .claro [actualizar] [city] · .cruzado <runway> <wind> · .reciproco <heading or runway> · .factorcarga <angle> [Vs] · .sol [city] · .zulu · .dtg · .menuaero
 plugin.run = async (m, { client, command, text }) => {
   if (command === "menuaero" || command === "aero") return client.sendText(m.chat, textoMenuAero(), m);
   if (command === "cruzado") return client.sendText(m.chat, textoCruzado(text), m);

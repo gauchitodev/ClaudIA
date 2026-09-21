@@ -10,7 +10,7 @@ plugin.run = async (m, { client, args }) => {
   let clave = buscarItem(args[0]);
   let resto = args.slice(1);
 
-  // permite escribir el ítem en dos palabras ("voto doble", "racha doble")
+  // lets the item be written as two words ("voto doble", "racha doble")
   if (!clave && args.length >= 2) {
     clave = buscarItem(args[0] + args[1]);
     resto = args.slice(2);

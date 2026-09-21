@@ -13,7 +13,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const whoJid = whoData?.jid || jid || "";
   const whoLid = whoData?.lid || lid || "";
 
-  // Ojo: no llamar "txt" a esta variable, pisa el global de textos y rompe txt.defaultWho más arriba.
+  // Careful: don't name this variable "txt", it shadows the texts global and breaks txt.defaultWho above.
   const info = `Usuario: ${whoJid ? `+${whoJid.split("@")[0]}` : "número desconocido"}\n\nNombre actual: ${whoData?.pushName || "—"}\n\nLid: ${whoLid || "—"}\n\nEn la base: ${whoData ? "sí" : "no, todavía no escribió"}\n\nChat actual: ${m.chat}`;
   client.sendText(m.chat, info, m);
 };

@@ -6,7 +6,7 @@ const plugin = {};
 plugin.cmd = ["perfil", "ficha"];
 plugin.onlyGroup = true;
 
-// .perfil → tu ficha · .perfil @persona, o respondiendo a un mensaje suyo → la de esa persona
+// .perfil → your record · .perfil @person, or replying to one of their messages → that person's
 plugin.run = async (m, { client, text }) => {
   const lid = lidMencionado(m, text) || m.sender;
 

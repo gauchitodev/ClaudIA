@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["recap"];
 plugin.onlyGroup = true;
 
-// .recap: el resumen de la semana en curso, a pedido (el automático sale el domingo de noche si está activo).
+// .recap: the current week's summary, on demand (the automatic one goes out on Sunday night if it's on).
 plugin.run = async (m, { client }) => {
   const r = await armarRecap(m.chat);
   if (!r) return client.sendText(m.chat, "Esta semana todavía no hay nada que contar.", m);

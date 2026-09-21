@@ -34,7 +34,7 @@ plugin.run = async (m, { client, command }) => {
     const buff = readFileSync(filename);
     await client.sendFile(m.chat, buff, `audioEffects.mp3`, null, m, true, { seconds: "9999999999999" });
   } catch (e) {
-    // Antes un error de ffmpeg dejaba al usuario sin respuesta, y un readFileSync fallido tumbaba el proceso.
+    // An ffmpeg error used to leave the user with no answer, and a failed readFileSync took the process down.
     console.error("[audio-effects]", e.message);
     await client.sendText(m.chat, "No pude procesar ese audio, probá con otro.", m);
   } finally {

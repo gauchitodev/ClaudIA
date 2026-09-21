@@ -1,7 +1,7 @@
 import { juegoIniciado, juegoTerminado, monedasActivas, COINS } from "../lib/urucoins.js";
 import { generarPregunta, textoPregunta, abrirRonda, rondaDe, reservarRonda, liberarRonda, segundosRestantes, TRIVIA } from "../lib/trivia.js";
 
-// .trivia: una pregunta con opciones; el primero que acierta gana. Las respuestas las lee el hook _trivia.js.
+// .trivia: a question with options; the first correct answer wins. The answers are read by the _trivia.js hook.
 const plugin = {};
 plugin.cmd = ["trivia"];
 plugin.juego = true;
@@ -11,7 +11,7 @@ plugin.run = async (m, { client }) => {
   const abierta = rondaDe(m.chat);
   if (abierta) return client.sendText(m.chat, abierta.reservada ? "Ya se está armando una trivia, un segundo." : `Hay una trivia abierta, quedan ${segundosRestantes(abierta)} segundos. Respondé esa con la letra.`, m);
 
-  // una sola trivia por grupo: el turno se reserva antes de pedirle la pregunta a la IA, que tarda
+  // one trivia per group: the turn is reserved before asking the AI for the question, which takes a while
   reservarRonda(m.chat, "trivia");
   try {
     const pregunta = await generarPregunta(m.chat);

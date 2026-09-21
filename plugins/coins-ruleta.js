@@ -4,11 +4,11 @@ const plugin = {};
 plugin.cmd = ["ruleta"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // el horario de .horariojuegos frena solo estos
+plugin.casino = true; // the .horariojuegos schedule stops only these
 plugin.onlyGroup = true;
 
-// .ruleta <cantidad> <apuesta>: la primera apuesta abre la mesa; durante unos segundos apuestan todos, y después
-// la bola sale una sola vez para todas las apuestas. .ruleta sin nada muestra la mesa abierta o la ayuda.
+// .ruleta <amount> <bet>: the first bet opens the table; for a few seconds everyone bets, and then the ball drops
+// once for every bet. .ruleta with nothing shows the open table or the help.
 plugin.run = async (m, { client, args, chat }) => {
   const cantidad = parseInt(args[0], 10);
   if (!args[0] || Number.isNaN(cantidad)) {

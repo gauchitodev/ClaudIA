@@ -85,7 +85,7 @@ test("trivia: el comando abre la ronda con premio, avisa si ya hay una abierta y
   assert.equal(F.getSaldoCoins(G, "x@lid"), 10);
   assert.equal(Tr.rondaDe(G), null);
 
-  // no repite las últimas preguntas del grupo
+  // it doesn't repeat the group's latest questions
   const vistas = new Set();
   for (let i = 0; i < 10; i++) {
     await plugin.run(m, { client });
@@ -102,21 +102,21 @@ test("trivia: una sola por grupo, aunque dos se pidan al mismo tiempo o llegue u
   const m = { chat: G, sender: "y@lid", isGroup: true };
   Tr.cerrarRonda(G);
   U.juegoTerminado(G, null);
-  // dos .trivia a la vez: la segunda encuentra el turno reservado mientras la primera arma la pregunta
+  // two .trivia at once: the second finds the turn reserved while the first builds its question
   await Promise.all([plugin.run(m, { client }), plugin.run(m, { client })]);
   const textos = globalThis.enviados.map((e) => e.msg?.text || "");
   assert.equal(textos.filter((t) => t.startsWith("🎓 *Trivia*")).length, 1, "una sola pregunta");
   assert.equal(textos.filter((t) => t === "Ya se está armando una trivia, un segundo.").length, 1);
   assert.equal(Tr.rondaDe(G).tipo, "trivia");
 
-  // la relámpago no pisa una trivia abierta
+  // the lightning one doesn't override an open trivia
   const R = await import("../lib/trivia-relampago.js");
   const antes = globalThis.enviados.length;
   await R.lanzarTriviaRelampago(client, G);
   assert.equal(globalThis.enviados.length, antes, "no manda nada");
   assert.equal(Tr.rondaDe(G).tipo, "trivia");
 
-  // mientras se arma una ronda no se aceptan respuestas, y si el armado falla el turno se suelta
+  // while a round is being set up no answers are taken, and if the setup fails the turn is released
   Tr.cerrarRonda(G);
   U.juegoTerminado(G, null);
   assert.ok(Tr.reservarRonda(G, "trivia"));

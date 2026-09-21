@@ -1,7 +1,7 @@
 import { listaParejas } from "../lib/parejas.js";
 import { duracionLarga } from "../lib/tiempo.js";
 
-// .listaparejas: todas las parejas del bot, de la más vieja a la más nueva.
+// .listaparejas: every couple the bot knows, oldest first.
 const plugin = {};
 plugin.cmd = ["listaparejas", "listadeparejas"];
 plugin.botAdmin = true;

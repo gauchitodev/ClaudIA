@@ -5,7 +5,7 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, isOwner }) => {
   if (m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2Extension?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage?.viewOnce || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.viewOnce || m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.audioMessage?.viewOnce) {
-    // m.quoted.sender suele venir como @lid, así que se compara contra los dos formatos del remitente.
+    // m.quoted.sender usually arrives as @lid, so it's compared against both of the sender's formats.
     if (![m.sender, m.senderJid].includes(m.quoted.sender) && !isOwner) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   }
   if (m.quoted && m.quoted.sender === client.user.lid) return m.react("❌");

@@ -27,7 +27,7 @@ plugin.run = async (m, { client }) => {
   // ordenar de mayor a menor conteo
   ranking.sort((a, b) => b.count - a.count);
 
-  // tomar solo los primeros 10
+  // take just the first 10
   const top10 = ranking.slice(0, 10);
 
   let txt = "🏆 *LOS 10 QUE MÁS HABLAN EN ESTE GRUPO* 🏆\n\n";

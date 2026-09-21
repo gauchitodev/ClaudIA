@@ -6,7 +6,7 @@ plugin.botAdmin = true;
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, isOwner }) => {
-  // obtener todos los usuarios
+  // fetch every user
   const users = getAllUsers().filter((u) => u.banned);
 
   const caption = `❌ \`USUARIOS BANEADOS\` ❌

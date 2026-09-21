@@ -1,16 +1,16 @@
-// Cierra períodos automáticamente con el primer mensaje del grupo que llega después del cambio:
-// - Mes nuevo: anuncia ganadores del ranking del mes anterior y les da UruCoins.
-// - Semana nueva: premia la entrada más votada de cada hashtag de la semana anterior.
-// Cada cierre se marca en la base de datos para no repetirlo después de un reinicio.
+// Closes periods automatically on the group's first message after the change:
+// - New month: announces the previous month's ranking winners and pays them UruCoins.
+// - New week: rewards the most-voted entry of each of the previous week's hashtags.
+// Each closing is marked in the database so it isn't repeated after a restart.
 import { obtenerRankingMensual, entradaMasVotada, periodoCerrado, marcarPeriodoCerrado, ganarCoins } from "../database-functions.js";
 import { HASHTAGS_CONFIG, semanaDe, mesDe } from "../lib/hashtags.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
 import { sortearLoteria } from "../lib/loteria.js";
 
-const ultimoChequeo = new Map(); // chat -> { mes, semana } ya verificados (evita ir a la base en cada mensaje)
+const ultimoChequeo = new Map(); // chat -> { mes, semana } already checked (saves hitting the database on every message)
 
-// mesDe viene de lib/hashtags.js (hora local): tiene que ser el mismo cálculo que usa el ranking al sumar reacciones,
-// si no el cierre del mes se dispara unas horas antes o después de que cambie la clave.
+// mesDe comes from lib/hashtags.js (local time): it has to be the same calculation the ranking uses when adding up
+// reactions, otherwise the month's closing fires a few hours before or after the key changes.
 const mencion = (lid) => `@${lid.split("@")[0]}`;
 
 const plugin = (m) => m;
@@ -26,7 +26,7 @@ plugin.before = async (m, { client }) => {
     if (previo && previo.mes === mesActual && previo.semana === semanaActual) return;
     ultimoChequeo.set(m.chat, { mes: mesActual, semana: semanaActual });
 
-    // ---- Cierre del mes anterior ----
+    // ---- Closing the previous month ----
     const fechaMesAnterior = new Date(ahora);
     fechaMesAnterior.setDate(1);
     fechaMesAnterior.setMonth(fechaMesAnterior.getMonth() - 1);
@@ -41,7 +41,7 @@ plugin.before = async (m, { client }) => {
 
       if (ganadores.length > 0) {
         let texto = `🏆 *CERRÓ EL RANKING DE ${nombreMes(mesAnterior).toUpperCase()}*\n\n`;
-        const pagar = monedasActivas(m.chat); // con la economía apagada se anuncia igual, sin premio
+        const pagar = monedasActivas(m.chat); // with the economy off it's still announced, just without a prize
         for (const g of ganadores) {
           if (pagar) ganarCoins(m.chat, g.lid, COINS.GANADOR_MES, "ganador_mes");
           texto += `${g.titulo}: ${mencion(g.lid)} — ${g.detalle}${pagar ? ` 🪙 +${COINS.GANADOR_MES}` : ""}\n`;
@@ -51,7 +51,7 @@ plugin.before = async (m, { client }) => {
       }
     }
 
-    // ---- Cierre de la semana anterior (entrada más votada por hashtag) ----
+    // ---- Closing the previous week (most-voted entry per hashtag) ----
     const semanaAnterior = semanaDe(ahora - 7 * 24 * 60 * 60 * 1000);
 
     if (!periodoCerrado(m.chat, "semana", semanaAnterior)) {
@@ -71,7 +71,7 @@ plugin.before = async (m, { client }) => {
       }
     }
 
-    // ---- Sorteo de la lotería de la semana anterior ----
+    // ---- The previous week's lottery draw ----
     if (!periodoCerrado(m.chat, "loteria", semanaAnterior)) {
       marcarPeriodoCerrado(m.chat, "loteria", semanaAnterior);
       const sorteo = sortearLoteria(m.chat, semanaAnterior);

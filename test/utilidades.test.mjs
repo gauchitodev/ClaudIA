@@ -129,7 +129,7 @@ test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarg
     return ruta;
   };
   const viejo = crear("quedo-colgado.mp4", 60 * 60 * 1000);
-  // yt-dlp tiene 4 min de timeout por intento y hasta 3 intentos: a los 10 minutos puede seguir bajando.
+  // yt-dlp has a 4 min timeout per attempt and up to 3 attempts: ten minutes in, it may still be downloading.
   const enCurso = crear("bajando.mp4", 10 * 60 * 1000);
   const recien = crear("sticker.webp", 0);
 
@@ -138,20 +138,20 @@ test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarg
   assert.ok(fs.existsSync(enCurso), "una descarga de 10 minutos sigue viva");
   assert.ok(fs.existsSync(recien), "lo recién creado sigue vivo");
 
-  // Media hora más tarde ya no hay nada en curso que proteger.
+  // Half an hour later there is nothing in progress left to protect.
   assert.equal(LT.limpiarTmp(dir, ahora + 30 * 60 * 1000), 2);
   assert.equal(fs.readdirSync(dir).length, 0);
-  // Una carpeta que no existe no rompe la limpieza.
+  // A folder that doesn't exist doesn't break the cleanup.
   assert.equal(LT.limpiarTmp("tmp-que-no-existe", ahora), 0);
 });
 
 test("IA por mención: el comando con el número del bot se resuelve al usarse, no al importar el plugin", async () => {
   const previo = globalThis.client;
-  // Los plugins se cargan antes de que exista el socket: leer cmd ahí no puede reventar.
+  // Plugins load before the socket exists: reading cmd there must not blow up.
   globalThis.client = undefined;
   const P = (await import("../plugins/tools-ia.js")).default;
   assert.deepEqual(P.cmd, ["gemini", "ia", "bot"]);
-  // Ya conectada, el número del bot vuelve a ser comando (y primero, como estaba).
+  // Once connected, the bot's number is a command again (and first, as it was).
   globalThis.client = { user: { lid: "59899111222@lid" } };
   assert.deepEqual(P.cmd, ["59899111222", "gemini", "ia", "bot"]);
   globalThis.client = previo;
@@ -165,8 +165,8 @@ test("el .s no manda nada cuando la descarga del archivo viene vacía, y el log 
   const original = console.error;
   console.error = (...a) => errores.push(a.join(" "));
   try {
-    // Un citado que dice ser imagen pero al que el serializador le borró download(): wa-socket.js lo hace cuando el
-    // mensaje no tiene mediaMessage, y con el optional chaining del plugin eso devolvía undefined en silencio.
+    // A quoted message claiming to be an image but whose download() the serializer deleted: wa-socket.js does that
+    // when the message has no mediaMessage, and with the plugin's optional chaining it silently returned undefined.
     await P.run({ chat: G, sender: "u@lid", message: {}, quoted: { msg: { mimetype: "image/jpeg" } } }, { client, isOwner: false });
   } finally {
     console.error = original;

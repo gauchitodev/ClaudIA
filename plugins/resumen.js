@@ -9,8 +9,8 @@ const plugin = {};
 plugin.cmd = ["resumen", "quemeperdi"];
 plugin.onlyGroup = true;
 
-// .resumen [horas]: resumen con IA de los últimos mensajes del grupo (de 1 a 24 horas, 6 por defecto).
-// Solo cuenta lo guardado en memoria desde que arrancó el bot; no se lee historial de WhatsApp.
+// .resumen [hours]: an AI summary of the group's latest messages (from 1 to 24 hours, 6 by default).
+// Only what's been kept in memory since the bot started counts; no WhatsApp history is read.
 plugin.run = async (m, { client, args }) => {
   if (!globalThis.geminiApiKey) return client.sendText(m.chat, "Falta configurar la API key de Gemini en config.toml (geminiApiKey).", m);
   const horas = Math.min(24, Math.max(1, parseInt(args[0], 10) || 6));

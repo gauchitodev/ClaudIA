@@ -10,31 +10,31 @@ test("ta-te-ti: turnos, validaciones, ganador y tablero", () => {
   assert.deepEqual(g.render(), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.equal(g.turn(1, 0), -2, "no le toca a O");
   assert.equal(g.turn(0, 9), -1, "posición inválida");
-  assert.equal(g.turn(0, 0), 1); // X en la 1
+  assert.equal(g.turn(0, 0), 1); // X on 1
   assert.equal(g.oTurn, true);
   assert.equal(g.currentTurn, "beto");
   assert.equal(g.turn(1, 0), 0, "ocupada");
-  assert.equal(g.turn(1, 1, 1), 1); // O en el centro, por coordenadas
+  assert.equal(g.turn(1, 1, 1), 1); // O in the centre, by coordinates
   assert.deepEqual(g.render(), ["X", 2, 3, 4, "O", 6, 7, 8, 9]);
   assert.equal(g.winner, false);
-  g.turn(0, 1); // X en la 2
-  g.turn(1, 6); // O en la 7
-  assert.equal(g.turn(0, 2), 1); // X en la 3: fila completa
+  g.turn(0, 1); // X on 2
+  g.turn(1, 6); // O on 7
+  assert.equal(g.turn(0, 2), 1); // X on 3: the row is complete
   assert.equal(g.winner, "ana");
   assert.equal(g.turns, 5);
   assert.deepEqual(g.render(), ["X", "X", "X", 4, "O", 6, "O", 8, 9]);
-  // al rendirse, el plugin fija el turno desde afuera para que currentTurn apunte al que sigue
+  // on surrender the plugin sets the turn from outside so currentTurn points at whoever is next
   g.oTurn = 1;
   assert.equal(g.oTurn, true);
   assert.equal(g.currentTurn, "beto");
-  // los campos internos ya no son accesibles
+  // the internal fields are no longer reachable
   assert.equal(g._x, undefined);
   assert.equal(g._currentTurn, undefined);
 });
 
 test("ta-te-ti: tablero lleno y empate", () => {
   const g = new TicTacToe();
-  // X O X / X O O / O X X → sin ganador, tablero lleno (511)
+  // X O X / X O O / O X X → no winner, a full board (511)
   for (const [jugador, pos] of [[0, 0], [1, 1], [0, 2], [1, 4], [0, 3], [1, 5], [0, 7], [1, 6], [0, 8]]) assert.equal(g.turn(jugador, pos), 1, `jugada ${pos}`);
   assert.equal(g.board, 511);
   assert.equal(g.winner, false);

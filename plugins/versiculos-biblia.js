@@ -1,11 +1,11 @@
 import { elegirAlAzar } from "../lib/azar.js";
 
-// Versículos de la Reina-Valera 1960 desde bolls.life. Antes salían de bible-api.deno.dev, que dejó de existir cuando
-// Deno Deploy Classic cerró en julio de 2026.
+// Reina-Valera 1960 verses from bolls.life. They used to come from bible-api.deno.dev, which ceased to exist when
+// Deno Deploy Classic shut down in July 2026.
 const API = "https://bolls.life";
 const TRADUCCION = "RV1960";
 const SALMOS = { id: 19, nombre: "Salmos", capitulos: 150 };
-let libros = null; // [{ bookid, name, chapters }], se carga una sola vez
+let libros = null; // [{ bookid, name, chapters }], loaded once
 
 const pedir = async (ruta) => {
   const res = await fetch(`${API}${ruta}`, { signal: AbortSignal.timeout(15000) });

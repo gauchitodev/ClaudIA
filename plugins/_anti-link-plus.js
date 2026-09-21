@@ -1,6 +1,6 @@
 // Anti-links de Instagram, TikTok y Telegram.
-// Cada patrón exige el dominio completo con la barra: "tiktok.com/..." sí, "hablemos de tiktok" no.
-// (La versión anterior tenía /t.me/ sin escapar, que también atrapaba "time", "tome", "tame"...)
+// Each pattern demands the full domain with the slash: "tiktok.com/..." yes, "hablemos de tiktok" no.
+// (The previous version had /t.me/ unescaped, which also caught "time", "tome", "tame"...)
 const isLinkTikTok = /\b(?:www\.|vm\.|vt\.)?tiktok\.com\/\S+/i;
 const isLinkTelegram = /\b(?:t\.me|telegram\.(?:me|org|dog))\/\S+/i;
 const isLinkInstagram = /\b(?:www\.)?instagram\.com\/\S+/i;

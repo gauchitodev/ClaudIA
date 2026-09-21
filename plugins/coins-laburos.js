@@ -18,7 +18,7 @@ plugin.run = async (m, { client, command, args }) => {
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }
 
-  // .laburos / .laburo sin nombre → lista; .laburo <nombre> → agarrarlo
+  // .laburos / .laburo with no name → the list; .laburo <name> → take it
   const clave = buscarOficio(args.join(" "));
   if (!clave) {
     if (args.length > 0) return client.sendText(m.chat, "Ese laburo no existe. Mirá la lista con .laburos", m);

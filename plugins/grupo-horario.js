@@ -6,7 +6,7 @@ plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 plugin.botAdmin = true;
 
-// .horariogrupo 8:00-22:00 fija la franja y aplica el estado enseguida · .horariogrupo off la saca · sin nada, muestra
+// .horariogrupo 8:00-22:00 sets the window and applies the state right away · .horariogrupo off clears it · with nothing, it shows
 plugin.run = async (m, { client, text }) => {
   const pedido = (text || "").trim().toLowerCase();
   if (!pedido) return client.sendText(m.chat, textoHorarioGrupo(m.chat), m);

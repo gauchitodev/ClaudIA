@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { parejaDe, exParejasDe } from "../lib/parejas.js";
 
-// .ex [@x]: las ex de alguien (o tuyas) y su pareja actual.
+// .ex [@x]: someone's exes (or yours) and their current partner.
 const plugin = {};
 plugin.cmd = ["ex", "miex", "exs"];
 plugin.onlyGroup = true;

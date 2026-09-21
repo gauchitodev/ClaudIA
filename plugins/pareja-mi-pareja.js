@@ -1,7 +1,7 @@
 import { parejaDe, solicitudDe, cancelarSolicitud, exParejasDe } from "../lib/parejas.js";
 import { duracionLarga } from "../lib/tiempo.js";
 
-// .mipareja: con quién estás, desde cuándo, y si están casados. Un pedido sin respuesta se anula al consultar.
+// .mipareja: who you're with, since when, and whether you're married. An unanswered request is voided on lookup.
 const plugin = {};
 plugin.cmd = ["mipareja"];
 plugin.onlyGroup = true;

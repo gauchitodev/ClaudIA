@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { clienteFalso, ultimoEnviado } from "./helpers.mjs";
 
-// El plugin habla con bolls.life por fetch; acá se reemplaza el fetch global por respuestas enlatadas.
+// The plugin talks to bolls.life through fetch; here the global fetch is swapped for canned responses.
 const RUTAS = {
   "/get-books/RV1960/": [
     { bookid: 1, name: "Génesis", chapters: 50 },

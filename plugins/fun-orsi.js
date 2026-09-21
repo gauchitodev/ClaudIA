@@ -5,7 +5,7 @@ export const FRASES = ["No se", "Estamos analizando", "Es un caso aislado", "Ac�
 const plugin = {};
 plugin.cmd = ["orsi"];
 
-// .orsi → una de las frases, al azar
+// .orsi → one of the quotes, at random
 plugin.run = async (m, { client }) => {
   await client.sendText(m.chat, FRASES[randomInt(0, FRASES.length)], m);
 };

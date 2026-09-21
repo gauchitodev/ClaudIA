@@ -4,8 +4,8 @@ import * as C from "../lib/clima.js";
 
 const respuesta = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 const lugar = (name, country_code, country, admin1, latitude, longitude, feature_code = "PPL", population) => ({ name, country_code, country, admin1, latitude, longitude, feature_code, population });
-// Lugares reales del geocodificador de Open-Meteo (8/9/2026), recortados. El falso de abajo imita cómo busca: por el
-// nombre, con "nombre, país o región" como calificador, y con countryCode.
+// Real places from Open-Meteo's geocoder (2026-09-08), trimmed. The fake below mimics how it searches: by name,
+// with "name, country or region" as a qualifier, and with countryCode.
 const LUGARES = [
   lugar("Salto", "BR", "Brasil", "Estado de São Paulo", -23.2, -47.29, "PPLA2", 119736),
   lugar("Salto", "UY", "Uruguay", "Departamento de Salto", -31.38, -57.96, "PPLA", 99823),
@@ -54,7 +54,7 @@ beforeEach(() => {
     return respuesta(200, structuredClone(PRONOSTICO));
   };
 });
-// cada test usa un instante distinto para que las cachés de 24 h y 10 min no se pisen entre tests
+// each test uses a different instant so the 24 h and 10 min caches don't bleed between tests
 let reloj = Date.UTC(2030, 0, 1);
 const ahora = () => (reloj += 48 * 60 * 60 * 1000);
 

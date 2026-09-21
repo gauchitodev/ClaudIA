@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { aceptarPareja } from "../lib/parejas.js";
 
-// .aceptar @x: acepta el pedido de pareja de x.
+// .aceptar @x: accepts x's couple request.
 const plugin = {};
 plugin.cmd = ["aceptar"];
 plugin.onlyGroup = true;

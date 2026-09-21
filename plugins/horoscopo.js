@@ -1,9 +1,9 @@
 import { pedirHttp } from "../lib/http.js";
 
-// Horóscopo diario de horoscopo.com.
-// Ojo con los nombres: el sitio usa la URL sin tildes y llama "escorpion" a Escorpio, así que lo que
-// escribe la persona nunca va directo a la URL. Antes sí iba, y por eso ".horoscopo géminis",
-// ".horoscopo cáncer" y ".horoscopo escorpio" devolvían 404.
+// Daily horoscope from horoscopo.com.
+// Mind the names: the site uses accent-free URLs and calls Escorpio "escorpion", so what the person types never goes
+// straight into the URL. It used to, which is why ".horoscopo géminis", ".horoscopo cáncer" and ".horoscopo escorpio"
+// all returned 404.
 const SIGNOS = {
   aries: { url: "aries", emoji: "♈", nombre: "Aries" },
   tauro: { url: "tauro", emoji: "♉", nombre: "Tauro" },
@@ -19,7 +19,7 @@ const SIGNOS = {
   piscis: { url: "piscis", emoji: "♓", nombre: "Piscis" },
 };
 
-// "Géminis", "geminis!", "soy escorpión" → la clave del signo, o null.
+// "Géminis", "geminis!", "soy escorpión" → the sign's key, or null.
 export function buscarSigno(texto) {
   const limpio = String(texto || "")
     .toLowerCase()
@@ -61,7 +61,7 @@ plugin.run = async (m, { client, text }) => {
     const prediccion = inicio > 2 && fin > inicio ? html.substring(inicio, fin).trim() : "";
     if (!prediccion) throw new Error("no encontré la predicción en la página");
 
-    // El sitio arranca con "Domingo, 13 de Sept. de 2026 – texto". Si no viene así, se manda entero.
+    // The site starts with "Domingo, 13 de Sept. de 2026 – text". If it doesn't come that way, it's sent whole.
     const guion = prediccion.indexOf("–") >= 0 ? "–" : "-";
     const partes = prediccion.split(guion);
     const fecha = partes.length > 1 ? partes[0].trim() : "";

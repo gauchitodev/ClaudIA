@@ -6,8 +6,8 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args }) => {
   const defaultLang = "es";
-  // El idioma se indica con "-xx" al principio (ej: .tts -en hello). Antes cualquier palabra de dos letras
-  // ("no", "de", "la", "es") se tomaba como idioma y el audio salía en noruego, alemán o latín.
+  // The language is given with "-xx" up front (e.g. .tts -en hello). Any two-letter word ("no", "de", "la", "es")
+  // used to be taken as the language, and the audio came out in Norwegian, German or Latin.
   let lang = defaultLang;
   let text = args.join(" ");
   const marcadorIdioma = (args[0] || "").match(/^-([a-z]{2})$/i);

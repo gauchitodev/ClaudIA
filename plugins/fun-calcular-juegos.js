@@ -7,10 +7,10 @@ plugin.juego = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, text, chat }) => {
-  // Sin mencionar a nadie, el juego es sobre quien lo escribió.
+  // With nobody mentioned, the game is about whoever wrote it.
   const who = lidMencionado(m, text) || m.sender;
   if (command !== "love" && [client.user.lid, client.user.jid].includes(who)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
-  // El "santo" es el segundo owner configurado; se resuelve su @lid por la base porque las menciones llegan como @lid.
+  // The "saint" is the second configured owner; their @lid is resolved through the database because mentions arrive as @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
   const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
   const santoLid = santoJid ? getUser(santoJid)?.lid : null;

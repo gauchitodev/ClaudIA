@@ -5,18 +5,18 @@ const plugin = {};
 plugin.cmd = ["blgrupos", "blsecciones", "blon", "bloff", "bladd", "bldel", "bllist"];
 plugin.onlyOwner = true;
 
-// Mapa temporal en memoria: guarda la última lista numerada de grupos que vio cada owner.
+// Temporary in-memory map: it keeps the last numbered group listing each owner saw.
 if (!globalThis.blGroupListCache) globalThis.blGroupListCache = new Map();
 
 plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
-  // blsecciones: mostrar la lista de secciones disponibles
+  // blsecciones: show the list of available sections
   if (command === "blsecciones") {
     const nombres = getNombresSecciones();
     const lista = nombres.map((n, i) => `${i + 1}. +${n}`).join("\n");
     return client.sendText(m.chat, `*Secciones disponibles:*\n${lista}\n\nPara bloquear una sección entera, usá el "+" adelante.\nEjemplo: ${usedPrefix}bladd 1 +juegos`, m);
   }
 
-  // blgrupos: listar todos los grupos donde está el bot, numerados
+  // blgrupos: list every group the bot is in, numbered
   if (command === "blgrupos") {
     await client.insertAllGroup();
     const groupIds = Object.keys(client.chats).filter((id) => id.endsWith("@g.us"));
@@ -30,7 +30,7 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
     return client.sendText(m.chat, `*Grupos donde está el bot:*\n${texto}\n\nUsá el número junto al comando. Ejemplo: ${usedPrefix}blon 1`, m);
   }
 
-  // Para el resto: si es en grupo, ese es el objetivo. Si es privado, el primer argumento es el número.
+  // For the rest: in a group, that group is the target. In private, the first argument is the number.
   let targetChat = m.chat;
   let restText = text;
 

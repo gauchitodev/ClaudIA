@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["recorda", "recordá", "memoria"];
 plugin.onlyGroup = true;
 
-// .recordá que <algo> anota · .memoria lista · .memoria borrar <n> · .memoria limpiar (admin)
+// .recordá que <something> records it · .memoria lists · .memoria borrar <n> · .memoria limpiar (admin)
 plugin.run = async (m, { client, text, args, command, isAdmin, isOwner }) => {
   if (command !== "memoria") {
     const r = recordar(m.chat, m.sender, text);

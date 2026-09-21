@@ -2,7 +2,7 @@ import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 import { rechazarPareja } from "../lib/parejas.js";
 
-// .rechazar @x: rechaza el pedido de pareja de x.
+// .rechazar @x: turns down x's couple request.
 const plugin = {};
 plugin.cmd = ["rechazar"];
 plugin.onlyGroup = true;

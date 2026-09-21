@@ -7,7 +7,7 @@ import { descargar, bajarYEnviar, textoDescarga, esTikTok, esInstagram, YTDLP, _
 YTDLP.PAUSA_MS = 1;
 _dep.esperar = async () => {};
 
-// yt-dlp falso: crea el archivo que le pidieron con -o y contesta la línea de after_move.
+// a fake yt-dlp: it creates the file it was asked for with -o and answers with the after_move line.
 const ytDlpFalso = ({ fallosAntes = 0, ext = "mp4", salida = "", stderrPesado = false } = {}) => {
   let llamadas = 0;
   const fn = async (bin, args) => {
@@ -41,20 +41,20 @@ test("ytdlp: descarga, parsea la metadata y reintenta cuando TikTok falla", asyn
   assert.deepEqual({ autor: r.autor, titulo: r.titulo, duracion: r.duracion }, { autor: "tiktok", titulo: "Un título", duracion: 80 });
   assert.ok(fs.existsSync(r.archivo));
   fs.unlinkSync(r.archivo);
-  // TikTok va por la API móvil, con el archivo temporal en tmp/ y el tope de tamaño
+  // TikTok goes through the mobile API, with the temp file in tmp/ and the size cap
   const args = _dep.ejecutar.args;
   assert.ok(args.includes("--extractor-args") && args.includes(`tiktok:api_hostname=${YTDLP.TIKTOK_API}`));
   assert.ok(args.includes("--max-filesize") && args.includes(`${YTDLP.MAX_MB}M`));
   assert.ok(args.includes("--no-quiet") && args.includes("--no-progress"), "sin --no-quiet no se ve el aviso de max-filesize");
   assert.match(args[args.indexOf("-o") + 1], /^tmp\/dl-\d+-\w+\.%\(ext\)s$/);
 
-  // Instagram no lleva los argumentos de TikTok
+  // Instagram doesn't carry TikTok's arguments
   _dep.ejecutar = ytDlpFalso();
   const r2 = await descargar("https://www.instagram.com/reel/abc/");
   fs.unlinkSync(r2.archivo);
   assert.ok(!_dep.ejecutar.args.includes("--extractor-args"));
 
-  // se rinde tras los intentos configurados
+  // it gives up after the configured attempts
   _dep.ejecutar = ytDlpFalso({ fallosAntes: 99 });
   await assert.rejects(() => descargar("https://www.tiktok.com/@a/video/2"), /Command failed/);
   assert.equal(_dep.ejecutar.llamadas(), YTDLP.INTENTOS);
@@ -97,7 +97,7 @@ test("ytdlp: manda video o imagen con el título, limpia el temporal y avisa si 
 test("ytdlp: se actualiza una vez por día a la hora configurada", async () => {
   const { chequearActualizacionYtDlp, actualizarYtDlp } = await import("../lib/ytdlp.js");
   let corridas = 0;
-  // en CI no hay bin/yt-dlp (está en .gitignore): sin binario no se intenta nada, y el test no depende de que exista
+  // there is no bin/yt-dlp in CI (it's in .gitignore): with no binary nothing is attempted, and the test doesn't depend on it existing
   _dep.existe = () => false;
   assert.equal(await actualizarYtDlp(), null);
   _dep.existe = () => true;

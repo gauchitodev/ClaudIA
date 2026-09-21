@@ -29,8 +29,8 @@ plugin.run = async (m, { client }) => {
     await promises.unlink(outputPath);
     await client.sendFile(m.chat, jpgBuffer, "sticker.jpg", null, m);
   } catch (e) {
-    // El mismo mensaje tapaba dos causas muy distintas: la descarga vacía y el fallo de ffmpeg. Ahora el log las
-    // separa, así una captura alcanza para saber cuál fue sin correr ningún comando.
+    // One message used to cover two very different causes: an empty download and an ffmpeg failure. The log now
+    // separates them, so a screenshot is enough to tell which without running anything.
     if (e?.code === "ERR_INVALID_ARG_TYPE") {
       console.error("[toimg] ❌ la descarga del sticker vino vacía: download() no devolvió bytes.");
       console.error("[toimg] ➜ CAUSA: no se pudo bajar el archivo de WhatsApp. NO es problema de ffmpeg.");

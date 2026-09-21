@@ -1,7 +1,7 @@
 import { setTimeout as esperar } from "node:timers/promises";
 import { fijarCasamiento, dosPersonas, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
 
-// .setmarry @a @b [| 3 días]: el owner casa a una pareja, con el tiempo que lleven casados.
+// .setmarry @a @b [| 3 días]: the owner marries a couple, with however long they've been married.
 const plugin = {};
 plugin.cmd = ["setmarry"];
 plugin.onlyOwner = true;

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, watch } from "fs";
 import { writeFile } from "fs/promises";
 
-// yt-dlp: se baja el binario a ./bin (ignorado por git) si no está. Antes vivía en node_modules/gs, y cada npm ci lo borraba.
+// yt-dlp: the binary is downloaded to ./bin (git-ignored) if missing. It used to live in node_modules/gs, and every npm ci wiped it.
 const BIN = "./bin";
 export const RUTA_YT_DLP = `${BIN}/${process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"}`;
 
@@ -19,7 +19,7 @@ export async function installYtDlp() {
   }
 }
 
-// Cargar plugins
+// Load plugins
 export async function loadPlugins() {
   globalThis.plugins = {};
   const pluginFiles = readdirSync("./plugins/").filter((file) => file.endsWith(".js"));
@@ -36,7 +36,7 @@ export async function loadPlugins() {
   }
 }
 
-// Controlar cambios en plugins
+// Watch plugins for changes
 export function watchPlugins() {
   watch("./plugins/", { recursive: true }, async (eventType, filename) => {
     if (!filename || !filename.endsWith(".js")) return;

@@ -5,7 +5,7 @@ plugin.cmd = ["ahorcado"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-// Lista de palabras para el ahorcado
+// Word list for hangman
 const palabras = ["solido", "camino", "flores", "arboles", "ciudad", "puente", "montaña", "valle", "playas", "nubes", "viento", "lluvia", "trueno", "rayos", "nieve", "bosque", "selva", "desierto", "oasis", "lunas", "estrellas", "planeta", "galaxia", "cometa", "orbita", "satelite", "cohete", "avion", "barco", "trenes", "carros", "motos", "bicicleta", "camion", "ruedas", "motor", "frenos", "luces", "ventana", "puerta", "techo", "piso", "muros", "ladrillo", "cemento", "arena", "piedra", "madera", "vidrio", "metal", "plata", "oro", "bronce", "hierro", "acero", "cobre", "alambre", "clavos", "tornillo", "martillo", "sierra", "taladro", "pintura", "brocha", "lienzo", "cuadro", "pincel", "colores", "tinta", "papel", "libro", "hojas", "pluma", "lapiz", "borrador", "cuaderno", "escuela", "maestro", "alumnos", "clase", "leccion", "tarea", "examen", "nota", "grado", "titulo", "fiesta", "musica", "baile", "canto", "guitarra", "piano", "tambor", "flauta", "sonido", "ritmo", "melodia", "armonia", "silencio", "fuente", "laguna", "cascada", "cerros", "prados", "campos", "granja", "animal", "perros", "gatos", "peces", "tigre", "leones", "osos", "lobos", "zorros", "ciervo", "caballo", "burro", "vacas", "ovejas", "gallina", "patos", "cerdo", "conejo", "hormiga", "abeja", "mosca", "grillo", "saltamontes", "mariposa", "escarabajo", "araña", "serpiente", "lagarto", "rana", "sapo", "tortuga", "cocodrilo", "ballena", "pulpo", "medusa", "coral", "ostra", "cangrejo", "islas", "costas", "olas", "mareas", "arena", "roca", "faro", "puerto", "nave", "velero", "remo", "ancla", "buzos", "tesoro", "mapas", "reloj", "hora", "minuto", "semana", "meses", "año", "siglo", "pasado", "futuro", "ayer", "hoy", "mañana", "noche", "dawn", "tarde", "sol", "calor", "hielo", "fuego", "ceniza", "humo", "sombra", "luz", "rayo", "tormenta", "niebla", "charco", "pozo", "riego", "cosecha"];
 
 const ahorcado = {};
@@ -31,7 +31,7 @@ plugin.run = async (m, { client, chat }) => {
         client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*${resumen}`, m).catch(console.error);
         delete ahorcado[m.sender];
       }
-    }, 180000), // 3 minutos para completar la palabra
+    }, 180000), // 3 minutes to complete the word
   };
   juegoIniciado(m.chat, "ahorcado", m.sender);
 };
@@ -39,13 +39,13 @@ plugin.run = async (m, { client, chat }) => {
 plugin.before = async (m, { client }) => {
   if (!ahorcado[m.sender]) return;
   const juego = ahorcado[m.sender];
-  // La partida vive en un chat: lo que el jugador escriba en otros grupos o en privado no cuenta.
+  // The game lives in one chat: whatever the player writes in other groups or in private doesn't count.
   if (m.chat !== juego.chat) return;
-  // dejar pasar comandos (.apostar, .play, etc.) y mensajes sin texto
+  // let commands (.apostar, .play, etc.) and text-less messages through
   if (!m.text || globalThis.prefix.some((p) => m.text.startsWith(p))) return;
 
   const letra = m.text.toLowerCase().trim();
-  // Mensajes largos (charla normal) se ignoran; solo se avisa si mandó un único carácter que no es letra.
+  // Long messages (ordinary chat) are ignored; it only speaks up if they sent a single non-letter character.
   if (letra.length !== 1) return;
   if (!/^[a-záéíóúüñ]$/.test(letra)) return client.sendText(m.chat, txt.ahorcadoLetra, m);
   if (juego.letrasProbadas.includes(letra)) return m.react("❗");

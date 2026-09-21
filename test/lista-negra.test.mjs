@@ -5,7 +5,7 @@ import strings from "../lib/strings.js";
 
 let F, LN, P, Manejador;
 
-// Lo que WhatsApp contesta al expulsar: "200" es ok. Se puede forzar otro para probar el rechazo.
+// What WhatsApp answers on removal: "200" is ok. Another can be forced to test the rejection path.
 let expulsiones = [];
 let statusExpulsion = "200";
 
@@ -30,7 +30,7 @@ beforeEach(() => {
   db.exec("DELETE FROM lista_negra");
 });
 
-// El grupo lista a todo el mundo por LID. 111 es el único cuyo número mandó WhatsApp; 222 entró y nunca escribió.
+// The group lists everyone by LID. 111 is the only one whose number WhatsApp sent; 222 joined and never wrote.
 const participants = [
   { id: "100@lid", admin: "superadmin", phoneNumber: "59899100100@s.whatsapp.net" },
   { id: "111@lid", admin: null, phoneNumber: "59899111111@s.whatsapp.net" },
@@ -66,7 +66,7 @@ test("por número: lo anota y lo expulsa con el LID, que es el id con el que el 
 });
 
 test("por mención: a quien nunca escribió se lo anota igual y se lo echa", async () => {
-  // 222 no tiene fila en users ni número en la metadata: antes el comando cortaba con "no hay registro del usuario".
+  // 222 has no users row and no number in the metadata: the command used to bail out with "no record of the user".
   await correr("ln", "@222 molesta", { mentionedJid: ["222@lid"] });
 
   const entrada = F.isBlacklisted("222@lid", G);
@@ -109,7 +109,7 @@ test("a un admin del grupo no se lo puede anotar", async () => {
 test("quien está anotado por número se reconoce por su LID cuando escribe", async () => {
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G);
 
-  // El mensaje llega solo con el LID, sin el número: es el caso que antes no se detectaba nunca.
+  // The message arrives with the LID only, no number: this is the case that was never detected before.
   const m = mensaje({ sender: "111@lid", senderJid: "", messageStubType: null });
   const frenado = await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
 

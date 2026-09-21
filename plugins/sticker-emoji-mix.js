@@ -11,7 +11,7 @@ plugin.run = async (m, { client, text, args, usedPrefix, command }) => {
   if (!emoji1 || !emoji2) return client.sendText(m.chat, txt.emojiMixNull(usedPrefix, command), m);
   const anu = await fetchJson(`https://tenor.googleapis.com/v2/featured?key=${globalThis.tenorApiKey}&contentfilter=high&media_filter=png_transparent&component=proactive&collection=emoji_kitchen_v5&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`);
   if (!anu?.results?.length) return client.sendText(m.chat, "No encontré una mezcla para esos emojis.", m);
-  // Tenor puede devolver hasta 20 mezclas; con 3 alcanza y no se inunda el chat.
+  // Tenor can return up to 20 mixes; 3 is plenty and doesn't flood the chat.
   for (const res of anu.results.slice(0, 3)) {
     const stiker = await sticker(false, res.url);
     await client.sendFile(m.chat, stiker, null, null, m);

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { _dep, parsearViento, parsearClaros, leerClaros, msHastaLectura, buscarEstacion, textoClaro } from "../lib/claros.js";
 
-// recorte real de la página de Inumet (6/9/2026), con una ráfaga y una estación sin viento agregadas para probar
+// a real excerpt from Inumet's page (2026-09-06), with a gust and a windless station added for testing
 const fila = (nombre, viento, vis, tp, tpDesc, cielo, nubes, t, td, hr, pnm, pest) => `<tr class='listBackG'><td style="text-align: left;">${nombre}</td><td>${viento}</td><td>${vis}</td><td><span title="${tpDesc}">${tp}</span></td><td><span class="cielo" title="${nubes}">${cielo}</span></td><td>${nubes}</td><td>${t}</td><td>${td}</td><td>${hr}</td><td>${pnm}</td><td>${pest}</td></tr>`;
 const HTML = `<html><body><div id="div_claros" style="display: none;" class="aero"><p>Fecha: 06/09/2026</p><p>Observaciones realizadas a la hora 14:00</p><div class="contTablaEstCli"><table><thead><tr><th>Estación Meteorológica</th></tr></thead><tbody>
 ${fila("Artigas", "160 / 10 / 20", "18", "02", "Nuboso", "Nuboso", "5Cu500", "12.0", "2.3", "52", "1029.10", "1014.40")}
@@ -54,7 +54,7 @@ test("claros: caché de una hora, lectura forzada con freno de un minuto y horar
   assert.equal(r.deCache, false);
   assert.equal(pedidos, 3);
 
-  // a los 10 de cada hora, en hora local (UTC−3): a las 14:15 faltan 55 minutos; a las 14:05, cinco
+  // ten past each hour, in local time (UTC−3): at 14:15 that's 55 minutes away; at 14:05, five
   assert.equal(msHastaLectura(T0), 55 * 60000);
   assert.equal(msHastaLectura(Date.UTC(2026, 8, 6, 17, 5)), 5 * 60000);
   assert.equal(msHastaLectura(Date.UTC(2026, 8, 6, 17, 10)), 60 * 60000);
@@ -83,7 +83,7 @@ test("claros: búsqueda por ciudad, alias e ICAO, y los textos con la fuente", a
   assert.match(await textoClaro("marte", T0), /^No encontré la estación "marte"\. Las que hay: Artigas, Carrasco, Laguna del Sauce, Treinta y Tres, Mercedes\./);
   assert.match(await textoClaro("actualizar carrasco", T0 + 10000), /Claro Inumet · Carrasco[\s\S]*ℹ️ Ya se leyó recién; para no cansar a Inumet/);
 
-  // si Inumet no responde, muestra la última lectura y avisa
+  // if Inumet doesn't answer, it shows the last reading and says so
   _dep.pedir = async () => {
     throw new Error("Inumet respondió 503");
   };

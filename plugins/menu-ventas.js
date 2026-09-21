@@ -1,6 +1,6 @@
-// Menú del modo compraventa: lo que sirve en un grupo de ventas, sin los juegos ni la economía.
-// Si se agregan comandos nuevos de compraventa, sumalos acá y también en lib/manual-claudia.js para que Claudia sepa
-// contestar cuando le pregunten cómo se hace algo. test/menus.test.mjs verifica que lo que se nombra acá exista.
+// The marketplace mode menu: what's useful in a sales group, without the games or the economy.
+// If new marketplace commands are added, add them here and in lib/manual-claudia.js too, so Claudia can answer when
+// someone asks how to do something. test/menus.test.mjs checks that what is named here exists.
 const plugin = {};
 plugin.cmd = ["menuventas", "menuventa", "menucompraventa", "ventas"];
 plugin.onlyGroup = true;

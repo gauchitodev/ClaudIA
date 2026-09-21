@@ -20,7 +20,7 @@ before(async () => {
   Ban = (await import("../plugins/owner-banuser.js")).default;
   Llamar = (await import("../plugins/grupo-llamar.js")).default;
   for (const n of [111, 222]) F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: `5989911${n}@s.whatsapp.net` });
-  F.initDataDB({ chat: G, sender: "333@lid", senderJid: "" }); // alguien de quien no se conoce el número
+  F.initDataDB({ chat: G, sender: "333@lid", senderJid: "" }); // someone whose number isn't known
 });
 
 beforeEach(() => {
@@ -29,7 +29,7 @@ beforeEach(() => {
   globalThis.enviados = [];
 });
 
-// El grupo lista por LID; de 111 se conoce el número, de 222 no.
+// The group lists by LID; 111's number is known, 222's isn't.
 const participants = [
   { id: "111@lid", admin: null, phoneNumber: "5989911111@s.whatsapp.net" },
   { id: "222@lid", admin: null },
@@ -64,7 +64,7 @@ test(".kick expulsa con el id del grupo y avisa si WhatsApp no deja", async () =
 });
 
 test(".kick por número resuelve a la persona, no a un LID inventado", async () => {
-  // Antes se armaba "<dígitos>@lid" con lo tipeado: escribir el teléfono daba un LID que no existe.
+  // It used to build "<digits>@lid" from what was typed: writing the phone number gave a LID that doesn't exist.
   await correr(Kick, "@5989911111", "kick");
   await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }], "lo encuentra por el número del grupo");
@@ -92,7 +92,7 @@ test(".mute guarda el silencio en este grupo y no finge cuando no puede", async 
   await correr(Silenciar, "@111", "unmute", { mentionedJid: ["111@lid"] });
   assert.equal(F.getUser("111@lid").inGroup[G].mute, false);
 
-  // Por número: el UPDATE tiene que dar con la misma fila igual.
+  // By number: the UPDATE has to find the same row all the same.
   await correr(Silenciar, "@5989911111", "mute");
   assert.equal(F.getUser("111@lid").inGroup[G].mute, true, "escribió en la fila correcta");
   await correr(Silenciar, "@5989911111", "unmute");
@@ -108,13 +108,13 @@ test(".banuser guarda de verdad y avisa si no encontró a nadie", async () => {
   await correr(Ban, "@111", "unbanuser", { mentionedJid: ["111@lid"] });
   assert.equal(F.getUser("111@lid").banned, 0);
 
-  // Antes esto anunciaba ☑️ sin escribir nada: el UPDATE no encontraba la fila y se daba por bueno.
+  // This used to announce ☑️ without writing anything: the UPDATE found no row and passed as good.
   await correr(Ban, "@5980000000", "banuser");
   assert.match(ultimo(), /No tengo registro de esa persona/);
 });
 
 test(".llamar no se come los números que vienen después de la mención", async () => {
-  // ".llamar @111 5 minutos" llamaba a "1115@lid", que no es nadie.
+  // ".llamar @111 5 minutos" called "1115@lid", who is nobody.
   await correr(Llamar, "@5989911111 5 minutos", "llamar");
   await esperar(50);
   assert.match(ultimo(), /^@5989911111$/, "menciona a la persona, sin el 5 pegado");
@@ -122,7 +122,7 @@ test(".llamar no se come los números que vienen después de la mención", async
   await correr(Llamar, "", "cancelar");
   assert.match(ultimo(), /Menciones canceladas/);
 
-  // Varias personas de una
+  // Several people at once
   await correr(Llamar, "@111 @222 vengan", "llamar", { mentionedJid: ["111@lid", "222@lid"] });
   await esperar(50);
   assert.match(ultimo(), /^@111 @222$/);
@@ -133,21 +133,21 @@ test("destinatario: resuelve las dos identidades venga como venga", async () => 
   const { destinatario } = await import("../lib/identidad.js");
   const men = (text, mentionedJid = [], quoted = null) => ({ chat: G, sender: "100@lid", text, mentionedJid, quoted });
 
-  // mención del mensaje
+  // the message's mention
   const porMencion = destinatario(men("@111 algo", ["111@lid"]), "@111 algo", participants);
   assert.equal(porMencion.quien, "111@lid");
   assert.equal(porMencion.jid, "5989911111@s.whatsapp.net");
   assert.equal(porMencion.participante.id, "111@lid");
 
-  // "@número" tipeado con el teléfono: el LID que se armaba a mano no existía
+  // "@number" typed with the phone number: the hand-built LID didn't exist
   const porNumero = destinatario(men("@5989911111"), "@5989911111", participants);
   assert.equal(porNumero.quien, "111@lid", "da con la persona igual");
 
-  // "+número" escrito a mano
+  // "+number" written by hand
   const porMas = destinatario(men("+598 99 11 111"), "+598 99 11 111", participants);
   assert.equal(porMas.quien, "111@lid");
 
-  // una mención de verdad le gana al "+número" suelto que haya en el texto
+  // a real mention beats any loose "+number" in the text
   const conAmbos = destinatario(men("@111 debe +598 99 11 222", ["111@lid"]), "@111 debe +598 99 11 222", participants);
   assert.equal(conAmbos.quien, "111@lid");
 
@@ -155,12 +155,12 @@ test("destinatario: resuelve las dos identidades venga como venga", async () => 
   const porCitado = destinatario(men("", [], { sender: "222@lid" }), "", participants);
   assert.equal(porCitado.quien, "222@lid");
 
-  // alguien que el bot no conoce: no hay fila, pero sí a quién apuntar
+  // someone the bot doesn't know: no row, but still someone to point at
   const desconocido = destinatario(men("@5980000000"), "@5980000000", participants);
   assert.equal(desconocido.quien, null);
   assert.equal(desconocido.objetivo, "5980000000@lid");
 
-  // sin nada
+  // with nothing
   assert.equal(destinatario(men(""), "", participants).mencionado, null);
 });
 
@@ -193,7 +193,7 @@ test(".bloquear usa el número, que es lo único que WhatsApp acepta", async () 
   await correr(Bloquear, "@111", "bloquear", { mentionedJid: ["111@lid"] });
   assert.deepEqual(bloqueos, [{ jid: "5989911111@s.whatsapp.net", accion: "block" }]);
 
-  // de 333 no se conoce el número: lo dice en vez de mandar un LID que WhatsApp rechaza
+  // 333's number isn't known: it says so instead of sending a LID WhatsApp will reject
   await correr(Bloquear, "@333", "bloquear", { mentionedJid: ["333@lid"] });
   assert.equal(bloqueos.length, 1);
   assert.match(ultimo(), /No sé el número de esa persona/);
@@ -219,10 +219,10 @@ test(".addowner saca el teléfono de una mención por LID", async () => {
   const fs = await import("fs");
   const AddOwner = (await import("../plugins/owner-add-owner.js")).default;
   const ownersAntes = globalThis.owners;
-  // El plugin lee y escribe config.toml en el directorio actual, que en las pruebas es una carpeta temporal.
+  // The plugin reads and writes config.toml in the current directory, which in the tests is a temp folder.
   fs.writeFileSync("config.toml", 'owners = ["59899000000"]\n');
 
-  // Antes había que escribir el teléfono sí o sí: con una mención se armaba un LID y getUser devolvía "".
+  // The phone number used to be mandatory: a mention built a LID and getUser returned "".
   await correr(AddOwner, "@111", "addowner", { mentionedJid: ["111@lid"] });
   assert.match(ultimo(), /\*5989911111\* fué añadido como owner/);
   assert.ok(fs.readFileSync("config.toml", "utf8").includes("5989911111"), "quedó escrito en el archivo");
@@ -233,7 +233,7 @@ test(".addowner saca el teléfono de una mención por LID", async () => {
   await correr(AddOwner, "@111", "removeowner", { mentionedJid: ["111@lid"] });
   assert.match(ultimo(), /fué removido de owners/);
 
-  // de quien no se sabe el número, lo dice en vez de escribir basura en el config
+  // for someone whose number isn't known, it says so instead of writing junk into the config
   await correr(AddOwner, "@333", "addowner", { mentionedJid: ["333@lid"] });
   assert.match(ultimo(), /No se encontró el numero telefonico/);
 
@@ -244,20 +244,20 @@ test(".silenciar y .mute son lo mismo, y .desilenciar y .unmute también", async
   const Silenciar = (await import("../plugins/grupo-silenciar.js")).default;
   const muteDe = () => F.getUser("111@lid").inGroup[G].mute;
 
-  // Los cuatro nombres tienen que estar declarados: los tests llaman a run con el comando directo y no pasan por
-  // plugin.cmd, así que sin esto se podría borrar un alias sin que nada se queje.
+  // All four names have to be declared: the tests call run with the command directly and never go through
+  // plugin.cmd, so without this an alias could be deleted with nothing complaining.
   for (const alias of ["silenciar", "mute", "desilenciar", "unmute"]) {
     assert.ok(Silenciar.cmd.includes(alias), `falta .${alias} en plugin.cmd`);
   }
 
-  // Los que ponen el silencio
+  // The ones that apply the mute
   for (const alias of ["silenciar", "mute", "silencio", "hacesilencio"]) {
     await correr(Silenciar, "@111", "unmute", { mentionedJid: ["111@lid"] }); // dejarlo hablando
     await correr(Silenciar, "@111", alias, { mentionedJid: ["111@lid"] });
     assert.equal(muteDe(), true, `.${alias} tendría que silenciar`);
   }
 
-  // Los que lo sacan
+  // The ones that lift it
   for (const alias of ["desilenciar", "unmute"]) {
     await correr(Silenciar, "@111", "mute", { mentionedJid: ["111@lid"] }); // silenciarlo primero
     assert.equal(muteDe(), true);

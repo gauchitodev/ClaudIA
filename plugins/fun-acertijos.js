@@ -5,7 +5,7 @@ plugin.cmd = ["acertijo", "acertijos"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-// datos del juego
+// game state
 const response = [
   { pregunta: "Tengo llaves pero no abro puertas. ¿Qué soy?", respuesta: "un piano", pista: "Es un instrumento musical." },
   { pregunta: "Vuelo sin alas, lloro sin ojos. ¿Qué soy?", respuesta: "una nube", pista: "Aparezco en el cielo." },
@@ -112,26 +112,26 @@ plugin.run = async (m, { client, chat }) => {
         client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* ${acertijo.respuesta}${resumen}`, m).catch(console.error);
         delete acertijos[m.chat];
       }
-    }, 30000), // 30 segundos para adivinar
+    }, 30000), // 30 seconds to guess
   };
   juegoIniciado(m.chat, "acertijo");
 };
 
 plugin.before = async (m, { client }) => {
-  // verificar si hay un acertijo en juego
+  // check whether a riddle is in play
   if (!acertijos[m.chat]) return;
 
   const juego = acertijos[m.chat];
 
-  // verificar si el mensaje es respuesta al acertijo
+  // check whether the message is an answer to the riddle
   if (!m.quoted || m.quoted.id !== juego.mensajeId) return;
 
   const respuestaUsuario = m.text.toLowerCase().trim();
 
-  // calcular distancia de Levenshtein para margen de error en respuestas
+  // compute the Levenshtein distance to allow a margin of error in answers
   const distancia = levenshteinDistance(respuestaUsuario, juego.respuesta);
 
-  // Margen de error proporcional al largo de la respuesta (antes eran 4 letras fijas y "un ojo" pasaba por "un río").
+  // Margin of error proportional to the answer's length (it used to be a flat 4 letters, and "un ojo" passed for "un río").
   const margen = Math.max(1, Math.floor(juego.respuesta.length * 0.2));
   if (respuestaUsuario === juego.respuesta || distancia <= margen) {
     const resumen = juegoTerminado(m.chat, m.sender);
@@ -145,7 +145,7 @@ plugin.before = async (m, { client }) => {
 
 export default plugin;
 
-// función para calcular la distancia de Levenshtein entre dos cadenas
+// computes the Levenshtein distance between two strings
 function levenshteinDistance(s1, s2) {
   const dp = Array.from({ length: s1.length + 1 }, (_, i) => Array(s2.length + 1).fill(i));
   for (let j = 1; j <= s2.length; j++) dp[0][j] = j;

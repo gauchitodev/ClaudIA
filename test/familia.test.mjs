@@ -7,14 +7,14 @@ const DIA = 24 * 60 * 60 * 1000;
 const T0 = Date.UTC(2026, 8, 1, 12);
 const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
 const L = (n) => `${n}@lid`;
-// casados desde hace un día, novios desde hace ocho
+// married a day ago, dating for eight
 const casar = (a, b) => {
   P.fijarPareja(L(a), L(b), T0 - 8 * DIA);
   P.fijarCasamiento(L(a), L(b), T0 - DIA);
 };
-// adopción completa, con el pedido en un momento dado (así no choca el tope de una por día)
+// a full adoption, with the request at a given moment (so it doesn't hit the one-a-day cap)
 const adoptar = (padre, hijo, ahora) => {
-  fijarSaldo(F, G, L(padre), 100); // que no falle por el trámite
+  fijarSaldo(F, G, L(padre), 100); // so it doesn't fail over the fee
   const r = Fa.pedirAdopcion(G, L(padre), L(hijo), ahora);
   assert.equal(r.ok, true, `pedir adopción de ${hijo} por ${padre}: ${r.motivo}`);
   const a = Fa.responderAdopcion(L(hijo), true, ahora);
@@ -27,7 +27,7 @@ before(async () => {
   Fa = await import("../lib/familia.js");
   P = await import("../lib/parejas.js");
   Pf = await import("../lib/perfil.js");
-  globalThis.txt = (await import("../lib/strings.js")).default; // los plugins de pareja usan los textos globales
+  globalThis.txt = (await import("../lib/strings.js")).default; // the couple plugins use the global texts
   for (let n = 1; n <= 14; n++) {
     F.initDataDB(persona(n));
     fijarSaldo(F, G, L(n), 100);
@@ -49,7 +49,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   assert.deepEqual(Fa.responderAdopcion(L(3), false, T0), { ok: true, acepta: false, padres: [L(1), L(2)] });
   assert.equal(F.getSaldoCoins(G, L(1)), 100, "si rechazan, se devuelve el trámite");
 
-  // vencido a la semana, sin devolución
+  // expired after a week, no refund
   Fa.pedirAdopcion(G, L(1), L(3), T0);
   assert.deepEqual(Fa.responderAdopcion(L(3), true, T0 + 8 * DIA), { ok: false, motivo: "sinSolicitud" });
   assert.equal(F.getSaldoCoins(G, L(1)), 70);
@@ -63,7 +63,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   casar(5, 6);
   assert.deepEqual(Fa.pedirAdopcion(G, L(5), L(3), T0 + 8 * DIA), { ok: false, motivo: "tienePadres", padres: [L(1), L(2)] });
 
-  // sin economía en el grupo, el trámite es gratis
+  // with no economy in the group, the fee is free
   F.updateChat(G, { monedas: 0 });
   assert.deepEqual(Fa.pedirAdopcion(G, L(5), L(7), T0), { ok: true, conyuge: L(6), costo: 0 });
   assert.equal(F.getSaldoCoins(G, L(5)), 100);
@@ -73,14 +73,14 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   assert.deepEqual(Fa.pedirAdopcion(G, L(5), L(7), T0), { ok: false, motivo: "sinCoins", costo: 30 });
   fijarSaldo(F, G, L(5), 100);
 
-  // si otro matrimonio le pide a la misma persona, el pedido anterior cae y se le devuelve el trámite
+  // if another couple asks the same person, the earlier request is dropped and its fee refunded
   casar(8, 9);
   Fa.pedirAdopcion(G, L(5), L(7), T0);
   assert.equal(F.getSaldoCoins(G, L(5)), 70);
   assert.deepEqual(Fa.pedirAdopcion(G, L(8), L(7), T0), { ok: true, conyuge: L(9), costo: 30 });
   assert.equal(F.getSaldoCoins(G, L(5)), 100);
   assert.deepEqual(Fa.responderAdopcion(L(7), false, T0).padres, [L(8), L(9)]);
-  // si se divorciaron antes de la respuesta, no hay adopción y se devuelve
+  // if they divorced before the answer, there is no adoption and it's refunded
   Fa.pedirAdopcion(G, L(8), L(7), T0);
   P.terminarPareja(L(8));
   assert.deepEqual(Fa.responderAdopcion(L(7), true, T0), { ok: false, motivo: "yaNoCasados", padres: [L(8), L(9)] });
@@ -88,8 +88,8 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
 });
 
 test("el árbol: parentescos calculados, incesto y ciclos", () => {
-  // 1+2 tienen a 3 y 4; 3+7 tienen a 8; 4+9 tienen a 10; 5+6 tienen a 11 (otra familia)
-  // (el tope es una adopción por persona por día, así que cada una va en un día distinto de la anterior de esos padres)
+  // 1+2 have 3 and 4; 3+7 have 8; 4+9 have 10; 5+6 have 11 (another family)
+  // (the cap is one adoption per person per day, so each goes on a different day from those parents' previous one)
   adoptar(2, 4, T0 + 10 * DIA);
   casar(3, 7);
   adoptar(3, 8, T0 + 11 * DIA);
@@ -115,16 +115,16 @@ test("el árbol: parentescos calculados, incesto y ciclos", () => {
   assert.equal(Fa.parentescoDe(L(3), L(11)), null, "otra familia");
   assert.equal(Fa.parentescoDe(L(7), L(4)), null, "los cuñados no son sangre");
 
-  // nada de incesto: ni pareja ni aceptar
+  // no incest: neither proposing nor accepting
   assert.deepEqual(P.pedirPareja(L(8), L(10)), { ok: false, motivo: "parientes", parentesco: "tu primo/a" });
   assert.deepEqual(P.aceptarPareja(L(10), L(8)), { ok: false, motivo: "parientes", parentesco: "tu primo/a" });
   assert.equal(P.pedirPareja(L(8), L(11)).ok, true, "de otra familia sí");
   P.cancelarSolicitud(L(8));
 
-  // ciclos y parientes en la adopción
+  // cycles and relatives in adoption
   assert.deepEqual(Fa.pedirAdopcion(G, L(3), L(1), T0 + 20 * DIA), { ok: false, motivo: "antepasado" }, "no se adopta al abuelo de los propios hijos");
   assert.deepEqual(Fa.pedirAdopcion(G, L(1), L(7), T0 + 20 * DIA), { ok: false, motivo: "pariente", parentesco: "la pareja de tu hijo/a" }, "la nuera no se adopta");
-  // 12 se emancipa de nadie: no tiene padres; si 1+2 lo adoptan y después 3 lo quiere adoptar, ya tiene padres
+  // 12 emancipates from nobody: they have no parents; if 1+2 adopt them and then 3 tries, they already have parents
   assert.deepEqual(Fa.emanciparse(L(12)), { ok: false, motivo: "sinPadres" });
 });
 
@@ -142,7 +142,7 @@ test("apellido: lo elige el matrimonio y lo heredan los que llevaban el mismo", 
   assert.equal(Fa.apellidoDe(L(3)), "Rodríguez", "el hijo que eligió el suyo con su matrimonio se lo queda");
   assert.equal(Fa.apellidoDe(L(8)), "Rodríguez");
 
-  // un adoptado hereda el apellido de la familia
+  // an adoptee inherits the family surname
   const a = adoptar(1, 12, T0 + 30 * DIA);
   assert.equal(a.apellido, "Pérez");
   assert.equal(Fa.apellidoDe(L(12)), "Pérez");
@@ -162,7 +162,7 @@ test("emancipar y desheredar: se pierden los padres y el apellido de la familia"
   assert.deepEqual(Fa.parientesDe(L(3)).hermanos, [], "ya no son hermanos");
   assert.deepEqual(Fa.desheredar(L(2), L(3)), { ok: true, padres: [L(1), L(2)], apellidoPerdido: "" }, "3 llevaba otro apellido: lo conserva");
   assert.equal(Fa.apellidoDe(L(3)), "Rodríguez");
-  // vuelve a la familia
+  // back into the family
   adoptar(1, 3, T0 + 40 * DIA);
   assert.equal(Fa.apellidoDe(L(3)), "Pérez", "al ser adoptado toma el de la familia, y arrastra a los suyos");
   assert.deepEqual([7, 8].map((n) => Fa.apellidoDe(L(n))), ["Rodríguez", "Pérez"], "su hijo lo sigue; la pareja conserva el suyo hasta que elijan uno");
@@ -189,7 +189,7 @@ test("textos: .familia, .familias vacío y la línea del perfil", () => {
 test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .emancipar", async () => {
   const client = globalThis.client;
   const correr = (P, sender, text = "", command = P.cmd[0], mentioned = []) => P.run({ chat: G, sender, isGroup: true, mentionedJid: mentioned }, { client, text, usedPrefix: ".", command });
-  // el último mensaje con texto (algunos plugins mandan una reacción después del texto)
+  // the last message with text (some plugins send a reaction after the text)
   const ultimoTexto = () => [...globalThis.enviados].reverse().find((e) => e.msg?.text)?.msg;
   const Adoptar = (await import("../plugins/familia-adoptar.js")).default;
   const Si = (await import("../plugins/pareja-casamiento-aceptar.js")).default;
@@ -205,7 +205,7 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   assert.match(ultimoEnviado().msg.text, /Para adoptar hay que estar casado/);
   casar(13, 14);
   fijarSaldo(F, G, L(13), 100);
-  // 12 no tiene padres (se emancipó): lo adoptan 13 y 14
+  // 12 has no parents (they emancipated): 13 and 14 adopt them
   await correr(Adoptar, L(13), "@12", "adoptar", [L(12)]);
   assert.equal(ultimoTexto().text, "👨‍👩‍👧 @12, Persona 13 y Persona 14 te quieren adoptar (ya pagaron los 30 UruCoins del trámite). Respondé con .si o .no; el pedido vence en 7 días.");
   assert.deepEqual(ultimoTexto().mentions, [L(12)]);
@@ -216,7 +216,7 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   await correr(Si, L(12));
   assert.equal(ultimoEnviado().msg.text, "👨‍👩‍👧 ¡@12 ya es parte de la familia! Sus padres son Persona 13 y Persona 14.");
   assert.deepEqual(Fa.padresDe(L(12)), [L(13), L(14)]);
-  // sin adopción ni propuesta pendiente, .si sigue con el casamiento como antes (12 no tiene pareja)
+  // with no adoption or proposal pending, .si carries on with the marriage as before (12 has no partner)
   const antes = globalThis.enviados.length;
   await correr(Si, L(12));
   assert.equal(globalThis.enviados.length, antes + 1);
@@ -235,7 +235,7 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   await correr(Familia, L(12), "", "familias");
   assert.match(ultimoEnviado().msg.text, /^👨‍👩‍👧‍👦 \*FAMILIAS\*\n\n1\. \*Pérez\* — 4 personas: Persona 1, Persona 2, Persona 3 y Persona 8\n2\. \*Sosa\* — 3 personas: Persona 12, Persona 13 y Persona 14\n3\. \*Rodríguez\* — 1 persona: Persona 7$/);
 
-  // besos y noviazgos en la familia, no
+  // kisses and dating within the family: no
   await correr(Besar, L(12), "@13", "besar", [L(13)]);
   assert.equal(ultimoEnviado().msg.text, "🚫 ¡Es tu padre o madre! En la familia los besos van en la mejilla, y esos no cuentan.");
   const Pareja = (await import("../plugins/pareja-elegir.js")).default;

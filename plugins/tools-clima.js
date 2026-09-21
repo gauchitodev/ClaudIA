@@ -1,7 +1,7 @@
 import { textoClimaDe } from "../lib/clima.js";
 
-// .clima [ciudad] / .tiempo: clima de ahora y de mañana con Open-Meteo. Sin ciudad, Montevideo; con "ciudad, país"
-// para desempatar homónimas.
+// .clima [city] / .tiempo: current and next-day weather from Open-Meteo. With no city, Montevideo; with
+// "city, country" to tell namesakes apart.
 const plugin = {};
 plugin.cmd = ["clima", "tiempo"];
 plugin.botAdmin = true;
