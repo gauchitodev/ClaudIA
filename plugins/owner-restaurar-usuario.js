@@ -1,38 +1,23 @@
-import { getUser, deleteUser } from "../database-functions.js";
+import { deleteUser, esOwner } from "../database-functions.js";
+import { destinatario } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["rd", "resetuser", "userreset", "restaurarusuario"];
 plugin.onlyOwner = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  const numberMatchesPlus = text.match(/\+[0-9\s]+/g);
-  if (numberMatchesPlus && numberMatchesPlus.length > 0) {
-    who = `${numberMatchesPlus[0].replace(/[+\s]/g, "")}@s.whatsapp.net`;
-  } else if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  } else if (m.quoted) {
-    who = m.quoted.sender;
-  }
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  // deleteUser borra por LID, así que hace falta el LID: antes se armaba a mano con lo que estuviera escrito.
+  const { quien, lid, jid, mencionado } = destinatario(m, text, participants);
+  if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  if (who && !who.endsWith("@lid")) {
-    const whoData = getUser(who);
-    who = whoData?.lid || null;
-  }
+  const aBorrar = lid || quien;
+  if (!aBorrar) return client.sendText(m.chat, "No tengo registro de esa persona.", m);
 
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
+  // no afectar a owners del bot, salvo que se esté reseteando a sí mismo
+  if ((esOwner(mencionado) || esOwner(aBorrar) || (jid && esOwner(jid))) && m.sender !== aBorrar) return m.react("❌");
 
-  // no afectar a owners del bot
-  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
-  for (const ownerJid of ownerJids) {
-    const ownerData = getUser(ownerJid);
-    if (who === ownerData?.lid && m.sender !== who) return m.react("❌");
-  }
-
-  // eliminar usuario de la db.
-  deleteUser(who);
-  client.sendText(m.chat, txt.rdSuccess(who), m);
+  deleteUser(aBorrar);
+  client.sendText(m.chat, txt.rdSuccess(aBorrar), m);
 };
 
 export default plugin;

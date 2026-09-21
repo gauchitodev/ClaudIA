@@ -1,24 +1,20 @@
+import { destinatario } from "../lib/identidad.js";
+
 const plugin = {};
 plugin.cmd = ["bloquear", "desbloquear"];
 plugin.onlyOwner = true;
 
-plugin.run = async (m, { client, text, command }) => {
-  let who;
-  const numberRegex = /@[0-9]+/g;
-  const numberMatches = text.match(numberRegex);
-  if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "")}@lid`;
-  } else {
-    who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
-  }
-  if (!who) return;
+plugin.run = async (m, { client, text, command, participants }) => {
+  // Bloquear es por número: WhatsApp no acepta un LID acá, y antes se le pasaba justamente eso.
+  const { jid, mencionado } = destinatario(m, text, participants);
+  if (!mencionado) return;
+  if (!jid) return client.sendText(m.chat, "No sé el número de esa persona, así que no la puedo bloquear.", m);
 
-  if (command === "bloquear") {
-    await client.updateBlockStatus(who, "block");
+  try {
+    await client.updateBlockStatus(jid, command === "bloquear" ? "block" : "unblock");
     m.react("☑️");
-  } else if (command === "desbloquear") {
-    await client.updateBlockStatus(who, "unblock");
-    m.react("☑️");
+  } catch (e) {
+    client.sendText(m.chat, `No pude ${command}: ${e?.message || "error"}`, m);
   }
 };
 

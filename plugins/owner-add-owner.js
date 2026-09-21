@@ -1,29 +1,15 @@
 import fs from "fs";
 import toml from "@iarna/toml";
-import { getUser } from "../database-functions.js";
+import { destinatario } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["addowner", "removeowner", "aowner", "rowner"];
 plugin.onlyOwner = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  const numberMatchesPlus = text.match(/\+[0-9\s]+/g);
-  if (numberMatchesPlus && numberMatchesPlus.length > 0) {
-    who = numberMatchesPlus[0].replace(/[+\s]/g, "");
-  } else if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  } else if (m.quoted) {
-    who = m.quoted.sender;
-  } else who = "";
-
-  if (who.endsWith("@lid")) {
-    const whoData = getUser(who);
-    who = whoData?.jid || "";
-  }
-
-  if (who.includes("@s.whatsapp.net")) who = who.split("@")[0];
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  // config.toml guarda el teléfono pelado, así que de las dos identidades hace falta el número.
+  const { jid } = destinatario(m, text, participants);
+  const who = jid ? jid.split("@")[0] : "";
   if (!who) return client.sendText(m.chat, `No se encontró el numero telefonico del usuario mencionado. Pruebe: ${usedPrefix}${command} +598 99 999 999`, m);
 
   let configContent;

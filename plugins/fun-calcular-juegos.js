@@ -1,12 +1,14 @@
 import { getUser } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, command, chat }) => {
-  const who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : m.sender;
+plugin.run = async (m, { client, command, text, chat }) => {
+  // Sin mencionar a nadie, el juego es sobre quien lo escribió.
+  const who = lidMencionado(m, text) || m.sender;
   if (command !== "love" && [client.user.lid, client.user.jid].includes(who)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // El "santo" es el segundo owner configurado; se resuelve su @lid por la base porque las menciones llegan como @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";

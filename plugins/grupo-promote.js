@@ -1,21 +1,18 @@
+import { destinatario, cambiarParticipante } from "../lib/identidad.js";
+
 const plugin = {};
 plugin.cmd = ["p", "promote"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  } else if (m.quoted) {
-    who = m.quoted.sender;
-  }
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  const { objetivo, mencionado, participante } = destinatario(m, text, participants);
+  if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-
-  await client.groupParticipantsUpdate(m.chat, [who], "promote");
+  // Con el id con el que el grupo lista a la persona, y mirando lo que contesta WhatsApp.
+  const { ok, status } = await cambiarParticipante(client, m.chat, participante?.id || objetivo, "promote");
+  if (!ok) return client.sendText(m.chat, `No pude darle admin (error ${status}).`, m);
 };
 
 export default plugin;
