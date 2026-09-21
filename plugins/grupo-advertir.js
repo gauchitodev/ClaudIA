@@ -1,6 +1,5 @@
-import { getUser, esOwner, advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
-import { identidadesDe, expulsar } from "../lib/identidad.js";
+import { esOwner, advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
+import { destinatario, expulsar } from "../lib/identidad.js";
 
 // Advertencias de moderación, contadas por grupo: a la tercera se lo echa de acá. Las de otro grupo no cuentan.
 const plugin = {};
@@ -10,20 +9,13 @@ plugin.botAdmin = true;
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  const mencionado = lidMencionado(m, text);
+  const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   // La razón es lo que queda al sacar las menciones. El recorte viejo usaba un regex con \s que seguía comiéndose los
   // dígitos de la razón: ".adv @59899111111 3 veces seguidas" terminaba advirtiendo a "598991111113".
   const razon = text.replace(/@\d{3,}/g, "").trim();
   if (!razon) return client.sendText(m.chat, txt.advertirNoRazon, m);
-
-  // La mención puede llegar como LID, como número, o como "@número" tipeado a mano —y ahí lidMencionado arma un
-  // "<dígitos>@lid" que, si esos dígitos son un teléfono, no existe—. Se prueban las dos formas y se escribe con el
-  // id que de verdad tenga fila: antes se guardaba contra la columna lid a ciegas y el contador no se movía.
-  const digitos = String(mencionado).split("@")[0];
-  const { lid, jid, participante } = identidadesDe(getUser(mencionado) ? [mencionado] : [mencionado, `${digitos}@s.whatsapp.net`], participants);
-  const quien = [lid, jid, mencionado].find((id) => id && getUser(id));
 
   if (lid === client.user.lid || jid === client.user.jid) return m.react("❌");
   if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");

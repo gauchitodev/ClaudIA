@@ -1,4 +1,5 @@
 import { esOwner } from "../database-functions.js";
+import { destinatario, expulsar } from "../lib/identidad.js";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const plugin = {};
@@ -9,30 +10,30 @@ plugin.onlyMod = true;
 
 plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command }) => {
   try {
-    let who;
-    const numberMatches = text.match(/@[0-9\s]+/g);
-    if (numberMatches && numberMatches.length > 0) {
-      who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-    } else if (m.quoted) {
-      who = m.quoted.sender;
-    }
-    if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
+    // Se resuelve la identidad antes de expulsar: el recorte viejo armaba "<dígitos>@lid" con lo que estuviera
+    // escrito, y con un teléfono eso es un LID que no existe.
+    const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
+    if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-    if (who === client.user.lid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
-    if (esOwner(who)) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
+    if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
+    if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
+
     const groupAdmins = participants.filter((p) => p.admin);
     const owner = groupMetadata.owner || groupAdmins.find((p) => p.admin === "superadmin")?.id || `${m.chat.split("-")[0]}@lid`;
-
-    if (who === owner) {
+    if (owner === lid || owner === jid || owner === mencionado) {
       m.react("❌");
-      client.sendText(m.chat, txt.kickOwner(who), m);
-    } else if (who) {
-      await m.quoted?.delete();
-      await esperar(300);
-      await m.delete();
-      await esperar(1000);
-      await client.groupParticipantsUpdate(m.chat, [who], "remove");
-    } else return m.react("❌");
+      return client.sendText(m.chat, txt.kickOwner(owner), m);
+    }
+
+    await m.quoted?.delete();
+    await esperar(300);
+    await m.delete();
+    await esperar(1000);
+
+    // Se expulsa con el id con el que el grupo lista a la persona, y se mira lo que contesta WhatsApp: mandarle el
+    // número a un grupo que trabaja por LID no tira error, devuelve un status que antes nadie leía.
+    const { ok, status } = await expulsar(client, m.chat, participante?.id || lid || quien || mencionado);
+    if (!ok) return client.sendText(m.chat, `No pude sacarlo (error ${status}).`, m);
   } catch (e) {
     console.log(e);
   }
