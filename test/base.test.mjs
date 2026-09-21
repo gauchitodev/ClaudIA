@@ -115,6 +115,38 @@ test("migra publicaciones sin la columna mensajeBot y encuentra la publicación 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("migra las advertencias globales al formato por grupo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-warn-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const H = "otro@g.us";
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, timestamp INTEGER)`);
+  // Estaba en dos grupos con 2 advertencias que valían en los dos, y alguien sin grupos tenía una suelta.
+  vieja.prepare(`INSERT INTO users (lid, jid, inGroup, warn) VALUES (?, ?, ?, 2)`).run("111@lid", "111@s.whatsapp.net", JSON.stringify({ [G]: { mute: false, messageCount: 7 }, [H]: {} }));
+  vieja.prepare(`INSERT INTO users (lid, jid, inGroup, warn) VALUES (?, ?, '{}', 1)`).run("222@lid", "222@s.whatsapp.net");
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  globalThis.db = F.loadDatabase();
+
+  assert.equal(F.advertenciasDe("111@lid", G), 2, "la cuenta vieja vale en cada grupo donde estaba");
+  assert.equal(F.advertenciasDe("111@lid", H), 2);
+  assert.equal(F.getUser("111@lid").inGroup[G].messageCount, 7, "no se pisó el resto de inGroup");
+  assert.equal(db.prepare(`SELECT warn FROM users WHERE lid = ?`).get("111@lid").warn, 0, "la columna vieja queda vacía");
+
+  // Idempotente: volver a cargar no vuelve a sumar nada.
+  globalThis.db = F.loadDatabase();
+  assert.equal(F.advertenciasDe("111@lid", G), 2);
+
+  // Y a partir de acá cada grupo lleva la suya.
+  F.setAdvertencias("111@lid", G, 3);
+  assert.equal(F.advertenciasDe("111@lid", G), 3);
+  assert.equal(F.advertenciasDe("111@lid", H), 2);
+  assert.deepEqual(F.advertidos(H), [{ lid: "111@lid", chat: H, warn: 2 }]);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

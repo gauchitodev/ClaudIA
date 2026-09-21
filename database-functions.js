@@ -26,7 +26,7 @@ export function loadDatabase() {
       married TEXT DEFAULT "",
       marriedTime INTEGER DEFAULT -1,
       mute BOOLEAN DEFAULT 0,
-      warn INTEGER DEFAULT 0,
+      warn INTEGER DEFAULT 0, -- obsoleta: las advertencias son por grupo y viven en inGroup[chat].warn
       memoria TEXT DEFAULT "",
       timestamp INTEGER
     )
@@ -465,6 +465,26 @@ export function loadDatabase() {
     console.log("🟢 Migración: columna 'apodo' agregada a la tabla users");
   }
 
+  // Migración: las advertencias eran una sola cuenta para todos los grupos (users.warn), así que dos advertencias en
+  // un grupo y una en otro terminaban echando a la persona del segundo. Pasan a inGroup[chat].warn, copiadas a cada
+  // grupo donde la persona esté: es donde el contador viejo ya valía, así que nadie queda más cerca del kick que antes.
+  const conAdvertencias = db.prepare(`SELECT lid, warn, inGroup FROM users WHERE warn > 0`).all();
+  if (conAdvertencias.length) {
+    db.transaction(() => {
+      for (const u of conAdvertencias) {
+        let grupos;
+        try {
+          grupos = JSON.parse(u.inGroup || "{}");
+        } catch {
+          grupos = {};
+        }
+        for (const chat of Object.keys(grupos)) grupos[chat] = { ...grupos[chat], warn: u.warn };
+        db.prepare(`UPDATE users SET inGroup = ?, warn = 0 WHERE lid = ?`).run(JSON.stringify(grupos), u.lid);
+      }
+    })();
+    console.log(`🟢 Migración: advertencias de ${conAdvertencias.length} usuario(s) pasadas al formato por grupo`);
+  }
+
   return db;
 }
 
@@ -578,14 +598,47 @@ function updateRow(table, primaryKey, primaryValue, data) {
 
   const sql = `UPDATE ${table} SET ${setClause} WHERE ${primaryKey} = ?`;
 
-  db.prepare(sql).run(...values, primaryValue);
-
-  return true;
+  // Devuelve si de verdad tocó una fila: antes devolvía true siempre, y un UPDATE que no encontraba a nadie pasaba
+  // por bueno (así se "guardaban" advertencias que nunca se guardaron).
+  return db.prepare(sql).run(...values, primaryValue).changes > 0;
 }
 
 // actualizar datos de un usuario
-export function updateUser(lid, data) {
-  return updateRow("users", "lid", lid, data);
+// Acepta LID o número, igual que getUser: antes filtraba siempre por lid, así que con un número el UPDATE no tocaba
+// ninguna fila y no se notaba.
+export function updateUser(userId, data) {
+  return updateRow("users", String(userId).endsWith("@lid") ? "lid" : "jid", userId, data);
+}
+
+// Datos de una persona dentro de un grupo puntual (users.inGroup), mergeados con los que ya tenía.
+export function updateUserInGroup(userId, chat, data) {
+  const row = getUser(userId);
+  if (!row) return false;
+  const inGroup = { ...row.inGroup, [chat]: { ...(row.inGroup[chat] || {}), ...data } };
+  return updateUser(userId, { inGroup: JSON.stringify(inGroup) });
+}
+
+// ===================== Advertencias (.adv / .warn), por grupo =====================
+// Viven en inGroup[chat].warn. Antes eran una sola cuenta para todos los grupos, en la columna users.warn.
+export const MAX_ADVERTENCIAS = 3; // a la tercera se lo echa del grupo
+export function advertenciasDe(userId, chat) {
+  return getUser(userId)?.inGroup?.[chat]?.warn || 0;
+}
+
+export function setAdvertencias(userId, chat, cantidad) {
+  return updateUserInGroup(userId, chat, { warn: Math.max(0, cantidad) });
+}
+
+// Quiénes tienen advertencias: las de un grupo, o las de todos si no se pasa ninguno.
+export function advertidos(chat = null) {
+  const lista = [];
+  for (const u of getAllUsers()) {
+    for (const [grupo, datos] of Object.entries(u.inGroup || {})) {
+      if (chat && grupo !== chat) continue;
+      if (datos?.warn > 0) lista.push({ lid: u.lid, chat: grupo, warn: datos.warn });
+    }
+  }
+  return lista.sort((a, b) => b.warn - a.warn);
 }
 
 // actualizar datos de chat

@@ -1,5 +1,5 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner } from "../database-functions.js";
-import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/lista-negra.js";
+import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
 
 // Lista negra de personas, por grupo: quien está en la de un grupo no puede entrar ahí (se rechaza su solicitud y, si
 // entra igual, se la expulsa). La manejan los admins de cada grupo; a los admins y a los dueños del bot no se los puede

@@ -1,33 +1,31 @@
-import { getUser, updateUser } from "../database-functions.js";
+import { getUser, advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
+import { lidMencionado } from "../lib/menciones.js";
+import { identidadesDe } from "../lib/identidad.js";
 
+// Saca una advertencia de las de este grupo.
 const plugin = {};
 plugin.cmd = ["unwarn", "quitaradvertencia"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  let who;
-  const numberMatches = text.match(/@[0-9\s]+/g);
-  if (numberMatches && numberMatches.length > 0) {
-    who = `${numberMatches[0].replace("@", "").replace(/\s+/g, "")}@lid`;
-  } else {
-    who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
-  }
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  const mencionado = lidMencionado(m, text);
+  if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-  if (who === client.user.lid) return;
+  // Igual que en .adv: la mención puede venir como LID o como número, y se escribe con el id que tenga fila.
+  const digitos = String(mencionado).split("@")[0];
+  const { lid, jid } = identidadesDe(getUser(mencionado) ? [mencionado] : [mencionado, `${digitos}@s.whatsapp.net`], participants);
+  const quien = [lid, jid, mencionado].find((id) => id && getUser(id));
 
-  const whoData = getUser(who);
-  if (!whoData) return client.sendText(m.chat, "El usuario no está registrado en la base de datos.", m);
+  if (lid === client.user.lid || jid === client.user.jid) return m.react("❌");
+  if (!quien) return client.sendText(m.chat, "No tengo registro de esa persona todavía.", m);
 
-  if (whoData.warn === 0) return client.sendText(m.chat, "El usuario no tiene advertencias.", m);
+  const advertencias = advertenciasDe(quien, m.chat);
+  if (advertencias === 0) return client.sendText(m.chat, "No tiene advertencias en este grupo.", m);
 
-  if (whoData.warn > 0) {
-    const whoWarns = (whoData.warn -= 1);
-    updateUser(who, { warn: whoWarns });
-    await client.sendText(m.chat, txt.advertirDeleteSuccess(who, whoWarns), m);
-  }
+  setAdvertencias(quien, m.chat, advertencias - 1);
+  await client.sendText(m.chat, txt.advertirDeleteSuccess(quien, advertencias - 1, MAX_ADVERTENCIAS), m);
 };
 
 export default plugin;

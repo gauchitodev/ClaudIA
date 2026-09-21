@@ -1,4 +1,5 @@
-import { estaEnListaNegra, expulsar } from "../lib/lista-negra.js";
+import { estaEnListaNegra } from "../lib/lista-negra.js";
+import { expulsar } from "../lib/identidad.js";
 
 // Red de contención de la lista negra: si alguien anotado llegó a entrar igual, se lo saca apenas escribe. La
 // expulsión al entrar la hace main.js con el evento de participantes; esta cubre a quien ya estaba adentro cuando lo
