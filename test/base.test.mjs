@@ -35,7 +35,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G)?.reason, "spam");
   assert.ok(cols("hashtag_entries").includes("reacciones"));
   const tablas = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all().map((t) => t.name);
-  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
+  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
   globalThis.db = F.loadDatabase(); // idempotente
   fs.rmSync(dir, { recursive: true, force: true });
 });

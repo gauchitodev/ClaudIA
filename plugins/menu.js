@@ -80,6 +80,7 @@ ${readMore}
 ▸ ${usedPrefix}reglas set <texto> 📋 – \`Carga las reglas del grupo; se mandan al que entra. .plantilla set <texto> hace lo mismo con el formato.\`
 ▸ ${usedPrefix}calificaciones @mención ⭐ – \`Lista numerada; con "borrar N" o "editar N 4 comentario" corregís una maliciosa.\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
+▸ ${usedPrefix}actividad 📊 – \`Cuánto se habla en el grupo y a qué hora, de los últimos 7 días.\`
 ▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
 ▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`
 ▸ ${usedPrefix}ln @mención <motivo> 🚫 – \`Lista negra del grupo: no puede entrar acá (a admins no).\`
@@ -231,6 +232,7 @@ ${readMore}
 ▸ ${usedPrefix}setppbot 📷 – \`Establece foto de perfil al bot.\`
 ▸ ${usedPrefix}setbotname ✏️ – \`Establece nombre al bot [no funciona con WhatsApp Business]\`
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
+▸ ${usedPrefix}podar 🗑️ – \`Borra el detalle de actividad por hora de más de 90 días, en todos los grupos.\`
 ▸ ${usedPrefix}ajustar @mención 50 🪙 – \`Corrección de UruCoins a mano (negativo para sacar).\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

@@ -293,6 +293,19 @@ export function loadDatabase() {
       PRIMARY KEY (chat, usuario, fecha)
     )
   `);
+  // Group activity by hour: how much the group talks and when. Unlike actividad_diaria, which only counts
+  // conversation per person for the streak, this counts every message people send —commands, stickers, one-word
+  // replies— because "how many messages were there yesterday" means all of them. 24 rows per day and group.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS actividad_horaria (
+      chat TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      hora INTEGER NOT NULL,
+      mensajes INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, fecha, hora)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_actividad_horaria_fecha ON actividad_horaria (fecha)`); // para que la poda no recorra la tabla entera
   db.exec(`
     CREATE TABLE IF NOT EXISTS rachas (
       chat TEXT NOT NULL,
@@ -1142,6 +1155,30 @@ export function totalMensajesEntre(chat, fechas) {
   if (!fechas.length) return 0;
   const marcas = fechas.map(() => "?").join(", ");
   return db.prepare(`SELECT COALESCE(SUM(mensajes), 0) AS total FROM actividad_diaria WHERE chat = ? AND fecha IN (${marcas})`).get(chat, ...fechas)?.total || 0;
+}
+
+// ---------- group activity by hour ----------
+export function sumarMensajeHora(chat, fecha, hora) {
+  db.prepare(`INSERT INTO actividad_horaria (chat, fecha, hora, mensajes) VALUES (?, ?, ?, 1) ON CONFLICT(chat, fecha, hora) DO UPDATE SET mensajes = mensajes + 1`).run(chat, fecha, hora);
+}
+
+// Totals per hour (0-23) across the given days.
+export function mensajesPorHora(chat, fechas) {
+  if (!fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  return db.prepare(`SELECT hora, SUM(mensajes) AS total FROM actividad_horaria WHERE chat = ? AND fecha IN (${marcas}) GROUP BY hora ORDER BY hora`).all(chat, ...fechas);
+}
+
+// Totals per day, for the same set of days.
+export function mensajesPorDia(chat, fechas) {
+  if (!fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  return db.prepare(`SELECT fecha, SUM(mensajes) AS total FROM actividad_horaria WHERE chat = ? AND fecha IN (${marcas}) GROUP BY fecha ORDER BY fecha`).all(chat, ...fechas);
+}
+
+// Drops the hourly detail older than a date, in every group. Returns how many rows went.
+export function podarActividadHoraria(antesDe) {
+  return db.prepare(`DELETE FROM actividad_horaria WHERE fecha < ?`).run(antesDe).changes;
 }
 
 export function getRacha(chat, usuario) {
