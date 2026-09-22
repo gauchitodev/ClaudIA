@@ -30,7 +30,7 @@ const LITERAL = /(?<![=!]==\s{0,4})"([a-z][a-z0-9_]*)"/g;
 const PLANTILLA = /`([a-z][a-z0-9_]*_)\$\{/g;
 
 function motivosEmitidos() {
-  const encontrados = new Map(); // motivo -> "archivo:línea"
+  const encontrados = new Map(); // motivo -> "file:line"
   for (const archivo of FUENTES) {
     const texto = fs.readFileSync(archivo, "utf8");
     for (const llamada of texto.matchAll(LLAMADAS)) {
@@ -65,7 +65,7 @@ test("el catálogo no repite un motivo en dos juegos", () => {
   }
   assert.deepEqual(choques, []);
 
-  // Y lo que está fuera de timba no puede estar también dentro.
+  // And what is outside the gambling can't be inside it too.
   const dentroYFuera = FUERA_DE_TIMBA.exactos.filter((m) => clasificar(m) || COBROS_SIN_JUEGO.includes(m));
   assert.deepEqual(dentroYFuera, []);
 });

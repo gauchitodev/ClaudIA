@@ -2,7 +2,7 @@ import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, ca
 import { getUser, getPublicacionPorMensaje } from "../database-functions.js";
 
 const plugin = {};
-plugin.cmd = ["vendo", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
+plugin.cmd = ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
 plugin.onlyGroup = true;
 
 // .vendo / .compro: with nothing → that type's catalogue; with text → it posts; quoting a message → it posts what
@@ -15,13 +15,15 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
   // m.quoted's getter rebuilds the object on every read (lib/wa-socket.js): read it once.
   const citado = m.quoted;
 
-  if (command === "vendo" || command === "compro") {
+  // .vender is how people say it out loud ("respondé la foto con .vender"): same thing as .vendo.
+  const tipo = command === "vender" ? "vendo" : command;
+  if (tipo === "vendo" || tipo === "compro") {
     // Replying to one of the bot's messages is what anyone does to answer the catalogue: that posts nothing.
     const citaDePersona = citado && !citado.fromMe && !citado.isBaileys;
-    if (!text.trim() && citaDePersona) return publicarCitando(m, citado, command, { client, isMod });
-    if (!text.trim()) return enviar(textoCatalogo(m.chat, command));
+    if (!text.trim() && citaDePersona) return publicarCitando(m, citado, tipo, { client, isMod });
+    if (!text.trim()) return enviar(textoCatalogo(m.chat, tipo));
 
-    const r = publicar(m.chat, m.sender, command, text, m.key?.id || null);
+    const r = publicar(m.chat, m.sender, tipo, text, m.key?.id || null);
     if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
     return anunciarPublicacion(client, m, r);
   }

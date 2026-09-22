@@ -269,6 +269,13 @@ test("compraventa: publicar respondiendo a un mensaje", async () => {
   await correr("444@lid", "vendo", "", { quoted: foto });
   assert.match(ultimo(), /ya es la publicación/);
 
+  // .vender, the way people say it, does the same as .vendo
+  await correr("666@lid", "vender", "", { quoted: cita("666@lid", "silla de pino $ 500") });
+  const de666 = F.publicacionesDe(G, "666@lid");
+  assert.equal(de666.length, 1);
+  assert.equal(de666[0].tipo, "vendo", "se publica como venta, no con un tipo nuevo");
+  assert.equal(de666[0].texto, "silla de pino $ 500");
+
   // .compro too
   await correr("555@lid", "compro", "", { quoted: cita("555@lid", "monitor 24 pulgadas") });
   assert.equal(F.publicacionesDe(G, "555@lid").find((p) => p.tipo === "compro")?.texto, "monitor 24 pulgadas");
@@ -329,8 +336,8 @@ test("compraventa: .catalogo lista todo y muestra el detalle de una", async () =
   assert.match(ultimo(), /EN VENTA/, "lo que no es un número muestra el catálogo entero");
 });
 
-test("compraventa: quedaron solo los 11 comandos que se usan", () => {
-  assert.deepEqual(Cmd.cmd, ["vendo", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"]);
+test("compraventa: quedaron solo los comandos que se usan, más .vender como alias de .vendo", () => {
+  assert.deepEqual(Cmd.cmd, ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"]);
   // The tests call Cmd.run with the command directly, never through plugin.cmd: without this check, half of
   // plugin.cmd could be deleted and the suite would stay green.
   for (const viejo of ["busco", "publicaciones", "publicacion", "publicación", "conseguido", "mispublicaciones", "alertas"]) {

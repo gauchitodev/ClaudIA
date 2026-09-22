@@ -1,3 +1,4 @@
+import { nombreDeGrupo } from "../lib/cache-grupos.js";
 const { downloadContentFromMessage } = await import(baileys);
 
 const plugin = (m) => m;
@@ -9,7 +10,9 @@ plugin.before = async (m, { client, chat }) => {
       if (!msg) return;
       if (msg.key.fromMe || msg.key.participant === client.user.lid) return;
       if (msg.message.reactionMessage) return;
-      const gN = msg.key.remoteJid.endsWith("@g.us") ? await client.groupMetadata(msg.key.remoteJid) : null;
+      // Only the group's name is needed here, and the cache already has it: asking for the whole metadata on
+      // every deleted message was a query to WhatsApp, and one without a catch, so a timeout killed the notice.
+      const nombreGrupo = await nombreDeGrupo(client, msg.key.remoteJid);
       const participant = msg.key?.participant || msg.key?.remoteJid;
       const { imageMessage, videoMessage, stickerMessage, audioMessage, extendedTextMessage, conversation } = msg.message;
 
@@ -52,7 +55,7 @@ ${msgg[type].caption ? `- *Caption:* ${msgg[type].caption}` : "- *Caption:* _sin
         }
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 ${imageMessage.caption ? `- *Texto:* ${imageMessage.caption}` : "- *Texto:* _sin_texto_"}`;
         await client.sendMessage(m.chat, { image: buffer, caption, mentions: client.parseMention(caption) }, { quoted: msg });
         return;
@@ -64,7 +67,7 @@ ${imageMessage.caption ? `- *Texto:* ${imageMessage.caption}` : "- *Texto:* _sin
         }
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 ${videoMessage.caption ? `- *Texto:* ${videoMessage.caption}` : "- *Texto:* _sin_texto_"}`;
         await client.sendMessage(m.chat, { video: buffer, caption, mentions: client.parseMention(caption) }, { quoted: msg });
         return;
@@ -75,7 +78,7 @@ ${videoMessage.caption ? `- *Texto:* ${videoMessage.caption}` : "- *Texto:* _sin
         }
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 *┃ Reenviando sticker...*
 *━━━ 👇🏻👇🏻👇🏻👇🏻👇🏻 ━━━*`;
         await client.sendMessage(m.chat, { text: caption, mentions: [participant] }, { quoted: msg });
@@ -89,7 +92,7 @@ ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Cha
         }
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 *┃🔊 Reenviando audio...*
 *━━━ 👇🏻👇🏻👇🏻👇🏻👇🏻 ━━━*`;
         await client.sendMessage(m.chat, { text: caption, mentions: client.parseMention(caption) }, { quoted: msg });
@@ -99,7 +102,7 @@ ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Cha
         const msgText = msg.message?.extendedTextMessage?.text || msg.message?.conversation;
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 - *📝Mensaje:* ${msgText}
 *━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*`;
         await client.sendMessage(m.chat, { text: caption, mentions: client.parseMention(caption) }, { quoted: msg });
@@ -107,7 +110,7 @@ ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Cha
       } else {
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
-${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${gN.subject}` : "*┃ Chat privado*"}
+${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
 *┃ Reenviando contenido borrado..*
 *━━━ 👇🏻👇🏻👇🏻👇🏻👇🏻 ━━━*`;
         await client.sendMessage(m.chat, { text: caption, mentions: [participant] }, { quoted: msg });

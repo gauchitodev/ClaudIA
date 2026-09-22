@@ -100,19 +100,20 @@ test("recap semanal", async () => {
   assert.equal(globalThis.enviados.length, antes + 1);
 });
 
-// ---------- actividad del grupo por hora (.actividad y .podar) ----------
-// Esta tabla cuenta TODOS los mensajes, no solo la charla que alimenta la racha: por eso va aparte de las pruebas
-// de arriba. La hora se fija con un Date propio, como en test/horario-juegos.test.mjs, para no depender del reloj.
+// ---------- group activity by hour (.actividad and .podar) ----------
+// This table counts EVERY message, not just the conversation that feeds the streak: that's why it's apart from the
+// tests above. The time is pinned with a Date of its own, as in test/horario-juegos.test.mjs, so the clock can't
+// get in the way.
 const H = "horario@g.us";
 const en = (dia, hora) => new Date(2026, 8, dia, hora, 30, 0);
 
 test("el panel de actividad resume días y horas", async () => {
   const Panel = (await import("../plugins/grupo-actividad.js")).default;
-  const ahora = en(20, 15); // domingo 20 de septiembre, 15:30
+  const ahora = en(20, 15); // Sunday, September 20, 15:30
   const hoy = A.claveDia(ahora);
   const ayer = A.claveDia(new Date(ahora.getTime() - DIA));
 
-  // sin nada registrado, lo dice y no divide por cero
+  // with nothing recorded it says so, and doesn't divide by zero
   assert.match(A.textoActividad(H, ahora).texto, /No tengo actividad registrada/);
 
   for (let i = 0; i < 40; i++) F.sumarMensajeHora(H, hoy, 21);
@@ -122,14 +123,33 @@ test("el panel de actividad resume días y horas", async () => {
 
   const { texto } = A.textoActividad(H, ahora);
   assert.match(texto, /Hoy: \*75\* mensajes · ayer 30/);
-  assert.match(texto, /Últimos 7 días: \*105\* · 15 por día/);
+  // Counting started yesterday: the average is over those two days, not over a week the bot never counted.
+  assert.match(texto, /Últimos 2 días: \*105\* · 53 por día/);
   assert.match(texto, /21:00 █+░* 40\n22:00 █+░* 30\n13:00 █+░* 25/, "las horas pico van de mayor a menor");
   assert.doesNotMatch(texto, /03:00/, "solo las tres primeras");
   assert.match(texto, /Más tranquilo: de 0[45] a \d\d h/);
 
-  // el comando manda ese mismo texto
+  // the command sends that same text
   await Panel.run({ chat: H, isGroup: true }, { client: globalThis.client });
   assert.match(ultimoEnviado().msg.text, /ACTIVIDAD DEL GRUPO/);
+});
+
+test("el panel no inventa promedios: los calcula sobre los días que realmente contó", () => {
+  const ahora = en(20, 15);
+  const hoy = A.claveDia(ahora);
+
+  // First day of counting: no "ayer" (it wasn't counted) and no average (it would just repeat today).
+  const nuevo = "nuevo@g.us";
+  for (let i = 0; i < 300; i++) F.sumarMensajeHora(nuevo, hoy, 12);
+  const primerDia = A.textoActividad(nuevo, ahora).texto;
+  assert.match(primerDia, /Hoy: \*300\* mensajes\n/);
+  assert.doesNotMatch(primerDia, /ayer|Últimos|por día/, "el primer día no hay con qué comparar");
+
+  // A group counted for longer than a week keeps dividing by 7, silent days included: a quiet day is a real zero.
+  const viejo = "viejo@g.us";
+  F.sumarMensajeHora(viejo, A.claveDia(new Date(ahora.getTime() - 10 * DIA)), 12);
+  for (let i = 0; i < 70; i++) F.sumarMensajeHora(viejo, hoy, 12);
+  assert.match(A.textoActividad(viejo, ahora).texto, /Hoy: \*70\* mensajes · ayer 0\nÚltimos 7 días: \*70\* · 10 por día/);
 });
 
 test("el conteo por hora incluye comandos y mensajes de una palabra", async () => {
@@ -146,7 +166,7 @@ test("el conteo por hora incluye comandos y mensajes de una palabra", async () =
   const hoy = A.claveDia();
   const total = F.mensajesPorDia(C, [hoy]).reduce((t, r) => t + r.total, 0);
   assert.equal(total, 3, "cuentan el comando y el 'jaja'; no cuentan el bot ni los avisos de grupo");
-  // y la racha sigue con su criterio: "jaja" no es charla
+  // and the streak keeps its own rule: "jaja" isn't conversation
   assert.equal(A.mensajeCuenta("jaja"), false);
 });
 
@@ -169,8 +189,8 @@ test(".podar saca el detalle viejo y deja el reciente", async () => {
 
   assert.equal(A.podarActividad(ahora), 0, "correrlo de nuevo no borra nada");
 
-  // El comando no recibe un "ahora": corre contra el reloj de verdad, así que se siembra relativo a él. Y como poda
-  // TODOS los grupos, primero se limpia lo que haya quedado viejo de los de arriba, para que el número sea exacto.
+  // The command takes no "ahora": it runs against the real clock, so the rows are seeded relative to it. And since it
+  // prunes EVERY group, whatever the tests above left behind is cleared first, so the count comes out exact.
   const P = "poda@g.us";
   A.podarActividad();
   F.sumarMensajeHora(P, A.claveDia(new Date(Date.now() - 200 * DIA)), 9);

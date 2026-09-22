@@ -1,6 +1,6 @@
 // .timba: a ranking of the group's biggest gamblers. It counts everything staked (casino, bets on games, the
 // lottery and the markets) and the net result (prizes and refunds minus what was staked).
-// .timba mes → solo lo de este mes. Your own breakdown, game by game, is .mitimba.
+// .timba mes → this month only. Your own breakdown, game by game, is .mitimba.
 // Which reason belongs to which game lives in lib/timba.js, shared with .mitimba and guarded by test/motivos.test.mjs.
 
 import { topTimba, inicioDeMes } from "../lib/timba.js";

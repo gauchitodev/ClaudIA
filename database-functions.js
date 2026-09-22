@@ -305,7 +305,7 @@ export function loadDatabase() {
       PRIMARY KEY (chat, fecha, hora)
     )
   `);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_actividad_horaria_fecha ON actividad_horaria (fecha)`); // para que la poda no recorra la tabla entera
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_actividad_horaria_fecha ON actividad_horaria (fecha)`); // so .podar doesn't scan the whole table
   db.exec(`
     CREATE TABLE IF NOT EXISTS rachas (
       chat TEXT NOT NULL,
@@ -1174,6 +1174,11 @@ export function mensajesPorDia(chat, fechas) {
   if (!fechas.length) return [];
   const marcas = fechas.map(() => "?").join(", ");
   return db.prepare(`SELECT fecha, SUM(mensajes) AS total FROM actividad_horaria WHERE chat = ? AND fecha IN (${marcas}) GROUP BY fecha ORDER BY fecha`).all(chat, ...fechas);
+}
+
+// The first day the bot counted a message in this group, or null if it never did.
+export function primerDiaActividadHoraria(chat) {
+  return db.prepare(`SELECT MIN(fecha) AS fecha FROM actividad_horaria WHERE chat = ?`).get(chat)?.fecha || null;
 }
 
 // Drops the hourly detail older than a date, in every group. Returns how many rows went.

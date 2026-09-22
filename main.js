@@ -12,8 +12,8 @@ import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
-import { avisoReglasParaNuevos } from "./lib/reglas.js";
-import { expulsarDeListaNegra } from "./lib/lista-negra.js";
+import { recibirNuevos } from "./lib/bienvenida.js";
+import { metadataDe, aplicarCambioDeGrupo, vaciar } from "./lib/cache-grupos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -22,6 +22,7 @@ serialize();
 let intentosReconexion = 0;
 const MAX_REINTENTOS = 5;
 let reconectando = false;
+let yaConectoAlgunaVez = false;
 let horaConexion = 0;
 
 // Reactions already counted (message + who reacted), in RAM and capped, so the same one is never counted twice.
@@ -54,6 +55,10 @@ async function startBot() {
     syncFullHistory: false,
     shouldSyncHistoryMessage: () => false,
     getMessage: () => null,
+    // Without this, Baileys asks WhatsApp for the group's participant list on EVERY message the bot sends there,
+    // which is how accounts get rate-limited. See lib/cache-grupos.js. It runs on the send path, so it never
+    // throws: if the cache can't answer, Baileys asks on its own, exactly like it did before.
+    cachedGroupMetadata: (jid) => metadataDe(globalThis.client, jid),
   };
 
   globalThis.client = makeWASocket(connectionOptions);
@@ -113,6 +118,11 @@ async function startBot() {
       reconectando = false;
       resolverCanal();
       globalThis.horaConexion = horaConexion;
+      // Coming back from a disconnection, the cached group metadata is dropped: promotes, joins and leaves that
+      // happened while the bot was down never arrived as events, so the admin lists can't be trusted any more.
+      // On the first connection there is nothing to drop.
+      if (yaConectoAlgunaVez) vaciar();
+      yaConectoAlgunaVez = true;
       // Notify the owner: on process start, and when coming back from a long outage.
       if (!globalThis.avisoArranqueEnviado) {
         globalThis.avisoArranqueEnviado = true;
@@ -161,21 +171,12 @@ async function startBot() {
       if (action === "remove") limpiarRolesAlSalir(id, participants);
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
-      // If it couldn't be fetched, carry on anyway: the group rules still get sent.
-      const metadata = await client.groupMetadata(id).catch(() => null);
-      if (metadata) client.chats[id] = { ...(client.chats[id] || {}), id, subject: metadata.subject, isChats: true, metadata };
+      // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches
+      // processMessageStubType, and the cache collapses both into a single query.
+      const metadata = await metadataDe(client, id, { fresca: true });
 
-      if (action === "add") {
-        // Blacklist: anyone on it is removed as soon as they join, without waiting for them to talk.
-        const soyAdmin = metadata?.participants?.find((p) => p.id === client.user?.lid || p.id === client.user?.jid)?.admin;
-        const { expulsados, fallados } = soyAdmin ? await expulsarDeListaNegra(client, id, participants, metadata.participants) : { expulsados: [], fallados: [] };
-
-        // Newcomers get the group rules, if an admin set them with .reglas set. Blacklisted ones don't.
-        const anotados = [...expulsados, ...fallados].map((e) => e.original);
-        const bienvenidos = (participants || []).filter((p) => !anotados.includes(p));
-        const aviso = avisoReglasParaNuevos(id, bienvenidos);
-        if (aviso) await client.sendMessage(id, { text: aviso.texto, mentions: aviso.mentions }).catch((e) => console.error("[reglas] no se pudieron mandar:", e.message));
-      }
+      // Whoever joins: the blacklisted are removed on the spot, everyone else gets the group rules.
+      if (action === "add") await recibirNuevos(client, id, participants, metadata);
     } catch (e) {
       console.error("[grupos] error refrescando metadata:", e);
     }
@@ -208,12 +209,10 @@ async function startBot() {
     }
   });
 
-  // When the group settings change (open/closed, name, etc.) the metadata cache is dropped so it's read fresh on
-  // the next message. Participant changes are refreshed by the handler above.
+  // Whole metadata is kept, a settings change invalidates: see aplicarCambioDeGrupo in lib/cache-grupos.js.
+  // Participant changes are refreshed by the handler above.
   client.ev.on("groups.update", (cambios) => {
-    for (const cambio of cambios || []) {
-      if (cambio?.id && client.chats?.[cambio.id]) delete client.chats[cambio.id].metadata;
-    }
+    for (const cambio of cambios || []) aplicarCambioDeGrupo(client, cambio);
   });
 
   return client;

@@ -115,23 +115,23 @@ test("seguro y rendición", () => {
 });
 
 test("una acción que no se pudo pagar no te quita el seguro", () => {
-  // La banca mira su carta tapada al primer movimiento, y eso cierra la oferta de seguro. Si el movimiento se rechaza
-  // por falta de saldo nunca ocurrió, así que el seguro tiene que seguir disponible: antes se perdía en silencio y el
-  // bot contestaba "solo cuando la banca muestra un as" con el as a la vista en el mensaje anterior.
+  // The dealer peeks at the hole card on the first move, and that closes the insurance offer. A move rejected for lack
+  // of funds never happened, so insurance must still be on offer: it used to be lost silently, and the bot answered
+  // "only when the dealer shows an ace" with the ace right there in the previous message.
   nueva();
-  fijarSaldo(F, G, "u", 20); // justo para la apuesta, nada para la segunda
+  fijarSaldo(F, G, "u", 20); // just enough for the bet, nothing for the second one
   assert.match(B.repartir(G, "u", 20, null, mazoDe("5♠", "6♥", "A♦", "9♣", "10♠", "3♦")).mensaje, /podés pedir \.seguro/);
   assert.match(B.doblar(G, "u").error, /No te alcanza/);
   assert.match(B.seguro(G, "u").error, /El seguro cuesta 10/, "sigue disponible, solo que tampoco lo puede pagar");
 
-  // lo mismo con .dividir
+  // same with .dividir
   nueva();
   fijarSaldo(F, G, "u", 20);
   B.repartir(G, "u", 20, null, mazoDe("8♠", "8♥", "A♦", "9♣", "3♠", "2♥"));
   assert.match(B.dividir(G, "u").error, /No te alcanza/);
   assert.match(B.seguro(G, "u").error, /El seguro cuesta 10/);
 
-  // con saldo para el seguro, se toma después de que el doblar fuera rechazado
+  // with enough for the insurance, it can be taken after the double was rejected
   nueva();
   fijarSaldo(F, G, "u", 30);
   B.repartir(G, "u", 20, null, mazoDe("5♠", "6♥", "A♦", "9♣", "10♠", "3♦"));
@@ -141,13 +141,13 @@ test("una acción que no se pudo pagar no te quita el seguro", () => {
 });
 
 test("el seguro explica el motivo correcto según el caso", () => {
-  // ya jugó la mano, con un as a la vista
+  // the hand is already under way, with an ace showing
   nueva();
   B.repartir(G, "u", 20, null, mazoDe("5♠", "6♥", "A♦", "9♣", "2♠", "3♥"));
   B.pedir(G, "u");
   assert.match(B.seguro(G, "u").error, /antes de la primera decisión/);
 
-  // la banca no muestra un as
+  // the dealer doesn't show an ace
   nueva();
   B.repartir(G, "u", 20, null, mazoDe("5♠", "6♥", "9♦", "7♣", "2♠"));
   assert.match(B.seguro(G, "u").error, /cuando la banca muestra un as/);

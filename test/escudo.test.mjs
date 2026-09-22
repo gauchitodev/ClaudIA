@@ -89,13 +89,13 @@ test("escudo: blackjack devuelve la mano perdida, incluida la doblada", () => {
   assert.match(r.mensaje, /devolvió los 25 de la mano perdida/, "el reintegro tiene techo");
   assert.equal(saldo("u"), 85);
 
-  // Con la mano dividida el escudo cubre lo perdido en las dos, que es lo que promete el ítem ("te devuelve lo
-  // apostado"): antes solo cubría la primera. El techo de 25 sigue siendo el que manda.
+  // With a split hand the shield covers what was lost on both, which is what the item promises ("te devuelve lo
+  // apostado"): it used to cover only the first. The cap of 25 still rules.
   globalThis.manosBlackjack.clear();
   fijarSaldo(F, G, "u", 100);
   conEscudo("u");
   B.repartir(G, "u", 20, null, mazoDe("8♠", "8♥", "10♦", "9♣", "3♠", "2♥"));
-  B.dividir(G, "u"); // 11 y 10 contra 19: pierde las dos, 40 en total
+  B.dividir(G, "u"); // 11 and 10 against 19: both lose, 40 in all
   B.plantarse(G, "u");
   r = B.plantarse(G, "u");
   assert.match(r.mensaje, /devolvió los 25 de lo que perdiste/);

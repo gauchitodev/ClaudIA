@@ -4,6 +4,7 @@ import { contarPendientesPorTipo, getTotalUsers } from "../database-functions.js
 import { ultimoBackup, tamano } from "../lib/backup.js";
 import { duracion, textoFecha } from "../lib/tiempo.js";
 import { COOLDOWN_REINTENTO_MS } from "../lib/gemini.js";
+import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
@@ -28,8 +29,15 @@ plugin.run = async (m, { client }) => {
 
   let grupos = "?";
   try {
-    grupos = Object.keys(await client.groupFetchAllParticipating()).length;
+    const pedida = Date.now();
+    const todos = await client.groupFetchAllParticipating();
+    grupos = Object.keys(todos).length;
+    guardarVarios(client, todos, pedida); // the query is already paid for: it may as well fill the cache
   } catch {}
+
+  // If "pedidos" climbs with every message the bot sends, the cache isn't plugged into Baileys. See lib/cache-grupos.js.
+  const c = estadisticas();
+  const cache = `${c.grupos} ${c.grupos === 1 ? "grupo" : "grupos"} · ${c.aciertos} aciertos, ${c.pedidos} pedidos`;
 
   const texto = [
     `🤖 *Claudia ${globalThis.botVersion}* · Node ${process.version}`,
@@ -39,6 +47,7 @@ plugin.run = async (m, { client }) => {
     `⏰ Pendientes: ${pendientes}`,
     `🗄️ Último backup: ${backup} · base: ${base}`,
     `👥 Grupos: ${grupos} · usuarios: ${getTotalUsers()} · plugins: ${Object.keys(globalThis.plugins || {}).length}`,
+    `🗂️ Caché de grupos: ${cache}`,
     `💾 Memoria: ${tamano(process.memoryUsage().rss)} · carga: ${os.loadavg()[0].toFixed(2)}`,
   ].join("\n");
   await client.sendText(m.chat, texto, m);

@@ -1,7 +1,7 @@
 import { podarActividad, ACTIVIDAD } from "../lib/actividad.js";
 
-// .podar: saca el detalle horario más viejo que ACTIVIDAD.HORARIA_DIAS, en todos los grupos. Los totales por día y
-// por persona (actividad_diaria) no se tocan: esto solo borra el desglose hora por hora, que es lo que engorda.
+// .podar: drops the hourly detail older than ACTIVIDAD.HORARIA_DIAS, in every group. The per-day and per-person
+// totals (actividad_diaria) are left alone: this only deletes the hour-by-hour breakdown, which is what grows.
 const plugin = {};
 plugin.cmd = ["podar", "poda"];
 plugin.onlyOwner = true;

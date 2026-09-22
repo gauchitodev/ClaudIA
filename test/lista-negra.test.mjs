@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
-let F, LN, P, Manejador;
+let F, LN, B, P, Manejador;
 
 // What WhatsApp answers on removal: "200" is ok. Another can be forced to test the rejection path.
 let expulsiones = [];
@@ -19,6 +19,7 @@ before(async () => {
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
   LN = await import("../lib/lista-negra.js");
+  B = await import("../lib/bienvenida.js");
   P = (await import("../plugins/grupo-lista-negra.js")).default;
   Manejador = (await import("../plugins/_manejador-lista-negra.js")).default;
 });
@@ -119,14 +120,65 @@ test("quien está anotado por número se reconoce por su LID cuando escribe", as
   assert.equal(F.isBlacklisted("59899111111@s.whatsapp.net", G).lid, "111@lid", "de paso aprende el LID");
 });
 
+// What Baileys 7 actually hands to group-participants.update: objects, not strings (Socket/messages-recv.js builds
+// them as { id, phoneNumber, lid, username, admin }). The first version of this test passed bare ids, a shape the
+// event never has, and so it never saw that every real join threw.
+const entran = (...ids) => ids.map((id) => ({ id, phoneNumber: id === "111@lid" ? "59899111111@s.whatsapp.net" : undefined, lid: undefined, username: undefined, admin: null }));
+
 test("al entrar al grupo se lo echa sin esperar a que escriba", async () => {
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
 
-  const { expulsados, fallados } = await LN.expulsarDeListaNegra(globalThis.client, G, ["111@lid", "222@lid"], participants);
+  const nuevos = entran("111@lid", "222@lid");
+  const { expulsados, fallados } = await LN.expulsarDeListaNegra(globalThis.client, G, nuevos, participants);
 
   assert.equal(expulsados.length, 1);
   assert.equal(fallados.length, 0);
+  assert.equal(expulsados[0].original, nuevos[0], "devuelve la entrada del evento, que es lo que se compara después");
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
+});
+
+// ---------- someone joins: lib/bienvenida.js ----------
+// This used to be inline in main.js, out of reach of any test. The bug it hid: the blacklist step threw on every
+// join, and since the rules went out after it, the welcome stopped going out too in every group where the bot is admin.
+
+const conReglas = () => {
+  db.prepare("INSERT OR IGNORE INTO chats (remoteJid) VALUES (?)").run(G);
+  F.updateChat(G, { reglas: "Nada de spam." });
+};
+const bienvenida = () => globalThis.enviados.find((e) => /Bienvenid@s/.test(e.msg?.text || ""))?.msg;
+
+test("al entrar: el anotado sale y los demás reciben las reglas", async () => {
+  conReglas();
+  F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
+
+  await B.recibirNuevos(globalThis.client, G, entran("111@lid", "222@lid"), { participants });
+
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
+  assert.deepEqual(bienvenida()?.mentions, ["222@lid"], "la bienvenida es solo para el que no está anotado");
+});
+
+test("al entrar: si la lista negra falla, la bienvenida sale igual", async () => {
+  conReglas();
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    // Metadata that can't be read: the blacklist step blows up, whatever the reason.
+    await B.recibirNuevos(globalThis.client, G, entran("222@lid"), { participants: "roto" });
+  } finally {
+    console.error = errorReal;
+  }
+  assert.deepEqual(bienvenida()?.mentions, ["222@lid"], "un error en la lista negra no se lleva puesta la bienvenida");
+});
+
+test("al entrar: si el bot no es admin no echa a nadie, pero da la bienvenida", async () => {
+  conReglas();
+  F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
+  const sinAdmin = participants.map((p) => (p.id === "999000@lid" ? { ...p, admin: null } : p));
+
+  await B.recibirNuevos(globalThis.client, G, entran("111@lid"), { participants: sinAdmin });
+
+  assert.deepEqual(expulsiones, [], "sin ser admin no lo puede echar");
+  assert.deepEqual(bienvenida()?.mentions, ["111@lid"], "lo echará el manejador cuando escriba, si le dan admin al bot");
 });
 
 test("la lista de todos los grupos vale en cualquier grupo, y la del grupo no se filtra a otro", async () => {

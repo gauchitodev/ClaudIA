@@ -1,7 +1,7 @@
 import { textoActividad } from "../lib/actividad.js";
 
-// .actividad: cuánto se habla en el grupo y a qué hora, de los últimos 7 días.
-// Cuenta todos los mensajes, a diferencia de la racha (que pide charla de dos palabras o más).
+// .actividad: how much the group talks and at what time, over the last 7 days.
+// It counts every message, unlike the streak (which asks for conversation of two words or more).
 const plugin = {};
 plugin.cmd = ["actividad"];
 plugin.onlyGroup = true;

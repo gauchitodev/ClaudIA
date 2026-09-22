@@ -3,6 +3,7 @@ import { elegirAlAzar } from "./lib/azar.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { permisosDe } from "./lib/roles.js";
+import { metadataDe } from "./lib/cache-grupos.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -46,7 +47,7 @@ export async function handleMessage(nMsg) {
     if (user.inGroup[m.chat]?.mute && m.message) return m.delete();
 
     // Current permissions
-    const groupMetadata = (m.isGroup ? (client.chats[m.chat] || {}).metadata || (await this.groupMetadata(m.chat).catch((_) => null)) : {}) || {};
+    const groupMetadata = (m.isGroup ? await metadataDe(this, m.chat) : {}) || {};
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
     const userSender = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === m.sender) : {}) || {};
     const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === client.user.lid) : {}) || {};
@@ -171,15 +172,14 @@ export async function handleMessage(nMsg) {
 
       // Check whether the command requires the bot to be admin
       if (plugin.botAdmin && !isBotAdmin) {
-        // The stored metadata may be stale. Before rejecting, ask WhatsApp and, if the bot is admin after all,
-        // refresh the cache so we don't ask again.
-        const metadataFresca = await this.groupMetadata(m.chat).catch(() => null);
+        // The stored metadata may be stale. Before rejecting, ask WhatsApp; the cache keeps the answer, so the
+        // next command doesn't ask again.
+        const metadataFresca = await metadataDe(this, m.chat, { fresca: true });
         const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
         if (!botFresco?.admin) {
           rechazar(() => client.sendText(m.chat, txt.botAdmin, m));
           continue;
         }
-        client.chats[m.chat] = { ...(client.chats[m.chat] || {}), id: m.chat, subject: metadataFresca.subject, isChats: true, metadata: metadataFresca };
         isBotAdmin = true;
       }
 
