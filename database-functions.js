@@ -1196,6 +1196,19 @@ export function totalEnCirculacion(chat) {
 }
 
 // money in and out by reason since a given date
+// Same as movimientosPorMotivo but broken down by person, which is what .timba and .mitimba need: with "usuario" it
+// returns one person's rows, without it everyone's. The classification into games happens in JS (lib/timba.js) instead
+// of in SQL, so no LIKE patterns are needed — in SQL "_" is a single-character wildcard, and reasons are full of them.
+export function movimientosPorUsuarioYMotivo(chat, { usuario = null, desde = 0 } = {}) {
+  const filtro = usuario ? "AND usuario = ?" : "";
+  return db
+    .prepare(
+      `SELECT usuario, motivo, SUM(CASE WHEN cantidad > 0 THEN cantidad ELSE 0 END) AS entradas, SUM(CASE WHEN cantidad < 0 THEN -cantidad ELSE 0 END) AS salidas, COUNT(*) AS n
+       FROM urucoins_log WHERE chat = ? AND fecha >= ? ${filtro} GROUP BY usuario, motivo`,
+    )
+    .all(...(usuario ? [chat, desde, usuario] : [chat, desde]));
+}
+
 export function movimientosPorMotivo(chat, desdeMs) {
   return db
     .prepare(
