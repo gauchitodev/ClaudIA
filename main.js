@@ -13,7 +13,7 @@ import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { recibirNuevos } from "./lib/bienvenida.js";
-import { metadataDe, aplicarCambioDeGrupo, vaciar } from "./lib/cache-grupos.js";
+import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -213,6 +213,11 @@ async function startBot() {
   // Participant changes are refreshed by the handler above.
   client.ev.on("groups.update", (cambios) => {
     for (const cambio of cambios || []) aplicarCambioDeGrupo(client, cambio);
+  });
+
+  // Disappearing messages turned on or off in a group arrive here, not as a group event: see aplicarCambioDeChat.
+  client.ev.on("chats.update", (cambios) => {
+    for (const cambio of cambios || []) aplicarCambioDeChat(client, cambio);
   });
 
   return client;

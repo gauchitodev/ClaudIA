@@ -136,6 +136,53 @@ test("cache de grupos: mientras hay un refresco forzado en camino, las lecturas 
   responder = (jid) => ({ id: jid, subject: jid.split("@")[0], participants: [{ id: "a@lid", admin: "admin" }, { id: "b@lid" }] });
 });
 
+test("cache de grupos: la espera a un refresco forzado tiene tope si hay una copia a mano", async () => {
+  const client = cliente();
+  await C.metadataDe(client, G, { ahora: T0 });
+  const topeReal = C.CACHE_GRUPOS.ESPERA_MAX_MS;
+  C.CACHE_GRUPOS.ESPERA_MAX_MS = 30;
+  responder = (jid) => ({ id: jid, subject: "la nueva", participants: [{ id: "a@lid" }] });
+  demora = 300; // WhatsApp taking its time with the answer
+  try {
+    const forzada = C.metadataDe(client, G, { fresca: true, ahora: T0 + 1000 });
+    const inicio = Date.now();
+    const lectura = await C.metadataDe(client, G, { ahora: T0 + 1001 });
+    assert.equal(lectura.subject, "grupo", "pasado el tope usa la copia que tenía");
+    assert.ok(Date.now() - inicio < 200, "sin quedarse esperando los 300 ms de WhatsApp");
+    assert.equal((await forzada).subject, "la nueva", "el refresco sigue su curso y termina igual");
+    assert.equal(C.enCache(G, T0 + 2000).subject, "la nueva");
+
+    // With no copy at all there's nothing better to hand over: it waits for the answer.
+    const OTRO = "otro@g.us";
+    const forzadaSinCopia = C.metadataDe(client, OTRO, { fresca: true, ahora: T0 });
+    assert.equal((await C.metadataDe(client, OTRO, { ahora: T0 + 1 })).subject, "la nueva", "sin copia, espera");
+    await forzadaSinCopia;
+  } finally {
+    C.CACHE_GRUPOS.ESPERA_MAX_MS = topeReal;
+    demora = 0;
+    responder = (jid) => ({ id: jid, subject: jid.split("@")[0], participants: [{ id: "a@lid", admin: "admin" }, { id: "b@lid" }] });
+  }
+});
+
+test("cache de grupos: prender o apagar los mensajes temporales invalida la copia", async () => {
+  const client = cliente();
+  await C.metadataDe(client, G, { ahora: T0 });
+
+  // chats.update fires for every ordinary message too, with no ephemeralExpiration: those leave the copy alone.
+  assert.equal(C.aplicarCambioDeChat(client, { id: G, conversationTimestamp: 1, unreadCount: 1 }), false);
+  assert.ok(C.enCache(G, T0), "un mensaje común no toca la copia");
+
+  // Disappearing messages turned on: Baileys reports it as ephemeralExpiration on the chat.
+  assert.equal(C.aplicarCambioDeChat(client, { id: G, ephemeralExpiration: 86400, ephemeralSettingTimestamp: 1 }), true);
+  assert.equal(C.enCache(G, T0), null, "la copia traía el vencimiento de antes, con el que Baileys firma cada envío");
+  await C.metadataDe(client, G, { ahora: T0 + 1000 });
+  assert.equal(consultas.length, 2, "la próxima lectura la vuelve a pedir");
+
+  // Turned off arrives as null, and counts just the same; a private chat is none of the cache's business.
+  assert.equal(C.aplicarCambioDeChat(client, { id: G, ephemeralExpiration: null }), true);
+  assert.equal(C.aplicarCambioDeChat(client, { id: "alguien@s.whatsapp.net", ephemeralExpiration: 86400 }), false);
+});
+
 test("cache de grupos: si WhatsApp no contesta se usa la copia vieja", async () => {
   const client = cliente();
   const buena = await C.metadataDe(client, G, { ahora: T0 });
@@ -253,6 +300,14 @@ test("consistencia: main.js le sigue pasando cachedGroupMetadata al socket", () 
   assert.ok(opciones.length > 200, "no se encontró el bloque de connectionOptions: el escaneo no está andando");
   assert.match(opciones, /cachedGroupMetadata:/, "falta cachedGroupMetadata en las connectionOptions de main.js");
   assert.match(opciones, /metadataDe\(/, `cachedGroupMetadata tiene que salir de ${MODULO}`);
+});
+
+test("consistencia: main.js le avisa al cache de los cambios de grupo y de chat", () => {
+  // Without these two the cache only learns about a change when its copy expires: a settings change, or disappearing
+  // messages turned on, would take up to VIDA_MS to show. Another pair of lines a merge could eat without a sound.
+  const main = fs.readFileSync(path.join(RAIZ, "main.js"), "utf8");
+  assert.match(main, /ev\.on\("groups\.update"[\s\S]{0,200}aplicarCambioDeGrupo\(/, "falta el aviso de groups.update");
+  assert.match(main, /ev\.on\("chats\.update"[\s\S]{0,200}aplicarCambioDeChat\(/, "falta el aviso de chats.update");
 });
 
 test("consistencia: la metadata de grupos tiene un solo dueño", () => {
