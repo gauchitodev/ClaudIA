@@ -39,8 +39,9 @@ const participants = [
 
 const m = (text, { mentionedJid = [], chat = G } = {}) => ({ chat, sender: "100@lid", text, mentionedJid, isGroup: true, react: async () => {} });
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
+// Run by 100, a WhatsApp admin, as the dispatcher would say: warning only goes from strictly above.
 const correr = (P, text, opciones = {}) =>
-  P.run(m(text, opciones), { client: globalThis.client, text, command: "adv", usedPrefix: ".", participants });
+  P.run(m(text, opciones), { client: globalThis.client, text, command: "adv", usedPrefix: ".", participants, isOwner: false, isWaAdmin: true });
 
 test("una razón que empieza con número no le cambia el destinatario", async () => {
   // The old bug: the regex included \s and kept swallowing digits, so ".adv @5989911111 3 veces" warned

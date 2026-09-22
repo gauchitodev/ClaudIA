@@ -110,3 +110,23 @@ test("roles: se pierden al salir del grupo y se ven en el perfil", () => {
   assert.equal(F.rolGrupo(G, "333@lid"), "admin", "los que se quedan conservan el rol");
   assert.match(Pf.textoPerfil(G, "333@lid", F.getUser("333@lid")).texto, /🌱 Nuevo · 🛡️ admin del bot · /);
 });
+
+test("roles: el rango ordena dueño > admin de WhatsApp > admin del bot > moderador > miembro", () => {
+  F.initDataDB(persona(501));
+  F.initDataDB(persona(502));
+  F.setRolGrupo(G, "501@lid", "admin", "100@lid");
+  F.setRolGrupo(G, "502@lid", "mod", "501@lid");
+  const dueno = `${globalThis.owners[0]}@s.whatsapp.net`;
+
+  assert.equal(R.rango(G, { jid: dueno }), 4, "al dueño lo reconoce por su número aunque no se diga");
+  assert.equal(R.rango(G, { lid: "100@lid", esAdminWhatsApp: true }), 3);
+  assert.equal(R.rango(G, { lid: "501@lid" }), 2);
+  assert.equal(R.rango(G, { lid: "502@lid" }), 1);
+  assert.equal(R.rango(G, { lid: "111@lid" }), 0);
+  assert.equal(R.rango("otro@g.us", { lid: "501@lid" }), 0, "los roles del bot son de cada grupo");
+
+  // Only strictly above: equal rank doesn't reach, whichever the rank.
+  assert.equal(R.impedimentoParaModerar(G, { lid: "501@lid" }, { lid: "502@lid" }), null);
+  assert.match(R.impedimentoParaModerar(G, { lid: "502@lid" }, { lid: "502@lid" }), /es moderador/);
+  assert.match(R.impedimentoParaModerar(G, { lid: "100@lid", esAdminWhatsApp: true }, { lid: "444@lid", esAdminWhatsApp: true }), /\.demote/);
+});

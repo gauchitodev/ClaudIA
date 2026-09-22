@@ -1,4 +1,5 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner } from "../database-functions.js";
+import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
@@ -8,7 +9,7 @@ const plugin = {};
 plugin.cmd = ["ln", "ln2", "vln", "listanegra"];
 plugin.onlyAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotAdmin }) => {
+plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotAdmin, isOwner, isWaAdmin }) => {
   // In a group we work with that group's list; in a private chat (only the owner gets there) with the all-groups one.
   const ambito = m.isGroup ? m.chat : "*";
 
@@ -81,6 +82,11 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   // group admins don't go on the blacklist: you'd have to strip their admin first
   if (command === "ln" && m.isGroup && participante?.admin) {
     return client.sendText(m.chat, "No se puede meter a un admin del grupo en la lista negra. Si hace falta, primero sacale el admin.", m);
+  }
+  // The same rule for the bot's own roles: a bot admin can't blacklist another bot admin. See lib/roles.js.
+  if (command === "ln" && m.isGroup) {
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: whoLid, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    if (impedimento) return client.sendText(m.chat, `No lo puedo anotar: ${impedimento}`, m);
   }
 
   const existente = isBlacklisted([who, whoLid], ambito);

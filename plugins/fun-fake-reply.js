@@ -1,10 +1,13 @@
 import { esOwner } from "../database-functions.js";
 import { destinatario } from "../lib/identidad.js";
 
+// The bot sends a message quoting something the person never wrote, and in WhatsApp that fake quote looks exactly
+// like a real one: it puts words in someone else's mouth. So it's for moderators, like .say, and not for anyone.
 const plugin = {};
 plugin.cmd = ["fakereply", "fr"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!text) return client.sendText(m.chat, `Uso incorrecto.\nEjemplo:\n${usedPrefix}${command} *textoDelBot* @usuario *textoFake*`, m);

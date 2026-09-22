@@ -48,8 +48,10 @@ const m = (text, { mentionedJid = [], quoted = null } = {}) => ({
   delete: async () => {},
 });
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
+// Like the dispatcher, it says who runs the command: here, 100, the group's creator. The rank matters since
+// moderation only goes from strictly above (lib/roles.js).
 const correr = (P, text, command, opciones = {}) =>
-  P.run(m(text, opciones), { client: globalThis.client, text, command, usedPrefix: ".", participants, groupMetadata });
+  P.run(m(text, opciones), { client: globalThis.client, text, command, usedPrefix: ".", participants, groupMetadata, isOwner: false, isWaAdmin: true, ...opciones.rango });
 
 test(".kick expulsa con el id del grupo y avisa si WhatsApp no deja", async () => {
   await correr(Kick, "@111", "kick", { mentionedJid: ["111@lid"] });
@@ -114,10 +116,11 @@ test(".banuser guarda de verdad y avisa si no encontró a nadie", async () => {
 });
 
 test(".llamar no se come los números que vienen después de la mención", async () => {
-  // ".llamar @111 5 minutos" called "1115@lid", who is nobody.
+  // ".llamar @111 5 minutos" called "1115@lid", who is nobody. The phone number typed here is 111's, and it now resolves
+  // to their LID: it used to mention "5989911111@lid", a LID that doesn't exist either.
   await correr(Llamar, "@5989911111 5 minutos", "llamar");
   await esperar(50);
-  assert.match(ultimo(), /^@5989911111$/, "menciona a la persona, sin el 5 pegado");
+  assert.match(ultimo(), /^@111$/, "menciona a la persona por su LID, sin el 5 pegado");
 
   await correr(Llamar, "", "cancelar");
   assert.match(ultimo(), /Menciones canceladas/);
@@ -201,6 +204,8 @@ test(".bloquear usa el número, que es lo único que WhatsApp acepta", async () 
 
 test(".fr parte el texto por el @ que está escrito, no por el id resuelto", async () => {
   const FakeReply = (await import("../plugins/fun-fake-reply.js")).default;
+  // It forges a quote from someone else: moderators only (the dispatcher enforces the flag).
+  assert.equal(FakeReply.onlyMod, true, ".fr no puede quedar abierto a cualquiera");
   const enviados = [];
   globalThis.client.sendMessage = async (chat, msg, opciones) => {
     enviados.push({ msg, opciones });
@@ -264,4 +269,109 @@ test(".silenciar y .mute son lo mismo, y .desilenciar y .unmute también", async
     await correr(Silenciar, "@111", alias, { mentionedJid: ["111@lid"] });
     assert.equal(muteDe(), false, `.${alias} tendría que devolverle la voz`);
   }
+});
+
+// ---------- the hierarchy: moderation only goes from strictly above ----------
+// lib/roles.js says moderator < bot admin < WhatsApp admin < owner, but the commands never looked: any moderator could
+// remove, warn or mute an admin, and a bot admin could make himself a WhatsApp admin and leave the hierarchy behind.
+const J = "jerarquia@g.us";
+const jerarquia = [
+  { id: "100@lid", admin: "superadmin" }, // the group's creator
+  { id: "444@lid", admin: "admin" }, // a WhatsApp admin
+  { id: "555@lid", admin: null }, // bot admin
+  { id: "666@lid", admin: null }, // moderator
+  { id: "777@lid", admin: null }, // another moderator
+  { id: "111@lid", admin: null, phoneNumber: "5989911111@s.whatsapp.net" }, // a member
+  { id: "999@lid", admin: "admin" }, // the bot
+];
+let rolesListos = false;
+function prepararJerarquia() {
+  if (rolesListos) return;
+  for (const n of [444, 555, 666, 777]) F.initDataDB({ chat: J, sender: `${n}@lid`, senderJid: "" });
+  F.setRolGrupo(J, "555@lid", "admin", "100@lid");
+  F.setRolGrupo(J, "666@lid", "mod", "555@lid");
+  F.setRolGrupo(J, "777@lid", "mod", "555@lid");
+  rolesListos = true;
+}
+// Every removal and admin change lands in "expulsiones". Installed on each call because earlier tests in this file
+// swap groupParticipantsUpdate for their own and don't put it back: without this, "nothing was removed" held trivially.
+const vigilar = () => {
+  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+    expulsiones.push({ chat, ids, accion });
+    return ids.map((jid) => ({ status: "200", jid }));
+  };
+};
+// Runs a plugin the way the dispatcher does: the sender's rank comes from the group (WhatsApp admin) and, for the bot's
+// own roles, from the database, which the plugins look up themselves.
+const como = (sender, P, command, objetivo, text = "") => {
+  prepararJerarquia();
+  vigilar();
+  const texto = `@${objetivo.split("@")[0]} ${text}`.trim();
+  const esAdminWhatsApp = Boolean(jerarquia.find((p) => p.id === sender)?.admin);
+  const msg = { chat: J, sender, text: texto, mentionedJid: [objetivo], quoted: null, isGroup: true, react: async () => {}, delete: async () => {} };
+  return P.run(msg, { client: globalThis.client, text: texto, command, usedPrefix: ".", participants: jerarquia, groupMetadata: { owner: "100@lid", participants: jerarquia }, isOwner: false, isWaAdmin: esAdminWhatsApp });
+};
+
+test("jerarquía: un moderador no puede sacar, advertir ni silenciar a un admin de WhatsApp", async () => {
+  const Warn = (await import("../plugins/grupo-advertir.js")).default;
+  await como("666@lid", Kick, "kick", "444@lid");
+  assert.match(ultimo(), /No lo puedo sacar: es admin del grupo, y los admins de WhatsApp están por encima de los roles del bot/);
+  await como("666@lid", Warn, "adv", "444@lid", "por pesado");
+  assert.match(ultimo(), /No lo puedo advertir: es admin del grupo/);
+  assert.equal(F.advertenciasDe("444@lid", J), 0);
+  await como("666@lid", Silenciar, "mute", "444@lid");
+  assert.match(ultimo(), /No lo puedo silenciar: es admin del grupo/);
+  assert.ok(!F.getUser("444@lid", J).inGroup[J]?.mute, "el bot le habría borrado cada mensaje");
+  assert.deepEqual(expulsiones, []);
+});
+
+test("jerarquía: un moderador no toca a otro moderador ni a un admin del bot", async () => {
+  await como("666@lid", Kick, "kick", "777@lid");
+  assert.match(ultimo(), /No lo puedo sacar: es moderador\. Eso lo puede hacer un admin del bot o de WhatsApp/);
+  await como("666@lid", Kick, "kick", "555@lid");
+  assert.match(ultimo(), /No lo puedo sacar: es admin del bot\. Eso lo puede hacer un admin de WhatsApp/);
+  assert.deepEqual(expulsiones, []);
+});
+
+test("jerarquía: un admin de WhatsApp no saca a otro sin sacarle el admin primero", async () => {
+  await como("100@lid", Kick, "kick", "444@lid");
+  assert.match(ultimo(), /No lo puedo sacar: es admin del grupo\. Primero hay que sacarle el admin con \.demote/);
+  assert.deepEqual(expulsiones, []);
+});
+
+test("jerarquía: de arriba hacia abajo sí se puede", async () => {
+  // A bot admin removes a moderator, and a moderator removes an ordinary member.
+  await como("555@lid", Kick, "kick", "777@lid");
+  await como("666@lid", Kick, "kick", "111@lid");
+  assert.deepEqual(
+    expulsiones.map((e) => e.ids[0]),
+    ["777@lid", "111@lid"],
+  );
+  F.setRolGrupo(J, "777@lid", "mod", "555@lid"); // back, for whoever runs next
+});
+
+test("jerarquía: dar y sacar admin de WhatsApp es solo de los admins de WhatsApp", async () => {
+  const Promote = (await import("../plugins/grupo-promote.js")).default;
+  const Demote = (await import("../plugins/grupo-demote.js")).default;
+
+  await como("555@lid", Promote, "promote", "555@lid");
+  assert.match(ultimo(), /Dar admin de WhatsApp es cosa de los admins de WhatsApp/, "un admin del bot no se asciende a sí mismo");
+  await como("555@lid", Demote, "demote", "444@lid");
+  assert.match(ultimo(), /Sacar admin de WhatsApp es cosa de los admins de WhatsApp/);
+  assert.deepEqual(expulsiones, []);
+
+  await como("444@lid", Promote, "promote", "111@lid");
+  assert.deepEqual(expulsiones, [{ chat: J, ids: ["111@lid"], accion: "promote" }], "un admin de WhatsApp sí");
+});
+
+test("jerarquía: la ruleta del ban no se lleva a nadie que quien la gira no podría sacar", async () => {
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  prepararJerarquia();
+  F.setRolGrupo(J, "888@lid", "admin", "100@lid");
+  // Besides the admins, only two bot admins: the one spinning it and another one. Neither is fair game.
+  const grupo = [{ id: "100@lid", admin: "superadmin" }, { id: "555@lid", admin: null }, { id: "888@lid", admin: null }, { id: "999@lid", admin: "admin" }];
+  vigilar();
+  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
+  assert.match(ultimo(), /No se encontraron candidatos/);
+  assert.deepEqual(expulsiones, []);
 });

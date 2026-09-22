@@ -1,5 +1,6 @@
 import { esOwner } from "../database-functions.js";
 import { destinatario, expulsar } from "../lib/identidad.js";
+import { impedimentoParaModerar } from "../lib/roles.js";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const plugin = {};
@@ -8,7 +9,7 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command }) => {
+plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command, isOwner, isWaAdmin }) => {
   try {
     // The identity is resolved before removing: the old parsing built "<digits>@lid" from whatever was typed, and
     // with a phone number that is a LID which doesn't exist.
@@ -24,6 +25,11 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
       m.react("❌");
       return client.sendText(m.chat, txt.kickOwner(owner), m);
     }
+
+    // Only from strictly above: a moderator can't remove an admin, nor another moderator. Checked before deleting
+    // anything, so a refused kick leaves the messages where they were.
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    if (impedimento) return client.sendText(m.chat, `No lo puedo sacar: ${impedimento}`, m);
 
     await m.quoted?.delete();
     await esperar(300);

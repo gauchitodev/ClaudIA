@@ -51,8 +51,9 @@ const mensaje = (extra = {}) => ({
   ...extra,
 });
 
+// Run by 100, the group's creator, as the dispatcher would pass it along.
 const correr = (command, text, extra = {}, opciones = {}) =>
-  P.run(mensaje(extra), { client: globalThis.client, text, command, usedPrefix: ".", participants, isBotAdmin: true, ...opciones });
+  P.run(mensaje(extra), { client: globalThis.client, text, command, usedPrefix: ".", participants, isBotAdmin: true, isOwner: false, isWaAdmin: true, ...opciones });
 
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
 
@@ -105,6 +106,20 @@ test("a un admin del grupo no se lo puede anotar", async () => {
 
   assert.equal(F.isBlacklisted("59899100100@s.whatsapp.net", G), null);
   assert.match(ultimo(), /No se puede meter a un admin/);
+});
+
+test("un admin del bot no puede anotar a otro admin del bot, pero sí a un miembro", async () => {
+  // The WhatsApp-admin rule was already here; the bot's own roles follow the same one (lib/roles.js).
+  F.setRolGrupo(G, "555@lid", "admin", "100@lid");
+  F.setRolGrupo(G, "556@lid", "admin", "100@lid");
+  const comoAdminDelBot = { sender: "555@lid", senderJid: "" };
+
+  await correr("ln", "@556 le cae mal a alguien", { ...comoAdminDelBot, mentionedJid: ["556@lid"] }, { isWaAdmin: false });
+  assert.match(ultimo(), /No lo puedo anotar: es admin del bot\. Eso lo puede hacer un admin de WhatsApp/);
+  assert.equal(F.isBlacklisted("556@lid", G), null);
+
+  await correr("ln", "@111 spam", { ...comoAdminDelBot, mentionedJid: ["111@lid"] }, { isWaAdmin: false });
+  assert.ok(F.isBlacklisted("111@lid", G), "a un miembro sí");
 });
 
 test("quien está anotado por número se reconoce por su LID cuando escribe", async () => {
