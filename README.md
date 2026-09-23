@@ -1,30 +1,38 @@
-![Bender entrando por una puerta, con el texto «ClaudIA llegando al grupo»](assets/banner.jpg)
-
 # ClaudIA 🇺🇾
+
+![Bender entrando por una puerta, con el texto «ClaudIA llegando al grupo»](assets/banner.jpg)
 
 [![CI](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml)
 
-Bot de WhatsApp con personalidad propia, hecho a mano para un grupo de amigos uruguayo. Es mi primer proyecto de programación — arrancó como una copia de [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) y se fue transformando con el tiempo hasta quedar irreconocible.
+Bot de WhatsApp con personalidad propia, hecho a mano para un grupo de amigos uruguayo. Es mi primer proyecto de programación: arrancó como una copia de [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) y se fue transformando con el tiempo hasta quedar irreconocible.
 
 Corre 24/7 en una tablet Samsung Galaxy Tab A9, vía Termux.
 
 ## ¿Qué hace?
 
-- **Personalidad propia**: Claudia habla en rioplatense, con "vos", sin caricaturizar el acento — calibrada a pulso con feedback del grupo real.
-- **Charla con IA**: responde cuando la mencionan o le contestan, en cascada entre varios modelos de Gemini y con respaldo en Groq si se queda sin cuota. Clasifica pedidos (música, mencionar al grupo, etc.) con salida JSON estructurada, no adivinando texto libre.
-- **Memoria por persona**: recuerda gustos y datos chicos de cada uno entre charlas, sin gastar consultas extra a la IA.
-- **Música y video**: descarga de YouTube (con cookies + reintentos + varios candidatos) y cae a SoundCloud si todo lo demás falla.
+- **Personalidad propia**: Claudia habla en rioplatense, con "vos", sin caricaturizar el acento, calibrada a pulso con feedback del grupo real.
+- **Charla con IA**: responde cuando la mencionan o le contestan, con varios modelos de Gemini en cascada y, si se quedan sin cuota, con respaldo en Groq, OpenRouter, NVIDIA y Cerebras. Clasifica pedidos (música, mencionar al grupo, etc.) con salida JSON estructurada, no adivinando texto libre. No se mete en las respuestas a los juegos.
+- **Memoria**: recuerda gustos y datos chicos de cada uno entre charlas, sin gastar consultas extra a la IA, y lo que el grupo le pide que recuerde con `.recordá`.
+- **Música y video**: descarga de YouTube (con cookies + reintentos + varios candidatos) y cae a SoundCloud si todo lo demás falla; si igual no sale, se puede volver a pedir con `.reintentar`. También baja videos de TikTok e Instagram.
+- **Economía (UruCoins)**: monedas por reaccionar y por participar, laburos con sueldo diario y niveles, rangos por antigüedad y mensajes, racha diaria, pregunta del día y una tienda (escudo, racha doble, voto doble, apodo).
+- **Juegos**: trivia (y trivias relámpago que salen solas), acertijos, banderas, ordenar palabras, ahorcado y ta-te-ti, con premio para el que gana.
+- **Casino**: ruleta europea, tragamonedas, blackjack, mines, carrera de caballos, duelos y peleas por turnos, lotería semanal y mercados de apuestas sobre eventos reales. Tiene topes por jugada, se apaga por grupo con `.casino off` y, si el bot se apaga o se reinicia, devuelve lo que estaba en juego.
 - **Temáticas semanales**: hashtags como `#historiasrandom`, `#quejadelunes` y `#recomendado`, con listas automáticas por semana.
-- **Ranking mensual**: puntos por reaccionar y por recibir reacciones — quién es más votado, quién es más activo.
-- **Administración de grupo**: comandos con permisos reales (admin/owner), no solo declarados.
+- **Ranking mensual**: puntos por reaccionar y por recibir reacciones (quién es más votado, quién es más activo).
+- **Compraventa**: un modo para grupos de compra y venta, con publicaciones por `#vendo` o `#compro`, catálogo, búsqueda, avisos, reputación y calificaciones.
+- **Parejas y familia**: parejas, casamientos y adopciones dentro del grupo.
+- **Aviación**: METAR, TAF y SIGMET decodificados en español, los claros horarios de Inumet, viento cruzado, hora Zulu y más.
+- **Herramientas**: clima, traductor, RAE, texto a voz, stickers, recordatorios, resumen del grupo con IA y versículos de la Biblia.
+- **Administración de grupo**: comandos con permisos reales, no solo declarados. Además de los admins de WhatsApp hay roles del bot por grupo (`.adminbot`, `.moderador`), y se modera solo hacia abajo. Advertencias (a la tercera, afuera), lista negra por grupo y global, silenciados, horario del grupo y bienvenida con las reglas.
+- **Ritmo humano**: WhatsApp ya bloqueó el número una vez por volumen, así que todo lo que manda pasa por una cola con al menos un segundo y medio entre mensajes, la charla muestra "escribiendo…" y contesta como mucho una vez cada 20 segundos por grupo. `.enviados` muestra cuánto manda, por hora y por grupo.
 
 ## Stack
 
-Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini + Groq · yt-dlp
+Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini, con respaldo en Groq, OpenRouter, NVIDIA y Cerebras · yt-dlp · ffmpeg
 
 ## Configuración
 
-Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. `config.toml` está en `.gitignore` y nunca se sube.
+Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla; las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
 
 ## Termux (Android)
 
@@ -38,12 +46,14 @@ npm ci
 
 Sin eso la instalación corta con un error de `android_ndk_path`. Por lo mismo better-sqlite3 se queda en la 12: la 13 no compiló en la tablet. Si algún día se sube, probar primero en Termux con esta receta.
 
+Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se instala con pkg: `pkg install ffmpeg`.
+
 ## Tests y lint
 
 `npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.
 
 ## Nota
 
-Proyecto personal, sin pretensión de ser un template genérico — está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.
+Proyecto personal, sin pretensión de ser un template genérico: está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.
 
 Las imágenes de `assets/` son de Bender, de *Futurama*: cuadros de la serie y fan art. Son de sus dueños y no entran en la licencia MIT del código.
