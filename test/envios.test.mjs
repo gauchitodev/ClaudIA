@@ -88,10 +88,13 @@ test("envíos: los mensajes esperan su turno, los borrados no, y otro chat no es
     client.sendMessage("cola2@g.us", { text: "en otro grupo" }),
   ]);
   const cuando = (pred) => salidas.find(pred).cuando;
-  const t0 = cuando((s) => s.contenido.text === "uno");
-  assert.ok(cuando((s) => s.contenido.text === "dos") - t0 >= 35, "el segundo mensaje esperó su turno");
-  assert.ok(cuando((s) => s.contenido.delete) - t0 < 20, "el borrado salió sin esperar: es moderación");
-  assert.ok(cuando((s) => s.jid === "cola2@g.us") - t0 < 20, "otro grupo no espera la cola de este");
+  const posicion = (pred) => salidas.findIndex(pred);
+  assert.ok(cuando((s) => s.contenido.text === "dos") - cuando((s) => s.contenido.text === "uno") >= 35, "el segundo mensaje esperó su turno");
+  // By order, not by milliseconds: counting each send writes to SQLite in between, and on a slow disk (GitHub's
+  // runners) that alone took more than the 20 ms these used to allow. What matters is that neither waited behind "dos".
+  const dos = posicion((s) => s.contenido.text === "dos");
+  assert.ok(posicion((s) => s.contenido.delete) < dos, "el borrado salió sin esperar: es moderación");
+  assert.ok(posicion((s) => s.jid === "cola2@g.us") < dos, "otro grupo no espera la cola de este");
 });
 
 test("envíos: una ráfaga de reacciones se espacia, las tardías no salen y los mensajes no las esperan", async () => {
@@ -109,8 +112,9 @@ test("envíos: una ráfaga de reacciones se espacia, las tardías no salen y los
 
     assert.equal(resultados.filter((r) => r === undefined).length, 7, "entran las de 0, 40 y 80 ms; las demás llegarían tarde");
     assert.equal(E.reaccionesDescartadas() - antes, 7);
-    const t0 = salidas[0].cuando;
-    assert.ok(salidas.find((s) => s.contenido.text === "¡correcto!").cuando - t0 < 20, "el mensaje no esperó detrás de las reacciones");
+    // By order, not by milliseconds (see the test above): it went out before the burst's second reaction, 40 ms in.
+    const segundaReaccion = salidas.filter((s) => s.contenido.react)[1];
+    assert.ok(salidas.findIndex((s) => s.contenido.text === "¡correcto!") < salidas.indexOf(segundaReaccion), "el mensaje no esperó detrás de las reacciones");
     assert.deepEqual(contados(G1), { reaccion: 3, texto: 1 }, "solo cuenta lo que salió");
   } finally {
     R.RITMO.REACCION_ESPERA_MAX_MS = limiteReal;
