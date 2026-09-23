@@ -58,8 +58,14 @@ Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se insta
   <img src="assets/claudia-sagrado-corazon.jpg" height="250" alt="Bender como la estampa del Sagrado Corazón">
 </p>
 
+Esta es la foto de perfil que usamos para Claudia en WhatsApp:
+
+<p align="center">
+  <img src="assets/profile_picture_claudia.jpg" height="250" alt="Retrato de una mujer de pelo corto hecha de código verde brillante, estilo Matrix, dentro de un círculo sobre un fondo de caracteres que caen">
+</p>
+
 ## Nota
 
 Es un proyecto personal, hecho a medida de un grupo en particular, así que no pretende ser una plantilla genérica. Si llegaste hasta el código, bienvenido/a: cualquier sugerencia suma.
 
-Las imágenes de `assets/` muestran a Bender, de *Futurama*: algunas son cuadros de la serie y otras, fan art. No están cubiertas por la licencia MIT del código. Los derechos pertenecen a sus respectivos propietarios.
+Las imágenes de `assets/` en las que aparece Bender, de *Futurama*, son algunas cuadros de la serie y otras, fan art. No están cubiertas por la licencia MIT del código. Los derechos pertenecen a sus respectivos propietarios.
