@@ -32,7 +32,7 @@ plugin.run = async (m, { client, command }) => {
   try {
     await execAsync(`ffmpeg -i "${media}" ${set} "${filename}"`);
     const buff = readFileSync(filename);
-    await client.sendFile(m.chat, buff, `audioEffects.mp3`, null, m, true, { seconds: "9999999999999" });
+    await client.sendFile(m.chat, buff, `audioEffects.mp3`, null, m, true); // Baileys measures the duration
   } catch (e) {
     // An ffmpeg error used to leave the user with no answer, and a failed readFileSync took the process down.
     console.error("[audio-effects]", e.message);

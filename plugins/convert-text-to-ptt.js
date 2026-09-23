@@ -25,7 +25,9 @@ plugin.run = async (m, { client, args }) => {
     await client.sendPresenceUpdate("recording", m.chat);
     res = await sintetizar(text, defaultLang);
   } finally {
-    if (res) await client.sendFile(m.chat, res, `textToPTT.mp3`, null, m, true, { seconds: "9999999999999" });
+    // No "seconds": Baileys measures the audio. SawBot sent a made-up 9999999999999, which WhatsApp showed as an
+    // hour-long voice note for a single word.
+    if (res) await client.sendFile(m.chat, res, `textToPTT.mp3`, null, m, true);
   }
 };
 

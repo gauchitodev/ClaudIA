@@ -14,7 +14,7 @@ plugin.run = async (m, { client }) => {
   const audio = await toPTT(media, "mp4");
   if (!audio.data && !/audio/.test(mime)) return;
   if (!audio.data && !/video/.test(mime)) return;
-  await client.sendFile(m.chat, audio.data, `toPTT.mp3`, null, m, true, { seconds: "9999999999999" });
+  await client.sendFile(m.chat, audio.data, `toPTT.mp3`, null, m, true); // Baileys measures the duration
 };
 
 export default plugin;
