@@ -58,6 +58,8 @@ Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se insta
   <img src="assets/claudia-sagrado-corazon.jpg" height="250" alt="Bender como la estampa del Sagrado Corazón">
 </p>
 
+<p align="center"><sub>Imágenes por <a href="https://github.com/TheShrekMaster">@TheShrekMaster</a>.</sub></p>
+
 Esta es la foto de perfil que usamos para Claudia en WhatsApp:
 
 <p align="center">
@@ -68,4 +70,4 @@ Esta es la foto de perfil que usamos para Claudia en WhatsApp:
 
 Es un proyecto personal, hecho a medida de un grupo en particular, así que no pretende ser una plantilla genérica. Si llegaste hasta el código, bienvenido/a: cualquier sugerencia suma.
 
-Las imágenes de `assets/` en las que aparece Bender, de *Futurama*, son algunas cuadros de la serie y otras, fan art. No están cubiertas por la licencia MIT del código. Los derechos pertenecen a sus respectivos propietarios.
+Las imágenes de `assets/` en las que aparece Bender, de *Futurama*, incluido el banner, las hizo [@TheShrekMaster](https://github.com/TheShrekMaster). No están cubiertas por la licencia MIT del código: los derechos de las imágenes son de su autor y los del personaje, de sus respectivos propietarios.
