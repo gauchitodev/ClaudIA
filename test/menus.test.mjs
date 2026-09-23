@@ -64,3 +64,11 @@ test("no hay dos plugins declarando el mismo comando", () => {
   const choques = [...comandos.entries()].filter(([, archivos]) => archivos.length > 1).map(([cmd, archivos]) => `.${cmd} → ${archivos.join(", ")}`);
   assert.deepEqual(choques, [], `comandos duplicados:\n${choques.join("\n")}`);
 });
+
+test("la versión que cuenta Claudia es la del menú y .estado, y el historial arranca por ella", async () => {
+  // Claudia said 3.1 while the menu and .estado, which read package.json (globals.js), still said v3.0.0.
+  const { VERSION, CAMBIOS } = await import("../lib/manual-claudia.js");
+  const paquete = JSON.parse(fs.readFileSync(path.join(RAIZ, "package.json"), "utf8"));
+  assert.equal(paquete.version.split(".").slice(0, 2).join("."), VERSION, "package.json y lib/manual-claudia.js tienen que ir juntos");
+  assert.equal(CAMBIOS[0].version, VERSION, "la primera entrada del historial es la versión actual");
+});

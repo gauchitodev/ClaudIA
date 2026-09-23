@@ -24,8 +24,8 @@ plugin.run = async (m, { client }) => {
       mensajeId: enviado?.key?.id,
       segundos: TRIVIA.SEGUNDOS,
       client,
-      alGanar: (lid) => juegoTerminado(m.chat, lid),
-      alVencer: () => juegoTerminado(m.chat, null),
+      alGanar: (lid) => juegoTerminado(m.chat, lid, { nombre: "trivia" }),
+      alVencer: () => juegoTerminado(m.chat, null, { nombre: "trivia" }),
     });
     // Only a round that opened takes bets: one whose turn went to another trivia would never close them.
     if (ronda) juegoIniciado(m.chat, "trivia");

@@ -13,6 +13,7 @@ import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { recibirNuevos } from "./lib/bienvenida.js";
+import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
 import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
@@ -255,6 +256,10 @@ mkdirSync("./tmp", { recursive: true });
 process.on("unhandledRejection", (error) => {
   console.error("[unhandledRejection]", error);
 });
+
+// On the way out (a restart to update, Ctrl+C, a crash), whatever is at stake in the casino's games goes back to its
+// owners: those games live in memory, and a restart used to swallow the coins. See lib/cierre.js.
+instalarDevolucionAlCerrar();
 
 // Pending items (download retries): checks every minute whether there's anything to run.
 iniciarPendientes();

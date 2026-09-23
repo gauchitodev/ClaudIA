@@ -92,3 +92,20 @@ test("laburos: los oficios nuevos existen y se pueden nombrar de varias formas",
   assert.equal(L.buscarOficio("uber"), "taxista");
   assert.equal(L.buscarOficio("banana"), null);
 });
+
+test("laburos: renunciar y agarrar otro no deja cobrar dos veces el mismo día", () => {
+  // Quitting used to delete the row, and the last payday with it: collect, quit, take another job (free, as a first
+  // one) and collect again, as many times as anyone liked.
+  const C = "renuncia@g.us";
+  L.tomarLaburo(C, "r@lid", "tambero");
+  assert.ok(L.cobrar(C, "r@lid").ok);
+  const saldo = F.getSaldoCoins(C, "r@lid");
+
+  assert.ok(L.renunciar(C, "r@lid").ok);
+  assert.equal(L.laburoDe(C, "r@lid"), null, "quedó sin laburo");
+  assert.deepEqual(L.topLaburantes(C), [], "y no aparece entre los laburantes");
+  assert.ok(L.tomarLaburo(C, "r@lid", "dj").ok, "puede agarrar otro");
+  assert.match(L.cobrar(C, "r@lid").error, /Ya cobraste hoy/, "pero el sueldo de hoy ya lo cobró");
+  assert.equal(F.getSaldoCoins(C, "r@lid"), saldo);
+  assert.equal(L.laburoDe(C, "r@lid").cobros, 0, "y el oficio nuevo arranca de cero, como siempre");
+});

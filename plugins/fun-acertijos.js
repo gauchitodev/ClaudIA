@@ -104,7 +104,7 @@ plugin.run = async (m, { client, chat }) => {
     juego: { pregunta: acertijo.pregunta, respuesta: acertijo.respuesta.toLowerCase() },
     enviar: () => client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m),
     alVencer: () => {
-      const resumen = juegoTerminado(m.chat, null);
+      const resumen = juegoTerminado(m.chat, null, { nombre: "acertijo" });
       client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* ${acertijo.respuesta}${resumen}`, m).catch(console.error);
     },
   });
@@ -129,7 +129,7 @@ plugin.before = async (m, { client }) => {
   // Margin of error proportional to the answer's length (it used to be a flat 4 letters, and "un ojo" passed for "un río").
   const margen = Math.max(1, Math.floor(juego.respuesta.length * 0.2));
   if (respuestaUsuario === juego.respuesta || distancia <= margen) {
-    const resumen = juegoTerminado(m.chat, m.sender);
+    const resumen = juegoTerminado(m.chat, m.sender, { nombre: "acertijo" });
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(acertijos[m.chat].timeout);
     delete acertijos[m.chat];

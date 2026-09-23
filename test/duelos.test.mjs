@@ -153,3 +153,38 @@ test("pelea: turno vencido tira un golpe solo, y a los turnos máximos gana el q
   assert.equal(saldo("a"), 110);
   D.PELEA.MAX_TURNOS = 20;
 });
+
+test("pelea: nadie está en dos peleas a la vez", () => {
+  // A second fight took over the person's key in "peleas", and the first one, finding nobody on that turn, hung
+  // forever with both stakes inside.
+  for (const u of ["a", "b", "c", "x", "y", "z"]) fijarSaldo(F, G, u, 100);
+  D._rng.randomInt = (min) => min; // the challenger starts
+  try {
+    D.desafiar(G, "a", "b", 10, "pelea", null);
+    assert.ok(D.aceptar(G, "b", () => {}).ok, "a y b pelean");
+
+    assert.match(D.desafiar(G, "c", "a", 10, "pelea", null).error ?? "", /@a está en medio de una pelea/);
+    assert.match(D.desafiar(G, "a", "c", 10, "pelea", null).error ?? "", /Terminá tu pelea antes de empezar otra/);
+    assert.equal(saldo("c"), 100, "un desafío rechazado no cobra nada");
+    assert.ok(D.desafiar(G, "c", "a", 10, "dado", null).ok, "a dados sí: se resuelve en el momento");
+    D.rechazar(G, "a");
+
+    // x challenges y, then accepts z's challenge: by the time y answers, x is already fighting.
+    D.desafiar(G, "x", "y", 10, "pelea", null);
+    D.desafiar(G, "z", "x", 10, "pelea", null);
+    assert.ok(D.aceptar(G, "x", () => {}).ok, "x y z pelean");
+    const r = D.aceptar(G, "y", () => {});
+    assert.match(r.error ?? "", /@x está en otra pelea/);
+    assert.equal(saldo("y"), 100, "no se le cobró");
+    assert.ok(D.textoDuelos(G).texto.includes("@x vs @y"), "el desafío sigue en pie hasta que venza");
+
+    D.rechazar(G, "y");
+    assert.equal(saldo("x"), 90, "al rechazarlo, x recupera lo del desafío; le queda lo de la pelea con z");
+  } finally {
+    // Always: a failing assertion would otherwise leave 5-minute timers holding the test process open.
+    for (const d of globalThis.duelos.values()) clearTimeout(d.timeout);
+    globalThis.duelos.clear();
+    for (const p of new Set(globalThis.peleas.values())) clearTimeout(p.timeout);
+    globalThis.peleas.clear();
+  }
+});

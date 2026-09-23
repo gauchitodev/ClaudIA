@@ -216,7 +216,7 @@ plugin.run = async (m, { client, chat }) => {
     juego: { pais: bandera.pais.toLowerCase() },
     enviar: () => client.sendText(m.chat, `*[🌍] ADIVINA LA BANDERA:*\n* ${bandera.emoji}\n\n*[❗] RESPONDE A ESTE MENSAJE* con el nombre del país.\n*[⏱️]* 30 segundos para responder.`, m),
     alVencer: () => {
-      const resumen = juegoTerminado(m.chat, null);
+      const resumen = juegoTerminado(m.chat, null, { nombre: "banderas" });
       client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*${resumen}`, m).catch(console.error);
     },
   });
@@ -232,7 +232,7 @@ plugin.before = async (m, { client }) => {
 
   const respuestaUsuario = normalizar(m.text);
   if (respuestaUsuario === normalizar(juego.pais)) {
-    const resumen = juegoTerminado(m.chat, m.sender);
+    const resumen = juegoTerminado(m.chat, m.sender, { nombre: "banderas" });
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(banderas[m.chat].timeout);
     delete banderas[m.chat];

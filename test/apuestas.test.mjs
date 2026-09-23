@@ -86,3 +86,75 @@ test("mercados: crear, jugar, resolver a pozo, anular y vencer", () => {
   assert.equal(saldo("c"), antesC + 25);
   assert.match(M.textoListaMercados(G), /No hay mercados abiertos/);
 });
+
+// ---------- bets on games (.apostar) ----------
+// Every group game used to share one entry per chat: with two at once (a riddle and a flags quiz, say), the second
+// one wiped the first one's bets, and whichever ended first settled the other's.
+
+test("apuestas en juegos: dos juegos grupales a la vez no se pisan las apuestas", async () => {
+  const U = await import("../lib/urucoins.js");
+  const C = "dos-juegos@g.us";
+  for (const u of ["c", "d"]) fijarSaldo(F, C, u, 100);
+  U.juegoIniciado(C, "acertijo");
+  assert.ok(U.apostar(C, "c", 50).ok, "con un solo juego no hace falta decir cuál");
+  U.juegoIniciado(C, "banderas");
+  assert.match(U.apostar(C, "d", 30).error, /Hay varios juegos activos \(acertijo, banderas\)/);
+  assert.equal(F.getSaldoCoins(C, "d"), 100, "la apuesta ambigua no cobra");
+  assert.ok(U.apostar(C, "d", 30, "Bandera").ok, "nombrando el juego, sí");
+
+  assert.match(U.juegoTerminado(C, "c", { nombre: "acertijo" }), /cobraste 100/);
+  assert.equal(F.getSaldoCoins(C, "c"), 160, "su apuesta sigue ahí: 50 que puso, 100 que cobra y 10 de premio");
+  assert.match(U.juegoTerminado(C, null, { nombre: "banderas" }), /1 apuesta perdida \(30 UruCoins\)/, "cada juego liquida las suyas");
+  assert.equal(F.getSaldoCoins(C, "d"), 70);
+});
+
+test("apuestas en juegos: sin nombre cierra el único activo, y con varios no adivina", async () => {
+  const U = await import("../lib/urucoins.js");
+  const C = "sin-nombre@g.us";
+  fijarSaldo(F, C, "e", 100);
+  // The way it was called before games had names (and a merge could bring back): still works with one game on.
+  U.juegoIniciado(C, "trivia");
+  U.apostar(C, "e", 20);
+  assert.match(U.juegoTerminado(C, "e"), /cobraste 40/);
+
+  U.juegoIniciado(C, "acertijo");
+  U.juegoIniciado(C, "banderas");
+  const errores = [];
+  const errorReal = console.error;
+  console.error = (...a) => errores.push(a.join(" "));
+  try {
+    U.juegoTerminado(C, null);
+  } finally {
+    console.error = errorReal;
+  }
+  assert.match(errores.join("\n"), /sin nombre, con 2 juegos activos/);
+  assert.match(U.apostar(C, "e", 5).error, /Hay varios juegos activos/, "no cerró ninguno a ciegas");
+  U.juegoTerminado(C, null, { nombre: "acertijo" });
+  U.juegoTerminado(C, null, { nombre: "banderas" });
+
+  // An individual game and a group one: the person says which.
+  U.juegoIniciado(C, "ahorcado", "e");
+  U.juegoIniciado(C, "trivia");
+  assert.match(U.apostar(C, "e", 10).error, /ahorcado, trivia|trivia, ahorcado/);
+  assert.ok(U.apostar(C, "e", 10, "ahorcado").ok);
+  assert.match(U.apostar(C, "otra@lid", 10, "ahorcado").error, /No hay ningún juego de ahorcado/, "el ahorcado de otro no es suyo");
+  U.juegoTerminado(C, null, { nombre: "trivia" });
+  U.juegoTerminado(C, null, { jugador: "e", nombre: "ahorcado" });
+});
+
+test("consistencia: cada juego se cierra con el mismo nombre con el que se abrió", async () => {
+  // A plugin closing without its name (or with another one) falls back to guessing, which fails with two games on.
+  const fs = await import("node:fs");
+  const carpeta = new URL("../plugins/", import.meta.url);
+  const revisados = [];
+  for (const archivo of fs.readdirSync(carpeta).filter((f) => f.endsWith(".js"))) {
+    const fuente = fs.readFileSync(new URL(archivo, carpeta), "utf8");
+    const abre = fuente.match(/juegoIniciado\([^,]+,\s*"([a-z]+)"/);
+    if (!abre) continue;
+    const cierres = [...fuente.matchAll(/juegoTerminado\([^)]*\)/g)].map((c) => c[0]);
+    assert.ok(cierres.length > 0, `${archivo} abre un juego y nunca lo cierra`);
+    for (const cierre of cierres) assert.match(cierre, new RegExp(`nombre: "${abre[1]}"`), `${archivo}: ${cierre}`);
+    revisados.push(archivo);
+  }
+  assert.ok(revisados.length >= 5, `se revisaron muy pocos juegos (${revisados.join(", ")}): el escaneo no está andando`);
+});

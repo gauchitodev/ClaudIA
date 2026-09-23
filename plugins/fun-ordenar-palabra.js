@@ -23,7 +23,7 @@ plugin.run = async (m, { client, chat }) => {
     juego: { palabra },
     enviar: () => client.sendText(m.chat, `*[🔠] Ordena la palabra:*\n* ${desordenada}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la palabra correcta.\n*[⏱️]* Tienen 30 segundos para responder.`, m),
     alVencer: () => {
-      const resumen = juegoTerminado(m.chat, null);
+      const resumen = juegoTerminado(m.chat, null, { nombre: "ordenar" });
       client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*${resumen}`, m).catch(console.error);
     },
   });
@@ -39,7 +39,7 @@ plugin.before = async (m, { client }) => {
   const respuestaUsuario = m.text.toLowerCase().trim();
 
   if (respuestaUsuario === juego.palabra) {
-    const resumen = juegoTerminado(m.chat, m.sender);
+    const resumen = juegoTerminado(m.chat, m.sender, { nombre: "ordenar" });
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(ordenarPalabra[m.chat].timeout);
     delete ordenarPalabra[m.chat];
