@@ -2,7 +2,7 @@
 // anti-bot blocks. If YouTube fails on every candidate, it falls back to SoundCloud as a second source before
 // giving up. If it still fails, the person can ask for a retry with .reintentar (or by asking Claudia), and the bot
 // tries again on its own later.
-import { exec, execFile } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import { existsSync, promises } from "fs";
@@ -13,12 +13,10 @@ import { COINS } from "../lib/urucoins.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const ytDlpPath = path.resolve(RUTA_YT_DLP);
 const cookiesPath = path.resolve("cookies.txt");
 const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
-const cookiesFlagStr = existsSync(cookiesPath) ? `--cookies "${cookiesPath}"` : "";
 
 const plugin = {};
 plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
@@ -90,15 +88,17 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
   const intentarCandidato = async (candidato) => {
     try {
       const format = isAudio ? "bestaudio/18/best" : "worst/18";
-      const postProcess = isAudio ? "--extract-audio --audio-format m4a" : "";
+      const postProcess = isAudio ? ["--extract-audio", "--audio-format", "m4a"] : [];
       const messageType = isAudio ? "audio" : "video";
       const mimeType = isAudio ? "audio/mp4" : undefined;
       const randomFileName = Math.random().toString(36).substring(2, 15);
       const outputTemplate = path.join("./tmp", `${randomFileName}.%(ext)s`);
 
-      const commandStr = `${ytDlpPath} -f "${format}" ${postProcess} ${cookiesFlagStr} --no-warnings -o "${outputTemplate}" "${candidato.url}"`;
+      // Arguments handed straight to yt-dlp, with no shell in between, like the searches below: the URL comes from a
+      // search result and is safe today, but a command string would read it as shell syntax, $(...) included.
+      const argumentos = ["-f", format, ...postProcess, ...cookiesArgs, "--no-warnings", "-o", outputTemplate, candidato.url];
       // With a timeout: a hung download used to block the whole queue until the bot was restarted.
-      const { stderr } = await execAsync(commandStr, { timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
+      const { stderr } = await execFileAsync(ytDlpPath, argumentos, { timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
         stdout: error.stdout || "",
         stderr: error.stderr || error.message || "",
       }));

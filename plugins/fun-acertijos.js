@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 const plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
@@ -97,23 +98,17 @@ const response = [
 const acertijos = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (acertijos[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
-
   const acertijo = elegirAlAzar(response);
-  const acertijoMsg = await client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m);
-
-  acertijos[m.chat] = {
-    pregunta: acertijo.pregunta,
-    respuesta: acertijo.respuesta.toLowerCase(),
-    mensajeId: acertijoMsg.key.id,
-    timeout: setTimeout(() => {
-      if (acertijos[m.chat]) {
-        const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* ${acertijo.respuesta}${resumen}`, m).catch(console.error);
-        delete acertijos[m.chat];
-      }
-    }, 30000), // 30 seconds to guess
-  };
+  // The chat is taken before the riddle goes out, and only this riddle's timer can end it: see lib/juego-rapido.js.
+  const abierto = await abrirJuego(acertijos, m.chat, {
+    juego: { pregunta: acertijo.pregunta, respuesta: acertijo.respuesta.toLowerCase() },
+    enviar: () => client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m),
+    alVencer: () => {
+      const resumen = juegoTerminado(m.chat, null);
+      client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\n*[🌟] La respuesta era:* ${acertijo.respuesta}${resumen}`, m).catch(console.error);
+    },
+  });
+  if (!abierto) return client.sendText(m.chat, txt.gameAlready, m);
   juegoIniciado(m.chat, "acertijo");
 };
 

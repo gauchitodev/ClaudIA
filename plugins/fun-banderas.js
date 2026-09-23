@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 const plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
@@ -209,23 +210,17 @@ const normalizar = (texto) =>
 const banderas = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (banderas[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
-
   const bandera = elegirAlAzar(banderasLista);
-
-  const mensajeJuego = await client.sendText(m.chat, `*[🌍] ADIVINA LA BANDERA:*\n* ${bandera.emoji}\n\n*[❗] RESPONDE A ESTE MENSAJE* con el nombre del país.\n*[⏱️]* 30 segundos para responder.`, m);
-
-  banderas[m.chat] = {
-    pais: bandera.pais.toLowerCase(),
-    mensajeId: mensajeJuego.key.id,
-    timeout: setTimeout(() => {
-      if (banderas[m.chat]) {
-        const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*${resumen}`, m).catch(console.error);
-        delete banderas[m.chat];
-      }
-    }, 30000), // 30 segundos
-  };
+  // The chat is taken before the flag goes out, and only this game's timer can end it: see lib/juego-rapido.js.
+  const abierto = await abrirJuego(banderas, m.chat, {
+    juego: { pais: bandera.pais.toLowerCase() },
+    enviar: () => client.sendText(m.chat, `*[🌍] ADIVINA LA BANDERA:*\n* ${bandera.emoji}\n\n*[❗] RESPONDE A ESTE MENSAJE* con el nombre del país.\n*[⏱️]* 30 segundos para responder.`, m),
+    alVencer: () => {
+      const resumen = juegoTerminado(m.chat, null);
+      client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa respuesta era: *${bandera.pais}*${resumen}`, m).catch(console.error);
+    },
+  });
+  if (!abierto) return client.sendText(m.chat, txt.gameAlready, m);
   juegoIniciado(m.chat, "banderas");
 };
 

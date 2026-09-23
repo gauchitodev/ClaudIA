@@ -132,3 +132,90 @@ test("trivia: una sola por grupo, aunque dos se pidan al mismo tiempo o llegue u
   Tr.cerrarRonda(G);
   U.juegoTerminado(G, null);
 });
+
+// A setup can take minutes when every AI model times out. If its hold lapses in the meantime and another trivia opens,
+// the slow one, once ready, used to overwrite the round in play: it died without a word, and its answers went nowhere.
+// Collects what abrirRonda logs when it refuses, so the output stays clean.
+function callandoErrores() {
+  const errores = [];
+  const errorReal = console.error;
+  console.error = (...a) => errores.push(a.join(" "));
+  return { errores, restaurar: () => (console.error = errorReal) };
+}
+
+test("trivia: una preparación que perdió su reserva no pisa la ronda que se abrió mientras, ni la suelta", async () => {
+  const client = clienteFalso();
+  const C = "reserva@g.us";
+  const original = Tr.TRIVIA.RESERVA_MS;
+  Tr.TRIVIA.RESERVA_MS = 30;
+  const lenta = Tr.reservarRonda(C, "relampago");
+  Tr.TRIVIA.RESERVA_MS = original;
+  await esperar(60);
+  assert.equal(Tr.rondaDe(C), null, "la reserva venció");
+
+  // Another trivia takes the chat: first its hold, which the lapsed one can't release...
+  const otra = Tr.reservarRonda(C, "trivia");
+  assert.equal(Tr.liberarRonda(C, lenta), false, "la reserva vencida no suelta la de otro");
+  assert.equal(Tr.rondaDe(C), otra);
+  // ...then its round.
+  const enJuego = Tr.abrirRonda(C, { reserva: otra, tipo: "trivia", pregunta: PREGUNTA, mensajeId: "EN-JUEGO", segundos: 5, client });
+
+  // The slow one is finally ready.
+  const { errores, restaurar } = callandoErrores();
+  try {
+    assert.equal(Tr.abrirRonda(C, { reserva: lenta, tipo: "relampago", pregunta: PREGUNTA, mensajeId: "TARDE", segundos: 5, client }), null, "no abre encima");
+  } finally {
+    restaurar();
+  }
+  assert.match(errores.join("\n"), /no abro la ronda \(relampago\)/, "queda en el log");
+  assert.equal(Tr.rondaDe(C), enJuego, "la ronda en juego sigue");
+  assert.equal(Tr.liberarRonda(C, lenta), false);
+  assert.equal(Tr.responderTrivia({ chat: C, sender: "a@lid", text: "c", quoted: { id: "EN-JUEGO" } }).reaccion, "✅", "y se puede ganar");
+
+  // With the chat free, a hold that lapsed still opens its round: its question is already out, and nobody else took the turn.
+  Tr.TRIVIA.RESERVA_MS = 30;
+  const sola = Tr.reservarRonda(C, "relampago");
+  Tr.TRIVIA.RESERVA_MS = original;
+  await esperar(60);
+  assert.ok(Tr.abrirRonda(C, { reserva: sola, tipo: "relampago", pregunta: PREGUNTA, mensajeId: "SOLA", segundos: 5, client }));
+  assert.equal(Tr.rondaDe(C).mensajeId, "SOLA");
+  Tr.cerrarRonda(C);
+});
+
+// The same, through the two ways a trivia opens. The one that came later still holds only its reservation: that's the
+// case where a launcher that doesn't hand over its own would take someone else's.
+for (const [nombre, envia, lanzar] of [
+  [".trivia", "sendText", (client, chat) => plugin.run({ chat, sender: "y@lid", isGroup: true }, { client })],
+  ["la relámpago", "sendMessage", async (client, chat) => (await import("../lib/trivia-relampago.js")).lanzarTriviaRelampago(client, chat)],
+]) {
+  test(`trivia: si ${nombre} pierde su reserva mientras se arma, no se queda con la del que llegó después`, async () => {
+    const C = `tarde-${envia}@g.us`;
+    const client = clienteFalso();
+    const enviar = client[envia];
+    let otra;
+    // While the question waits its turn, the hold lapses and another trivia reserves the chat.
+    client[envia] = async (chat, ...resto) => {
+      if (!otra) {
+        Tr.cerrarRonda(chat);
+        otra = Tr.reservarRonda(chat, "trivia");
+      }
+      return enviar(chat, ...resto);
+    };
+
+    const { errores, restaurar } = callandoErrores();
+    try {
+      await lanzar(client, C);
+    } finally {
+      restaurar();
+    }
+    try {
+      assert.equal(Tr.rondaDe(C), otra, "la reserva sigue siendo del que llegó después");
+      assert.match(errores.join("\n"), /no abro la ronda/, "queda en el log");
+      assert.match(U.apostar(C, "z@lid", U.COINS.APUESTA_MIN).error, /No hay ningún juego activo/, "y no quedó un juego tomando apuestas que nunca se cierran");
+    } finally {
+      // Always: if the hold got overwritten, its 5-minute timer would keep the test process open.
+      clearTimeout(otra?.timeout);
+      Tr.cerrarRonda(C);
+    }
+  });
+}

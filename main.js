@@ -145,6 +145,9 @@ async function startBot() {
   // They go in order and one at a time, so replies within a chat don't get interleaved.
   client.ev.on("messages.upsert", async (chatUpdate) => {
     if (!client.handler) return;
+    // When the batch arrived: handle-message measures each message's age against this, not against the moment it
+    // gets to it, which in a busy batch can be much later (see atrasoDeLlegada in lib/tiempo.js).
+    const llegada = Date.now();
     for (const m of chatUpdate.messages || []) {
       try {
         // Group notices (someone joined, was promoted, requested to join, etc.) arrive without "message" but with
@@ -154,6 +157,7 @@ async function startBot() {
         if (m.key && m.key.remoteJid === "status@broadcast") continue;
         // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.
         m._upsertType = chatUpdate.type;
+        m._llegada = llegada;
         await client.handler(m, chatUpdate);
       } catch (e) {
         console.error(e);

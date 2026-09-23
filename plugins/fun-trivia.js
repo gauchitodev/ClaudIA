@@ -12,13 +12,13 @@ plugin.run = async (m, { client }) => {
   if (abierta) return client.sendText(m.chat, abierta.reservada ? "Ya se está armando una trivia, un segundo." : `Hay una trivia abierta, quedan ${segundosRestantes(abierta)} segundos. Respondé esa con la letra.`, m);
 
   // one trivia per group: the turn is reserved before asking the AI for the question, which takes a while
-  reservarRonda(m.chat, "trivia");
+  const reserva = reservarRonda(m.chat, "trivia");
   try {
     const pregunta = await generarPregunta(m.chat);
     const premio = monedasActivas(m.chat) ? COINS.JUEGO_GANADO : 0;
     const enviado = await client.sendText(m.chat, textoPregunta({ titulo: "🎓 *Trivia*", premio, pregunta, segundos: TRIVIA.SEGUNDOS }), m);
-    juegoIniciado(m.chat, "trivia");
-    abrirRonda(m.chat, {
+    const ronda = abrirRonda(m.chat, {
+      reserva,
       tipo: "trivia",
       pregunta,
       mensajeId: enviado?.key?.id,
@@ -27,8 +27,10 @@ plugin.run = async (m, { client }) => {
       alGanar: (lid) => juegoTerminado(m.chat, lid),
       alVencer: () => juegoTerminado(m.chat, null),
     });
+    // Only a round that opened takes bets: one whose turn went to another trivia would never close them.
+    if (ronda) juegoIniciado(m.chat, "trivia");
   } catch (e) {
-    liberarRonda(m.chat);
+    liberarRonda(m.chat, reserva);
     throw e;
   }
 };

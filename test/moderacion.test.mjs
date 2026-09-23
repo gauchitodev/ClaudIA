@@ -375,3 +375,37 @@ test("jerarquía: la ruleta del ban no se lleva a nadie que quien la gira no pod
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
 });
+
+test("ruleta del ban: el anuncio sale antes de la expulsión, y si WhatsApp no deja, lo dice", async () => {
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  // Two groups spinning at once: in one WhatsApp accepts the removal, in the other it answers 403. Each group's
+  // announcement waits its turn in the queue (lib/envios.js) until the test lets it go.
+  const lineas = { "ruleta-si@g.us": [], "ruleta-no@g.us": [] };
+  const compuertas = {};
+  const soltar = {};
+  for (const chat of Object.keys(lineas)) compuertas[chat] = new Promise((resolve) => (soltar[chat] = resolve));
+  const client = {
+    ...globalThis.client,
+    sendText: async (chat, texto) => {
+      if (/ruleta de la muerte/.test(texto)) await compuertas[chat];
+      lineas[chat].push(texto);
+      return { key: { id: "R" } };
+    },
+    groupParticipantsUpdate: async (chat, ids) => {
+      lineas[chat].push(`fuera ${ids[0]}`);
+      return ids.map((jid) => ({ status: chat === "ruleta-no@g.us" ? "403" : "200", jid }));
+    },
+  };
+  const grupo = [{ id: "999@lid", admin: "admin" }, { id: "111@lid", admin: null }];
+  const girar = (chat) => Ruleta.run({ chat, sender: "100@lid", isGroup: true }, { client, groupMetadata: { participants: grupo }, isOwner: true, isWaAdmin: true });
+  const corriendo = Object.keys(lineas).map(girar);
+
+  await esperar(2300); // past the 2 seconds of suspense: without waiting for the announcement, both would be out by now
+  assert.deepEqual(lineas, { "ruleta-si@g.us": [], "ruleta-no@g.us": [] }, "nadie sale mientras el anuncio espera su turno");
+
+  soltar["ruleta-si@g.us"]();
+  soltar["ruleta-no@g.us"]();
+  await Promise.all(corriendo);
+  assert.deepEqual(lineas["ruleta-si@g.us"], [strings.ruletaDelBan("111@lid"), "fuera 111@lid"], "anuncio, expulsión, y nada más");
+  assert.deepEqual(lineas["ruleta-no@g.us"], [strings.ruletaDelBan("111@lid"), "fuera 111@lid", "La ruleta eligió, pero WhatsApp no me dejó sacarlo (error 403)."]);
+});

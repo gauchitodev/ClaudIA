@@ -4,6 +4,7 @@ import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo,
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
+import { atrasoDeLlegada } from "./lib/tiempo.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -23,11 +24,9 @@ export async function handleMessage(nMsg) {
     // ==========================================
     // 0. HANGOVER FILTER (ignore stale messages)
     // ==========================================
-    // messageTimestamp may arrive as a number or as a Long (protobuf); it's normalized to seconds.
-    const crudo = m.messageTimestamp ?? m.timestamp ?? 0;
-    const tiempoMensaje = Number(typeof crudo?.toNumber === "function" ? crudo.toNumber() : crudo) || 0;
-    // If the message is more than 60 seconds old, drop it right away
-    if (tiempoMensaje && (Date.now() / 1000) - tiempoMensaje > 60) return;
+    // A message that reached the bot more than 60 seconds after it was sent is dropped (the bot was offline, or the
+    // connection stalled). Measured at arrival, not now: waiting behind the rest of its batch doesn't make it stale.
+    if (atrasoDeLlegada(m) > 60) return;
 
     // Keeps the bot from answering command messages from while it was offline.
     if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return;

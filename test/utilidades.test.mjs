@@ -176,3 +176,35 @@ test("el .s no manda nada cuando la descarga del archivo viene vacía, y el log 
   assert.match(errores.join("\n"), /NO es problema de ffmpeg/, "el log tiene que descartar ffmpeg explícitamente");
 });
 
+
+// ---------- how late a message arrived (the 60-second filter in handle-message) ----------
+// The age used to be measured when the message got processed. A batch goes one message at a time and every reply
+// waits its turn in the queue, so the last command of a busy batch could pass the 60 s mark while waiting and be dropped
+// without a word.
+
+test("atraso: se mide contra la llegada, no contra cuándo se procesa", async () => {
+  const { atrasoDeLlegada } = await import("../lib/tiempo.js");
+  const enviado = 1_800_000_000; // seconds, like messageTimestamp
+  const llegada = enviado * 1000 + 2000; // it reached the bot 2 s after it was sent
+  const m = { messageTimestamp: enviado, _llegada: llegada };
+  // Processed 90 s later, after the rest of its batch: its age is still the 2 s it took to arrive.
+  assert.equal(atrasoDeLlegada(m, llegada + 90_000), 2);
+  assert.equal(atrasoDeLlegada({ messageTimestamp: enviado }, llegada + 90_000), 92, "sin marca de llegada mide contra ahora, como antes");
+
+  // What the filter is for: a message delivered late, because the bot was offline, is still stale.
+  assert.ok(atrasoDeLlegada({ messageTimestamp: enviado, _llegada: (enviado + 300) * 1000 }) > 60);
+  // The timestamp may come as a protobuf Long, and a message with none isn't dropped.
+  assert.equal(atrasoDeLlegada({ messageTimestamp: { toNumber: () => enviado }, _llegada: llegada }), 2);
+  assert.equal(atrasoDeLlegada({ _llegada: llegada }), 0);
+});
+
+test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con ella", async () => {
+  const { fileURLToPath } = await import("url");
+  const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const main = fs.readFileSync(path.join(raiz, "main.js"), "utf8");
+  const bloque = main.slice(main.indexOf('client.ev.on("messages.upsert"'), main.indexOf('client.ev.on("group-participants.update"'));
+  assert.ok(bloque.length > 100, "no se encontró el handler de messages.upsert: el escaneo no está andando");
+  assert.match(bloque, /const llegada = Date\.now\(\);[\s\S]*m\._llegada = llegada;/, "main.js dejó de marcar cuándo llegó la tanda");
+  const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
+  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return;/, "handle-message dejó de filtrar por el atraso de llegada");
+});

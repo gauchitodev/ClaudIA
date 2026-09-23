@@ -1,4 +1,5 @@
 import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 const plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
@@ -11,27 +12,22 @@ const palabras = ["sol", "casa", "perro", "gato", "luz", "rio", "arbol", "flor",
 const ordenarPalabra = {};
 
 plugin.run = async (m, { client, chat }) => {
-  if (ordenarPalabra[m.chat]) return client.sendText(m.chat, txt.gameAlready, m);
-
   const palabra = elegirAlAzar(palabras);
   const desordenada = palabra
     .split("")
     .sort(() => Math.random() - 0.5)
     .join("");
 
-  const juegoMsg = await client.sendText(m.chat, `*[🔠] Ordena la palabra:*\n* ${desordenada}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la palabra correcta.\n*[⏱️]* Tienen 30 segundos para responder.`, m);
-
-  ordenarPalabra[m.chat] = {
-    palabra,
-    mensajeId: juegoMsg.key.id,
-    timeout: setTimeout(() => {
-      if (ordenarPalabra[m.chat]) {
-        const resumen = juegoTerminado(m.chat, null);
-        client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*${resumen}`, m).catch(console.error);
-        delete ordenarPalabra[m.chat];
-      }
-    }, 30000),
-  };
+  // The chat is taken before the word goes out, and only this game's timer can end it: see lib/juego-rapido.js.
+  const abierto = await abrirJuego(ordenarPalabra, m.chat, {
+    juego: { palabra },
+    enviar: () => client.sendText(m.chat, `*[🔠] Ordena la palabra:*\n* ${desordenada}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la palabra correcta.\n*[⏱️]* Tienen 30 segundos para responder.`, m),
+    alVencer: () => {
+      const resumen = juegoTerminado(m.chat, null);
+      client.sendText(m.chat, `*[⏳] ¡TIEMPO!*\n\nLa palabra correcta era: *${palabra}*${resumen}`, m).catch(console.error);
+    },
+  });
+  if (!abierto) return client.sendText(m.chat, txt.gameAlready, m);
   juegoIniciado(m.chat, "ordenar");
 };
 

@@ -113,3 +113,13 @@ test("ytdlp: se actualiza una vez por día a la hora configurada", async () => {
   assert.equal(await chequearActualizacionYtDlp(new Date(2026, 8, 8, YTDLP.HORA_ACTUALIZACION, 2)), true, "al otro día vuelve");
   assert.equal(corridas, 2);
 });
+
+test("consistencia: dl-youtube le pasa los argumentos a yt-dlp sin shell", () => {
+  // With exec, the command line goes through a shell, which reads $(...) and quotes inside the link as syntax. A merge
+  // that brings back an old copy of the plugin would bring that back without anything failing.
+  const fuente = fs.readFileSync(new URL("../plugins/dl-youtube.js", import.meta.url), "utf8");
+  const importa = fuente.match(/import\s*\{([^}]*)\}\s*from\s*["'](?:node:)?child_process["']/);
+  assert.ok(importa, "no se encontró el import de child_process: el escaneo no está andando");
+  const nombres = importa[1].split(",").map((n) => n.trim()).filter(Boolean);
+  assert.deepEqual(nombres, ["execFile"], "dl-youtube tiene que llamar a yt-dlp con execFile y una lista de argumentos");
+});
