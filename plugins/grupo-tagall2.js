@@ -2,7 +2,8 @@ const plugin = {};
 plugin.cmd = ["tagall2", "todos2"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyMod = true;
+// Admins only, not moderators: mentioning the whole group ten times in a row is the closest thing to spam the bot does.
+plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, isOwner, text, participants, chat }) => {
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);

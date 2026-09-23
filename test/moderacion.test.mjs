@@ -132,6 +132,15 @@ test(".llamar no se come los números que vienen después de la mención", async
   await correr(Llamar, "", "cancelar");
 });
 
+test("las ráfagas de menciones son solo de admins, no de moderadores", async () => {
+  // .ht2 and .tagall2 mention the whole group ten times in a row, and .llamar sends someone ten messages. A merge that
+  // brings back an old copy of any of them would hand them back to moderators without anything failing.
+  for (const archivo of ["grupo-hidetag2.js", "grupo-tagall2.js", "grupo-llamar.js"]) {
+    const P = (await import(`../plugins/${archivo}`)).default;
+    assert.equal(P.onlyAdmin, true, `${archivo} tiene que ser solo de admins`);
+  }
+});
+
 test("destinatario: resuelve las dos identidades venga como venga", async () => {
   const { destinatario } = await import("../lib/identidad.js");
   const men = (text, mentionedJid = [], quoted = null) => ({ chat: G, sender: "100@lid", text, mentionedJid, quoted });

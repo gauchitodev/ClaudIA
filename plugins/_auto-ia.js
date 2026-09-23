@@ -13,7 +13,7 @@ const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
 // what cuts the bot's message volume the most, which is what gets accounts banned.
-const COOLDOWN_MS = 20000; // 20 segundos
+const COOLDOWN_MS = 20000; // 20 seconds
 
 if (!globalThis.autoIaCooldown) globalThis.autoIaCooldown = new Map();
 if (!globalThis.autoIaSinCuotaAviso) globalThis.autoIaSinCuotaAviso = new Map();
@@ -36,7 +36,7 @@ const ESQUEMA_RESPUESTA = {
 
 const plugin = (m) => m;
 
-plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, user, chat }) => {
+plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
     if (m.fromMe || m.isBaileys) return;
     if (!m.text) return;
@@ -189,14 +189,16 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, us
       return;
     }
 
-    // tagall and llamar: groups only, and only if whoever asks is an admin
+    // tagall and llamar: groups only, and only for whoever could run the command itself. The plugin is called directly
+    // below, past the dispatcher's checks, so its own flags decide: .tagall is for moderators, .llamar for admins.
     if (comando === "tagall" || comando === "llamar") {
       if (!m.isGroup) {
         await decir(respuesta);
         return;
       }
-      if (!isMod && !isOwner) {
-        await decir("Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
+      const soloAdmins = Boolean(buscarPlugin(comando)?.onlyAdmin);
+      if (!isOwner && !(soloAdmins ? isAdmin : isMod)) {
+        await decir(soloAdmins ? "Che, eso lo puede pedir solo un admin del grupo." : "Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
         return;
       }
     }

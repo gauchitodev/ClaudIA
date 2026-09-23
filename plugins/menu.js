@@ -68,7 +68,7 @@ ${readMore}
 ▸ ${usedPrefix}setname <nombre> ✏️ – \`Cambia el nombre del grupo.\`
 ▸ ${usedPrefix}getpp 📸 – \`Obtiene la foto de perfil actual del grupo.\`
 ▸ ${usedPrefix}gpu 📸 – \`Obtiene la foto de perfil de un participante.\`
-▸ ${usedPrefix}llamar @mención 🤚 – \`Menciona 20 veces a un usuario\`
+▸ ${usedPrefix}llamar @mención 🤚 – \`Menciona 10 veces a un usuario\`
 ▸ ${usedPrefix}rl ♻️ – \`Restaurar enlace del grupo.\`
 ▸ ${usedPrefix}ap ☑️ – \`Aprobar solicitudes pendientes para unirse.\`
 ▸ ${usedPrefix}ruletadelban ☠️ – \`Elimina un participante al azar.\`

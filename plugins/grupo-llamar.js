@@ -6,7 +6,9 @@ const plugin = {};
 plugin.cmd = ["llamar", "mencionar", "cancelar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
-plugin.onlyMod = true;
+// Admins only, not moderators: ten messages in a row at someone is a burst the bot shouldn't hand out lightly.
+// .cancelar goes with it: it only stops a .llamar.
+plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, command }) => {
   if (command === "cancelar") {
