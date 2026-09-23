@@ -1,5 +1,6 @@
 import { juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
+import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
@@ -17,7 +18,7 @@ plugin.run = async (m, { client, chat }) => {
   const oculta = palabra.replace(/./g, "_ ");
   const intentos = 8;
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m);
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id));
 
   ahorcado[m.sender] = {
     chat: m.chat,
@@ -77,7 +78,7 @@ plugin.before = async (m, { client }) => {
     return;
   }
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m);
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id));
 };
 
 export default plugin;

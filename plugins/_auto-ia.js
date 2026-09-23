@@ -6,6 +6,8 @@ import { conocimientoPara } from "../lib/manual-claudia.js";
 import { tipear } from "../lib/ritmo.js";
 import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
+import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 
 // The words that make the bot consider itself addressed (lowercase).
 const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
@@ -57,6 +59,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // is the message a reply to one of the bot's own messages?
     const esRespuestaAlBot = m.quoted && m.quoted.fromMe;
+    // A reply to a game's message (a trivia question, a riddle, the hangman's board, today's question) is an answer to
+    // it, not a message for Claudia, even if it names her: she used to chat back to every answer, and sometimes gave
+    // the right one away. See lib/mensajes-de-juego.js.
+    if (esRespuestaAlBot && (esMensajeDeJuego(m.quoted.id) || esPreguntaDelDia(m.chat, m.quoted.id))) return;
 
     // does the message mention any of the keywords?
     const mencionaPalabra = PALABRAS_CLAVE.some((palabra) => {

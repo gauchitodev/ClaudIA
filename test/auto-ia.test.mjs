@@ -9,6 +9,7 @@ import strings from "../lib/strings.js";
 
 let AutoIA, Llamar, Tagall, RITMO;
 let clasificacion; // what "Gemini" answers
+let consultasIA = 0; // how many times Claudia asked the AI
 const fetchReal = globalThis.fetch;
 const logReal = console.log;
 const tipeoReal = {};
@@ -21,7 +22,10 @@ before(async () => {
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0 }); // no "typing..." wait
   console.log = () => {}; // the AI module narrates which model answered
-  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(clasificacion) }] } }] }) });
+  globalThis.fetch = async () => {
+    consultasIA++;
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(clasificacion) }] } }] }) };
+  };
   AutoIA = (await import("../plugins/_auto-ia.js")).default;
   Llamar = (await import("../plugins/grupo-llamar.js")).default;
   Tagall = (await import("../plugins/grupo-tagall.js")).default;
@@ -62,4 +66,44 @@ test("pedido a Claudia: un admin sí, y un moderador sigue pudiendo pedir un tag
   const tagall = await pedir("claudia arrobá a todos", MODERADOR);
   assert.equal(tagall.textos[0], "Ahí van todos.");
   assert.match(tagall.textos[1], /@111 @555/, "la mención a todos salió");
+});
+
+// ---------- replies to a game's message ----------
+// Trivia, riddles, flags and unscramble are answered by quoting the bot's question, and so is today's question. Claudia
+// took each answer as spoken to her, with the game's question in her prompt: she chatted back to every one, and
+// sometimes gave the right answer away.
+
+async function citando(id, texto) {
+  globalThis.autoIaCooldown.delete(C);
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const m = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text: texto, mentionedJid: [], quoted: { id, fromMe: true, text: "🎓 *Trivia* ¿Cuál es la capital de Japón?" } };
+  const antes = consultasIA;
+  await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: {}, ...MODERADOR });
+  return { consultas: consultasIA - antes, textos: globalThis.enviados.map((e) => e.msg?.text || "") };
+}
+
+test("pedido a Claudia: responder a la pregunta de un juego no le habla a ella", async () => {
+  const Tr = await import("../lib/trivia.js");
+  const J = await import("../lib/juego-rapido.js");
+  const F = await import("../database-functions.js");
+  const { claveDia } = await import("../lib/actividad.js");
+  clasificacion = { comando: "ninguno", respuesta: "¡Es la C, Tokio!" };
+
+  Tr.abrirRonda(C, { tipo: "trivia", pregunta: { pregunta: "¿Capital de Japón?", opciones: ["Osaka", "Kioto", "Tokio", "Nara"], correcta: "c" }, mensajeId: "TRIVIA-1", segundos: 30, client: clienteFalso() });
+  assert.deepEqual(await citando("TRIVIA-1", "c"), { consultas: 0, textos: [] }, "una respuesta a la trivia");
+  assert.deepEqual(await citando("TRIVIA-1", "claudia es la c?"), { consultas: 0, textos: [] }, "ni nombrándola: no sirve para sacar la respuesta");
+  Tr.cerrarRonda(C);
+
+  const juegos = {};
+  await J.abrirJuego(juegos, C, { juego: {}, enviar: async () => ({ key: { id: "ACERTIJO-1" } }), alVencer: () => {} });
+  clearTimeout(juegos[C].timeout);
+  assert.deepEqual(await citando("ACERTIJO-1", "la sombra"), { consultas: 0, textos: [] }, "una respuesta al acertijo");
+
+  F.guardarPreguntaDia(C, claveDia(), "¿Playa o campo?", "PREGUNTA-DIA-1");
+  assert.deepEqual(await citando("PREGUNTA-DIA-1", "playa, obvio"), { consultas: 0, textos: [] }, "una respuesta a la pregunta del día");
+
+  // Replying to anything else she said still talks to her.
+  const otra = await citando("OTRO-MENSAJE", "jaja sí");
+  assert.equal(otra.consultas, 1);
+  assert.deepEqual(otra.textos, ["¡Es la C, Tokio!"]);
 });

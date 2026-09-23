@@ -47,3 +47,21 @@ test("premios de juegos: el tope es solo del ahorcado, y cuenta el día de hoy",
   // The way it was called before games had names still pays, uncapped.
   assert.match(U.juegoTerminado(C, "c@lid", "c@lid"), /\+10 UruCoins/);
 });
+
+test("ahorcado: su tablero es un mensaje de juego, y responderle no le habla a Claudia", async () => {
+  const { esMensajeDeJuego } = await import("../lib/mensajes-de-juego.js");
+  const client = clienteFalso();
+  const m = (text) => ({ chat: "tablero@g.us", sender: "t@lid", text, isGroup: true, react: async () => {} });
+  const randomReal = Math.random;
+  Math.random = () => 0; // "solido", so the game can be finished and leaves no 3-minute timer behind
+  try {
+    await Ahorcado.run(m(".ahorcado"), { client, chat: {} });
+    await Ahorcado.before(m("s"), { client });
+    await new Promise((resolve) => setImmediate(resolve)); // the boards are marked once they're out
+    // The fake client numbers what it sends: MSG1 is the first board, MSG2 the one after the letter.
+    assert.ok(esMensajeDeJuego("MSG1") && esMensajeDeJuego("MSG2"), "los dos tableros quedaron marcados");
+  } finally {
+    for (const letra of "olid") await Ahorcado.before(m(letra), { client });
+    Math.random = randomReal;
+  }
+});
