@@ -1,3 +1,5 @@
+![Bender entrando por una puerta, con el texto «ClaudIA llegando al grupo»](assets/banner.jpg)
+
 # ClaudIA 🇺🇾
 
 [![CI](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml)
@@ -43,3 +45,5 @@ Sin eso la instalación corta con un error de `android_ndk_path`. Por lo mismo b
 ## Nota
 
 Proyecto personal, sin pretensión de ser un template genérico — está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.
+
+Las imágenes de `assets/` son de Bender, de *Futurama*: cuadros de la serie y fan art. Son de sus dueños y no entran en la licencia MIT del código.
