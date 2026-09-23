@@ -4,16 +4,14 @@
 
 [![CI](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml)
 
-Bot de WhatsApp con personalidad propia, hecho a mano para un grupo de amigos uruguayo. Es mi primer proyecto de programación: arrancó como una copia de [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) y se fue transformando con el tiempo hasta quedar irreconocible.
-
-Corre 24/7 en una tablet Samsung Galaxy Tab A9, vía Termux.
+Bot de WhatsApp con personalidad propia, desarrollado a medida para un grupo de amigos de Uruguay. Es mi primer proyecto de programación ([@gauchitodev](https://github.com/gauchitodev)), en el cual me ayudaron [@carlosplanchon](https://github.com/carlosplanchon) y [@nicolasgutierrezdev](https://github.com/nicolasgutierrezdev). Tomó como punto de partida [SawBot-MD](https://github.com/martinezanthony/SawBot-MD), de [@martinezanthony](https://github.com/martinezanthony) (quien también ayudó).
 
 ## ¿Qué hace?
 
 - **Personalidad propia**: Claudia habla en rioplatense, con "vos", sin caricaturizar el acento, calibrada a pulso con feedback del grupo real.
 - **Charla con IA**: responde cuando la mencionan o le contestan, con varios modelos de Gemini en cascada y, si se quedan sin cuota, con respaldo en Groq, OpenRouter, NVIDIA y Cerebras. Clasifica pedidos (música, mencionar al grupo, etc.) con salida JSON estructurada, no adivinando texto libre. No se mete en las respuestas a los juegos.
 - **Memoria**: recuerda gustos y datos chicos de cada uno entre charlas, sin gastar consultas extra a la IA, y lo que el grupo le pide que recuerde con `.recordá`.
-- **Música y video**: descarga de YouTube (con cookies + reintentos + varios candidatos) y cae a SoundCloud si todo lo demás falla; si igual no sale, se puede volver a pedir con `.reintentar`. También baja videos de TikTok e Instagram.
+- **Música y video**: descarga de YouTube (con cookies + reintentos + varios candidatos) y cae a SoundCloud si todo lo demás falla. Si igual no sale, se puede volver a pedir con `.reintentar`. También baja videos de TikTok e Instagram.
 - **Economía (UruCoins)**: monedas por reaccionar y por participar, laburos con sueldo diario y niveles, rangos por antigüedad y mensajes, racha diaria, pregunta del día y una tienda (escudo, racha doble, voto doble, apodo).
 - **Juegos**: trivia (y trivias relámpago que salen solas), acertijos, banderas, ordenar palabras, ahorcado y ta-te-ti, con premio para el que gana.
 - **Casino**: ruleta europea, tragamonedas, blackjack, mines, carrera de caballos, duelos y peleas por turnos, lotería semanal y mercados de apuestas sobre eventos reales. Tiene topes por jugada, se apaga por grupo con `.casino off` y, si el bot se apaga o se reinicia, devuelve lo que estaba en juego.
@@ -32,7 +30,7 @@ Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) 
 
 ## Configuración
 
-Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla; las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
+Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla. Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
 
 ## Termux (Android)
 
@@ -52,7 +50,7 @@ Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se insta
 
 `npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.
 
-## Galería
+## Claudia:
 
 <p align="center">
   <img src="assets/claudia-solaire.jpg" height="250" alt="Bender como Solaire de Dark Souls, con los brazos en alto al sol">
@@ -62,6 +60,6 @@ Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se insta
 
 ## Nota
 
-Proyecto personal, sin pretensión de ser un template genérico: está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.
+Es un proyecto personal, hecho a medida de un grupo en particular, así que no pretende ser una plantilla genérica. Si llegaste hasta el código, bienvenido/a: cualquier sugerencia suma.
 
-Las imágenes de `assets/` son de Bender, de *Futurama*: cuadros de la serie y fan art. Son de sus dueños y no entran en la licencia MIT del código.
+Las imágenes de `assets/` muestran a Bender, de *Futurama*: algunas son cuadros de la serie y otras, fan art. No están cubiertas por la licencia MIT del código. Los derechos pertenecen a sus respectivos propietarios.
