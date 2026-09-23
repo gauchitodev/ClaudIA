@@ -39,6 +39,14 @@ plugin.run = async (m, { client }) => {
   const c = estadisticas();
   const cache = `${c.grupos} ${c.grupos === 1 ? "grupo" : "grupos"} · ${c.aciertos} aciertos, ${c.pedidos} pedidos`;
 
+  // What client.chats holds (lib/wa-socket.js, pushMessage): an entry per chat and per person who writes, and up to 40
+  // recent messages in each chat and in each person someone quoted. Only a restart empties it: this line sits next to
+  // the memory to tell whether it needs a ceiling.
+  const chats = Object.entries(client.chats || {});
+  const gruposEnMemoria = chats.filter(([id]) => id.endsWith("@g.us")).length;
+  const mensajes = chats.reduce((total, [, chat]) => total + Object.keys(chat?.messages || {}).length, 0);
+  const enMemoria = `${chats.length} chats y contactos (${gruposEnMemoria} grupos) · ${mensajes} mensajes`;
+
   const texto = [
     `🤖 *Claudia ${globalThis.botVersion}* · Node ${process.version}`,
     `⏱️ Encendida: ${duracion(process.uptime() * 1000)} · conectada: ${conectada}`,
@@ -48,6 +56,7 @@ plugin.run = async (m, { client }) => {
     `🗄️ Último backup: ${backup} · base: ${base}`,
     `👥 Grupos: ${grupos} · usuarios: ${getTotalUsers()} · plugins: ${Object.keys(globalThis.plugins || {}).length}`,
     `🗂️ Caché de grupos: ${cache}`,
+    `🗃️ En memoria: ${enMemoria}`,
     `💾 Memoria: ${tamano(process.memoryUsage().rss)} · carga: ${os.loadavg()[0].toFixed(2)}`,
   ].join("\n");
   await client.sendText(m.chat, texto, m);

@@ -1,6 +1,7 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
+import { guardarVarios } from "../lib/cache-grupos.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
 // in anyway, they're removed). Each group's admins manage it; admins and the bot's owners can't be put on it. The
@@ -111,15 +112,29 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
       return;
     }
 
-    // all-groups list (owner from a private chat): they're removed from every group they're in
-    const groupChats = Object.keys(client.chats).filter((key) => key.endsWith("@g.us"));
-    for (const chatId of groupChats) {
-      const enGrupo = buscarEnGrupo(client.chats[chatId]?.metadata?.participants, { jid: who, lid: whoLid });
+    // All-groups list (owner from a private chat): they're removed from every group they're in. The groups are asked
+    // of WhatsApp in one query instead of read from memory: the copy there can lack a group (a change invalidates it
+    // until someone writes there) or someone who joined after it was taken, and those were skipped without a word.
+    const pedida = Date.now();
+    const grupos = await client.groupFetchAllParticipating().catch(() => null);
+    if (!grupos) return client.sendText(m.chat, "Anotado en la lista negra de todos los grupos, pero WhatsApp no me pasó la lista de grupos, así que no lo saqué de ninguno. Si está en alguno, lo echo cuando escriba.", m);
+    guardarVarios(client, grupos, pedida); // the query is already paid for: it may as well fill the cache
+    const sacado = [];
+    const aMano = [];
+    for (const [chatId, metadata] of Object.entries(grupos)) {
+      const enGrupo = buscarEnGrupo(metadata?.participants, { jid: who, lid: whoLid });
       if (!enGrupo) continue;
+      const nombre = metadata.subject || chatId;
+      // Where the bot isn't admin WhatsApp would refuse anyway: no point asking.
+      if (!buscarEnGrupo(metadata.participants, { jid: client.user.jid, lid: client.user.lid })?.admin) {
+        aMano.push(`${nombre} (no soy admin)`);
+        continue;
+      }
       const { ok, status } = await expulsar(client, chatId, enGrupo.id);
-      if (!ok) console.error("[lista negra] no se pudo expulsar de", chatId, status);
+      if (ok) sacado.push(nombre);
+      else aMano.push(`${nombre} (error ${status})`);
     }
-    return;
+    return client.sendText(m.chat, textoBarrido(sacado, aMano), m);
   } else if (command === "ln2") {
     if (!existente) return client.sendText(m.chat, "Esa persona no estaba en la lista negra.", m);
     if (existente.chat === "*" && m.isGroup) return client.sendText(m.chat, "Está en la lista negra de todos los grupos: solo la puede sacar el dueño del bot, desde el privado.", m);
@@ -131,6 +146,15 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 };
 
 export default plugin;
+
+// What the all-groups sweep tells the owner: where the person was removed from, and where it's up to them.
+function textoBarrido(sacado, aMano) {
+  const lineas = ["Anotado en la lista negra de todos los grupos."];
+  if (!sacado.length && !aMano.length) lineas.push("No está en ninguno de mis grupos ahora: lo echo apenas entre en uno.");
+  if (sacado.length) lineas.push(`Lo saqué de: ${sacado.join(", ")}.`);
+  if (aMano.length) lineas.push(`No lo pude sacar de: ${aMano.join(", ")}. Ahí sacalo a mano.`);
+  return lineas.join("\n");
+}
 
 const more = String.fromCharCode(8206);
 const readMore = more.repeat(4001);

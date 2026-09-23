@@ -210,3 +210,56 @@ test(".ln2 saca a la persona anotada por LID o por número", async () => {
   await correr("ln2", "@111", { mentionedJid: ["111@lid"] });
   assert.equal(F.isBlacklisted("59899111111@s.whatsapp.net", G), null, "lo sacó mencionándolo por LID");
 });
+
+// ---------- all-groups list, from the owner's private chat ----------
+// It used to sweep only the groups whose participants were in memory at that moment: after a change invalidated a
+// group's copy, or for someone who joined after it was taken, it skipped them without a word, and it never said where
+// the person was removed from.
+
+const PRIVADO = "59899100100@s.whatsapp.net";
+const desdeElPrivado = (text) =>
+  P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: globalThis.client, text, command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+const bot = { id: "999000@lid", admin: "admin" };
+const anotado = { id: "111@lid", admin: null, phoneNumber: "59899111111@s.whatsapp.net" };
+
+test("lista de todos los grupos: le pide los grupos a WhatsApp, lo saca de donde está y le cuenta al dueño", async () => {
+  globalThis.client.chats = {}; // nothing in memory: the old sweep found no group at all
+  globalThis.client.groupFetchAllParticipating = async () => ({
+    "a@g.us": { id: "a@g.us", subject: "Grupo A", participants: [anotado, bot] },
+    "b@g.us": { id: "b@g.us", subject: "Grupo B", participants: [anotado, bot] },
+    "c@g.us": { id: "c@g.us", subject: "Grupo C", participants: [anotado, { ...bot, admin: null }] },
+    "d@g.us": { id: "d@g.us", subject: "Grupo D", participants: [{ id: "222@lid", admin: null }, bot] },
+  });
+  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+    expulsiones.push({ chat, ids, accion });
+    return ids.map((jid) => ({ status: chat === "b@g.us" ? "403" : "200", jid }));
+  };
+
+  await desdeElPrivado("+59899111111 estafa");
+  assert.ok(F.isBlacklisted("59899111111@s.whatsapp.net", "*"), "quedó en la lista de todos los grupos");
+  assert.deepEqual(
+    expulsiones,
+    [
+      { chat: "a@g.us", ids: ["111@lid"], accion: "remove" },
+      { chat: "b@g.us", ids: ["111@lid"], accion: "remove" },
+    ],
+    "donde el bot no es admin ni lo intenta, y donde no está no hace nada",
+  );
+  assert.equal(ultimo(), "Anotado en la lista negra de todos los grupos.\nLo saqué de: Grupo A.\nNo lo pude sacar de: Grupo B (error 403), Grupo C (no soy admin). Ahí sacalo a mano.");
+  assert.equal(globalThis.client.chats["d@g.us"]?.metadata?.subject, "Grupo D", "la consulta de paso llenó la caché");
+});
+
+test("lista de todos los grupos: si no está en ninguno, o WhatsApp no pasa los grupos, lo dice", async () => {
+  globalThis.client.groupFetchAllParticipating = async () => ({ "d@g.us": { id: "d@g.us", subject: "Grupo D", participants: [bot] } });
+  await desdeElPrivado("+59899111111 estafa");
+  assert.equal(ultimo(), "Anotado en la lista negra de todos los grupos.\nNo está en ninguno de mis grupos ahora: lo echo apenas entre en uno.");
+
+  db.exec("DELETE FROM lista_negra");
+  globalThis.client.groupFetchAllParticipating = async () => {
+    throw new Error("timed out");
+  };
+  await desdeElPrivado("+59899111111 estafa");
+  assert.ok(F.isBlacklisted("59899111111@s.whatsapp.net", "*"), "queda anotado igual");
+  assert.match(ultimo(), /WhatsApp no me pasó la lista de grupos, así que no lo saqué de ninguno/);
+  assert.deepEqual(expulsiones, []);
+});
