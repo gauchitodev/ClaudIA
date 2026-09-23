@@ -906,6 +906,13 @@ export function coinsGanadasHoy(chat, usuario, prefijoMotivo) {
   return row?.total || 0;
 }
 
+// how many movements with exactly that reason a person had TODAY (the hangman's prizes, for its daily cap)
+export function movimientosHoy(chat, usuario, motivo) {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  return db.prepare(`SELECT COUNT(*) AS total FROM urucoins_log WHERE chat = ? AND usuario = ? AND motivo = ? AND fecha >= ?`).get(chat, usuario, motivo, inicioHoy.getTime())?.total || 0;
+}
+
 export function topCoins(chat, n = 5) {
   return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
 }

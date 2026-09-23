@@ -1,4 +1,4 @@
-import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { juegoTerminado } from "../lib/urucoins.js";
 import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 const plugin = {};
@@ -109,7 +109,6 @@ plugin.run = async (m, { client, chat }) => {
     },
   });
   if (!abierto) return client.sendText(m.chat, txt.gameAlready, m);
-  juegoIniciado(m.chat, "acertijo");
 };
 
 plugin.before = async (m, { client }) => {

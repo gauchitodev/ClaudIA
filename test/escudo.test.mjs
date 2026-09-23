@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { prepararBase, G, esperar, mazoDe, fijarSaldo } from "./helpers.mjs";
 import { COINS } from "../lib/urucoins.js";
 
-let F, C, K, B, D, M, U, T;
+let F, C, K, B, D, M, T;
 before(async () => {
   ({ F } = await prepararBase("escudo"));
   C = await import("../lib/casino.js");
@@ -11,7 +11,6 @@ before(async () => {
   B = await import("../lib/blackjack.js");
   D = await import("../lib/duelos.js");
   M = await import("../lib/mercados.js");
-  U = await import("../lib/urucoins.js");
   T = await import("../lib/tienda.js");
   COINS.CASINO_TOPE_DIA = 1e9;
 });
@@ -24,7 +23,8 @@ const conEscudo = (u) => {
 const escudos = (u) => F.getItem(G, u, "escudo")?.cantidad || 0;
 
 test("escudo: la tienda lo describe para todos los juegos y protegerApuesta lo gasta una sola vez", () => {
-  assert.match(T.ITEMS.escudo.desc, /ruleta, tragamonedas, carrera, blackjack, duelos, mercados o \.apostar/);
+  assert.match(T.ITEMS.escudo.desc, /ruleta, tragamonedas, mines, carrera, blackjack, duelos o mercados/);
+  assert.doesNotMatch(T.ITEMS.escudo.desc, /\.apostar/, "en los juegos ya no se apuesta");
   conEscudo("u");
   assert.equal(T.protegerApuesta(G, "u", 20), 20);
   assert.equal(saldo("u"), 120);
@@ -127,13 +127,4 @@ test("escudo: duelos y mercados", () => {
   assert.doesNotMatch(res.texto, /apuesta perdida/);
   assert.equal(saldo("a"), 100);
   assert.equal(saldo("c"), 120);
-});
-
-test("escudo: la apuesta con .apostar sobre un juego sigue protegida", () => {
-  conEscudo("a");
-  U.juegoIniciado(G, "trivia");
-  assert.ok(U.apostar(G, "a", 20).ok);
-  const resumen = U.juegoTerminado(G, "otra@lid");
-  assert.match(resumen, /🛡️ 1 escudo usado: 20 UruCoins devueltos/);
-  assert.equal(saldo("a"), 100);
 });

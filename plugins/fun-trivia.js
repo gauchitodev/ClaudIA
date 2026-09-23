@@ -1,4 +1,4 @@
-import { juegoIniciado, juegoTerminado, monedasActivas, COINS } from "../lib/urucoins.js";
+import { juegoTerminado, monedasActivas, COINS } from "../lib/urucoins.js";
 import { generarPregunta, textoPregunta, abrirRonda, rondaDe, reservarRonda, liberarRonda, segundosRestantes, TRIVIA } from "../lib/trivia.js";
 
 // .trivia: a question with options; the first correct answer wins. The answers are read by the _trivia.js hook.
@@ -17,7 +17,7 @@ plugin.run = async (m, { client }) => {
     const pregunta = await generarPregunta(m.chat);
     const premio = monedasActivas(m.chat) ? COINS.JUEGO_GANADO : 0;
     const enviado = await client.sendText(m.chat, textoPregunta({ titulo: "🎓 *Trivia*", premio, pregunta, segundos: TRIVIA.SEGUNDOS }), m);
-    const ronda = abrirRonda(m.chat, {
+    abrirRonda(m.chat, {
       reserva,
       tipo: "trivia",
       pregunta,
@@ -27,8 +27,6 @@ plugin.run = async (m, { client }) => {
       alGanar: (lid) => juegoTerminado(m.chat, lid, { nombre: "trivia" }),
       alVencer: () => juegoTerminado(m.chat, null, { nombre: "trivia" }),
     });
-    // Only a round that opened takes bets: one whose turn went to another trivia would never close them.
-    if (ronda) juegoIniciado(m.chat, "trivia");
   } catch (e) {
     liberarRonda(m.chat, reserva);
     throw e;

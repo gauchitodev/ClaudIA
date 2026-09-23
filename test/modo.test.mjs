@@ -51,7 +51,6 @@ test("modo: con la economía apagada nada reparte coins, pero lo social sigue", 
   for (let i = 0; i < 3; i++) r = A.registrarActividad(G, "333@lid", "hola qué tal");
   assert.deepEqual(r, { dias: 1, premio: 0 }, "la racha se cuenta pero no paga");
   assert.equal(F.getSaldoCoins(G, "333@lid"), 0);
-  U.juegoIniciado(G, "trivia");
   assert.equal(U.juegoTerminado(G, "111@lid"), "", "ganar un juego no paga ni agrega texto");
   assert.equal(F.getSaldoCoins(G, "111@lid"), 0);
   F.initDataDB(persona(444));
@@ -62,7 +61,6 @@ test("modo: con la economía apagada nada reparte coins, pero lo social sigue", 
   assert.equal(F.getUser("444@lid").inGroup[G].rango, "habitue");
   // switched back on, the same game pays
   F.updateChat(G, { monedas: 1 });
-  U.juegoIniciado(G, "trivia");
   assert.match(U.juegoTerminado(G, "111@lid"), /\+10 UruCoins por ganar/);
   assert.equal(F.getSaldoCoins(G, "111@lid"), 10);
 });

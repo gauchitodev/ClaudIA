@@ -23,11 +23,10 @@ Reaccioná a los mensajes que te gusten — suma para quien lo escribió y para 
 ▸ .ranking — ver el estado del mes
 
 🪙 *UruCoins*
-Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las de arriba (+5), ganando trivia/acertijo/ahorcado/banderas/ordenar (+10), la entrada más votada de la semana (+25) y los ganadores del mes (+50).
+Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las de arriba (+5), ganando trivia/acertijo/ahorcado/banderas/ordenar (+10; el ahorcado paga hasta 5 partidas por día), la entrada más votada de la semana (+25) y los ganadores del mes (+50).
 ▸ .bal — tu saldo · .baltop — los más ricos del grupo · .inventario — tus ítems
 ▸ .perfil — tu ficha completa · .perfil @alguien — la de otra persona
 ▸ .mitimba — cuánto apostaste en cada juego y cómo te fue · .timba — el ranking del grupo
-▸ .apostar 20 — durante un juego activo: si ganás, cobrás el doble
 ▸ .regalar @alguien 20 — transferí coins
 ▸ .playya / .videoya — música sin esperar el cooldown (15 coins)
 

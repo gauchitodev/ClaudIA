@@ -211,7 +211,6 @@ for (const [nombre, envia, lanzar] of [
     try {
       assert.equal(Tr.rondaDe(C), otra, "la reserva sigue siendo del que llegó después");
       assert.match(errores.join("\n"), /no abro la ronda/, "queda en el log");
-      assert.match(U.apostar(C, "z@lid", U.COINS.APUESTA_MIN).error, /No hay ningún juego activo/, "y no quedó un juego tomando apuestas que nunca se cierran");
     } finally {
       // Always: if the hold got overwritten, its 5-minute timer would keep the test process open.
       clearTimeout(otra?.timeout);

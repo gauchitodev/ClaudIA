@@ -1,4 +1,4 @@
-import { juegoIniciado, juegoTerminado } from "../lib/urucoins.js";
+import { juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
@@ -27,13 +27,12 @@ plugin.run = async (m, { client, chat }) => {
     letrasProbadas: [],
     timeout: setTimeout(() => {
       if (ahorcado[m.sender]) {
-        const resumen = juegoTerminado(m.chat, null, { jugador: m.sender, nombre: "ahorcado" });
+        const resumen = juegoTerminado(m.chat, null, { nombre: "ahorcado" });
         client.sendText(m.chat, `*[⏳] ¡Tiempo agotado!*\n\nLa palabra era: *${palabra}*${resumen}`, m).catch(console.error);
         delete ahorcado[m.sender];
       }
     }, 180000), // 3 minutes to complete the word
   };
-  juegoIniciado(m.chat, "ahorcado", m.sender);
 };
 
 plugin.before = async (m, { client }) => {
@@ -41,7 +40,7 @@ plugin.before = async (m, { client }) => {
   const juego = ahorcado[m.sender];
   // The game lives in one chat: whatever the player writes in other groups or in private doesn't count.
   if (m.chat !== juego.chat) return;
-  // let commands (.apostar, .play, etc.) and text-less messages through
+  // let commands (.play, etc.) and text-less messages through
   if (!m.text || globalThis.prefix.some((p) => m.text.startsWith(p))) return;
 
   const letra = m.text.toLowerCase().trim();
@@ -63,7 +62,7 @@ plugin.before = async (m, { client }) => {
   if (!encontrada) juego.intentos--;
 
   if (juego.intentos <= 0) {
-    const resumen = juegoTerminado(m.chat, null, { jugador: m.sender, nombre: "ahorcado" });
+    const resumen = juegoTerminado(m.chat, null, { nombre: "ahorcado" });
     client.sendText(m.chat, `*[💀] ¡PERDISTE!*\n\nLa palabra era: *${juego.palabra}*${resumen}`, m);
     clearTimeout(juego.timeout);
     delete ahorcado[m.sender];
@@ -71,7 +70,7 @@ plugin.before = async (m, { client }) => {
   }
 
   if (!juego.oculta.includes("_")) {
-    const resumen = juegoTerminado(m.chat, m.sender, { jugador: m.sender, nombre: "ahorcado" });
+    const resumen = juegoTerminado(m.chat, m.sender, { nombre: "ahorcado" });
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(juego.timeout);
     delete ahorcado[m.sender];
