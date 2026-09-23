@@ -208,3 +208,22 @@ test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con
   const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
   assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return;/, "handle-message dejó de filtrar por el atraso de llegada");
 });
+
+test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo", async () => {
+  // .toimg wrote its temporary .webp and .jpg next to the code: a conversion cut short left someone's sticker there,
+  // one "git add ." away from a commit, since .gitignore only covers tmp/ and database/. A merge that brings back an
+  // old copy of a plugin would bring that back without anything failing.
+  const { fileURLToPath } = await import("url");
+  const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const archivos = ["plugins", "lib"].flatMap((c) => fs.readdirSync(path.join(raiz, c)).filter((f) => f.endsWith(".js")).map((f) => path.join(c, f)));
+  assert.ok(archivos.length > 100, `se encontraron muy pocos archivos (${archivos.length}): el escaneo no está andando`);
+  const enLaRaiz = [];
+  for (const archivo of archivos) {
+    fs.readFileSync(path.join(raiz, archivo), "utf8")
+      .split("\n")
+      .forEach((linea, i) => {
+        if (/["'`]\.\/[^"'`/\s]+\.(jpe?g|png|webp|gif|mp3|mp4|ogg|opus|wav|m4a|webm)["'`]/i.test(linea)) enLaRaiz.push(`${archivo}:${i + 1}`);
+      });
+  }
+  assert.deepEqual(enLaRaiz, [], `los temporales van en ./tmp/, que el .gitignore tapa:\n${enLaRaiz.join("\n")}`);
+});

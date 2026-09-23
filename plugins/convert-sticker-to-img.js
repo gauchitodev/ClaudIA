@@ -12,21 +12,20 @@ plugin.run = async (m, { client }) => {
   const mime = m.quoted.mediaType || "";
   if (!/sticker/.test(mime)) return client.sendText(m.chat, txt.stickerToImgNull, m);
 
+  // In tmp/ (main.js creates it, and .gitignore covers it), and always removed. They used to land in the repo's root,
+  // where a conversion cut short left someone's sticker next to the code, one "git add ." away from a commit.
+  const timestamp = Date.now();
+  const inputPath = `./tmp/toimg_${timestamp}.webp`;
+  const outputPath = `./tmp/toimg_${timestamp}.jpg`;
   try {
     const execAsync = promisify(exec);
 
     const media = await m.quoted.download();
-    const timestamp = Date.now();
-    const inputPath = `./temp_${timestamp}.webp`;
-    const outputPath = `./temp_${timestamp}.jpg`;
-
     await promises.writeFile(inputPath, media);
 
     await execAsync(`ffmpeg -y -i "${inputPath}" "${outputPath}"`);
-    await promises.unlink(inputPath);
 
     const jpgBuffer = await promises.readFile(outputPath);
-    await promises.unlink(outputPath);
     await client.sendFile(m.chat, jpgBuffer, "sticker.jpg", null, m);
   } catch (e) {
     // One message used to cover two very different causes: an empty download and an ffmpeg failure. The log now
@@ -47,6 +46,8 @@ plugin.run = async (m, { client }) => {
       console.error("[toimg] ❌ fallo inesperado convirtiendo el sticker:", e);
     }
     return client.sendText(m.chat, "Error al convertir o enviar el sticker.", m);
+  } finally {
+    for (const archivo of [inputPath, outputPath]) await promises.unlink(archivo).catch(() => {});
   }
 };
 
