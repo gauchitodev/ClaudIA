@@ -1,6 +1,6 @@
 # ClaudIA 🇺🇾
 
-[![CI](https://github.com/gauchitodev/ClaudIA-mi-edit-de-SawBot/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA-mi-edit-de-SawBot/actions/workflows/ci.yml)
+[![CI](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml)
 
 Bot de WhatsApp con personalidad propia, hecho a mano para un grupo de amigos uruguayo. Es mi primer proyecto de programación — arrancó como una copia de [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) y se fue transformando con el tiempo hasta quedar irreconocible.
 
