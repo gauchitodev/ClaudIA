@@ -97,8 +97,9 @@ export async function handleMessage(nMsg) {
                 ];
                 const respuestaElegida = elegirAlAzar(respuestas);
 
-                // Reply quoting whoever said hello
-                await this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m });
+                // Reply quoting whoever said hello. Not awaited: it waits its turn now (lib/envios.js), and the
+                // hooks below (anti-link, blacklist) shouldn't wait for a greeting.
+                this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m }).catch(console.error);
             }
         }
     }

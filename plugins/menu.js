@@ -232,7 +232,8 @@ ${readMore}
 ▸ ${usedPrefix}setppbot 📷 – \`Establece foto de perfil al bot.\`
 ▸ ${usedPrefix}setbotname ✏️ – \`Establece nombre al bot [no funciona con WhatsApp Business]\`
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
-▸ ${usedPrefix}podar 🗑️ – \`Borra el detalle de actividad por hora de más de 90 días, en todos los grupos.\`
+▸ ${usedPrefix}enviados 🤖 – \`Cuánto mandé, por día, hora y tipo: en un grupo, ese grupo; con todo, el general.\`
+▸ ${usedPrefix}podar 🗑️ – \`Borra el detalle por hora de más de 90 días (actividad y envíos del bot), en todos los grupos.\`
 ▸ ${usedPrefix}ajustar @mención 50 🪙 – \`Corrección de UruCoins a mano (negativo para sacar).\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

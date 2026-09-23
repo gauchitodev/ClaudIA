@@ -33,8 +33,10 @@ plugin.before = async (m, { client, isMod, isBotAdmin, isOwner, participants, ch
   if (chat.antiDelete) {
     return client.sendText(m.chat, txt.allAntiLinksDelete, m, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
   }
-  await client.sendText(m.chat, txt.allAntiLinks(m.sender, foundLink), null, { mentions: [m.sender] });
+  // Delete first: deletions go out at once (lib/envios.js), but behind an awaited warning waiting its turn, the link
+  // stayed on screen. The warning quotes nothing, so it doesn't need the message to still be there.
   await m.delete();
+  client.sendText(m.chat, txt.allAntiLinks(m.sender, foundLink), null, { mentions: [m.sender] }).catch(console.error);
   return;
 };
 

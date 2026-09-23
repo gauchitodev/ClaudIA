@@ -20,8 +20,9 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
   if (!aviso) return;
   if (chat.antiDelete) return client.sendText(m.chat, txt.allAntiLinkDelete, m, { mentions });
   if (isBotAdmin) {
-    await client.sendText(m.chat, aviso, null, { mentions });
+    // Delete first, warn after: same reason as in _all-anti-links.js.
     await m.delete();
+    client.sendText(m.chat, aviso, null, { mentions }).catch(console.error);
   }
   return;
 };

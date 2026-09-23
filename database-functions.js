@@ -306,6 +306,18 @@ export function loadDatabase() {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_actividad_horaria_fecha ON actividad_horaria (fecha)`); // so .podar doesn't scan the whole table
+  // What the bot itself sends (lib/envios.js), by chat, day, hour and kind. Private chats share a single "privado" row.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS envios_bot (
+      chat TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      hora INTEGER NOT NULL,
+      tipo TEXT NOT NULL,
+      mensajes INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, fecha, hora, tipo)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_envios_bot_fecha ON envios_bot (fecha)`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS rachas (
       chat TEXT NOT NULL,
@@ -1184,6 +1196,34 @@ export function primerDiaActividadHoraria(chat) {
 // Drops the hourly detail older than a date, in every group. Returns how many rows went.
 export function podarActividadHoraria(antesDe) {
   return db.prepare(`DELETE FROM actividad_horaria WHERE fecha < ?`).run(antesDe).changes;
+}
+
+// ---------- what the bot itself sends ----------
+export function sumarEnvioBot(chat, fecha, hora, tipo) {
+  db.prepare(`INSERT INTO envios_bot (chat, fecha, hora, tipo, mensajes) VALUES (?, ?, ?, ?, 1) ON CONFLICT(chat, fecha, hora, tipo) DO UPDATE SET mensajes = mensajes + 1`).run(chat, fecha, hora, tipo);
+}
+
+// Totals over the given days, grouped by one column. With a chat, only that one; with null, every chat together.
+const AGRUPABLES_ENVIOS = new Set(["hora", "fecha", "chat", "tipo"]);
+function enviosBotPor(columna, chat, fechas) {
+  if (!AGRUPABLES_ENVIOS.has(columna) || !fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  const filtro = chat ? "chat = ? AND " : "";
+  return db.prepare(`SELECT ${columna}, SUM(mensajes) AS total FROM envios_bot WHERE ${filtro}fecha IN (${marcas}) GROUP BY ${columna} ORDER BY total DESC`).all(...(chat ? [chat] : []), ...fechas);
+}
+export const enviosBotPorHora = (chat, fechas) => enviosBotPor("hora", chat, fechas);
+export const enviosBotPorDia = (chat, fechas) => enviosBotPor("fecha", chat, fechas);
+export const enviosBotPorTipo = (chat, fechas) => enviosBotPor("tipo", chat, fechas);
+export const enviosBotPorChat = (fechas) => enviosBotPor("chat", null, fechas);
+
+// The first day anything was counted (in a chat, or anywhere with null), or null.
+export function primerDiaEnviosBot(chat = null) {
+  const fila = chat ? db.prepare(`SELECT MIN(fecha) AS fecha FROM envios_bot WHERE chat = ?`).get(chat) : db.prepare(`SELECT MIN(fecha) AS fecha FROM envios_bot`).get();
+  return fila?.fecha || null;
+}
+
+export function podarEnviosBot(antesDe) {
+  return db.prepare(`DELETE FROM envios_bot WHERE fecha < ?`).run(antesDe).changes;
 }
 
 export function getRacha(chat, usuario) {

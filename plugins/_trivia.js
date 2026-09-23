@@ -9,7 +9,8 @@ plugin.before = async (m, { client }) => {
     const r = responderTrivia(m);
     if (!r) return;
     if (r.reaccion) m.react(r.reaccion).catch(() => {});
-    if (r.texto) await client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions }, { quoted: m });
+    // Not awaited: the turn is taken when it's called, so the order holds, and the hooks after this one don't wait.
+    if (r.texto) client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions }, { quoted: m }).catch((e) => console.error("[trivia] ERROR:", e));
   } catch (e) {
     console.error("[trivia] ERROR:", e);
   }
