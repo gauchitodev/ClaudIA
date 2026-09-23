@@ -52,6 +52,14 @@ Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se insta
 
 `npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.
 
+## Galería
+
+<p align="center">
+  <img src="assets/claudia-solaire.jpg" height="250" alt="Bender como Solaire de Dark Souls, con los brazos en alto al sol">
+  <img src="assets/claudia-leyendo.jpg" height="250" alt="Bender leyendo un papel frente a una multitud">
+  <img src="assets/claudia-sagrado-corazon.jpg" height="250" alt="Bender como la estampa del Sagrado Corazón">
+</p>
+
 ## Nota
 
 Proyecto personal, sin pretensión de ser un template genérico: está hecho a medida de un grupo puntual. Si estás mirando el código, bienvenido/a, cualquier sugerencia es bienvenida.
