@@ -16,12 +16,14 @@ globalThis.authFile = `botSession`;
 
 // Bot number without "+", spaces or dashes. Leave empty to pair with a QR code.
 globalThis.numberBot = config.numberBot || "";
-globalThis.geminiApiKey = config.geminiApiKey || "";
-globalThis.groqApiKey = config.groqApiKey || "";
-globalThis.tenorApiKey = config.tenorApiKey || "";
-globalThis.cerebrasApiKey = config.cerebrasApiKey || "";
-globalThis.openrouterApiKey = config.openrouterApiKey || "";
-globalThis.nvidiaApiKey = config.nvidiaApiKey || "";
+// Las API keys pueden setearse por variable de entorno (recomendado para no guardarlas en texto plano);
+// si no está la variable, se usa el valor de config.toml.
+globalThis.geminiApiKey = process.env.GEMINI_API_KEY || config.geminiApiKey || "";
+globalThis.groqApiKey = process.env.GROQ_API_KEY || config.groqApiKey || "";
+globalThis.tenorApiKey = process.env.TENOR_API_KEY || config.tenorApiKey || "";
+globalThis.cerebrasApiKey = process.env.CEREBRAS_API_KEY || config.cerebrasApiKey || "";
+globalThis.openrouterApiKey = process.env.OPENROUTER_API_KEY || config.openrouterApiKey || "";
+globalThis.nvidiaApiKey = process.env.NVIDIA_API_KEY || config.nvidiaApiKey || "";
 
 // Discord link (.discord and .links) and the text for .faggi
 globalThis.discordUrl = config.discordUrl || "";

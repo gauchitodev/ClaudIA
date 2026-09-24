@@ -1,5 +1,8 @@
 # Copiá este archivo como config.toml y completá los valores.
 # config.toml está en .gitignore: nunca se sube al repo.
+# Recomendado: en producción, seteá las API keys como variables de entorno
+# (GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, NVIDIA_API_KEY, TENOR_API_KEY, CEREBRAS_API_KEY)
+# en vez de guardarlas en texto plano en este archivo; tienen prioridad sobre los valores de config.toml.
 
 # Número del bot sin "+" ni espacios ni guiones. Dejar vacío para vincular con código QR.
 numberBot = ""
