@@ -82,6 +82,35 @@ async function citando(id, texto) {
   return { consultas: consultasIA - antes, textos: globalThis.enviados.map((e) => e.msg?.text || "") };
 }
 
+test("pedido a Claudia: lo que contesta cuenta como charla para la iniciativa", async () => {
+  const F = await import("../database-functions.js");
+  clasificacion = { comando: "ninguno", respuesta: "¡Hola, Ana!" };
+  const antes = F.intervencionesDesde(C, 0).length;
+  await pedir("hola claudia", MODERADOR);
+  const filas = F.intervencionesDesde(C, 0);
+  assert.equal(filas.length, antes + 1);
+  assert.deepEqual([filas.at(-1).tipo, filas.at(-1).texto], ["charla", "¡Hola, Ana!"]);
+  assert.match(filas.at(-1).mensajeId, /^MSG\d+$/, "con el id de lo que mandó");
+  assert.equal(globalThis.contextoChat.get(C).at(-1).id, filas.at(-1).mensajeId, "y su memoria corta lo tiene");
+});
+
+test("memoria corta: guarda quién dijo qué con su id, no toma las reacciones como mensajes y olvida lo borrado", async () => {
+  const B = "buffer@g.us";
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const base = { chat: B, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
+  const correr = (m) => AutoIA.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
+
+  await correr({ text: "hola a todos", key: { id: "M1", participant: "555@lid" } });
+  const entrada = globalThis.contextoChat.get(B).at(-1);
+  assert.deepEqual([entrada.texto, entrada.id, entrada.usuario, entrada.participant], ["hola a todos", "M1", "555@lid", "555@lid"]);
+
+  await correr({ text: "😂", mtype: "reactionMessage", key: { id: "R1" } });
+  assert.equal(globalThis.contextoChat.get(B).length, 1, "una reacción no es algo que alguien dijo");
+
+  await correr({ text: "", message: { protocolMessage: { type: 0, key: { id: "M1" } } } });
+  assert.equal(globalThis.contextoChat.get(B).length, 0, "lo que alguien borró se olvida");
+});
+
 test("pedido a Claudia: responder a la pregunta de un juego no le habla a ella", async () => {
   const Tr = await import("../lib/trivia.js");
   const J = await import("../lib/juego-rapido.js");

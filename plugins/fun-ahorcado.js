@@ -18,7 +18,7 @@ plugin.run = async (m, { client, chat }) => {
   const oculta = palabra.replace(/./g, "_ ");
   const intentos = 8;
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id));
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat));
 
   ahorcado[m.sender] = {
     chat: m.chat,
@@ -78,7 +78,7 @@ plugin.before = async (m, { client }) => {
     return;
   }
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id));
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat));
 };
 
 export default plugin;

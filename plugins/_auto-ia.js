@@ -1,6 +1,6 @@
 import { preguntarIA } from "../lib/ia.js";
-import { updateUser } from "../database-functions.js";
-import { recordarMensaje, textoContexto } from "../lib/contexto-chat.js";
+import { updateUser, registrarIntervencion } from "../database-functions.js";
+import { recordarMensaje, olvidarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { tipear } from "../lib/ritmo.js";
@@ -8,9 +8,8 @@ import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
-
-// The words that make the bot consider itself addressed (lowercase).
-const PALABRAS_CLAVE = ["bot", "claudia", "tabbot"];
+// The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
+import { PALABRAS_CLAVE } from "../lib/iniciativa.js";
 
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
@@ -41,11 +40,20 @@ const plugin = (m) => m;
 plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
     if (m.fromMe || m.isBaileys) return;
+    // A deleted message leaves the recent context: Claudia shouldn't quote it, react to it or summarize it.
+    const revocado = m.message?.protocolMessage;
+    if (revocado?.type === 0) {
+      olvidarMensaje(m.chat, revocado.key?.id);
+      return;
+    }
+    // A reaction arrives as a message whose text is the emoji: it isn't something anyone said.
+    if (m.mtype === "reactionMessage") return;
     if (!m.text) return;
 
-    // Short-term memory: every group message (commands included) stays in the recent context.
+    // Short-term memory: every group message (commands included) stays in the recent context, with what a glance of
+    // the initiative needs to react to it or quote it later (lib/vistazos.js).
     const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
-    recordarMensaje(m.chat, nombre, m.text, false);
+    recordarMensaje(m.chat, nombre, m.text, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
 
     // Automatic chat off in this group (.charla / .modo compraventa): Claudia only answers commands.
     if (chat?.charla === 0) return;
@@ -170,8 +178,11 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
         yaTipeo = true;
         await tipear(client, m.chat, texto);
       }
-      recordarMensaje(m.chat, "Claudia", texto, true);
-      await client.sendText(m.chat, texto, quoted);
+      const enviado = await client.sendText(m.chat, texto, quoted);
+      recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id });
+      // Answering when named counts as talking too: the initiative's "no more than the average" rule looks at it.
+      if (m.isGroup) registrarIntervencion({ chat: m.chat, tipo: "charla", mensajeId: enviado?.key?.id || null, texto });
+      return enviado;
     };
 
     // Download retry: the AI only flags it; the system decides whether it applies and confirms.

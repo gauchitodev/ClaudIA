@@ -24,10 +24,11 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(c), "amigos");
   await Modo.run(msg, { client: globalThis.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ charla de Claudia/);
+  F.updateChat(G, { iniciativa: 1 }); // opt-in, like the daily question: compraventa turns it off too
   await Modo.run(msg, { client: globalThis.client, text: "compraventa" });
   assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino/);
   c = F.getChat(G);
-  assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago], [0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa], [0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(msg, { client: globalThis.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);

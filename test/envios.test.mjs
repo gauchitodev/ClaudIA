@@ -121,6 +121,16 @@ test("envíos: una ráfaga de reacciones se espacia, las tardías no salen y los
   }
 });
 
+test("envíos: se acuerda de a qué mensajes reaccionó el bot, para que la iniciativa no le pise la reacción", async () => {
+  const { client } = clienteEnvuelto();
+  assert.equal(E.yaReaccionoElBot("RX1"), false);
+  await client.sendMessage("reacciono@g.us", { react: { text: "🔥", key: { id: "RX1" } } });
+  await client.sendMessage("reacciono@g.us", { text: "un mensaje no es una reacción", key: { id: "RX2" } });
+  assert.equal(E.yaReaccionoElBot("RX1"), true);
+  assert.equal(E.yaReaccionoElBot("RX2"), false);
+  assert.equal(E.yaReaccionoElBot(undefined), false);
+});
+
 test("envíos: cuenta por chat, hora y tipo, y los privados van todos juntos", async () => {
   const { client } = clienteEnvuelto();
   await client.sendMessage("conteo@g.us", { text: "hola" });

@@ -9,6 +9,7 @@ import { mesDe } from "./lib/hashtags.js";
 import { otorgarPorReaccion } from "./lib/urucoins.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
+import { registrarReaccionAClaudia } from "./lib/iniciativa.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
@@ -203,6 +204,9 @@ async function startBot() {
         // Removing and re-adding a reaction (or changing the emoji) fires the event again: without this it piled up
         // ranking, UruCoins and hashtag votes without limit.
         if (!marcarReaccionContada(key.id, reactorLid)) continue;
+        // A reaction to something Claudia said on her own is an answer to it (lib/iniciativa.js). Baileys sets fromMe
+        // on the key when the reacted message is the bot's.
+        if (key.fromMe) registrarReaccionAClaudia(key.remoteJid, key.id);
 
         const mes = mesDe();
         sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");

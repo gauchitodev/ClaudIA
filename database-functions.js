@@ -73,14 +73,15 @@ export function loadDatabase() {
       reglas TEXT DEFAULT "",
       plantilla TEXT DEFAULT "",
       horarioGrupo TEXT DEFAULT "",
-      grupoCerradoPorHorario BOOLEAN DEFAULT 0
+      grupoCerradoPorHorario BOOLEAN DEFAULT 0,
+      iniciativa BOOLEAN DEFAULT 0
     )
   `);
 
-  // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours and the marketplace
-  // mode switches (chat, greetings, coins, promotions) on databases that already exist.
+  // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours, the marketplace mode
+  // switches (chat, greetings, coins, promotions) and Claudia's initiative on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -348,6 +349,40 @@ export function loadDatabase() {
       fecha INTEGER NOT NULL
     )
   `);
+
+  // Claudia's initiative (lib/iniciativa.js): per group, how far she has read, when she glances next, whether she was
+  // told to be quiet, and the day's counters. intervenciones is what she said or did in a group: her replies when
+  // named ("charla") and what she did on her own (reactions, quoted replies, comments), with whether anyone answered.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS iniciativa_estado (
+      chat TEXT PRIMARY KEY,
+      ultimoVistazo INTEGER DEFAULT 0,
+      proximoVistazo INTEGER DEFAULT 0,
+      motivoProximo TEXT DEFAULT "",
+      silencioHasta INTEGER DEFAULT 0,
+      silencioMotivo TEXT DEFAULT "",
+      dia TEXT DEFAULT "",
+      vistazos INTEGER DEFAULT 0,
+      llamadas INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS intervenciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      tipo TEXT NOT NULL,
+      mensajeId TEXT,
+      objetivoId TEXT,
+      objetivoUsuario TEXT,
+      texto TEXT DEFAULT "",
+      motivo TEXT DEFAULT "",
+      respondida INTEGER DEFAULT 0,
+      reaccionada INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_intervenciones_chat_fecha ON intervenciones (chat, fecha)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_intervenciones_mensaje ON intervenciones (chat, mensajeId)`);
 
   // Per-group bot roles (.adminbot / .moderador): a person holds at most one role per group
   db.exec(`
@@ -1260,7 +1295,7 @@ export function ultimasPreguntasDia(chat, n = 10) {
 }
 
 // groups with an activity switch on (known columns only, so no SQL is built from free text)
-const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal"]);
+const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa"]);
 export function chatsConOpcion(columna) {
   if (!OPCIONES_ACTIVIDAD.has(columna)) return [];
   return db.prepare(`SELECT remoteJid FROM chats WHERE ${columna} = 1`).all().map((r) => r.remoteJid);
@@ -1327,6 +1362,88 @@ export function borrarMemoriaGrupo(chat, id) {
 
 export function limpiarMemoriaGrupo(chat) {
   return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ?`).run(chat).changes;
+}
+
+// ===================== Claudia's initiative =====================
+
+const asegurarEstadoIniciativa = (chat) => db.prepare(`INSERT OR IGNORE INTO iniciativa_estado (chat) VALUES (?)`).run(chat);
+
+// The group's initiative state, creating the row the first time.
+export function estadoIniciativa(chat) {
+  asegurarEstadoIniciativa(chat);
+  return db.prepare(`SELECT * FROM iniciativa_estado WHERE chat = ?`).get(chat);
+}
+
+export function guardarEstadoIniciativa(chat, datos) {
+  asegurarEstadoIniciativa(chat);
+  return updateRow("iniciativa_estado", "chat", chat, datos);
+}
+
+// Brings the next glance forward to "momento", only if the scheduled one is later (or there's none). Returns whether it moved.
+export function adelantarVistazo(chat, momento, motivo) {
+  asegurarEstadoIniciativa(chat);
+  return db.prepare(`UPDATE iniciativa_estado SET proximoVistazo = ?, motivoProximo = ? WHERE chat = ? AND (proximoVistazo = 0 OR proximoVistazo > ?)`).run(momento, motivo, chat, momento).changes > 0;
+}
+
+// Counts a glance, and with "conLlamada" an AI call, in the group's day. The counters start over when the day changes
+// (SQLite evaluates every SET expression against the row as it was, so "dia = ?" is compared before it's overwritten).
+export function contarVistazo(chat, dia, conLlamada) {
+  asegurarEstadoIniciativa(chat);
+  const llamada = conLlamada ? 1 : 0;
+  db.prepare(
+    `UPDATE iniciativa_estado SET vistazos = CASE WHEN dia = ? THEN vistazos + 1 ELSE 1 END, llamadas = CASE WHEN dia = ? THEN llamadas + ? ELSE ? END, dia = ? WHERE chat = ?`,
+  ).run(dia, dia, llamada, llamada, dia, chat);
+}
+
+// AI calls spent on glances on a day, across every group.
+export function llamadasDelDia(dia) {
+  return db.prepare(`SELECT COALESCE(SUM(llamadas), 0) AS total FROM iniciativa_estado WHERE dia = ?`).get(dia)?.total || 0;
+}
+
+// Returns the new row's id.
+export function registrarIntervencion({ chat, fecha = Date.now(), tipo, mensajeId = null, objetivoId = null, objetivoUsuario = null, texto = "", motivo = "" }) {
+  return Number(
+    db.prepare(`INSERT INTO intervenciones (chat, fecha, tipo, mensajeId, objetivoId, objetivoUsuario, texto, motivo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(chat, fecha, tipo, mensajeId, objetivoId, objetivoUsuario, texto, motivo).lastInsertRowid,
+  );
+}
+
+export function intervencionesDesde(chat, desde) {
+  return db.prepare(`SELECT * FROM intervenciones WHERE chat = ? AND fecha >= ? ORDER BY fecha ASC, id ASC`).all(chat, desde);
+}
+
+// Someone quoted one of her spontaneous texts. Returns whether the id was one of them.
+export function marcarIntervencionRespondida(chat, mensajeId) {
+  if (!mensajeId) return false;
+  return db.prepare(`UPDATE intervenciones SET respondida = respondida + 1 WHERE chat = ? AND mensajeId = ? AND tipo IN ('respuesta', 'comentario')`).run(chat, mensajeId).changes > 0;
+}
+
+// Someone named her shortly after her latest spontaneous text (sent after "desde"): that one counts as answered.
+export function marcarUltimaPropiaRespondida(chat, desde) {
+  return (
+    db.prepare(`UPDATE intervenciones SET respondida = respondida + 1 WHERE id = (SELECT id FROM intervenciones WHERE chat = ? AND tipo IN ('respuesta', 'comentario') AND fecha >= ? ORDER BY fecha DESC, id DESC LIMIT 1)`).run(chat, desde)
+      .changes > 0
+  );
+}
+
+export function sumarReaccionAIntervencion(chat, mensajeId) {
+  if (!mensajeId) return false;
+  return db.prepare(`UPDATE intervenciones SET reaccionada = reaccionada + 1 WHERE chat = ? AND mensajeId = ? AND tipo IN ('respuesta', 'comentario')`).run(chat, mensajeId).changes > 0;
+}
+
+// Her spontaneous texts since a moment, and how many of them got an answer or a reaction.
+export function ecoDeIntervenciones(chat, desde) {
+  return db
+    .prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN respondida > 0 OR reaccionada > 0 THEN 1 ELSE 0 END), 0) AS conEco FROM intervenciones WHERE chat = ? AND fecha >= ? AND tipo IN ('respuesta', 'comentario')`)
+    .get(chat, desde);
+}
+
+// How many people talked in a group on a day and how many messages between them (conversation only, see actividad_diaria).
+export function promedioPorPersona(chat, fecha) {
+  return db.prepare(`SELECT COUNT(*) AS personas, COALESCE(SUM(mensajes), 0) AS total FROM actividad_diaria WHERE chat = ? AND fecha = ? AND mensajes > 0`).get(chat, fecha);
+}
+
+export function podarIntervenciones(antesDe) {
+  return db.prepare(`DELETE FROM intervenciones WHERE fecha < ?`).run(antesDe).changes;
 }
 
 // ===================== Per-group bot roles =====================
