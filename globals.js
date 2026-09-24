@@ -16,7 +16,10 @@ globalThis.authFile = `botSession`;
 
 // Bot number without "+", spaces or dashes. Leave empty to pair with a QR code.
 globalThis.numberBot = config.numberBot || "";
-globalThis.geminiApiKey = config.geminiApiKey || "";
+// Extra Gemini keys (geminiApiKeys), from other accounts: each has its own free quota, and lib/gemini.js moves on to the
+// next when one runs out. geminiApiKey stays the first one, and the one the rest of the bot checks to know there's AI.
+globalThis.geminiApiKeys = [...new Set([config.geminiApiKey, ...(Array.isArray(config.geminiApiKeys) ? config.geminiApiKeys : [])].map((k) => String(k || "").trim()).filter(Boolean))];
+globalThis.geminiApiKey = globalThis.geminiApiKeys[0] || "";
 globalThis.groqApiKey = config.groqApiKey || "";
 globalThis.tenorApiKey = config.tenorApiKey || "";
 globalThis.cerebrasApiKey = config.cerebrasApiKey || "";

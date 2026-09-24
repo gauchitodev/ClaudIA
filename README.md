@@ -35,7 +35,7 @@ Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) 
 
 ## Configuración
 
-Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla. Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
+Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla. Se pueden poner más claves de Gemini, de otras cuentas de Google, en `geminiApiKeys`: cada una tiene su propia cuota gratis y, cuando una se agota, Claudia sigue con la siguiente. Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
 
 ## Termux (Android)
 

@@ -10,6 +10,16 @@ owners = [""]
 # API key de Gemini. Sin esto no hay charla con IA (.ia, .gemini y las respuestas automáticas).
 geminiApiKey = ""
 
+# Más API keys de Gemini, de otras cuentas de Google. Opcional. Cada una tiene su propia cuota gratis: cuando una se
+# queda sin cuota, Claudia sigue con la siguiente antes de pasar a un modelo peor o a los respaldos.
+# Sacalas en https://aistudio.google.com/apikey con cada cuenta. Van entre comillas y separadas por comas; podés
+# agregar o sacar renglones.
+geminiApiKeys = [
+  "",
+  "",
+  "",
+]
+
 # API key de Groq. Primer respaldo cuando Gemini falla o se queda sin cuota. Opcional.
 groqApiKey = ""
 
