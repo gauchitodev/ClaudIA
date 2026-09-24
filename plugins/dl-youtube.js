@@ -12,6 +12,7 @@ import { gastarCoins, getSaldoCoins } from "../database-functions.js";
 import { COINS } from "../lib/urucoins.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
+import { recordarAudioEnviado } from "../lib/audios.js";
 
 const execFileAsync = promisify(execFile);
 const ytDlpPath = path.resolve(RUTA_YT_DLP);
@@ -121,7 +122,9 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       const finalPath = path.join("./tmp", foundFile);
 
       const mediaBuffer = await promises.readFile(finalPath);
-      await client.sendMessage(chat, { [messageType]: mediaBuffer, mimetype: mimeType }, opcionesEnvio);
+      const enviado = await client.sendMessage(chat, { [messageType]: mediaBuffer, mimetype: mimeType }, opcionesEnvio);
+      // So that "claudia, ¿de dónde es esta banda?" quoting it already knows which song it is (lib/audios.js).
+      recordarAudioEnviado(enviado?.key?.id, candidato.title);
       await promises.unlink(finalPath).catch(() => {});
       await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*`, quoted);
       return true;
