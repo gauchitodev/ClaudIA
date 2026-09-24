@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml/badge.svg)](https://github.com/gauchitodev/ClaudIA/actions/workflows/ci.yml)
 
-Bot de WhatsApp con personalidad propia, desarrollado a medida para un grupo de amigos de Uruguay. Es mi primer proyecto de programación ([@gauchitodev](https://github.com/gauchitodev)), en el cual me ayudaron [@carlosplanchon](https://github.com/carlosplanchon) y [@nicolasgutierrezdev](https://github.com/nicolasgutierrezdev). Tomó como punto de partida [SawBot-MD](https://github.com/martinezanthony/SawBot-MD), de [@martinezanthony](https://github.com/martinezanthony) (quien también ayudó).
+Bot de WhatsApp con personalidad propia, desarrollado a medida para un grupo de amigos de Uruguay. Es mi primer proyecto de programación ([@gauchitodev](https://github.com/gauchitodev)), en el cual me ayudaron [@carlosplanchon](https://github.com/carlosplanchon) y [@nicolasgutierrezdev](https://github.com/nicolasgutierrezdev). Tome como punto de partida [SawBot-MD](https://github.com/martinezanthony/SawBot-MD), de [@martinezanthony](https://github.com/martinezanthony) (quien también ayudó).
 
 A su vez, [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) está basado en [GataBot-MD](https://github.com/GataNina-Li/GataBot-MD).
 
