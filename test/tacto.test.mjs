@@ -56,8 +56,8 @@ test("tacto: de noche, con el grupo cerrado o callada no mira", () => {
   assert.equal(T.puedeMirar(situacion({ fila: { iniciativa: 1, charla: 1, horarioGrupo: "20:00-02:00" } })).ok, false, "una franja que cruza la medianoche también cuenta");
   assert.equal(T.puedeMirar(situacion({ fila: { iniciativa: 1, charla: 1, grupoCerradoPorHorario: 1 } })).ok, false);
 
-  const callada = T.puedeMirar(situacion({ estado: { silencioHasta: AHORA + HORA, silencioMotivo: "le pidieron que se calle" } }));
-  assert.equal(callada.motivo, "está callada (le pidieron que se calle)");
+  const callada = T.puedeMirar(situacion({ estado: { silencioHasta: AHORA + HORA, silencioMotivo: "estaban hablando de algo serio" } }));
+  assert.equal(callada.motivo, "está callada (estaban hablando de algo serio)");
   assert.equal(T.puedeMirar(situacion({ fila: { iniciativa: 1, charla: 0 } })).motivo, "la charla está apagada (.charla)");
   assert.equal(T.puedeMirar(situacion({ fila: { iniciativa: 0, charla: 1 } })).motivo, "la iniciativa está apagada");
   assert.equal(T.puedeMirar(situacion({ fila: { iniciativa: 0, charla: 1 }, prueba: true })).ok, true, ".vistazo prueba anda con la iniciativa apagada");
@@ -129,10 +129,7 @@ test("tacto: escribir tiene sus reglas; reaccionar, sus topes", () => {
   assert.equal(T.permisoReacciones(situacion({ nuevos: charla().map((e) => ({ ...e, fecha: e.fecha - 4 * HORA })) })).max, 0, "nada de reaccionar a lo de hace horas");
 });
 
-test("tacto: la nombran, la callan", () => {
+test("tacto: la nombran", () => {
   const nombra = (t) => I.NOMBRA_A_CLAUDIA.test(I.normalizar(t));
-  const callate = (t) => I.CALLATE.test(I.normalizar(t));
   assert.ok(nombra("Claudia, ¿qué opinás?") && nombra("jaja el bot") && !nombra("claudiana"));
-  for (const t of ["Cállate Claudia", "claudia shhh", "nadie te preguntó bot", "qué pesada claudia", "bot cerrá el pico", "basta claudia"]) assert.ok(callate(t), t);
-  for (const t of ["claudia sos una genia", "claudia qué opinás"]) assert.ok(!callate(t), t);
 });

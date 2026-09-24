@@ -19,7 +19,7 @@ plugin.run = async (m, { client, args, isAdmin, isOwner }) => {
       return client.sendText(m.chat, "🙋 Listo, vuelvo a hablar solo cuando me nombran.", m);
     }
     activarIniciativa(m.chat);
-    return client.sendText(m.chat, "🙋 Listo: desde ahora a veces miro el grupo por mi cuenta (unas pocas veces por día, nunca de noche) y, si viene al caso, reacciono o comento algo. Si molesto, díganme «callate Claudia» y me freno unas horas. .iniciativa off lo apaga.", m);
+    return client.sendText(m.chat, "🙋 Listo: desde ahora a veces miro el grupo por mi cuenta (unas pocas veces por día, nunca de noche) y, si viene al caso, reacciono o comento algo. .iniciativa off lo apaga.", m);
   }
   await client.sendText(m.chat, textoIniciativa(m.chat), m);
 };

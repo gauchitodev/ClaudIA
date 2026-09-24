@@ -240,7 +240,7 @@ test("vistazo: si mientras pensaba ya contestó en la charla, no escribe", async
 
 // ---------- reading the room ----------
 
-test("ambiente: citarla o nombrarla es contestarle, una reacción también cuenta, y un callate la frena", () => {
+test("ambiente: citarla o nombrarla es contestarle, y una reacción también cuenta", () => {
   const chat = nuevoGrupo();
   F.registrarIntervencion({ chat, fecha: AHORA - 30 * MIN, tipo: "comentario", mensajeId: "BOTC1", texto: "uno" });
   assert.equal(I.registrarMensajeDelGrupo({ chat, text: "jaja sí", quoted: { fromMe: true, id: "BOTC1" } }, AHORA), "respondida");
@@ -250,10 +250,6 @@ test("ambiente: citarla o nombrarla es contestarle, una reacción también cuent
   assert.equal(I.registrarReaccionAClaudia(chat, "BOTC2"), true);
   assert.equal(I.registrarReaccionAClaudia(chat, "NO-ES-SUYO"), false);
   assert.deepEqual(Object.fromEntries(F.intervencionesDesde(chat, 0).map((f) => [f.mensajeId, [f.respondida, f.reaccionada]])), { BOTC1: [1, 0], BOTC2: [1, 1] });
-
-  assert.equal(I.registrarMensajeDelGrupo({ chat, text: "Cállate Claudia" }, AHORA), "callate");
-  const e = F.estadoIniciativa(chat);
-  assert.deepEqual([e.silencioHasta, e.silencioMotivo], [AHORA + 3 * HORA, "le pidieron que se calle"]);
 });
 
 test("ambiente: una ráfaga de mensajes adelanta el próximo vistazo, una vez", () => {
@@ -272,11 +268,13 @@ test("ambiente: el hook anota lo que llega y deja pasar comandos y reacciones", 
   const chat = nuevoGrupo();
   const fila = F.getChat(chat);
   const base = { chat, isGroup: true, message: {}, sender: "222@lid", mtype: "conversation" };
-  await Hook.before({ ...base, text: ".menu claudia callate" }, { chat: fila });
-  await Hook.before({ ...base, text: "😂", mtype: "reactionMessage" }, { chat: fila });
-  assert.equal(F.estadoIniciativa(chat).silencioHasta, 0, "un comando o una reacción no la callan");
-  await Hook.before({ ...base, text: "bot callate un rato", _llegada: AHORA }, { chat: fila });
-  assert.equal(F.estadoIniciativa(chat).silencioHasta, AHORA + 3 * HORA);
+  F.registrarIntervencion({ chat, fecha: AHORA - 5 * MIN, tipo: "comentario", mensajeId: "BOTH1", texto: "uno" });
+  const respondida = () => F.intervencionesDesde(chat, 0)[0].respondida;
+  await Hook.before({ ...base, text: ".menu claudia", _llegada: AHORA }, { chat: fila });
+  await Hook.before({ ...base, text: "claudia 😂", mtype: "reactionMessage", _llegada: AHORA }, { chat: fila });
+  assert.equal(respondida(), 0, "un comando o una reacción no le contestan");
+  await Hook.before({ ...base, text: "jaja bot", _llegada: AHORA }, { chat: fila });
+  assert.equal(respondida(), 1);
 });
 
 // ---------- the ticker ----------
@@ -319,7 +317,7 @@ test("comandos: .iniciativa muestra, prende y apaga; .vistazo prueba no toca nad
   assert.equal(ultimo(), strings.onlyAdmin);
   assert.equal(F.getChat(chat).iniciativa, 0);
   await Iniciativa.run(m, { client, args: ["on"], isAdmin: true, isOwner: false });
-  assert.match(ultimo(), /«callate Claudia»/);
+  assert.match(ultimo(), /\.iniciativa off lo apaga\./);
   assert.equal(F.getChat(chat).iniciativa, 1);
   assert.ok(F.estadoIniciativa(chat).proximoVistazo > 0);
   await Iniciativa.run(m, { client, args: [], isAdmin: false, isOwner: false });

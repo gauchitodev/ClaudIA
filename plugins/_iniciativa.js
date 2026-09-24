@@ -2,7 +2,7 @@ import { registrarMensajeDelGrupo } from "../lib/iniciativa.js";
 import { anotarMensaje } from "../lib/vistazos.js";
 
 // Claudia's initiative (lib/iniciativa.js), on every message of a group that has it on: it counts the message for the
-// bursts that bring her next glance forward, and checks whether it answers her or tells her to be quiet. It never
+// bursts that bring her next glance forward, and checks whether it answers her. It never
 // sends anything, so it never holds up the hooks that come after it.
 const plugin = (m) => m;
 plugin.before = async (m, { chat }) => {
