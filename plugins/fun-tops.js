@@ -1,4 +1,4 @@
-import { elegirAlAzar } from "../lib/azar.js";
+import { elegirAlAzar, mezclar } from "../lib/azar.js";
 
 const plugin = {};
 plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas"];
@@ -9,7 +9,9 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, groupMetadata, command, chat }) => {
   const user = (a) => `@${a.split("@")[0]}`;
   const ps = groupMetadata.participants.map((v) => v.id);
-  const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, () => elegirAlAzar(ps));
+  // Shuffle so nobody appears twice; only groups with fewer than 10 members fall back to repeats.
+  const mezclados = mezclar(ps);
+  const [a, b, c, d, e, f, g, h, i, j] = Array.from({ length: 10 }, (_, k) => mezclados[k] ?? elegirAlAzar(ps));
 
   if (command === "topgays") {
     const top = `*🌈TOP 10 GAYS/LESBIANAS DEL GRUPO🌈*
