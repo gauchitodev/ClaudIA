@@ -38,6 +38,21 @@ function marcarReaccionContada(messageId, reactorLid) {
   return true;
 }
 
+// Baileys stays quiet except for why a media upload failed: all the bot sees otherwise is "Media upload failed on all
+// hosts", with the reason (a timeout, a refused connection, what WhatsApp answered) left in a silenced warning.
+const loggerBaileys = pino({
+  level: "warn",
+  hooks: {
+    logMethod(args) {
+      const mensaje = args.find((a) => typeof a === "string") || "";
+      if (!mensaje.startsWith("Error in uploading")) return;
+      const datos = typeof args[0] === "object" ? args[0] : {};
+      const motivo = String(datos?.trace || "").split("\n")[0];
+      console.error(`[baileys] ${mensaje.replace(/, retrying\.\.\.$/, "").trim()}: ${motivo || "sin detalle"}${datos?.uploadResult ? ` · respuesta: ${JSON.stringify(datos.uploadResult).slice(0, 200)}` : ""}`);
+    },
+  },
+});
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
 
@@ -45,7 +60,7 @@ async function startBot() {
   console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
 
   const connectionOptions = {
-    logger: pino({ level: "silent" }),
+    logger: loggerBaileys,
     version,
     browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
