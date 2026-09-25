@@ -19,7 +19,7 @@ A su vez, [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) está basado
 - **Música y video**: descarga de YouTube (con cookies + reintentos + varios candidatos) y cae a SoundCloud si todo lo demás falla. Si igual no sale, se puede volver a pedir con `.reintentar`. También baja videos de TikTok e Instagram.
 - **Economía (UruCoins)**: monedas por reaccionar y por participar, laburos con sueldo diario y niveles, rangos por antigüedad y mensajes, racha diaria, pregunta del día y una tienda (escudo, racha doble, voto doble, apodo).
 - **Juegos**: trivia (y trivias relámpago que salen solas), acertijos, banderas, ordenar palabras, ahorcado y ta-te-ti, con premio para el que gana.
-- **Casino**: ruleta europea, tragamonedas, blackjack, mines, carrera de caballos, duelos y peleas por turnos, lotería semanal y mercados de apuestas sobre eventos reales. Tiene topes por jugada, se apaga por grupo con `.casino off` y, si el bot se apaga o se reinicia, devuelve lo que estaba en juego.
+- **Casino**: ruleta europea, tragamonedas, blackjack, mines, carrera de caballos, duelos y peleas por turnos, lotería semanal y mercados de apuestas sobre eventos reales. Tiene topes por jugada, se apaga por grupo con `.casino off` y, si el bot se apaga o se reinicia, devuelve lo que estaba en juego. La idea inicial fue de [@libeelula](https://github.com/libeelula).
 - **Temáticas semanales**: hashtags como `#historiasrandom`, `#quejadelunes` y `#recomendado`, con listas automáticas por semana.
 - **Ranking mensual**: puntos por reaccionar y por recibir reacciones (quién es más votado, quién es más activo).
 - **Compraventa**: un modo para grupos de compra y venta, con publicaciones por `#vendo` o `#compro`, catálogo, búsqueda, avisos, reputación y calificaciones.
