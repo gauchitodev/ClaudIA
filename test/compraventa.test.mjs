@@ -54,9 +54,10 @@ test("compraventa: publicar por hashtag, catálogo, búsqueda, detalle y alertas
   await Hook.before(msg("111@lid", "che, alguien sabe algo?"), { client: cliente() });
   assert.match(ultimo(), /no le pusiste precio/, "sin hashtag no pasa nada");
   await correr("111@lid", "vendo");
-  assert.match(ultimo(), /🏷️ \*EN VENTA\* \(2\)\n\*#3\* mesa de luz — @111\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — @111/);
+  assert.match(ultimo(), /🏷️ \*EN VENTA\* \(2\)\n\*#3\* mesa de luz — 111\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — 111/);
+  assert.deepEqual(ultimoEnviado().msg.mentions, [], "el listado nombra, no etiqueta");
   await correr("111@lid", "compro");
-  assert.match(ultimo(), /🔎 \*SE BUSCA\* \(1\)\n\*#2\* heladera chica que ande — @222/);
+  assert.match(ultimo(), /🔎 \*SE BUSCA\* \(1\)\n\*#2\* heladera chica que ande — 222/);
   await correr("111@lid", "catalogo");
   assert.match(ultimo(), /EN VENTA[\s\S]*SE BUSCA/);
   await correr("111@lid", "buscar", "Bici");
