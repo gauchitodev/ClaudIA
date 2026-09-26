@@ -1,10 +1,14 @@
+import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+
 const plugin = {};
 plugin.cmd = ["hidetag", "ht"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
+plugin.run = async (m, { client, text, participants, isAdmin, isOwner, chat }) => {
+  // Moderators get here too, and forwarding someone else's view-once to everyone is only for admins (lib/vista-unica.js).
+  if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);
   if (!text && !m.quoted) return client.sendText(m.chat, txt.hidetagNull, m);
 

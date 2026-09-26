@@ -1,6 +1,7 @@
 import { unlinkSync, readFileSync } from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 
 const execAsync = promisify(exec);
 
@@ -8,7 +9,9 @@ const plugin = {};
 plugin.cmd = ["bass", "blown", "deep", "earrape", "fast", "fat", "nightcore", "reverse", "robot", "slow", "smooth", "tupai"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, command }) => {
+plugin.run = async (m, { client, command, isAdmin, isOwner }) => {
+  // An effect on someone else's view-once would hand it back to the group (see lib/vista-unica.js).
+  if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   const q = m.quoted ? m.quoted : m;
   const mime = (m.quoted ? m.quoted : m.msg).mimetype || "";
   let set;

@@ -1,10 +1,13 @@
 import { toPTT } from "../lib/ffmpeg.js";
+import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 
 const plugin = {};
 plugin.cmd = ["vn", "ptt"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client }) => {
+plugin.run = async (m, { client, isAdmin, isOwner }) => {
+  // Converting someone else's view-once would hand it back to the group (see lib/vista-unica.js).
+  if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   if (!m.quoted) return client.sendText(m.chat, txt.toPTTNull, m);
   const mime = m.quoted.mimetype || "";
   if (!/video|audio/.test(mime)) return;

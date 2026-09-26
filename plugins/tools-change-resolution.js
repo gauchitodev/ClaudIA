@@ -1,11 +1,14 @@
 import { redimensionar } from "../lib/canvas.js";
+import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 
 const plugin = {};
 plugin.cmd = ["res"];
 plugin.botAdmin = true;
 
 // .res 500 (height, keeping the aspect ratio) or .res 300x600, replying to an image
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
+plugin.run = async (m, { client, text, usedPrefix, command, isAdmin, isOwner }) => {
+  // Resizing someone else's view-once would hand it back to the group (see lib/vista-unica.js).
+  if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || "";
   if (!/image\/(png|jpe?g)/.test(mime)) return client.sendText(m.chat, txt.defaultImage, m);

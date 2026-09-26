@@ -11,6 +11,7 @@ import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
+import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
 import { PALABRAS_CLAVE } from "../lib/iniciativa.js";
 
@@ -118,8 +119,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // ---------- the audio, if there is one to hear ----------
     // Her own voice note answer, or the audio quoted while naming her. A song she sent with .play doesn't need
-    // hearing: she knows which one it is.
-    const citaAudio = !notaDeVoz && esAudio(m.quoted);
+    // hearing: she knows which one it is. Someone else's view-once voice note she doesn't hear either, unless its
+    // author, an admin or the owner quotes it (lib/vista-unica.js): she'd tell the group what it said.
+    const citaAudio = !notaDeVoz && esAudio(m.quoted) && puedeRecuperarCitado(m, { isAdmin, isOwner });
     const temaEnviado = citaAudio && m.quoted.fromMe ? tituloDeAudioEnviado(m.quoted.id) : null;
     let audio = null; // { ok, adjunto } or { ok: false, motivo }
     if (notaDeVoz) {
