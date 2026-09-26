@@ -71,6 +71,10 @@ Esta es la foto de perfil que usamos para Claudia en WhatsApp:
   <img src="assets/profile_picture_claudia.jpg" height="250" alt="Retrato de una mujer de pelo corto hecha de código verde brillante, estilo Matrix, dentro de un círculo sobre un fondo de caracteres que caen">
 </p>
 
+## Related Projects
+
+- [ClaudIA-CS1.6](https://github.com/NicolasBentancur/ClaudIA-CS1.6), de [@NicolasBentancur](https://github.com/NicolasBentancur): plugin de Counter-Strike 1.6 (AMX Mod X) basado conceptualmente en este proyecto. Lleva a Claudia al chat del juego, con IA, economía en URU Coins, casino y ajedrez en la ventana MOTD.
+
 ## Nota
 
 Es un proyecto personal, hecho a medida de un grupo en particular, así que no pretende ser una plantilla genérica. Si llegaste hasta el código, bienvenido/a: cualquier sugerencia suma.
