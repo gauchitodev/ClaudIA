@@ -161,7 +161,8 @@ test("vistazo: responde citando el mensaje, sin arrobar a nadie", async () => {
 test("vistazo: la IA no puede pasarse de lo que permite el tacto", async () => {
   const chat = nuevoGrupo();
   charlar(chat);
-  // Her last message went unanswered: today she only reacts.
+  // Her last two messages went unanswered: today she only reacts.
+  F.registrarIntervencion({ chat, fecha: AHORA - 150 * MIN, tipo: "comentario", mensajeId: "BOTMASVIEJO", texto: "qué frío hace" });
   F.registrarIntervencion({ chat, fecha: AHORA - 90 * MIN, tipo: "comentario", mensajeId: "BOTVIEJO", texto: "¿alguien vio la lluvia?" });
   decisiones.push({
     motivo: "todo",

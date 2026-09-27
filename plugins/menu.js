@@ -56,6 +56,7 @@ ${readMore}
 ▸ ${usedPrefix}p @mención 🎫 – \`Dar admin al participante.\`
 ▸ ${usedPrefix}d @mención 🎫 – \`Quitar admin al participante.\`
 ▸ ${usedPrefix}del 🗑️ – \`Elimina un mensaje.\`
+▸ ${usedPrefix}pin [24h|7d|30d] 📌 – \`Respondiendo a un mensaje, lo fija para todos (7 días si no decís). .unpin lo saca.\`
 ▸ ${usedPrefix}tagall 👈 – \`Mención a todos los participantes.\`
 ▸ ${usedPrefix}tagall2 👈 – \`Envía el tagall pero x10 veces seguidas.\`
 ▸ ${usedPrefix}ht 👈 – \`Mención oculta a todos los participantes.\`

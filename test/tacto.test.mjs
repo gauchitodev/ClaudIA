@@ -110,11 +110,15 @@ test("tacto: con un juego abierto no mira", () => {
 test("tacto: escribir tiene sus reglas; reaccionar, sus topes", () => {
   const no = (cambios) => T.permisoTexto(situacion(cambios)).motivo;
   const respondida = { respondida: 1 };
-  assert.equal(no({ propiasHoy: [intervencion("comentario", 200, respondida), intervencion("respuesta", 150, respondida), intervencion("comentario", 90, respondida)], promedio: { personas: 1, total: 50 } }), "hoy ya escribió todo lo que escribe por su cuenta");
-  assert.equal(no({ propiasHoy: [intervencion("comentario", 90)] }), "nadie le dio bola a lo último que dijo");
-  assert.equal(T.permisoTexto(situacion({ propiasHoy: [intervencion("comentario", 90, { reaccionada: 1 })] })).ok, true, "una reacción también es darle bola");
-  const mucha = Array.from({ length: 10 }, (_, i) => intervencion("charla", 200 - i));
-  assert.equal(no({ propiasHoy: mucha }), "hoy ya habló más que el promedio del grupo", "10 mensajes suyos contra 10 por persona");
+  const doce = Array.from({ length: 12 }, (_, i) => intervencion(i % 2 ? "respuesta" : "comentario", 300 - i * 20, respondida));
+  assert.equal(no({ propiasHoy: doce, promedio: { personas: 1, total: 50 } }), "hoy ya escribió todo lo que escribe por su cuenta");
+  assert.equal(T.permisoTexto(situacion({ propiasHoy: doce.slice(1), promedio: { personas: 1, total: 50 } })).ok, true, "con once todavía puede");
+  assert.equal(T.permisoTexto(situacion({ propiasHoy: [intervencion("comentario", 90)] })).ok, true, "que la ignoren una vez no la calla");
+  assert.equal(no({ propiasHoy: [intervencion("comentario", 150), intervencion("comentario", 90)] }), "nadie le dio bola a sus últimos 2 mensajes");
+  assert.equal(T.permisoTexto(situacion({ propiasHoy: [intervencion("comentario", 150), intervencion("comentario", 90, { reaccionada: 1 })] })).ok, true, "una reacción también es darle bola");
+  const charlas = (n) => Array.from({ length: n }, (_, i) => intervencion("charla", 200 - i));
+  assert.equal(T.permisoTexto(situacion({ propiasHoy: charlas(19) })).ok, true, "19 mensajes suyos contra 10 por persona todavía entran");
+  assert.equal(no({ propiasHoy: charlas(20) }), "hoy ya habló 2 veces el promedio del grupo", "20 mensajes suyos contra 10 por persona");
   assert.equal(no({ nuevos: charla().slice(0, 3) }), "hay muy poco nuevo como para meterse");
   assert.equal(T.permisoTexto(situacion({ nuevos: charla().slice(0, 4) })).ok, true, "con cuatro mensajes nuevos ya puede");
   assert.equal(no({ nuevos: charla().map((e) => ({ ...e, fecha: e.fecha - HORA })) }), "el grupo está quieto", "lo último es de hace una hora");
