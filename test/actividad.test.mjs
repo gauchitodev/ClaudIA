@@ -129,7 +129,9 @@ test("el panel de actividad resume días y horas", async () => {
   assert.doesNotMatch(texto, /03:00/, "solo las tres primeras");
   assert.match(texto, /Más tranquilo: de 0[45] a \d\d h/);
 
-  // the command sends that same text
+  // the command sends that same text. It reads the real clock, not the pinned one, so it gets something from today:
+  // the days above drop out of its week as time goes by (this test broke once a week after September 20).
+  F.sumarMensajeHora(H, A.claveDia(new Date()), 12);
   await Panel.run({ chat: H, isGroup: true }, { client: globalThis.client });
   assert.match(ultimoEnviado().msg.text, /ACTIVIDAD DEL GRUPO/);
 });
