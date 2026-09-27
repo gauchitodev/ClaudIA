@@ -1,7 +1,7 @@
 import { elegirAlAzar, mezclar } from "../lib/azar.js";
 
 const plugin = {};
-plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas"];
+plugin.cmd = ["topgays", "topsucios", "topotakus", "toppajer@s", "toplindos", "toplind@s", "topput@s", "topchupadores", "topmamadores", "topchupapijas", "topchupavergas", "topparejas", "top5parejas", "topdowns"];
 plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
@@ -136,6 +136,22 @@ plugin.run = async (m, { client, groupMetadata, command, chat }) => {
 *_5.- 😏 ${user(e)}_* 💦
 
 \`ESOS 5 CALIENTES DE MIERDA PERO NO MAS QUE LA PUTA DE\` ${user(f)}\n\`SE LA TRAGA TODA\`🥵🥵`;
+    client.sendText(m.chat, top, m);
+  }
+
+  if (command === "topdowns") {
+    const top = `*🤪 TOP 10 DOWNS DEL GRUPO 🤪*
+
+*_1.- 🤪 ${user(a)}_* 🥴
+*_2.- 🤪 ${user(b)}_* 🥴
+*_3.- 🤪 ${user(c)}_* 🥴
+*_4.- 🤪 ${user(d)}_* 🥴
+*_5.- 🤪 ${user(e)}_* 🥴
+*_6.- 🤪 ${user(f)}_* 🥴
+*_7.- 🤪 ${user(g)}_* 🥴
+*_8.- 🤪 ${user(h)}_* 🥴
+*_9.- 🤪 ${user(i)}_* 🥴
+*_10.- 🤪 ${user(j)}_* 🥴`;
     client.sendText(m.chat, top, m);
   }
 
