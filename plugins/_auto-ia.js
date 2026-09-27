@@ -231,7 +231,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on.
     if (notaDeVoz && resumenAudio) {
-      recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
+      recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true });
     }
 
     if (nuevoRecuerdo && user) {

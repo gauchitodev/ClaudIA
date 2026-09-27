@@ -105,6 +105,7 @@ ${readMore}
 ▸ ${usedPrefix}horariojuegos 20:00-23:00 🕒 – \`Juegos solo en ese horario (por grupo). Con "off" se saca.\`
 ▸ ${usedPrefix}charla 💬 – \`Charla automática de Claudia cuando la nombran.\`
 ▸ ${usedPrefix}iniciativa on|off 🙋 – \`Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene.\`
+▸ ${usedPrefix}vistazo [prueba] 👀 – \`Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada.\`
 ▸ ${usedPrefix}saludos 👋 – \`Saludo automático cuando alguien dice hola.\`
 ▸ ${usedPrefix}monedas 🪙 – \`Economía de UruCoins del grupo.\`
 ▸ ${usedPrefix}ascensos 🎖️ – \`Avisos de ascenso de rango.\`
@@ -235,7 +236,6 @@ ${readMore}
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
 ▸ ${usedPrefix}enviados 🤖 – \`Cuánto mandé, por día, hora y tipo: en un grupo, ese grupo; con todo, el general.\`
 ▸ ${usedPrefix}podar 🗑️ – \`Borra el detalle por hora de más de 90 días (actividad y envíos del bot), en todos los grupos.\`
-▸ ${usedPrefix}vistazo [prueba] 👀 – \`Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada.\`
 ▸ ${usedPrefix}ajustar @mención 50 🪙 – \`Corrección de UruCoins a mano (negativo para sacar).\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

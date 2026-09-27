@@ -7,7 +7,7 @@ import strings from "../lib/strings.js";
 // Gemini is swapped for canned decisions; the typing wait, the pause between reactions and the dice are pinned.
 
 let F, I, V, C, E, RITMO, Hook, Iniciativa, OwnerVistazo;
-const decisiones = []; // what "Gemini" answers, in order: an object (sent as JSON), a raw string, or 429
+const decisiones = []; // what "Gemini" answers, in order: an object (sent as JSON), a raw string, 429, or a function returning one
 const cuerpos = []; // every request sent to "Gemini"
 let consultas = 0;
 const fetchReal = globalThis.fetch;
@@ -25,7 +25,8 @@ before(async () => {
   globalThis.fetch = async (url, opciones) => {
     consultas++;
     cuerpos.push(JSON.parse(opciones.body));
-    const d = decisiones.shift();
+    let d = decisiones.shift();
+    if (typeof d === "function") d = d(); // something that happens while the AI thinks, then its answer
     if (d === 429) return { ok: false, status: 429, text: async () => "" };
     const texto = typeof d === "string" ? d : JSON.stringify(d ?? { motivo: "nada", accion: "nada" });
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: texto }] } }] }) };
@@ -344,4 +345,98 @@ test("comandos: .iniciativa muestra, prende y apaga; .vistazo prueba no toca nad
   await Iniciativa.run(m, { client, args: ["off"], isAdmin: true, isOwner: false });
   assert.equal(F.getChat(chat).iniciativa, 0);
   assert.equal(F.estadoIniciativa(chat).proximoVistazo, 0);
+});
+
+// ---------- what the group sees, and what changed while she thought ----------
+
+test(".iniciativa no muestra el motivo de la IA ni los vistazos de prueba", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  decisiones.push({ motivo: "Beto se hace el gracioso", reacciones: [{ mensaje: 4, emoji: "😂" }], accion: "nada", mensaje: 0, texto: "" });
+  const client = cliente(chat);
+  const m = { chat, isGroup: true, id: "CMD", sender: "111@lid", senderJid: "59899111222@s.whatsapp.net" };
+  const estado = async () => {
+    await Iniciativa.run(m, { client, args: [], isAdmin: false, isOwner: false });
+    return client.salidas.at(-1).contenido.text;
+  };
+
+  const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
+  assert.match(informe.resumen, /\(Beto se hace el gracioso\)/, "el log y .vistazo lo siguen teniendo");
+  assert.match(await estado(), /Último vistazo, hace .*: leí 5 mensajes de 3 personas → una reacción\n/);
+  assert.doesNotMatch(await estado(), /gracioso/);
+
+  // A test glance (what .vistazo prueba runs) goes to the owner only.
+  charlar(chat, [["Ana", "¿y el domingo?", 0, "A7"]], AHORA + MIN);
+  decisiones.push({ motivo: "para probar", reacciones: [{ mensaje: 1, emoji: "👀" }], accion: "nada", mensaje: 0, texto: "" });
+  const prueba = await V.hacerVistazo(client, chat, { ahora: AHORA + 2 * MIN, forzado: true, prueba: true });
+  assert.match(prueba.resumen, /habría hecho una reacción \(para probar\)/);
+  assert.equal(decisiones.length, 0);
+  assert.doesNotMatch(await estado(), /habría hecho|para probar/);
+});
+
+test("vistazo: si la apagan mientras piensa, tampoco reacciona", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  decisiones.push(() => {
+    V.desactivarIniciativa(chat);
+    return { motivo: "x", reacciones: [{ mensaje: 4, emoji: "😂" }], accion: "comentar", mensaje: 0, texto: "qué partido" };
+  });
+  const client = cliente(chat);
+  const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
+  assert.equal(client.salidas.length, 0);
+  assert.equal(informe.retenido, true);
+  assert.deepEqual(F.intervencionesDesde(chat, 0), []);
+});
+
+test("vistazo: si contestó en la charla recién, igual puede reaccionar", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  decisiones.push({ motivo: "x", reacciones: [{ mensaje: 4, emoji: "😂" }], accion: "nada", mensaje: 0, texto: "" });
+  globalThis.autoIaCooldown.set(chat, Date.now());
+  const client = cliente(chat);
+  await V.hacerVistazo(client, chat, { ahora: AHORA });
+  assert.equal(client.salidas.length, 1);
+});
+
+test("vistazo: a un audio le reacciona pero no lo cita", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  C.recordarMensaje(chat, "Carla", "🎤 (audio) cuenta que se le rompió el auto", false, { id: "AUD", usuario: "Carla@lid", participant: "Carla@lid", fecha: AHORA - MIN, esAudio: true });
+  decisiones.push({ motivo: "x", reacciones: [{ mensaje: 6, emoji: "😢" }], accion: "responder", mensaje: 6, texto: "uh, qué garrón" });
+  const client = cliente(chat);
+  const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
+  assert.match(ultimoPrompt(), /Los audios \(🎤\) no se pueden citar/);
+  assert.deepEqual(client.salidas.map((s) => s.contenido.react?.key.id ?? s.contenido.text), ["AUD"]);
+  assert.equal(informe.decision.accion, "nada");
+});
+
+test("ambiente: un mensaje que arranca con una mención no es un comando", async () => {
+  const chat = nuevoGrupo();
+  const fila = F.getChat(chat);
+  F.registrarIntervencion({ chat, fecha: AHORA - 5 * MIN, tipo: "comentario", mensajeId: "BOTM1", texto: "uno" });
+  await Hook.before({ chat, isGroup: true, message: {}, sender: "222@lid", mtype: "conversation", text: "@59899123456 jaja tal cual", quoted: { fromMe: true, id: "BOTM1" }, _llegada: AHORA }, { chat: fila });
+  assert.equal(F.intervencionesDesde(chat, 0)[0].respondida, 1, "citarla arrancando con una mención le contesta");
+
+  charlar(chat, [...CHARLA, ["Beto", "@59899111222 vení que te cuento", 1, "A6"]]);
+  decisiones.push({ motivo: "x", reacciones: [], accion: "nada", mensaje: 0, texto: "" });
+  await V.hacerVistazo(cliente(chat), chat, { ahora: AHORA });
+  assert.match(ultimoPrompt(), /\[6\] Beto \(hace 1 min\): @59899111222 vení que te cuento/, "y lo lee");
+});
+
+test("comandos: .vistazo es para admins, con un vistazo cada tanto; el owner no tiene límite", async () => {
+  const chat = nuevoGrupo();
+  const client = cliente(chat);
+  const m = { chat, isGroup: true, id: "CMD", sender: "333@lid", senderJid: "59899333333@s.whatsapp.net" };
+  const alGrupo = () => client.salidas.filter((s) => s.jid === chat).at(-1)?.contenido.text;
+  assert.equal(OwnerVistazo.onlyAdmin, true);
+  assert.equal(OwnerVistazo.onlyOwner, undefined);
+
+  await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: false });
+  assert.equal(client.salidas.at(-1).jid, m.senderJid, "el informe le llega al admin por privado");
+  await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: false });
+  assert.match(alGrupo(), /Recién miré el grupo; esperá (9|10) min para pedir otro vistazo\./);
+  const antes = client.salidas.length;
+  await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: true });
+  assert.equal(client.salidas.length, antes + 1);
+  assert.equal(client.salidas.at(-1).jid, m.senderJid);
 });
