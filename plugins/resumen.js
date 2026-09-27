@@ -1,4 +1,4 @@
-import { mensajesRecientes } from "../lib/contexto-chat.js";
+import { mensajesRecientes, historialCompletoDesde, esComando } from "../lib/contexto-chat.js";
 import { preguntarIA } from "../lib/ia.js";
 import { duracion } from "../lib/tiempo.js";
 
@@ -13,23 +13,36 @@ plugin.onlyGroup = true;
 // Only what's been kept in memory since the bot started counts; no WhatsApp history is read.
 plugin.run = async (m, { client, args }) => {
   if (!globalThis.geminiApiKey) return client.sendText(m.chat, "Falta configurar la API key de Gemini en config.toml (geminiApiKey).", m);
-  const horas = Math.min(24, Math.max(1, parseInt(args[0], 10) || 6));
+  const pedido = parseInt(args[0], 10);
+  const horas = Number.isNaN(pedido) ? 6 : Math.min(24, Math.max(1, pedido));
 
   const ultimo = globalThis.resumenCooldown.get(m.chat) || 0;
   if (Date.now() - ultimo < COOLDOWN_MS) return client.sendText(m.chat, `Recién hice un resumen; esperá ${duracion(COOLDOWN_MS - (Date.now() - ultimo))} y pedilo de nuevo.`, m);
 
-  const desde = Date.now() - horas * 60 * 60 * 1000;
-  const lista = mensajesRecientes(m.chat, desde).filter((x) => !globalThis.prefix.some((p) => x.texto.startsWith(p)));
+  const ahora = Date.now();
+  const desde = ahora - horas * 60 * 60 * 1000;
+  const lista = mensajesRecientes(m.chat, desde).filter((x) => !esComando(x.texto));
   if (lista.length < 5) return client.sendText(m.chat, `Casi no hubo mensajes en las últimas ${horas} h. Ojo que guardo solo lo que pasa desde que arranqué, hace ${duracion(process.uptime() * 1000)}.`, m);
 
-  globalThis.resumenCooldown.set(m.chat, Date.now());
+  // What the summary really covers: in a busy group the oldest messages of the window no longer fit in memory, and
+  // nothing from before the bot started is there. The header says so instead of promising the hours asked for.
+  const cubreDesde = Math.max(historialCompletoDesde(m.chat, desde), ahora - process.uptime() * 1000);
+  const recortado = cubreDesde - desde > 60 * 1000;
+  const periodo = recortado ? duracion(ahora - cubreDesde) : `${horas} h`;
+
+  // Set before asking, so two requests at once don't both go to the AI; undone if the AI fails, so it can be retried.
+  globalThis.resumenCooldown.set(m.chat, ahora);
   await client.sendPresenceUpdate("composing", m.chat);
 
   const transcripcion = lista.map((x) => `- ${x.esBot ? "Claudia (vos)" : x.nombre}: ${x.texto}`).join("\n");
-  const consulta = `Estos son los mensajes del grupo de las últimas ${horas} horas, del más viejo al más nuevo:\n${transcripcion}\n\n(Instrucción para vos, no la muestres: hacé un resumen para alguien que no estuvo, de 4 a 8 líneas, con tu tono de siempre. Contá de qué se habló y quién dijo qué cuando importe, sin inventar nada que no esté ahí. No uses @ ni menciones. Si hay varios temas sueltos, listalos con guiones.)`;
+  const consulta = `Estos son los mensajes del grupo de las últimas ${periodo}, del más viejo al más nuevo:\n${transcripcion}\n\n(Instrucción para vos, no la muestres: hacé un resumen para alguien que no estuvo, de 4 a 8 líneas, con tu tono de siempre. Contá de qué se habló y quién dijo qué cuando importe, sin inventar nada que no esté ahí. No uses @ ni menciones. Si hay varios temas sueltos, listalos con guiones.)`;
   const r = await preguntarIA(consulta);
-  if (!r.ok) return client.sendText(m.chat, r.sinCuota ? "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅" : "Se me trabó el resumen, probá de nuevo en un rato.", m);
-  await client.sendText(m.chat, `📝 *Resumen de las últimas ${horas} h* (${lista.length} mensajes)\n\n${r.texto}`, m);
+  if (!r.ok) {
+    globalThis.resumenCooldown.delete(m.chat);
+    return client.sendText(m.chat, r.sinCuota ? "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅" : "Se me trabó el resumen, probá de nuevo en un rato.", m);
+  }
+  const aviso = recortado ? `; pediste ${horas} h, pero no tengo guardado más atrás` : "";
+  await client.sendText(m.chat, `📝 *Resumen de las últimas ${periodo}* (${lista.length} mensajes${aviso})\n\n${r.texto}`, m);
 };
 
 export default plugin;
