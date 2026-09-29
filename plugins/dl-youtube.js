@@ -8,8 +8,8 @@ import path from "path";
 import { existsSync, promises } from "fs";
 import { updateUser } from "../database-functions.js";
 import { encolarDescarga } from "../lib/cola-descargas.js";
-import { gastarCoins, getSaldoCoins } from "../database-functions.js";
-import { COINS } from "../lib/urucoins.js";
+import { gastarCoins, getSaldoCoins, ganarCoins, movimientosHoy } from "../database-functions.js";
+import { COINS, monedasActivas } from "../lib/urucoins.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
@@ -126,7 +126,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       // So that "claudia, ¿de dónde es esta banda?" quoting it already knows which song it is (lib/audios.js).
       recordarAudioEnviado(enviado?.key?.id, candidato.title);
       await promises.unlink(finalPath).catch(() => {});
-      await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*`, quoted);
+      await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*${isAudio ? pagarMusica(chat, usuario) : ""}`, quoted);
       return true;
     } catch (error) {
       console.error(`[dl-youtube] excepción con "${candidato.title}" (${candidato.fuente}): ${error.message}`);
@@ -199,6 +199,16 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
     await fallar("❌ Ocurrió un error interno al procesar el pedido. Probá de nuevo más tarde.");
     return false;
   }
+}
+
+// Pays for putting music on in a group (nothing in private or with the economy off) and returns the line to add
+// to the "here you go" message ("" when there is nothing to say).
+export function pagarMusica(chat, usuario) {
+  if (!chat.endsWith("@g.us") || !usuario || !monedasActivas(chat)) return "";
+  if (movimientosHoy(chat, usuario, "musica") >= COINS.MUSICA_POR_DIA) return "";
+  ganarCoins(chat, usuario, COINS.MUSICA, "musica");
+  const quedan = COINS.MUSICA_POR_DIA - movimientosHoy(chat, usuario, "musica");
+  return `\n🪙 +${COINS.MUSICA} UruCoins por poner música${quedan > 0 ? ` (te quedan ${quedan} hoy)` : " (fue la última paga de hoy)"}.`;
 }
 
 async function buscarYoutube(query) {
