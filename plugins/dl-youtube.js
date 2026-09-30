@@ -13,6 +13,7 @@ import { COINS, monedasActivas } from "../lib/urucoins.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
+import { elegirAlAzar } from "../lib/azar.js";
 
 const execFileAsync = promisify(execFile);
 const ytDlpPath = path.resolve(RUTA_YT_DLP);
@@ -23,7 +24,7 @@ const plugin = {};
 plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
+plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetadata }) => {
   // .playya / .videoya: same as .play / .video, but if there's a queue it skips it by paying UruCoins.
   const saltarCooldown = /ya$/i.test(command);
   const cmdBase = command.toLowerCase().replace(/ya$/, "");
@@ -58,13 +59,14 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   updateUser(m.sender, { lastmining: Date.now(), commandAttempts: 0 });
   m.react("🕐");
 
+  const tipoPedido = cmdBase === "play" || cmdBase === "audio" ? "audio" : "video";
   const adelante = encolarDescarga(() =>
     descargarMultimedia({
       client,
       chat: m.chat,
       usuario: m.sender,
       texto: args.join(" "),
-      tipo: cmdBase === "play" || cmdBase === "audio" ? "audio" : "video",
+      tipo: tipoPedido,
       quoted: m,
       isOwner,
       esReintento: false,
@@ -72,7 +74,15 @@ plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   );
 
   if (adelante > 0) {
-    await client.sendText(m.chat, `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.`, m);
+    // The joke: in a group, the song is "in the cola" of someone picked at random (not the bot, not whoever asked).
+    const candidatos = m.isGroup ? (groupMetadata?.participants ?? []).map((v) => v.id).filter((id) => id !== client.user.lid && id !== m.sender) : [];
+    if (candidatos.length > 0) {
+      const victima = elegirAlAzar(candidatos);
+      const aviso = `⏳ Tu ${tipoPedido === "audio" ? "canción" : "descarga"} está en la cola de @${victima.split("@")[0]} 🍑\nHay ${adelante} antes que la tuya, ya te la mando bo.`;
+      await client.sendMessage(m.chat, { text: aviso, mentions: [victima] }, { quoted: m });
+    } else {
+      await client.sendText(m.chat, `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.`, m);
+    }
   }
 };
 
