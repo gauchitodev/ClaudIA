@@ -33,23 +33,117 @@ A su vez, [SawBot-MD](https://github.com/martinezanthony/SawBot-MD) está basado
 
 Node.js 22 o más nuevo · [Baileys](https://github.com/WhiskeySockets/Baileys) · better-sqlite3 · Gemini, con respaldo en Groq, OpenRouter, NVIDIA y Cerebras · yt-dlp · ffmpeg
 
-## Configuración
+## Instalación
 
-Copiá `config.example.toml` como `config.toml` y completá el número del bot, los owners y las API keys. La de Gemini es la que usa la charla. Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo, y cada proveedor se usa solo si tiene su key. `config.toml` está en `.gitignore` y nunca se sube.
+### Qué hace falta
 
-## Termux (Android)
+- **Node.js 22 o más nuevo** y npm.
+- **git**, para clonar y para actualizar.
+- **Python 3**: lo usa yt-dlp, y en Termux también hace falta para compilar better-sqlite3.
+- **ffmpeg**: stickers, efectos de audio, `.toimg` y la conversión de la música.
+- Un **número de WhatsApp para el bot**. Conviene que sea uno aparte y no el personal: si WhatsApp lo bloquea, se pierde ese número.
+- Una **API key de Gemini** (gratis en [Google AI Studio](https://aistudio.google.com/apikey)). Sin ella el bot anda, pero no charla.
 
-better-sqlite3 no trae binario precompilado para Android, así que npm lo compila al instalar, y node-gyp necesita el toolchain y una variable que Termux no define. Antes del `npm ci`:
+yt-dlp no se instala a mano: el bot lo baja solo a `bin/` la primera vez que arranca y lo actualiza todos los días a las 5 de la mañana.
+
+### 1. Paquetes del sistema
+
+En Termux (Android):
 
 ```sh
-pkg install python build-essential
+pkg update && pkg upgrade
+pkg install nodejs git python build-essential ffmpeg
+```
+
+En Linux (Arch, por ejemplo):
+
+```sh
+sudo pacman -S nodejs npm git python ffmpeg
+```
+
+### 2. Clonar e instalar dependencias
+
+```sh
+git clone https://github.com/gauchitodev/ClaudIA.git
+cd ClaudIA
+```
+
+En Termux, better-sqlite3 no trae binario precompilado para Android, así que npm lo compila al instalar, y node-gyp necesita una variable que Termux no define:
+
+```sh
 export GYP_DEFINES="android_ndk_path=''"
 npm ci
 ```
 
-Sin eso la instalación corta con un error de `android_ndk_path`. Por lo mismo better-sqlite3 se queda en la 12: la 13 no compiló en la tablet. Si algún día se sube, probar primero en Termux con esta receta.
+Sin esa variable la instalación corta con un error de `android_ndk_path`. En Linux alcanza con `npm ci`. La compilación en Termux tarda unos minutos.
 
-Los stickers, los efectos de audio y `.toimg` usan ffmpeg, que también se instala con pkg: `pkg install ffmpeg`.
+Por lo mismo better-sqlite3 se queda en la 12: la 13 no compiló en la tablet. Si algún día se sube, probar primero en Termux con esta receta.
+
+### 3. Configuración
+
+```sh
+cp config.example.toml config.toml
+nano config.toml
+```
+
+Lo mínimo:
+
+- `numberBot`: el número del bot con código de país, sin `+`, espacios ni guiones (por ejemplo `598991234567`). Si lo dejás vacío, el bot vincula con QR en vez de con código.
+- `owners`: tu número (y el de quien quieras), en el mismo formato. Los owners tienen todos los permisos.
+- `geminiApiKey`: la key de Gemini, que es la que usa la charla.
+
+Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo de la IA, y cada proveedor se usa solo si tiene su key. El resto es opcional y está explicado en el mismo archivo. `config.toml` está en `.gitignore` y nunca se sube.
+
+### 4. Primer arranque y vinculación
+
+```sh
+npm start
+```
+
+- **Con `numberBot` completo**, a los pocos segundos aparece `🔑 CÓDIGO DE VINCULACIÓN: XXXX-XXXX`. En el teléfono del bot: WhatsApp → Dispositivos vinculados → Vincular un dispositivo → *Vincular con el número de teléfono* y escribís el código.
+- **Con `numberBot` vacío**, aparece un QR en la terminal: se escanea desde el mismo menú, y hay 45 segundos para hacerlo.
+
+La sesión queda guardada en `botSession/` y no hay que volver a vincular. Si se cierra la sesión desde el teléfono, el bot borra esa carpeta y en el próximo arranque pide vincular de nuevo. **`botSession/` da acceso completo a la cuenta de WhatsApp: no la compartas ni la subas.**
+
+La base de datos se crea sola en `database/database.db`.
+
+### 5. Cookies de YouTube (opcional, pero recomendado)
+
+YouTube suele bloquear las descargas de servidores y teléfonos sin sesión. Con un `cookies.txt` de una cuenta real en la raíz del proyecto, `.play`, `.video` e Instagram andan mucho mejor. Se exporta desde el navegador con una extensión tipo *Get cookies.txt LOCALLY*, en formato Netscape, estando logueado en YouTube (y en Instagram, si se quiere). Mejor usar una cuenta secundaria: esas cookies equivalen a la contraseña de la sesión. Está en `.gitignore`.
+
+### 6. Dejarlo andando en segundo plano (Termux)
+
+Android duerme a Termux si no se le avisa. Lo que usamos en la tablet:
+
+1. `termux-wake-lock` para que no lo duerma, y en los ajustes de Android sacar a Termux de la optimización de batería.
+2. Arrancarlo con `nohup` para que siga aunque se cierre la sesión:
+
+   ```sh
+   nohup npm start >> ~/claudia.log 2>&1 &
+   ```
+
+3. Para que arranque solo al prender el teléfono, instalar la app **Termux:Boot** (de F-Droid, igual que Termux), abrirla una vez y crear `~/.termux/boot/arrancar`:
+
+   ```sh
+   #!/data/data/com.termux/files/usr/bin/sh
+   termux-wake-lock
+   sleep 60   # que se conecte el wifi antes que WhatsApp
+   cd ~/ClaudIA && nohup npm start >> ~/claudia.log 2>&1 &
+   ```
+
+   y darle permiso de ejecución con `chmod +x ~/.termux/boot/arrancar`.
+
+`npm start` corre `start-process.js`, que relanza el bot solo si se cae. Ojo con el log: tiene volcados de las claves de la sesión de Baileys, así que no lo compartas entero.
+
+### Actualizar
+
+```sh
+cd ~/ClaudIA
+git pull --ff-only
+npm ci   # solo si cambió package-lock.json (en Termux, con el GYP_DEFINES de arriba)
+```
+
+y reiniciar el bot: cortar el proceso de `main.js` alcanza, `start-process.js` lo vuelve a levantar con el código nuevo.
 
 ## Tests y lint
 
