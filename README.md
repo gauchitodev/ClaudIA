@@ -168,6 +168,7 @@ Esta es la foto de perfil que usamos para Claudia en WhatsApp:
 ## Related Projects
 
 - [ClaudIA-CS1.6](https://github.com/NicolasBentancur/ClaudIA-CS1.6), de [@NicolasBentancur](https://github.com/NicolasBentancur): plugin de Counter-Strike 1.6 (AMX Mod X) basado conceptualmente en este proyecto. Lleva a Claudia al chat del juego, con IA, economía en URU Coins, casino y ajedrez en la ventana MOTD.
+- [ClaudIA-Minecraft](https://github.com/gauchitodev/ClaudIA-Minecraft), de [@gauchitodev](https://github.com/gauchitodev): plugin de Paper más un servicio en Node que importa la personalidad, la IA, la trivia, el clima y la RAE de este repo. Lleva a Claudia al chat de un server de Minecraft Java, con música de YouTube que suena para todos sin mods, UruCoins propias y un lobby para elegir mapas.
 
 ## Nota
 
