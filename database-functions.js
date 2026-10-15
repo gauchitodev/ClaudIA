@@ -1015,6 +1015,11 @@ export function marcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
 }
 
+// Undoes marcarPeriodoCerrado, for an announcement marked before it went out whose send failed (lib/avisos-programados.js).
+export function desmarcarPeriodoCerrado(chat, tipo, periodo) {
+  db.prepare(`DELETE FROM periodos_cerrados WHERE chat = ? AND tipo = ? AND periodo = ?`).run(chat, tipo, periodo);
+}
+
 // The latest period of that type closed in a chat, or null. Weeks ("YYYY-MM-DD") and months ("YYYY-MM") sort as text.
 export function ultimoPeriodoCerrado(chat, tipo) {
   return db.prepare(`SELECT MAX(periodo) AS periodo FROM periodos_cerrados WHERE chat = ? AND tipo = ?`).get(chat, tipo)?.periodo || null;
@@ -1317,6 +1322,11 @@ export function guardarPreguntaDia(chat, fecha, pregunta, messageId) {
     `INSERT INTO preguntas_dia (chat, fecha, pregunta, messageId) VALUES (?, ?, ?, ?)
      ON CONFLICT(chat, fecha) DO UPDATE SET pregunta = excluded.pregunta, messageId = excluded.messageId`,
   ).run(chat, fecha, pregunta, messageId);
+}
+
+// Drops the day's mark when the question never went out (it's saved empty before it's generated), so it's tried again.
+export function borrarPreguntaDiaSinEnviar(chat, fecha) {
+  db.prepare(`DELETE FROM preguntas_dia WHERE chat = ? AND fecha = ? AND pregunta = ''`).run(chat, fecha);
 }
 
 export function preguntaDiaDe(chat, fecha) {
