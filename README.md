@@ -133,7 +133,7 @@ Android duerme a Termux si no se le avisa. Lo que usamos en la tablet:
 
    y darle permiso de ejecución con `chmod +x ~/.termux/boot/arrancar`.
 
-`npm start` corre `start-process.js`, que relanza el bot solo si se cae. Ojo con el log: tiene volcados de las claves de la sesión de Baileys, así que no lo compartas entero.
+`npm start` corre `start-process.js`, que relanza el bot solo si se cae. Si se cae apenas arranca (por ejemplo, con better-sqlite3 compilado para otra versión de Node después de un `pkg upgrade`), espera cada vez más entre intentos, hasta 5 minutos, para no llenar el log. Ojo con el log: tiene volcados de las claves de la sesión de Baileys, así que no lo compartas entero.
 
 ### Actualizar
 

@@ -671,11 +671,26 @@ export function updateUser(userId, data) {
 }
 
 // A person's data inside one particular group (users.inGroup), merged with whatever they already had.
+// It's the way to write inGroup: it reads the row as it is now and touches only the given fields. Writing back the
+// whole "user" handle-message read when the message arrived undid whatever changed meanwhile (a .silenciar or an .adv
+// given while that message was still being handled).
 export function updateUserInGroup(userId, chat, data) {
   const row = getUser(userId);
   if (!row) return false;
   const inGroup = { ...row.inGroup, [chat]: { ...(row.inGroup[chat] || {}), ...data } };
   return updateUser(userId, { inGroup: JSON.stringify(inGroup) });
+}
+
+// One more message from a person in a group (inGroup[chat].messageCount), counted over the row as it is now: two
+// messages from the same person handled at once each used to add one to the same old count. Returns the new total, or
+// null if the person has no row.
+export function sumarMensajeEnGrupo(userId, chat) {
+  const row = getUser(userId);
+  if (!row) return null;
+  const previo = row.inGroup[chat]?.messageCount;
+  const total = (typeof previo === "number" ? previo : 0) + 1;
+  updateUserInGroup(userId, chat, { messageCount: total });
+  return total;
 }
 
 // ===================== Warnings (.adv / .warn), per group =====================

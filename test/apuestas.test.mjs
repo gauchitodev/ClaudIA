@@ -87,6 +87,26 @@ test("mercados: crear, jugar, resolver a pozo, anular y vencer", () => {
   assert.match(M.textoListaMercados(G), /No hay mercados abiertos/);
 });
 
+test("mercados: una opción que es solo un número no se confunde con el número de opción", () => {
+  // "Goles | 0 | 1 | 2" and then ".resolver N 2" paid whoever bet on "1": the 2 was read as the second option.
+  assert.match(M.crearMercadoDesdeTexto(G, "admin", "Goles de Suárez | 0 | 1 | 2 | en 2h").error, /no pueden ser solo un número/);
+  const conPalabras = M.crearMercadoDesdeTexto(G, "admin", "Goles de Suárez | 0 goles | 1 gol | 2 goles | en 2h");
+  assert.ok(conPalabras.ok);
+  cargar("e", 100);
+  assert.match(M.jugar(G, "e", conPalabras.id, "2 goles", 10).mensaje, /\*2 goles\*/);
+  // A market opened before that was rejected: a number that can mean two different options is refused.
+  const viejo = F.crearMercado(G, "Goles", ["0", "1", "2"], Date.now() + 3600e3, "admin");
+  cargar("f", 100);
+  assert.match(M.jugar(G, "f", viejo, "2", 10).error, /puede ser la opción número 2 o la que se llama así/);
+  assert.equal(saldo("f"), 100, "no cobra la apuesta rechazada");
+  assert.match(M.jugar(G, "f", viejo, "0", 10).mensaje, /\*0\*/, "no hay opción número 0: es la que se llama 0");
+  F.actualizarMercado(viejo, { cierra_en: Date.now() - 1000 });
+  assert.match(M.resolver(G, "admin", viejo, "1").error, /no tiene vuelta/);
+  assert.equal(F.getMercado(viejo).estado, "abierto", "no lo resolvió");
+  assert.match(M.resolver(G, "admin", viejo, "anulado").texto, /anulado/);
+  assert.equal(saldo("f"), 100, "anulado, se devuelve todo");
+});
+
 // ---------- no bets on games ----------
 
 test("apuestas: en los juegos no se apuesta, solo en el casino", async () => {

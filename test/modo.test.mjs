@@ -74,3 +74,25 @@ test("modo: el perfil esconde la economía cuando está apagada", () => {
   assert.doesNotMatch(t, /UruCoins|laburo|racha/i);
   assert.match(t, /🌱 Nuevo/);
 });
+
+test("config: on y off fijan el interruptor, sin nada lo invierte, y otra palabra no lo toca", async () => {
+  // It used to flip whatever came after the command: ".casino on" with the casino on switched it off, and on/off is
+  // how the README, Claudia's manual and handle-message's own notice say to use it.
+  F.initDataDB(persona(111));
+  const correr = (command, args) => Config.run(msg, { client: globalThis.client, command, args, usedPrefix: ".", isOwner: false, isAdmin: true, chat: F.getChat(G), botSettings: {} });
+  F.updateChat(G, { casino: 1 });
+  await correr("casino", ["on"]);
+  assert.equal(F.getChat(G).casino, 1, ".casino on con el casino prendido lo apagaba");
+  assert.match(ultimo(), /Estado: Activado \(ya estaba así\)/);
+  await correr("casino", ["off"]);
+  assert.equal(F.getChat(G).casino, 0);
+  await correr("casino", ["OFF"]);
+  assert.equal(F.getChat(G).casino, 0, "off dos veces lo deja apagado");
+  await correr("casino", ["prender"]);
+  assert.equal(F.getChat(G).casino, 1);
+  await correr("casino", []);
+  assert.equal(F.getChat(G).casino, 0, "sin nada, lo invierte como siempre");
+  await correr("casino", ["mañana"]);
+  assert.equal(F.getChat(G).casino, 0, "una palabra que no es on ni off no toca nada");
+  assert.match(ultimo(), /Usá \.casino on o \.casino off/);
+});

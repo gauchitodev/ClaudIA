@@ -4,7 +4,11 @@ const plugin = {};
 plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings }) => {
+// The same words .iniciativa takes.
+const PRENDER = new Set(["on", "prender", "activar", "si", "sí"]);
+const APAGAR = new Set(["off", "apagar", "desactivar", "no"]);
+
+plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, isAdmin, chat, botSettings }) => {
   // Command map, with the real DB field
   const optionsMap = {
     antiestados: { key: "antiStatus", from: "chat" },
@@ -74,22 +78,29 @@ plugin.run = async (m, { client, command, isOwner, isAdmin, chat, botSettings })
     return client.sendText(m.chat, txt.onlyAdmin, m);
   }
 
-  // actualizar DB
-  let nuevoValor;
+  // "on" / "off" set the switch, and nothing after the command flips it. It used to flip whatever came after, so
+  // ".casino on" with the casino already on switched it off — and on/off is how the README, Claudia's manual and the
+  // casino's own notice (handle-message.js) tell people to use it. Any other word touches nothing: ".bc hola" used to
+  // ban the chat.
+  const nombreComando = command === "18" ? "modoadulto" : command;
+  const pedido = (args[0] || "").toLowerCase();
+  if (pedido && !PRENDER.has(pedido) && !APAGAR.has(pedido)) {
+    return client.sendText(m.chat, `Usá ${usedPrefix}${nombreComando} on o ${usedPrefix}${nombreComando} off (sin nada, lo invierte).`, m);
+  }
 
-  if (esChat) {
-    nuevoValor = !chat[opcion.key]; // valor actual invertido = nuevo
-    updateChat(m.chat, { [opcion.key]: nuevoValor });
-  } else if (esBot) {
-    nuevoValor = !botSettings[opcion.key];
-    updateSettings(client.user.lid, { [opcion.key]: nuevoValor });
+  // actualizar DB
+  const actual = Boolean(esChat ? chat[opcion.key] : botSettings[opcion.key]);
+  const nuevoValor = PRENDER.has(pedido) ? true : APAGAR.has(pedido) ? false : !actual;
+
+  if (nuevoValor !== actual) {
+    if (esChat) updateChat(m.chat, { [opcion.key]: nuevoValor });
+    else if (esBot) updateSettings(client.user.lid, { [opcion.key]: nuevoValor });
   }
 
   // confirmation message.
   const estado = nuevoValor ? "Activado" : "Desactivado";
-  const nombreComando = command === "18" ? "modoadulto" : command;
 
-  client.sendText(m.chat, `*⚙️ Configuración actualizada*\n\n• Opción: \`${nombreComando}\`\n• Estado: ${estado}`, m);
+  client.sendText(m.chat, `*⚙️ Configuración actualizada*\n\n• Opción: \`${nombreComando}\`\n• Estado: ${estado}${nuevoValor === actual ? " (ya estaba así)" : ""}`, m);
 };
 
 export default plugin;

@@ -1,16 +1,18 @@
-import { getUser, updateUser } from "../database-functions.js";
+import { getUser, updateUserInGroup } from "../database-functions.js";
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, user }) => {
   const who = m.mentionedJid?.[0] || m.quoted?.sender || m.sender;
-  const inGroup = user.inGroup[m.chat];
   if (user.banned) return;
 
-  if (inGroup.afk > -1) {
-    await client.sendText(m.chat, txt.afkOff(m.sender, inGroup.afkReason, inGroup.afk), null);
-    user.inGroup[m.chat].afk = -1;
-    user.inGroup[m.chat].afkReason = "";
-    updateUser(m.sender, { inGroup: JSON.stringify(user.inGroup) });
+  // Whoever was AFK and writes is back. Read and cleared over the row as it is now, and before the notice waits its
+  // turn (lib/envios.js): writing back the "user" read when the message arrived undid whatever changed in between (a
+  // .silenciar, an .adv), and a second quick message still saw the AFK and announced the return again.
+  const propio = getUser(m.sender)?.inGroup?.[m.chat];
+  if (propio?.afk > -1) {
+    updateUserInGroup(m.sender, m.chat, { afk: -1, afkReason: "" });
+    if (user.inGroup?.[m.chat]) Object.assign(user.inGroup[m.chat], { afk: -1, afkReason: "" });
+    await client.sendText(m.chat, txt.afkOff(m.sender, propio.afkReason, propio.afk), null);
   }
 
   if (who && who !== m.sender) {

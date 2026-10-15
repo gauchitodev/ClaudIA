@@ -1,4 +1,4 @@
-import { updateUser } from "../database-functions.js";
+import { updateUserInGroup } from "../database-functions.js";
 
 const plugin = {};
 plugin.cmd = ["afk"];
@@ -14,19 +14,9 @@ plugin.run = async (m, { client, text, args, user }) => {
     text = m.quoted.text;
   } else return;
 
-  const newInGroup = {
-    ...user.inGroup,
-    [m.chat]: {
-      ...user.inGroup[m.chat],
-      afk: Date.now(),
-      afkReason: text,
-    },
-  };
-
-  // actualizar datos de usuario
-  updateUser(m.sender, {
-    inGroup: JSON.stringify(newInGroup),
-  });
+  // Only these two fields, over the row as it is now: "user" was read when the message arrived, and writing it back
+  // whole undid whatever changed in between (a mute, a warning).
+  updateUserInGroup(m.sender, m.chat, { afk: Date.now(), afkReason: text });
   await client.sendText(m.chat, txt.afkSuccess(m.sender, text), m);
 };
 
