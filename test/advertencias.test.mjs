@@ -147,3 +147,22 @@ test("updateUser escribe encontrando la fila por número, y avisa si no hay ning
   assert.equal(F.updateUser("000@lid", { pushName: "nadie" }), false, "no finge haber guardado");
   F.updateUser("111@lid", { pushName: "Fulano" });
 });
+
+test("unwarn: nadie se saca sus propias advertencias, y un moderador no se las saca a otro moderador", async () => {
+  // Taking a warning away undoes a sanction, so it goes only from strictly above, like .adv.
+  for (const n of [300, 301]) {
+    F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: "" });
+    F.setRolGrupo(G, `${n}@lid`, "mod", "100@lid");
+    F.setAdvertencias(`${n}@lid`, G, 2);
+  }
+  const comoModerador = (text, mentionedJid) =>
+    Unwarn.run({ ...m(text, { mentionedJid }), sender: "300@lid" }, { client: globalThis.client, text, command: "unwarn", usedPrefix: ".", participants, isOwner: false, isWaAdmin: false });
+  await comoModerador("@300", ["300@lid"]);
+  assert.match(ultimo(), /Tus propias advertencias no te las podés sacar vos/);
+  await comoModerador("@301", ["301@lid"]);
+  assert.match(ultimo(), /No le puedo sacar la advertencia: es moderador/);
+  assert.deepEqual([F.advertenciasDe("300@lid", G), F.advertenciasDe("301@lid", G)], [2, 2]);
+  // A WhatsApp admin can.
+  await correr(Unwarn, "@301", { mentionedJid: ["301@lid"] });
+  assert.equal(F.advertenciasDe("301@lid", G), 1);
+});

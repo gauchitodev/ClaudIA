@@ -418,3 +418,24 @@ test("ruleta del ban: el anuncio sale antes de la expulsión, y si WhatsApp no d
   assert.deepEqual(lineas["ruleta-si@g.us"], [strings.ruletaDelBan("111@lid"), "fuera 111@lid"], "anuncio, expulsión, y nada más");
   assert.deepEqual(lineas["ruleta-no@g.us"], [strings.ruletaDelBan("111@lid"), "fuera 111@lid", "La ruleta eligió, pero WhatsApp no me dejó sacarlo (error 403)."]);
 });
+
+test(".del: con un rol del bot se borra solo hacia abajo; los admins de WhatsApp y los mensajes de Claudia, siempre", async () => {
+  const Del = (await import("../plugins/grupo-delete-message.js")).default;
+  F.initDataDB({ chat: G, sender: "400@lid", senderJid: "" });
+  F.setRolGrupo(G, "400@lid", "mod", "100@lid");
+  F.initDataDB({ chat: G, sender: "7070@lid", senderJid: `${globalThis.owners[0]}@s.whatsapp.net` }); // the bot's owner
+  const conAdmin = [...participants, { id: "888@lid", admin: "admin" }, { id: "7070@lid", admin: null }];
+  const borrar = async (autor, { fromMe = false, rango = { isWaAdmin: false } } = {}) => {
+    const borrados = [];
+    const msg = { chat: G, sender: "400@lid", isGroup: true, delete: async () => {}, quoted: { sender: autor, fromMe, delete: async () => borrados.push(autor) } };
+    await Del.run(msg, { client: globalThis.client, participants: conAdmin, isMod: true, isOwner: false, ...rango });
+    return borrados.length > 0;
+  };
+  assert.ok(await borrar("111@lid"), "un moderador borra a un miembro");
+  assert.ok(!(await borrar("888@lid")), "un moderador borraba a un admin de WhatsApp");
+  assert.match(ultimo(), /No lo puedo borrar: es admin del grupo/);
+  assert.ok(!(await borrar("7070@lid")), "un moderador borraba al dueño del bot");
+  assert.match(ultimo(), /No lo puedo borrar: es dueño del bot/);
+  assert.ok(await borrar("999@lid", { fromMe: true }), "los mensajes de Claudia los limpia cualquier moderador");
+  assert.ok(await borrar("888@lid", { rango: { isWaAdmin: true } }), "un admin de WhatsApp borra lo que sea");
+});

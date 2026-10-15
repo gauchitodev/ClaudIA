@@ -130,3 +130,12 @@ test("roles: el rango ordena dueño > admin de WhatsApp > admin del bot > modera
   assert.match(R.impedimentoParaModerar(G, { lid: "502@lid" }, { lid: "502@lid" }), /es moderador/);
   assert.match(R.impedimentoParaModerar(G, { lid: "100@lid", esAdminWhatsApp: true }, { lid: "444@lid", esAdminWhatsApp: true }), /\.demote/);
 });
+
+test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
+  const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
+  F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number
+  F.initDataDB({ chat: G, sender: "4242@lid", senderJid: numero }); // the same owner, now writing in a group by LID
+  assert.ok(F.esOwner("4242@lid"), "solo miraba la primera fila con ese número, la vieja");
+  assert.ok(F.esOwner(numero));
+  assert.ok(!F.esOwner("5555@lid"));
+});

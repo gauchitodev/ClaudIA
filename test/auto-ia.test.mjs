@@ -136,3 +136,37 @@ test("pedido a Claudia: responder a la pregunta de un juego no le habla a ella",
   assert.equal(otra.consultas, 1);
   assert.deepEqual(otra.textos, ["¡Es la C, Tokio!"]);
 });
+
+test("pedido a Claudia: con .banchat, en modo admin o a alguien baneado no contesta ni gasta cuota", async () => {
+  // This hook runs before handle-message's doors (banchat, admin mode, banned person), so it has to close them itself.
+  clasificacion = { comando: "ninguno", respuesta: "Acá estoy." };
+  const casos = [
+    ["el chat con .banchat", { ...MODERADOR, chat: { mentions: 1, isBanned: 1 } }],
+    ["la persona baneada", { ...MODERADOR, user: { banned: 1 } }],
+    ["modo admin sin rango", { isAdmin: false, isMod: false, chat: { mentions: 1, adminMode: 1 } }],
+  ];
+  for (const [caso, rango] of casos) {
+    const antes = consultasIA;
+    const { textos } = await pedir("claudia contame algo", rango);
+    assert.deepEqual(textos, [], `${caso}: le contestaba`);
+    assert.equal(consultasIA, antes, `${caso}: gastaba cuota`);
+  }
+  // In admin mode a moderator still gets an answer, like with the commands.
+  const { textos } = await pedir("claudia contame algo", { ...MODERADOR, chat: { mentions: 1, adminMode: 1 } });
+  assert.deepEqual(textos, ["Acá estoy."]);
+});
+
+test("pedido a Claudia: un .tagall bloqueado con .bladd tampoco sale pidiéndoselo a ella", async () => {
+  const F = await import("../database-functions.js");
+  F.addToChatBlacklist(C, "tagall");
+  try {
+    clasificacion = { comando: "tagall", respuesta: "Ahí van todos." };
+    const { textos } = await pedir("claudia arrobá a todos", { ...MODERADOR, chat: { mentions: 1, blacklistMode: 1 } });
+    assert.deepEqual(textos, ["Che, eso está bloqueado en este grupo."]);
+    // The owner skips the list, like with the command.
+    const delDueno = await pedir("claudia arrobá a todos", { ...MODERADOR, isOwner: true, chat: { mentions: 1, blacklistMode: 1 } });
+    assert.match(delDueno.textos[1], /@111 @555/);
+  } finally {
+    F.removeFromChatBlacklist(C, "tagall");
+  }
+});

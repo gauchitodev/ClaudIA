@@ -5,8 +5,11 @@ import { expulsar } from "../lib/identidad.js";
 // joining is handled by main.js through the participants event; this covers whoever was already inside when they
 // were listed, and whoever the bot couldn't recognize at that moment.
 const plugin = (m) => m;
-plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin }) => {
-  if (isRAdmin) return;
+plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmin, isOwner }) => {
+  // Group admins and the bot's owners can't be on a list (.ln refuses them), but .ln by number can't see who an
+  // unresolved number belongs to: a bot admin listed a WhatsApp admin that way, and this removed them as soon as they
+  // wrote. It only let the group's creator through.
+  if (isRAdmin || isWaAdmin || isOwner) return;
   if (!isBotAdmin) return;
   if (!m.isGroup) return;
   if (m.messageStubType) return;

@@ -895,8 +895,9 @@ export function esOwner(id) {
     if (!limpio) continue;
     const jid = `${limpio}@s.whatsapp.net`;
     if (id === jid) return true;
-    const fila = db.prepare(`SELECT lid FROM users WHERE jid = ?`).get(jid);
-    if (fila?.lid && id === fila.lid) return true;
+    // Any row with the owner's number and this id: the owner may have several (an old one keyed by the number, from
+    // before WhatsApp used LIDs, and the one with the LID), and taking just the first one stopped recognizing the LID.
+    if (db.prepare(`SELECT 1 FROM users WHERE jid = ? AND lid = ?`).get(jid, id)) return true;
   }
   return false;
 }

@@ -2,7 +2,7 @@ import { preguntarIA } from "../lib/ia.js";
 import { preguntarGemini } from "../lib/gemini.js";
 import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
-import { updateUser, registrarIntervencion } from "../database-functions.js";
+import { updateUser, registrarIntervencion, isCommandBlacklisted } from "../database-functions.js";
 import { recordarMensaje, olvidarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
@@ -86,6 +86,11 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // Automatic chat off in this group (.charla / .modo compraventa): Claudia only answers commands.
     if (chat?.charla === 0) return;
+
+    // The doors handle-message closes before any command, which this hook runs ahead of: a chat banned with .banchat,
+    // .modoadmin for whoever isn't a moderator, and a person banned from the bot. Claudia kept chatting there, spending
+    // quota, and a .tagall went out by asking her.
+    if (!isOwner && (chat?.isBanned || user?.banned || (m.isGroup && chat?.adminMode && !isMod))) return;
 
     if (!globalThis.geminiApiKey) return;
 
@@ -300,6 +305,11 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       const soloAdmins = Boolean(buscarPlugin(comando)?.onlyAdmin);
       if (!isOwner && !(soloAdmins ? isAdmin : isMod)) {
         await decir(soloAdmins ? "Che, eso lo puede pedir solo un admin del grupo." : "Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
+        return;
+      }
+      // Blocked in this group with .blon + .bladd: asking her is the same as typing the command.
+      if (chat?.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, comando)) {
+        await decir("Che, eso está bloqueado en este grupo.", m);
         return;
       }
     }

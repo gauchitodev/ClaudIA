@@ -263,3 +263,19 @@ test("lista de todos los grupos: si no está en ninguno, o WhatsApp no pasa los 
   assert.match(ultimo(), /WhatsApp no me pasó la lista de grupos, así que no lo saqué de ninguno/);
   assert.deepEqual(expulsiones, []);
 });
+
+test("a un admin de WhatsApp o a un dueño anotados no se los echa cuando escriben", async () => {
+  // .ln by number can't see whose number it is when the group doesn't send it: a bot admin listed a WhatsApp admin like
+  // that, and this hook removed them on their next message. It only let the group's creator through.
+  F.addToBlacklist("59899777777@s.whatsapp.net", "molesta", "555@s.whatsapp.net", G);
+  let borrado = false;
+  const m = mensaje({ sender: "777@lid", senderJid: "59899777777@s.whatsapp.net", messageStubType: null, delete: async () => (borrado = true) });
+  for (const rango of [{ isWaAdmin: true }, { isOwner: true }]) {
+    assert.equal(await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false, ...rango }), undefined);
+  }
+  assert.deepEqual(expulsiones, []);
+  assert.equal(borrado, false);
+  // Without admin, the same person is removed, as before.
+  assert.equal(await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false }), true);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["777@lid"], accion: "remove" }]);
+});
