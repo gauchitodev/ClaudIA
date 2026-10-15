@@ -133,6 +133,8 @@ Android duerme a Termux si no se le avisa. Lo que usamos en la tablet:
 
    y darle permiso de ejecución con `chmod +x ~/.termux/boot/arrancar`.
 
+4. Opcional, para ver la batería con `.bat` y en `.estado`: `pkg install termux-api` y la app **Termux:API**, también de F-Droid (cada fuente firma sus versiones distinto, así que tiene que venir del mismo lugar que Termux).
+
 `npm start` corre `start-process.js`, que relanza el bot solo si se cae. Si se cae apenas arranca (por ejemplo, con better-sqlite3 compilado para otra versión de Node después de un `pkg upgrade`), espera cada vez más entre intentos, hasta 5 minutos, para no llenar el log. Ojo con el log: tiene volcados de las claves de la sesión de Baileys, así que no lo compartas entero.
 
 ### Actualizar

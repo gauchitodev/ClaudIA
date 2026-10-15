@@ -82,7 +82,7 @@ ${readMore}
 ▸ ${usedPrefix}calificaciones @mención ⭐ – \`Lista numerada; con "borrar N" o "editar N 4 comentario" corregís una maliciosa.\`
 ▸ ${usedPrefix}conteo 🏆 – \`Ver los 10 que mas hablan en este grupo.\`
 ▸ ${usedPrefix}actividad 📊 – \`Cuánto se habla en el grupo y a qué hora, de los últimos 7 días.\`
-▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups.\`
+▸ ${usedPrefix}estado 🤖 – \`Estado del bot: conexión, IA, descargas, backups, batería.\`
 ▸ ${usedPrefix}economia [días] 🪙 – \`Panel de UruCoins: circulación, entradas y salidas por rubro.\`
 ▸ ${usedPrefix}ln @mención <motivo> 🚫 – \`Lista negra del grupo: no puede entrar acá (a admins no).\`
 ▸ ${usedPrefix}ln2 @mención ☑️ – \`Sacar de la lista negra del grupo.\`
@@ -237,6 +237,7 @@ ${readMore}
 ▸ ${usedPrefix}backup 🗄️ – \`Copia de la base y te la manda por privado.\`
 ▸ ${usedPrefix}enviados 🤖 – \`Cuánto mandé, por día, hora y tipo: en un grupo, ese grupo; con todo, el general.\`
 ▸ ${usedPrefix}podar 🗑️ – \`Borra el detalle por hora de más de 90 días (actividad y envíos del bot), en todos los grupos.\`
+▸ ${usedPrefix}bat 🔋 – \`Batería del teléfono o la tablet donde corre el bot (necesita Termux:API).\`
 ▸ ${usedPrefix}ajustar @mención 50 🪙 – \`Corrección de UruCoins a mano (negativo para sacar).\`
 ▸ ${usedPrefix}leave 👋🏻 – \`El bot se saldrá del grupo.\`
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

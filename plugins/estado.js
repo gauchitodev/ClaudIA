@@ -5,12 +5,15 @@ import { ultimoBackup, tamano } from "../lib/backup.js";
 import { duracion, textoFecha } from "../lib/tiempo.js";
 import { COOLDOWN_REINTENTO_MS } from "../lib/gemini.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
+import { leerBateria, estadoBateria } from "../lib/bateria.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client }) => {
+  // Started first so its wait (up to 8 s without Termux:API) overlaps the groups query below instead of adding to it.
+  const leyendoBateria = leerBateria();
   const ahora = Date.now();
   const conectada = globalThis.horaConexion ? duracion(ahora - globalThis.horaConexion) : "?";
 
@@ -47,6 +50,9 @@ plugin.run = async (m, { client }) => {
   const mensajes = chats.reduce((total, [, chat]) => total + Object.keys(chat?.messages || {}).length, 0);
   const enMemoria = `${chats.length} chats y contactos (${gruposEnMemoria} grupos) · ${mensajes} mensajes`;
 
+  const pila = await leyendoBateria;
+  const bateria = pila ? [`${pila.porcentaje}%`, estadoBateria(pila.estado), Number.isFinite(pila.temperatura) ? `${pila.temperatura.toFixed(1)} °C` : ""].filter(Boolean).join(" · ") : "no la pude leer (falta Termux:API)";
+
   const texto = [
     `🤖 *Claudia ${globalThis.botVersion}* · Node ${process.version}`,
     `⏱️ Encendida: ${duracion(process.uptime() * 1000)} · conectada: ${conectada}`,
@@ -58,6 +64,7 @@ plugin.run = async (m, { client }) => {
     `🗂️ Caché de grupos: ${cache}`,
     `🗃️ En memoria: ${enMemoria}`,
     `💾 Memoria: ${tamano(process.memoryUsage().rss)} · carga: ${os.loadavg()[0].toFixed(2)}`,
+    `🔋 Batería: ${bateria}`,
   ].join("\n");
   await client.sendText(m.chat, texto, m);
 };
