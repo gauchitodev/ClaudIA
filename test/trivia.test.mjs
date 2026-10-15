@@ -14,6 +14,16 @@ before(async () => {
 
 const PREGUNTA = { pregunta: "¿Cuál es la capital de Japón?", opciones: ["Osaka", "Kioto", "Tokio", "Hiroshima"], correcta: "c" };
 
+// A lightning trivia checks, when its time comes, that the group still has it on and that it's within its hours: here
+// it's switched on and launched at noon, so the test doesn't depend on the clock.
+async function lanzarRelampago(client, chat) {
+  F.initDataDB({ chat, sender: "y@lid", senderJid: "" });
+  F.updateChat(chat, { triviaRelampago: 1 });
+  const mediodia = new Date();
+  mediodia.setHours(12, 0, 0, 0);
+  return (await import("../lib/trivia-relampago.js")).lanzarTriviaRelampago(client, chat, mediodia);
+}
+
 test("trivia: el banco está limpio", () => {
   const preguntas = globalThis.BANCO.map((p) => p.pregunta);
   assert.equal(new Set(preguntas).size, preguntas.length, "sin repetidas");
@@ -110,9 +120,8 @@ test("trivia: una sola por grupo, aunque dos se pidan al mismo tiempo o llegue u
   assert.equal(Tr.rondaDe(G).tipo, "trivia");
 
   // the lightning one doesn't override an open trivia
-  const R = await import("../lib/trivia-relampago.js");
   const antes = globalThis.enviados.length;
-  await R.lanzarTriviaRelampago(client, G);
+  await lanzarRelampago(client, G);
   assert.equal(globalThis.enviados.length, antes, "no manda nada");
   assert.equal(Tr.rondaDe(G).tipo, "trivia");
 
@@ -186,7 +195,7 @@ test("trivia: una preparación que perdió su reserva no pisa la ronda que se ab
 // case where a launcher that doesn't hand over its own would take someone else's.
 for (const [nombre, envia, lanzar] of [
   [".trivia", "sendText", (client, chat) => plugin.run({ chat, sender: "y@lid", isGroup: true }, { client })],
-  ["la relámpago", "sendMessage", async (client, chat) => (await import("../lib/trivia-relampago.js")).lanzarTriviaRelampago(client, chat)],
+  ["la relámpago", "sendMessage", lanzarRelampago],
 ]) {
   test(`trivia: si ${nombre} pierde su reserva mientras se arma, no se queda con la del que llegó después`, async () => {
     const C = `tarde-${envia}@g.us`;

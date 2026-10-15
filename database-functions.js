@@ -229,9 +229,15 @@ export function loadDatabase() {
       datos TEXT NOT NULL,
       ejecutar_en INTEGER NOT NULL,
       estado TEXT DEFAULT "pendiente",
-      creado INTEGER NOT NULL
+      creado INTEGER NOT NULL,
+      intentos INTEGER DEFAULT 0
     )
   `);
+  // Migration: failed attempts, for pending tables that already exist (lib/pendientes.js retries a few times).
+  if (!db.prepare(`PRAGMA table_info(pendientes)`).all().some((c) => c.name === "intentos")) {
+    db.exec(`ALTER TABLE pendientes ADD COLUMN intentos INTEGER DEFAULT 0`);
+    console.log("🟢 Migración: columna 'intentos' agregada a pendientes");
+  }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pendientes_estado ON pendientes (estado, ejecutar_en)`);
 
@@ -1009,6 +1015,11 @@ export function marcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
 }
 
+// The latest period of that type closed in a chat, or null. Weeks ("YYYY-MM-DD") and months ("YYYY-MM") sort as text.
+export function ultimoPeriodoCerrado(chat, tipo) {
+  return db.prepare(`SELECT MAX(periodo) AS periodo FROM periodos_cerrados WHERE chat = ? AND tipo = ?`).get(chat, tipo)?.periodo || null;
+}
+
 // ===================== Inventory (UruCoins shop) =====================
 
 export function getItem(chat, usuario, item) {
@@ -1076,6 +1087,12 @@ export function tomarPendientesVencidos() {
 
 export function cerrarPendiente(id, estado = "hecho") {
   db.prepare(`UPDATE pendientes SET estado = ? WHERE id = ?`).run(estado, id);
+}
+
+// Back to waiting, to run at "ejecutarEn". "contarIntento" adds one to its failed attempts: a pass cut short by a
+// disconnection doesn't count as one.
+export function reprogramarPendiente(id, ejecutarEn, { contarIntento = true } = {}) {
+  db.prepare(`UPDATE pendientes SET estado = 'pendiente', ejecutar_en = ?, intentos = COALESCE(intentos, 0) + ? WHERE id = ?`).run(ejecutarEn, contarIntento ? 1 : 0, id);
 }
 
 // if the bot went down mid-run, those stay "running" forever: they go back to pending on startup

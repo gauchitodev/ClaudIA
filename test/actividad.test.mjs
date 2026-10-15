@@ -65,7 +65,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   mediodia.setHours(12, 0, 0, 0);
   assert.equal(T.programarTriviasDelDia(mediodia), 2);
   assert.equal(T.programarTriviasDelDia(mediodia), 0);
-  await T.lanzarTriviaRelampago(globalThis.client, G);
+  await T.lanzarTriviaRelampago(globalThis.client, G, mediodia);
   const lanzada = ultimoEnviado();
   assert.match(lanzada.msg.text, /^⚡ \*TRIVIA RELÁMPAGO\* — 15 UruCoins para el primero que acierte\n\n.+\nA\) /);
   const ronda = Tr.rondaDe(G);
@@ -81,7 +81,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n🪙 \+15 UruCoins\.$/);
   assert.equal(saldo("b"), 15);
   assert.equal(Tr.rondaDe(G), null);
-  await T.lanzarTriviaRelampago(globalThis.client, G);
+  await T.lanzarTriviaRelampago(globalThis.client, G, mediodia);
   await esperar(120);
   assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.$/);
 });

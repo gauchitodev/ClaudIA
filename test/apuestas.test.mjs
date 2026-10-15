@@ -1,7 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
-import { prepararBase, G, fijarSaldo } from "./helpers.mjs";
-import { semanaDe } from "../lib/hashtags.js";
+import { prepararBase, G, fijarSaldo, clienteFalso } from "./helpers.mjs";
+import { semanaDe, semanasAnteriores, semanaEnTexto } from "../lib/hashtags.js";
 
 let F, L, M, T;
 before(async () => {
@@ -47,6 +47,33 @@ test("lotería: boletos, tope, sorteo ponderado y devolución", () => {
   assert.equal(saldo("c"), 50);
   db.prepare(`DELETE FROM loteria_boletos`).run();
   assert.equal(L.sortearLoteria(G, semana), null);
+});
+
+test("lotería: una semana sin un solo mensaje no deja sin sortear la anterior", async () => {
+  // The draw waits for the group's first message of the next week, and only the previous week used to be closed: with a
+  // quiet week in between (or the bot down), the one before it was never drawn nor refunded.
+  const Cierres = (await import("../plugins/_cierres-periodicos.js")).default;
+  const C = "cierres@g.us";
+  const miercoles = new Date(2026, 9, 21, 12, 0).getTime(); // this week started on Monday the 19th
+  const [quieta, conBoletos, yaCerrada] = semanasAnteriores(miercoles, 3); // the weeks of the 12th, the 5th and 28/9
+  assert.equal(semanaEnTexto(quieta, miercoles), "la semana pasada");
+  F.marcarPeriodoCerrado(C, "loteria", yaCerrada); // closed by the group's first message in the week of the 5th
+  F.agregarBoletosLoteria(C, conBoletos, "a", 3);
+  F.agregarBoletosLoteria(C, conBoletos, "b", 1);
+  L._rng.randomInt = () => 0; // the first ticket belongs to "a"
+  const antes = F.getSaldoCoins(C, "a");
+  const client = clienteFalso();
+  const reloj = Date.now;
+  Date.now = () => miercoles; // the first message after the quiet week
+  try {
+    await Cierres.before({ chat: C, isGroup: true }, { client });
+  } finally {
+    Date.now = reloj;
+  }
+  const textos = globalThis.enviados.map((e) => e.msg.text);
+  assert.ok(textos.some((t) => /^🎟️ \*LOTERÍA DE LA SEMANA DEL 5\/10\*/.test(t) && /Ganó @a/.test(t)), `no se sorteó: ${JSON.stringify(textos)}`);
+  assert.equal(F.getSaldoCoins(C, "a") - antes, 40);
+  assert.ok(F.periodoCerrado(C, "loteria", conBoletos) && F.periodoCerrado(C, "loteria", quieta));
 });
 
 test("mercados: crear, jugar, resolver a pozo, anular y vencer", () => {
