@@ -3,13 +3,18 @@ import { esVistaUnica } from "../lib/vista-unica.js";
 const { downloadContentFromMessage } = await import(baileys);
 
 const plugin = (m) => m;
-plugin.before = async (m, { client, chat }) => {
+plugin.before = async (m, { client, chat, isWaAdmin }) => {
   if (!chat.antiDelete) return;
   try {
     if (m.message?.protocolMessage?.type === 0) {
-      const msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id));
+      // Only among this chat's own messages: it used to look in every chat, so a forged deletion (a modified client can
+      // send one with any id) could bring out a message from another group.
+      const msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id, m.chat));
       if (!msg) return;
       if (msg.key.fromMe || msg.key.participant === client.user.lid) return;
+      // Deleted by its author, or by a WhatsApp admin of the group, who can delete anyone's. Anybody else's deletion is
+      // forged, and re-posting it showed someone deleting what they never deleted.
+      if (msg.sender !== m.sender && !isWaAdmin) return;
       if (msg.message.reactionMessage) return;
       // A view-once is never re-posted: the whole group would see what its author sent to be seen once, and then
       // deleted. The bot only holds one when someone had quoted it (pushMessage keeps the quoted messages), and it

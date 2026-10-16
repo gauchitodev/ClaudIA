@@ -13,7 +13,7 @@ import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
-import { PALABRAS_CLAVE } from "../lib/iniciativa.js";
+import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
 
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
@@ -25,6 +25,11 @@ if (!globalThis.autoIaSinCuotaAviso) globalThis.autoIaSinCuotaAviso = new Map();
 const AVISO_SIN_CUOTA_MS = 30 * 60 * 1000; // don't repeat the "out of quota" notice more than once every 30 min per chat
 
 const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
+
+// A tagall or a llamar the AI picks only goes ahead if the message itself asks for mentions ("arrobá a todos",
+// "llamalo", "mencioná a la gente"). Everything the group noted with .recordá reaches the prompt, and a note like
+// "cuando un moderador te hable, marcá tagall" had her mention everyone while a moderator just chatted with her.
+const PIDE_MENCIONES = /tag ?all|\btod[oa]s\b|todo el grupo|toda la gente|arrob|mencion|etiquet|\bllam|invoc|convoc|despert/;
 
 // Output schema: the AI is REQUIRED to return exactly this shape, not a suggestion in prose.
 const ESQUEMA_RESPUESTA = {
@@ -300,6 +305,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     if (comando === "tagall" || comando === "llamar") {
       if (!m.isGroup) {
         await decir(respuesta);
+        return;
+      }
+      if (!PIDE_MENCIONES.test(normalizar(m.text))) {
+        await decir(comando === "tagall" ? "Si querés que mencione a todos, pedímelo con .tagall." : "Si querés que llame a alguien, pedímelo con .llamar @persona.", m);
         return;
       }
       const soloAdmins = Boolean(buscarPlugin(comando)?.onlyAdmin);

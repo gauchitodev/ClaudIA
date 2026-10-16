@@ -55,6 +55,24 @@ test("cumpleaños", async () => {
   assert.match(ultimoEnviado().msg.text, /@598/);
 });
 
+test("cumpleaños del 29/02: en los años sin 29 se festeja el 28", async () => {
+  // They were only greeted in leap years, and .cumples said "¡es hoy!" on 1 March.
+  assert.equal(C.diasHasta(29, 2, new Date(2027, 1, 28)), 0, "2027 no tiene 29 de febrero");
+  assert.equal(C.diasHasta(29, 2, new Date(2027, 2, 1)), 365, "el 1/3 ya falta para el de 2028");
+  assert.equal(C.diasHasta(29, 2, new Date(2028, 1, 28)), 1, "2028 sí lo tiene");
+  const Z = "bisiesto@g.us";
+  assert.ok(C.registrarCumple(Z, "2902@lid", "29/02").ok);
+  C.CUMPLE.HORA_SALUDO = 0;
+  const saludos = async (fecha) => {
+    const antes = globalThis.enviados.length;
+    await C.chequearCumpleanos(fecha);
+    return globalThis.enviados.slice(antes).filter((e) => e.chat === Z).length;
+  };
+  assert.equal(await saludos(new Date(2027, 1, 28, 12)), 1, "2027: el 28");
+  assert.equal(await saludos(new Date(2028, 1, 28, 12)), 0, "2028: el 28 todavía no");
+  assert.equal(await saludos(new Date(2028, 1, 29, 12)), 1, "2028: el 29");
+});
+
 test("backup con la copia real de SQLite, rotación y envío semanal", async () => {
   const archivo = await B.hacerBackup();
   assert.ok(fs.existsSync(archivo) && !fs.existsSync(`${archivo}.tmp`));

@@ -208,7 +208,7 @@ test("los demás comandos que toman un archivo citado respetan la misma regla", 
 
 test("anti-delete: un ver una vez borrado no se repostea; un mensaje normal, sí", async () => {
   const A = plugins["_anti-delete-messages"];
-  const borrado = { chat: G, message: { protocolMessage: { type: 0, key: { id: "VO1" } } } };
+  const borrado = { chat: G, sender: "beto@lid", message: { protocolMessage: { type: 0, key: { id: "VO1" } } } }; // its author deletes it
   // How pushMessage keeps a quoted message: a JSON copy under its stanzaId.
   const guardado = (message) => ({ key: { remoteJid: G, fromMe: false, id: "VO1", participant: "beto@lid" }, message: JSON.parse(JSON.stringify(message)) });
   for (const [nombre, citado] of Object.entries(FORMATOS)) {
