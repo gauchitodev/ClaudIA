@@ -38,3 +38,11 @@ test(".estado dice qué modelo de Gemini está en pausa por cuota y cuánto le f
     globalThis.geminiEnPausa.clear();
   }
 });
+
+test(".estado dice con qué zona horaria anda el bot", async () => {
+  const client = globalThis.client;
+  client.groupFetchAllParticipating = async () => ({});
+  await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+  const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  assert.match(ultimoEnviado().msg.text.split("\n")[0], new RegExp(` · Node v[\\d.]+ · ${zona.replaceAll("/", "\\/").replaceAll("+", "\\+")}$`));
+});

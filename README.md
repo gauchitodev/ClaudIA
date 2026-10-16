@@ -94,6 +94,8 @@ Lo mínimo:
 
 Las de Groq, OpenRouter, NVIDIA y Cerebras son el respaldo de la IA, y cada proveedor se usa solo si tiene su key. El resto es opcional y está explicado en el mismo archivo. `config.toml` está en `.gitignore` y nunca se sube.
 
+Los horarios del bot (la trivia, la pregunta del día, los cumpleaños, los cierres) van con la hora de Uruguay (`America/Montevideo`). Para usar otra zona, definí `TZ` en el entorno antes de arrancarlo; `.estado` muestra la que está usando.
+
 ### 4. Primer arranque y vinculación
 
 ```sh

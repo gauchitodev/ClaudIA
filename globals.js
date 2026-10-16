@@ -2,6 +2,11 @@ import strings from "./lib/strings.js";
 import fs from "fs";
 import toml from "@iarna/toml";
 
+// The bot's clock is Uruguay's unless the environment sets TZ: the daily rounds, the trivia window, the birthdays and
+// the weekly and monthly closings all go by the process's time zone, and nothing used to set it, so it was whatever
+// the tablet's environment handed Node. Setting it at runtime resets Node's time zone cache (since v13).
+process.env.TZ ||= "America/Montevideo";
+
 // Load and parse config.toml
 let config = {};
 try {

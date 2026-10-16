@@ -54,7 +54,7 @@ plugin.run = async (m, { client }) => {
   const bateria = pila ? [`${pila.porcentaje}%`, estadoBateria(pila.estado), Number.isFinite(pila.temperatura) ? `${pila.temperatura.toFixed(1)} °C` : ""].filter(Boolean).join(" · ") : "no la pude leer (falta Termux:API)";
 
   const texto = [
-    `🤖 *Claudia ${globalThis.botVersion}* · Node ${process.version}`,
+    `🤖 *Claudia ${globalThis.botVersion}* · Node ${process.version} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
     `⏱️ Encendida: ${duracion(process.uptime() * 1000)} · conectada: ${conectada}`,
     `🧠 IA: ${ia}`,
     `📥 Descargas: ${descargas}`,

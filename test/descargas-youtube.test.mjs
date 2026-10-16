@@ -10,7 +10,7 @@ import strings from "../lib/strings.js";
 
 let F, D, COINS;
 const YO = "yo@lid";
-let resultados = []; // what the YouTube search finds: [{ title, id }]
+let resultados = []; // what the YouTube search finds: [{ title, id, thumbnail? }]
 let bajadaFalla = false;
 const logReal = console.log;
 const errorReal = console.error;
@@ -24,11 +24,14 @@ before(async () => {
   F.initDataDB({ chat: G, sender: YO, senderJid: "", pushName: "Yo" });
   D = await import("../plugins/dl-youtube.js");
   ({ COINS } = await import("../lib/urucoins.js"));
-  // Searches answer title, url, thumbnail and id per result (nothing on SoundCloud); a download creates the file it
-  // was asked for with -o, or fails the way YouTube does.
+  // Searches answer a JSON line per result (nothing on SoundCloud); a download creates the file it was asked for
+  // with -o, or fails the way YouTube does.
   D._dep.ejecutar = async (bin, args) => {
     if (args[0].startsWith("scsearch")) return { stdout: "", stderr: "" };
-    if (args[0].startsWith("ytsearch")) return { stdout: resultados.flatMap((r) => [r.title, `https://www.youtube.com/watch?v=${r.id}`, "NA", r.id]).join("\n"), stderr: "" };
+    if (args[0].startsWith("ytsearch")) {
+      const lineas = resultados.map((r) => JSON.stringify({ title: r.title, webpage_url: `https://www.youtube.com/watch?v=${r.id}`, thumbnail: r.thumbnail ?? null, id: r.id }));
+      return { stdout: lineas.join("\n"), stderr: "" };
+    }
     if (bajadaFalla) return { stdout: "", stderr: "ERROR: Sign in to confirm you're not a bot" };
     fs.writeFileSync(args[args.indexOf("-o") + 1].replace("%(ext)s", "m4a"), "audio");
     return { stdout: "", stderr: "" };
@@ -99,4 +102,32 @@ test("si el ✅ no sale, el tema ya se mandó: no baja otro ni paga dos veces", 
   assert.equal(await D.descargarMultimedia({ client, chat: G, usuario: YO, texto: "cielito lindo", tipo: "audio" }), true);
   assert.equal(globalThis.enviados.filter((e) => e.msg?.audio).length, 1, "un solo audio");
   assert.equal(F.getSaldoCoins(G, YO), COINS.MUSICA, "una sola paga por la música");
+});
+
+// The searches used to print four lines per result, read by position: a title with a line break moved the fields up,
+// and whatever landed in the thumbnail's place went to sendFile, which reads any local file that exists.
+test("búsquedas: un resultado por línea JSON, y el link y la miniatura solo valen si son https", () => {
+  const salida = [
+    "WARNING: [soundcloud] algo",
+    JSON.stringify({ title: "Tema\nfalso", webpage_url: "https://soundcloud.com/a/b", thumbnail: "config.toml", id: "1" }),
+    JSON.stringify({ title: "Otro", webpage_url: "config.toml", thumbnail: "https://i1.sndcdn.com/x.jpg", id: "2" }),
+    JSON.stringify({ title: "Bien", webpage_url: "https://soundcloud.com/c/d", thumbnail: "https://i1.sndcdn.com/y.jpg", id: "3" }),
+    "{roto",
+  ].join("\n");
+  assert.deepEqual(D.parsearResultados(salida, "soundcloud"), [
+    { title: "Tema falso", url: "https://soundcloud.com/a/b", thumbnail: "", fuente: "soundcloud" },
+    { title: "Bien", url: "https://soundcloud.com/c/d", thumbnail: "https://i1.sndcdn.com/y.jpg", fuente: "soundcloud" },
+  ]);
+  const deYoutube = JSON.stringify({ title: "T", webpage_url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", thumbnail: "config.toml", id: "aaaaaaaaaaa" });
+  assert.equal(D.parsearResultados(deYoutube, "youtube")[0].thumbnail, "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg", "YouTube: la .jpg sacada del id");
+});
+
+test("el aviso de envío no le pasa a sendFile nada que no sea un link", async () => {
+  fs.writeFileSync("config.toml", 'geminiApiKey = "secreta"'); // in the test's temp folder, not the repo's
+  resultados = [{ title: "Tema raro", id: "corto", thumbnail: "config.toml" }]; // not an 11-character id: the field is used
+  const antes = globalThis.enviados.length;
+  await D.descargarMultimedia({ client: globalThis.client, chat: G, usuario: YO, texto: "tema raro", tipo: "audio" });
+  const nuevos = globalThis.enviados.slice(antes);
+  assert.ok(!nuevos.some((e) => "archivo" in e), "sendFile no se usó");
+  assert.match(nuevos[0].msg.text, /^Tema raro\n/, "el aviso salió como texto");
 });

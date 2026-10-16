@@ -1,14 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import { descargar, bajarYEnviar, textoDescarga, esTikTok, esInstagram, YTDLP, _dep } from "../lib/ytdlp.js";
 
 YTDLP.PAUSA_MS = 1;
 _dep.esperar = async () => {};
 
-// a fake yt-dlp: it creates the file it was asked for with -o and answers with the after_move line.
-const ytDlpFalso = ({ fallosAntes = 0, ext = "mp4", salida = "", stderrPesado = false } = {}) => {
+// a fake yt-dlp: it creates the file it was asked for with -o and answers with the after_move line, a JSON object
+// ("datos" overrides its fields).
+const ytDlpFalso = ({ fallosAntes = 0, ext = "mp4", salida = "", stderrPesado = false, datos = {} } = {}) => {
   let llamadas = 0;
   const fn = async (bin, args) => {
     llamadas++;
@@ -18,9 +21,12 @@ const ytDlpFalso = ({ fallosAntes = 0, ext = "mp4", salida = "", stderrPesado = 
     const plantilla = args[args.indexOf("-o") + 1];
     const archivo = plantilla.replace("%(ext)s", ext);
     fs.writeFileSync(archivo, "contenido");
-    return { stdout: `[info] bajando\n${salida}tiktok\tUn título\t80\t${archivo}\n`, stderr: "" };
+    fn.creados.push(archivo);
+    const linea = JSON.stringify({ uploader: "tiktok", title: "Un título", duration: 80, filepath: archivo, ...datos });
+    return { stdout: `[info] bajando\n${salida}${linea}\n`, stderr: "" };
   };
   fn.llamadas = () => llamadas;
+  fn.creados = [];
   return fn;
 };
 
@@ -92,6 +98,29 @@ test("ytdlp: manda video o imagen con el título, limpia el temporal y avisa si 
   assert.match(ultimoEnviado().msg.text, /pesa más de 60 MB/);
 
   assert.equal(textoDescarga("ok", { titulo: "x".repeat(200), autor: "" }), `ok\n*${"x".repeat(119)}…*`);
+});
+
+test("ytdlp: los datos van en JSON: tabulaciones o saltos de línea no los corren, y solo vale el archivo pedido", async () => {
+  // They went tab-separated: a title with a line break broke the line (the download "left no file"), and an uploader
+  // or a title with tabs could make any existing file pass for the download, which was then sent and deleted.
+  _dep.ejecutar = ytDlpFalso({ datos: { uploader: "a\tb", title: "Primera línea\nsegunda\tlínea" } });
+  const r = await descargar("https://www.tiktok.com/@a/video/4");
+  fs.unlinkSync(r.archivo);
+  assert.deepEqual({ autor: r.autor, titulo: r.titulo }, { autor: "a b", titulo: "Primera línea segunda línea" });
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-ajeno-"));
+  const ajeno = path.join(dir, "config.toml");
+  fs.writeFileSync(ajeno, 'geminiApiKey = "secreta"');
+  _dep.ejecutar = ytDlpFalso({ datos: { filepath: ajeno } });
+  const m = { chat: "grupo@g.us", sender: "a@lid", react() {} };
+  try {
+    assert.equal(await bajarYEnviar({ client: clienteFalso(), m, url: "https://www.tiktok.com/@a/video/5", textoExito: "✅", textoError: "❌ no pude" }), false);
+    assert.equal(ultimoEnviado().msg.text, "❌ no pude", "no lo manda");
+    assert.ok(fs.existsSync(ajeno), "ni lo borra");
+  } finally {
+    for (const f of _dep.ejecutar.creados) fs.rmSync(f, { force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("ytdlp: se actualiza una vez por día a la hora configurada", async () => {

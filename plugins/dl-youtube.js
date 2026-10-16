@@ -174,7 +174,8 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
         // The "sending" notice quotes the request (it used to quote a fake contact that showed up as "WhatsApp · Status").
         // On automatic retries there is no request to quote, so it goes without one.
         const aviso = txt.sendPreview(isAudio, candidato.title);
-        if (candidato.thumbnail) {
+        // Only a link: sendFile reads any local file that exists (see parsearResultados).
+        if (esHttps(candidato.thumbnail)) {
           await client.sendFile(chat, candidato.thumbnail, null, aviso, quoted).catch(() => client.sendText(chat, aviso, quoted));
         } else {
           await client.sendText(chat, aviso, quoted);
@@ -242,7 +243,7 @@ export function pagarMusica(chat, usuario) {
 
 async function buscarYoutube(query) {
   try {
-    const { stdout } = await _dep.ejecutar(ytDlpPath, [`ytsearch3:${query}`, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
+    const { stdout } = await _dep.ejecutar(ytDlpPath, [`ytsearch3:${query}`, ...cookiesArgs, "--print", CAMPOS_RESULTADO, "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
     return parsearResultados(stdout, "youtube");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en YouTube falló: ${error.message}`);
@@ -252,7 +253,7 @@ async function buscarYoutube(query) {
 
 async function buscarSoundcloud(query) {
   try {
-    const { stdout } = await _dep.ejecutar(ytDlpPath, [`scsearch5:${query}`, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
+    const { stdout } = await _dep.ejecutar(ytDlpPath, [`scsearch5:${query}`, "--print", CAMPOS_RESULTADO, "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
     return parsearResultados(stdout, "soundcloud");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en SoundCloud falló: ${error.message}`);
@@ -260,14 +261,25 @@ async function buscarSoundcloud(query) {
   }
 }
 
-function parsearResultados(stdout, fuente) {
-  const lineas = stdout.trim().split("\n").filter(Boolean);
+// Each result as one line of JSON with only these fields (yt-dlp's output template: %(.{...})j). It used to be four
+// lines per result read by position, so a title with a line break in it moved the next fields up: whatever landed
+// where the thumbnail goes was handed to sendFile, which reads any local file that exists, config.toml included.
+const CAMPOS_RESULTADO = "%(.{title,webpage_url,thumbnail,id})j";
+const esHttps = (v) => typeof v === "string" && /^https:\/\//i.test(v);
+
+export function parsearResultados(stdout, fuente) {
   const resultados = [];
-  for (let i = 0; i < lineas.length; i += 4) {
-    const title = lineas[i];
-    const url = lineas[i + 1];
-    let thumbnail = lineas[i + 2] || "";
-    const id = lineas[i + 3] || "";
+  for (const linea of String(stdout).split("\n")) {
+    let r;
+    try {
+      r = JSON.parse(linea);
+    } catch {
+      continue;
+    }
+    const title = typeof r?.title === "string" ? r.title.replace(/\s+/g, " ").trim() : "";
+    const url = esHttps(r?.webpage_url) ? r.webpage_url : "";
+    let thumbnail = esHttps(r?.thumbnail) ? r.thumbnail : "";
+    const id = typeof r?.id === "string" ? r.id : "";
     // YouTube usually returns the thumbnail as .webp, and sendFile sends any .webp as a sticker (losing the caption).
     // The .jpg version of the thumbnail always exists, derived from the video ID.
     if (fuente === "youtube" && /^[\w-]{11}$/.test(id)) thumbnail = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
