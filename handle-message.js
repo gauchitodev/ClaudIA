@@ -5,6 +5,7 @@ import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
+import { registrarUso } from "./lib/usos.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -224,7 +225,9 @@ export async function handleMessage(nMsg) {
         continue;
       }
 
-      // Run the command plugin if the command matched one.
+      // Run the command plugin if the command matched one. The use is counted here, once (lib/usos.js): before running,
+      // because a command that then fails was still used, and two plugins sharing it are a single use.
+      if (!corrioAlguno) registrarUso(m.chat, command);
       corrioAlguno = true;
       await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
     }

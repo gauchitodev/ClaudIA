@@ -199,5 +199,5 @@ test(".podar saca el detalle viejo y deja el reciente", async () => {
   await Podar.run({ chat: P, isGroup: true }, { client: globalThis.client });
   assert.match(ultimoEnviado().msg.text, /Podé 1 fila de actividad por hora/);
   await Podar.run({ chat: P, isGroup: true }, { client: globalThis.client });
-  assert.match(ultimoEnviado().msg.text, /No había actividad por hora ni envíos del bot de más de 90 días/);
+  assert.match(ultimoEnviado().msg.text, /No había actividad por hora, envíos del bot ni usos de comandos de más de 90 días/);
 });

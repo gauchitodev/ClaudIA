@@ -325,6 +325,18 @@ export function loadDatabase() {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_envios_bot_fecha ON envios_bot (fecha)`);
+  // The commands people use (lib/usos.js), by chat, day and command as typed: what the menu's "lo más usado" and .usos
+  // are built from. Private chats share a single "privado" row, like envios_bot.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usos_comandos (
+      chat TEXT NOT NULL,
+      fecha TEXT NOT NULL,
+      comando TEXT NOT NULL,
+      usos INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, fecha, comando)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_usos_comandos_fecha ON usos_comandos (fecha)`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS rachas (
       chat TEXT NOT NULL,
@@ -1304,6 +1316,37 @@ export function primerDiaEnviosBot(chat = null) {
 
 export function podarEnviosBot(antesDe) {
   return db.prepare(`DELETE FROM envios_bot WHERE fecha < ?`).run(antesDe).changes;
+}
+
+// ---------- the commands people use (lib/usos.js) ----------
+export function sumarUsoComando(chat, fecha, comando) {
+  db.prepare(`INSERT INTO usos_comandos (chat, fecha, comando, usos) VALUES (?, ?, ?, 1) ON CONFLICT(chat, fecha, comando) DO UPDATE SET usos = usos + 1`).run(chat, fecha, comando);
+}
+
+// Uses per command over the given days, most used first. With a chat, only that one; with null, every group together,
+// and private chats too only if asked for (the menu falls back on what groups use; .usos in private shows everything).
+export function usosPorComando(chat, fechas, { conPrivados = false } = {}) {
+  if (!fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  const filtro = chat ? "chat = ? AND " : conPrivados ? "" : "chat != 'privado' AND ";
+  return db.prepare(`SELECT comando, SUM(usos) AS total FROM usos_comandos WHERE ${filtro}fecha IN (${marcas}) GROUP BY comando ORDER BY total DESC, comando ASC`).all(...(chat ? [chat] : []), ...fechas);
+}
+
+// Uses per chat over the given days ("privado" included), most first.
+export function usosPorChat(fechas) {
+  if (!fechas.length) return [];
+  const marcas = fechas.map(() => "?").join(", ");
+  return db.prepare(`SELECT chat, SUM(usos) AS total FROM usos_comandos WHERE fecha IN (${marcas}) GROUP BY chat ORDER BY total DESC`).all(...fechas);
+}
+
+// The first day anything was counted (in a chat, or anywhere with null), or null.
+export function primerDiaUsos(chat = null) {
+  const fila = chat ? db.prepare(`SELECT MIN(fecha) AS fecha FROM usos_comandos WHERE chat = ?`).get(chat) : db.prepare(`SELECT MIN(fecha) AS fecha FROM usos_comandos`).get();
+  return fila?.fecha || null;
+}
+
+export function podarUsosComandos(antesDe) {
+  return db.prepare(`DELETE FROM usos_comandos WHERE fecha < ?`).run(antesDe).changes;
 }
 
 export function getRacha(chat, usuario) {
