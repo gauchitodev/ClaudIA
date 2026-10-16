@@ -1,4 +1,8 @@
-import { elegirAlAzar } from "../lib/azar.js";
+import { mezclar } from "../lib/azar.js";
+import { bajarImagen } from "../lib/descarga-segura.js";
+
+// Results tried, at random, until one comes down: links that died or that don't lead to an image are common.
+const INTENTOS = 3;
 
 const plugin = {};
 plugin.cmd = ["imagen", "foto", "imágen"];
@@ -66,11 +70,16 @@ plugin.run = async (m, { client, text, isOwner, chat }) => {
 
     if (resultados.length === 0) return client.sendText(m.chat, "No hubo resultados", m);
 
-    // pick one at random
-    const elegido = elegirAlAzar(resultados);
-
-    // enviar imagen
-    await client.sendFile(m.chat, elegido.url, "img.jpg", `*Resultado de:* ${text}`, m);
+    // The image is downloaded here, not handed to sendFile as a link: its fetch followed redirects anywhere, the
+    // house's network included (lib/descarga-segura.js).
+    for (const elegido of mezclar(resultados).slice(0, INTENTOS)) {
+      const imagen = await bajarImagen(elegido.url).catch((e) => {
+        console.error(`[imagen] ${elegido.url}: ${e.message}`);
+        return null;
+      });
+      if (imagen) return client.sendFile(m.chat, imagen, "img.jpg", `*Resultado de:* ${text}`, m);
+    }
+    await client.sendText(m.chat, "No pude bajar ninguna de las imágenes que encontré. Probá con otra búsqueda.", m);
   } catch (err) {
     console.error(err);
   }
