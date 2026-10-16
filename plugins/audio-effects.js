@@ -2,6 +2,7 @@ import { unlinkSync, readFileSync } from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 
 const execAsync = promisify(exec);
 
@@ -29,6 +30,8 @@ plugin.run = async (m, { client, command, isAdmin, isOwner }) => {
   if (/tupai/.test(command)) set = '-filter:a "atempo=0.5,asetrate=65100"';
 
   if (!/audio/.test(mime)) return client.sendText(m.chat, txt.audioEffects, m);
+  const tope = excedeTope(q, TOPES_MEDIA.efecto);
+  if (tope) return client.sendText(m.chat, tope, m);
 
   const filename = `./tmp/${getRandom(".mp3")}`;
   const media = await q.download(true);

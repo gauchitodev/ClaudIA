@@ -1,5 +1,6 @@
 import { toPTT } from "../lib/ffmpeg.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 
 const plugin = {};
 plugin.cmd = ["vn", "ptt"];
@@ -11,6 +12,8 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   if (!m.quoted) return client.sendText(m.chat, txt.toPTTNull, m);
   const mime = m.quoted.mimetype || "";
   if (!/video|audio/.test(mime)) return;
+  const tope = excedeTope(m.quoted, TOPES_MEDIA.audio);
+  if (tope) return client.sendText(m.chat, tope, m);
   const media = await m.quoted.download?.();
   if (!media && !/video/.test(mime)) return;
   if (!media && !/audio/.test(mime)) return;

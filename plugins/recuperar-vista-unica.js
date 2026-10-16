@@ -1,4 +1,5 @@
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 
 const plugin = {};
 plugin.cmd = ["r", "recovery", "recuperar"];
@@ -12,6 +13,8 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   if (q.sender === client.user.lid) return m.react("❌");
   const mime = q.mimetype || q.mediaType || "";
   if (!/image|video|audio/.test(mime)) return client.sendText(m.chat, txt.recoveryOnceNull, m);
+  const tope = excedeTope(q, TOPES_MEDIA.vistaUnica);
+  if (tope) return client.sendText(m.chat, tope, m);
   // The copy inside a quote may come without the file's address (downloadM returns an empty buffer) or without its key
   // (Baileys throws "Cannot derive from empty media key"). That used to go out as an empty file with the success
   // caption, or die in handle-message's catch without a word to whoever asked.

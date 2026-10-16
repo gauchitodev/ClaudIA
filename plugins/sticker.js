@@ -1,5 +1,6 @@
 import { sticker } from "../lib/sticker.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 
 const plugin = {};
 plugin.cmd = ["s", "sticker", "stiker"];
@@ -12,6 +13,8 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   const mime = (q.msg || q).mimetype || q.mediaType || "";
   if (!/webp|image|video/.test(mime)) return client.sendText(m.chat, txt.sticker1, m);
   if (q.seconds > 7) return await client.sendText(m.chat, txt.sticker2, m);
+  const tope = excedeTope(q, TOPES_MEDIA.sticker);
+  if (tope) return client.sendText(m.chat, tope, m);
   // If the download comes back empty it stops here. The error used to be handed to sendFile, which blew up inside,
   // and the only trace was a getFile stack that mentioned neither .s nor the download.
   const img = await q.download?.();

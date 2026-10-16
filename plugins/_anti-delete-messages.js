@@ -27,11 +27,7 @@ plugin.before = async (m, { client, chat, isWaAdmin }) => {
       const { imageMessage, videoMessage, stickerMessage, audioMessage, extendedTextMessage, conversation } = msg.message;
 
       if (imageMessage) {
-        const media = await downloadContentFromMessage(imageMessage, "image");
-        let buffer = Buffer.from([]);
-        for await (const chunk of media) {
-          buffer = Buffer.concat([buffer, chunk]);
-        }
+        const buffer = Buffer.concat(await Array.fromAsync(await downloadContentFromMessage(imageMessage, "image"))); // joined once, see downloadM
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
 ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
@@ -39,11 +35,7 @@ ${imageMessage.caption ? `- *Texto:* ${imageMessage.caption}` : "- *Texto:* _sin
         await client.sendMessage(m.chat, { image: buffer, caption, mentions: client.parseMention(caption) }, { quoted: msg });
         return;
       } else if (videoMessage) {
-        const media = await downloadContentFromMessage(videoMessage, "video");
-        let buffer = Buffer.from([]);
-        for await (const chunk of media) {
-          buffer = Buffer.concat([buffer, chunk]);
-        }
+        const buffer = Buffer.concat(await Array.fromAsync(await downloadContentFromMessage(videoMessage, "video"))); // joined once, see downloadM
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
 ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}
@@ -64,11 +56,7 @@ ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Ch
         await client.sendMessage(m.chat, { forward: msg });
         return;
       } else if (audioMessage) {
-        const media = await downloadContentFromMessage(audioMessage, "audio");
-        let buffer = Buffer.from([]);
-        for await (const chunk of media) {
-          buffer = Buffer.concat([buffer, chunk]);
-        }
+        const buffer = Buffer.concat(await Array.fromAsync(await downloadContentFromMessage(audioMessage, "audio"))); // joined once, see downloadM
         const caption = `*━━━ \`𝘼𝙉𝙏𝙄 𝙀𝙇𝙄𝙈𝙄𝙉𝘼𝙍\` ━━━*
 *┃ Nombre:* @${participant.split("@")[0]}
 ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Chat privado*"}

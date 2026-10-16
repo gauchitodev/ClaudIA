@@ -345,3 +345,22 @@ test("compraventa: quedaron solo los comandos que se usan, más .vender como ali
     assert.ok(!Cmd.cmd.includes(viejo), `.${viejo} sigue declarado`);
   }
 });
+
+test("compraventa: un texto enorme no traba el bot (precio, publicación y búsqueda)", () => {
+  // A 64.000-character "#vendo 1.1.1.1…" held the whole bot for 13 s: the price regex was quadratic, the text had no
+  // ceiling, and .buscar normalised every post again for each word of the search.
+  let antes = performance.now();
+  assert.equal(C.detectarPrecio("1.".repeat(32000)), "");
+  assert.ok(performance.now() - antes < 300, `el precio tardó ${Math.round(performance.now() - antes)} ms`);
+
+  const r = C.publicar(G, "666@lid", "vendo", `bici rodado 26 $ 4.000 ${"impecable ".repeat(6000)}`);
+  assert.ok(r.ok);
+  assert.equal(F.getPublicacion(G, r.numero).texto.length, C.COMPRAVENTA.MAX_LARGO_TEXTO);
+  assert.equal(r.precio, "$ 4.000", "el precio, que viene al principio, queda");
+  assert.match(r.mensaje, /\nEra muy larga: guardé las primeras 1000 letras\.$/);
+
+  antes = performance.now();
+  const busqueda = C.textoBusqueda(G, "bici impecable ".repeat(5000));
+  assert.ok(performance.now() - antes < 300, `la búsqueda tardó ${Math.round(performance.now() - antes)} ms`);
+  assert.match(busqueda.texto, /^🔎 \*Resultados para "bici impecable bici impecable .{0,40}…"\*/, "repite la búsqueda recortada");
+});

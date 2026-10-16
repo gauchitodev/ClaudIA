@@ -1,5 +1,6 @@
 import uploadImage from "../lib/upload-image.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
+import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 
 const plugin = {};
 plugin.cmd = ["tourl", "upload"];
@@ -11,6 +12,8 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || "";
   if (!mime) return client.sendText(m.chat, `[❗] 𝚁𝙴𝚂𝙿𝙾𝙽𝙳𝙰 𝙰 𝚄𝙽𝙰 𝙸𝙼𝙰𝙶𝙴𝙽 𝙾 𝚅𝙸𝙳𝙴𝙾.`, m);
+  const tope = excedeTope(q, TOPES_MEDIA.subir);
+  if (tope) return client.sendText(m.chat, tope, m);
   const media = await q.download();
   const link = await uploadImage(media);
   const caption = `👉𝙀𝙉𝙇𝘼𝘾𝙀:\n${link}`;
