@@ -210,7 +210,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
         const ultimoAviso = globalThis.autoIaSinCuotaAviso.get(m.chat) || 0;
         if (Date.now() - ultimoAviso > AVISO_SIN_CUOTA_MS) {
           globalThis.autoIaSinCuotaAviso.set(m.chat, Date.now());
-          await client.sendText(m.chat, "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅", null);
+          await client.sendText(m.chat, resultado.porHoy ? "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅" : "Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅", null);
         }
       }
       return;

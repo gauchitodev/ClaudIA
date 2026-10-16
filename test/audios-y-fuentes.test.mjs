@@ -190,6 +190,6 @@ test("si Gemini no contesta, el respaldo sabe que el audio no lo escuchó", asyn
   } finally {
     globalThis.fetch = fetchAntes;
     globalThis.groqApiKey = "";
-    globalThis.modeloSinCuotaDesde.clear();
+    globalThis.geminiEnPausa.clear();
   }
 });

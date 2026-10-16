@@ -1,0 +1,135 @@
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+
+// A 429 from Gemini pauses that model (lib/gemini.js): a minute, doubling while the 429s keep coming, up to 4 hours.
+// It used to be 4 hours after any 429, and a 429 is also what a per-minute limit answers: one burst of messages left
+// Claudia on the fallback models, deaf to audios, for the rest of the afternoon. Only a long pause counts as the day's
+// quota, and only then do the messages say "until tomorrow" and the owner get a notice.
+
+let G, IA, Ia, Resumen, CC;
+let respuestas = {}; // per model, an HTTP status to fail with; the rest answer "soy <model>"
+const pedidos = []; // the models asked, in order
+const fetchReal = globalThis.fetch;
+const logReal = console.log;
+const errorReal = console.error;
+const MIN = 60 * 1000;
+const HORA = 60 * MIN;
+
+before(async () => {
+  await prepararBase("gemini");
+  globalThis.geminiApiKey = "clave";
+  console.log = () => {}; // the AI modules narrate which model they try
+  console.error = () => {};
+  globalThis.fetch = async (url) => {
+    const modelo = String(url).match(/models\/([^:]+):/)?.[1];
+    pedidos.push(modelo);
+    if (respuestas[modelo]) return { ok: false, status: respuestas[modelo], text: async () => "" };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: `soy ${modelo}` }] } }] }) };
+  };
+  G = await import("../lib/gemini.js");
+  IA = await import("../lib/ia.js");
+  Ia = (await import("../plugins/tools-ia.js")).default;
+  Resumen = (await import("../plugins/resumen.js")).default;
+  CC = await import("../lib/contexto-chat.js");
+});
+after(() => {
+  globalThis.fetch = fetchReal;
+  console.log = logReal;
+  console.error = errorReal;
+});
+beforeEach(() => {
+  globalThis.geminiEnPausa.clear();
+  pedidos.length = 0;
+  respuestas = {};
+});
+
+const todosCon = (status) => Object.fromEntries(G.MODELOS.map((m) => [m, status]));
+// As if the 429s had kept coming for hours: every model paused that long.
+const alargarPausas = (ms) => {
+  for (const m of G.MODELOS) globalThis.geminiEnPausa.set(m, { hasta: Date.now() + ms, seguidos: 8 });
+};
+
+test("un 429 frena ese modelo un minuto, no cuatro horas, y una respuesta lo libera", async () => {
+  const [A, B] = G.MODELOS;
+  respuestas = { [A]: 429 };
+  const antes = Date.now();
+  assert.equal((await G.preguntarGemini("hola")).texto, `soy ${B}`);
+  const pausa = globalThis.geminiEnPausa.get(A);
+  assert.ok(pausa.hasta - antes >= MIN && pausa.hasta - antes < MIN + 5000, `un minuto, no ${pausa.hasta - antes} ms`);
+
+  pedidos.length = 0;
+  await G.preguntarGemini("hola");
+  assert.deepEqual(pedidos, [B], "durante ese minuto no se le pregunta");
+
+  pausa.hasta = Date.now() - 1; // the minute went by
+  respuestas = {};
+  pedidos.length = 0;
+  assert.equal((await G.preguntarGemini("hola")).texto, `soy ${A}`);
+  assert.equal(globalThis.geminiEnPausa.has(A), false, "contestó: la próxima pausa vuelve a ser de un minuto");
+});
+
+test("cada 429 seguido duplica la pausa, hasta 4 horas; los del mismo tirón no cuentan, y uno de horas después arranca de nuevo", () => {
+  const T = Date.UTC(2031, 0, 15, 12);
+  G.pausarModelo("x", T);
+  G.pausarModelo("x", T + 5000); // another request of the same burst, sent before the pause
+  assert.equal(globalThis.geminiEnPausa.get("x").hasta, T + MIN);
+  const esperas = [];
+  let t = T + MIN;
+  for (let i = 0; i < 10; i++) {
+    G.pausarModelo("x", t);
+    const { hasta } = globalThis.geminiEnPausa.get("x");
+    esperas.push((hasta - t) / MIN);
+    t = hasta;
+  }
+  assert.deepEqual(esperas, [2, 4, 8, 16, 32, 64, 128, 240, 240, 240]);
+  G.pausarModelo("x", t + 5 * HORA); // nobody asked it since the last pause ended: a new burst
+  assert.equal(globalThis.geminiEnPausa.get("x").hasta, t + 5 * HORA + MIN);
+});
+
+test("un 429 de una búsqueda no le saca el modelo a la charla", async () => {
+  respuestas = { [G.MODELOS[0]]: 429 };
+  await G.preguntarGemini("¿es verdad?", { buscarEnWeb: true });
+  assert.equal(globalThis.geminiEnPausa.size, 0);
+});
+
+test("«por hoy» y el aviso al owner, solo cuando todos llevan una hora o más frenados", async () => {
+  const antes = globalThis.enviados.length;
+  respuestas = todosCon(429);
+  let r = await IA.preguntarIA("hola");
+  assert.deepEqual([r.ok, r.sinCuota, r.porHoy], [false, true, false], "un tirón: en un minuto vuelve");
+  assert.ok(G.vuelveGeminiEn() > 55 * 1000 && G.vuelveGeminiEn() <= MIN);
+  assert.equal(globalThis.enviados.length, antes, "no se avisa al owner");
+
+  alargarPausas(2 * HORA);
+  r = await IA.preguntarIA("hola");
+  assert.deepEqual([r.sinCuota, r.porHoy], [true, true]);
+  assert.equal(ultimoEnviado().chat, "59899111222@s.whatsapp.net");
+  assert.match(ultimoEnviado().msg.text, /^🤖 Se quedó sin cuota la IA/);
+});
+
+test(".ia: en un tirón pide probar en un rato; «por hoy» solo con la cuota del día", async () => {
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const pedir = async () => {
+    await Ia.run({ chat: "g@g.us" }, { client, text: "hola" });
+    return ultimoEnviado().msg.text;
+  };
+  respuestas = todosCon(429);
+  assert.equal(await pedir(), "Ta, se me complicó pensar ahora, probá de nuevo en un rato bo.");
+  alargarPausas(2 * HORA);
+  assert.equal(await pedir(), "Se me acabó la cuota gratis de la IA por hoy, probá de nuevo mañana.");
+});
+
+test(".resumen: lo mismo", async () => {
+  const C = "resumen@g.us";
+  for (let i = 10; i > 0; i--) CC.recordarMensaje(C, "Ana", `mensaje ${i}`, false, { fecha: Date.now() - i * MIN });
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const pedir = async () => {
+    await Resumen.run({ chat: C, isGroup: true, sender: "555@lid" }, { client, args: [] });
+    return ultimoEnviado().msg.text;
+  };
+  respuestas = todosCon(429);
+  assert.equal(await pedir(), "Se me trabó el resumen, probá de nuevo en un rato.");
+  alargarPausas(2 * HORA);
+  assert.equal(await pedir(), "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅");
+});

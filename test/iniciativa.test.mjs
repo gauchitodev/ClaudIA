@@ -210,7 +210,7 @@ test("vistazo: si la IA falla o devuelve cualquier cosa, no hace nada y no da na
   decisiones.push(429, 429, 429); // the three Gemini models out of quota
   client = cliente(chat);
   informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
-  globalThis.modeloSinCuotaDesde.clear();
+  globalThis.geminiEnPausa.clear();
   assert.equal(informe.error, "sin cuota");
   assert.equal(client.salidas.length, 0);
   assert.equal(F.estadoIniciativa(chat).ultimoVistazo, leido);

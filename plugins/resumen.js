@@ -39,7 +39,7 @@ plugin.run = async (m, { client, args }) => {
   const r = await preguntarIA(consulta);
   if (!r.ok) {
     globalThis.resumenCooldown.delete(m.chat);
-    return client.sendText(m.chat, r.sinCuota ? "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅" : "Se me trabó el resumen, probá de nuevo en un rato.", m);
+    return client.sendText(m.chat, r.porHoy ? "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅" : "Se me trabó el resumen, probá de nuevo en un rato.", m);
   }
   const aviso = recortado ? `; pediste ${horas} h, pero no tengo guardado más atrás` : "";
   await client.sendText(m.chat, `📝 *Resumen de las últimas ${periodo}* (${lista.length} mensajes${aviso})\n\n${r.texto}`, m);

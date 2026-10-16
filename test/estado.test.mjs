@@ -25,3 +25,16 @@ test(".estado muestra lo que guarda client.chats al lado de la memoria", async (
   assert.match(texto, /\n🗃️ En memoria: 5 chats y contactos \(2 grupos\) · 6 mensajes\n💾 Memoria: \d/);
   assert.match(texto, /👥 Grupos: 1 · usuarios: \d+/, "el resto del estado sigue saliendo");
 });
+
+test(".estado dice qué modelo de Gemini está en pausa por cuota y cuánto le falta", async () => {
+  const { MODELOS } = await import("../lib/gemini.js");
+  const client = globalThis.client;
+  client.groupFetchAllParticipating = async () => ({});
+  globalThis.geminiEnPausa.set(MODELOS[0], { hasta: Date.now() + 90 * 1000, seguidos: 2 });
+  try {
+    await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+    assert.match(ultimoEnviado().msg.text, new RegExp(`\\n🧠 IA: .+ · en pausa por cuota: ${MODELOS[0].replaceAll(".", "\\.")} \\(vuelve en 1 min\\)\\n`));
+  } finally {
+    globalThis.geminiEnPausa.clear();
+  }
+});

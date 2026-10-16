@@ -170,3 +170,23 @@ test("pedido a Claudia: un .tagall bloqueado con .bladd tampoco sale pidiéndose
     F.removeFromChatBlacklist(C, "tagall");
   }
 });
+
+// A 429 from Gemini only pauses the model for a minute (lib/gemini.js): "until tomorrow" was what she said after any
+// burst, with the models back a minute later.
+test("pedido a Claudia sin IA: en un tirón, que pruebe en un rato; «por hoy» solo con la cuota del día", async () => {
+  const fetchAntes = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 429, text: async () => "" });
+  try {
+    globalThis.autoIaSinCuotaAviso.clear();
+    let { textos } = await pedir("claudia contame algo", MODERADOR);
+    assert.deepEqual(textos, ["Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅"]);
+
+    for (const pausa of globalThis.geminiEnPausa.values()) pausa.hasta = Date.now() + 2 * 60 * 60 * 1000; // hours of 429s
+    globalThis.autoIaSinCuotaAviso.clear();
+    ({ textos } = await pedir("claudia contame algo", MODERADOR));
+    assert.deepEqual(textos, ["🤖 Se quedó sin cuota la IA (Gemini y los respaldos). Hasta que se renueve, Claudia no responde charlas.", "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅"]);
+  } finally {
+    globalThis.fetch = fetchAntes;
+    globalThis.geminiEnPausa.clear();
+  }
+});

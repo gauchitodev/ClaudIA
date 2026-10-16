@@ -23,7 +23,7 @@ plugin.run = async (m, { client, text }) => {
   const respuesta = await preguntarGemini(text);
   if (respuesta.ok) {
     return client.sendText(m.chat, respuesta.texto, m);
-  } else if (respuesta.sinCuota) {
+  } else if (respuesta.porHoy) {
     return client.sendText(m.chat, "Se me acabó la cuota gratis de la IA por hoy, probá de nuevo mañana.", m);
   } else {
     return client.sendText(m.chat, "Ta, se me complicó pensar ahora, probá de nuevo en un rato bo.", m);

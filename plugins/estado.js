@@ -3,7 +3,7 @@ import fs from "fs";
 import { contarPendientesPorTipo, getTotalUsers } from "../database-functions.js";
 import { ultimoBackup, tamano } from "../lib/backup.js";
 import { duracion, textoFecha } from "../lib/tiempo.js";
-import { COOLDOWN_REINTENTO_MS } from "../lib/gemini.js";
+import { modelosEnPausa } from "../lib/gemini.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
 
@@ -17,8 +17,8 @@ plugin.run = async (m, { client }) => {
   const ahora = Date.now();
   const conectada = globalThis.horaConexion ? duracion(ahora - globalThis.horaConexion) : "?";
 
-  const sinCuota = [...(globalThis.modeloSinCuotaDesde || new Map()).entries()].filter(([, desde]) => ahora - desde < COOLDOWN_REINTENTO_MS).map(([modelo]) => modelo);
-  const ia = `${globalThis.modeloActivo || "todavía no respondió ninguno"}${sinCuota.length ? ` · sin cuota: ${sinCuota.join(", ")}` : ""}`;
+  const enPausa = modelosEnPausa(ahora).map((p) => `${p.modelo} (vuelve en ${duracion(p.faltaMs)})`);
+  const ia = `${globalThis.modeloActivo || "todavía no respondió ninguno"}${enPausa.length ? ` · en pausa por cuota: ${enPausa.join(", ")}` : ""}`;
 
   const cola = globalThis.colaDescargas || { tareas: [], procesando: false };
   const descargas = `${cola.procesando ? "1 en curso" : "ninguna en curso"}, ${cola.tareas.length} en cola`;
