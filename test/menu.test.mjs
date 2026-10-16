@@ -155,6 +155,17 @@ test("lo más usado: con pocos usos en el grupo, lo de todos los grupos; sin dat
   assert.deepEqual(comandos(privado), M.MENU.POR_DEFECTO.filter((c) => c !== "bal"));
 });
 
+// Where Claudia isn't admin, the dispatcher refuses every plugin.botAdmin: the index used to recommend them anyway.
+test("lo más usado: donde Claudia no es admin, no recomienda lo que necesita que lo sea, y lo avisa", () => {
+  const sinAdmin = comandos(masUsados({ isBotAdmin: false, ahora: new Date(2040, 5, 1, 15, 0) }));
+  const necesitanAdmin = M.MENU.POR_DEFECTO.filter((cmd) => Object.values(globalThis.plugins).some((p) => p.cmd?.includes(cmd) && p.botAdmin));
+  assert.ok(necesitanAdmin.length > 0, "la lista fija tiene comandos que piden admin");
+  for (const cmd of necesitanAdmin) assert.ok(!sinAdmin.includes(cmd), `.${cmd} necesita admin`);
+  assert.match(menu({ isBotAdmin: false }), /⚠️ Acá no soy admin: muchos comandos no andan hasta que me hagan admin del grupo\./);
+  assert.doesNotMatch(menu(), /no soy admin/);
+  assert.doesNotMatch(menu({ isBotAdmin: false, isGroup: false }), /no soy admin/, "en privado no aplica");
+});
+
 test("lo más usado: cada comando de la lista fija tiene su línea para todos", () => {
   const publicas = M.entradasDelMenu(".").filter((e) => e.seccion.para === "todos");
   for (const cmd of M.MENU.POR_DEFECTO) assert.ok(publicas.some((e) => e.cmd === cmd), `.${cmd} no tiene línea`);
@@ -176,7 +187,7 @@ test(".menu: manda el índice citando y reacciona; con el modo blacklist marca l
 test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-message", () => {
   // The ranking leaves out what wouldn't run here. If handle-message checks change, lib/menu.js has to follow.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "plugin.economia && m.isGroup && chat.monedas === 0"]) {
+  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "plugin.economia && m.isGroup && chat.monedas === 0"]) {
     assert.ok(fuente.includes(condicion), `handle-message ya no chequea «${condicion}»: revisá puedeCorrerAca en lib/menu.js`);
   }
 });

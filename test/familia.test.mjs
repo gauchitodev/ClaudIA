@@ -46,7 +46,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   assert.equal(Fa.padresDe(L(3)), null, "pedir no adopta");
   assert.deepEqual(Fa.pedirAdopcion(G, L(1), L(3), T0), { ok: false, motivo: "yaPedida", hijo: L(3) });
   assert.deepEqual(Fa.pedirAdopcion(G, L(2), L(4), T0), { ok: false, motivo: "pendiente", hijo: L(3) }, "un pedido por matrimonio a la vez");
-  assert.deepEqual(Fa.responderAdopcion(L(3), false, T0), { ok: true, acepta: false, padres: [L(1), L(2)] });
+  assert.deepEqual(Fa.responderAdopcion(L(3), false, T0), { ok: true, acepta: false, padres: [L(1), L(2)], devuelto: 30 });
   assert.equal(F.getSaldoCoins(G, L(1)), 100, "si rechazan, se devuelve el trámite");
 
   // expired after a week, no refund
@@ -67,7 +67,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   F.updateChat(G, { monedas: 0 });
   assert.deepEqual(Fa.pedirAdopcion(G, L(5), L(7), T0), { ok: true, conyuge: L(6), costo: 0 });
   assert.equal(F.getSaldoCoins(G, L(5)), 100);
-  assert.deepEqual(Fa.responderAdopcion(L(7), false, T0), { ok: true, acepta: false, padres: [L(5), L(6)] });
+  assert.deepEqual(Fa.responderAdopcion(L(7), false, T0), { ok: true, acepta: false, padres: [L(5), L(6)], devuelto: 0 });
   F.updateChat(G, { monedas: 1 });
   fijarSaldo(F, G, L(5), 10);
   assert.deepEqual(Fa.pedirAdopcion(G, L(5), L(7), T0), { ok: false, motivo: "sinCoins", costo: 30 });
@@ -83,7 +83,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
   // if they divorced before the answer, there is no adoption and it's refunded
   Fa.pedirAdopcion(G, L(8), L(7), T0);
   P.terminarPareja(L(8));
-  assert.deepEqual(Fa.responderAdopcion(L(7), true, T0), { ok: false, motivo: "yaNoCasados", padres: [L(8), L(9)] });
+  assert.deepEqual(Fa.responderAdopcion(L(7), true, T0), { ok: false, motivo: "yaNoCasados", padres: [L(8), L(9)], devuelto: 30 });
   assert.equal(F.getSaldoCoins(G, L(8)), 100);
 });
 
@@ -235,7 +235,7 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   assert.equal(ultimoTexto().text, "👨‍👩‍👧 @12, Persona 13 y Persona 14 te quieren adoptar (ya pagaron los 30 UruCoins del trámite). Respondé con .si o .no; el pedido vence en 7 días.");
   assert.deepEqual(ultimoTexto().mentions, [L(12)]);
   await correr(No, L(12));
-  assert.equal(ultimoEnviado().msg.text, "💔 @12 rechazó la adopción de Persona 13 y Persona 14.");
+  assert.equal(ultimoEnviado().msg.text, "💔 @12 rechazó la adopción de Persona 13 y Persona 14. A Persona 13 le devolví los 30 UruCoins del trámite.");
   assert.equal(F.getSaldoCoins(G, L(13)), 100);
   await correr(Adoptar, L(13), "@12", "adoptar", [L(12)]);
   await correr(Si, L(12));
@@ -276,4 +276,22 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   assert.equal(ultimoEnviado().msg.text, "🧳 Persona 12 se emancipó: ya no es hijo de Persona 13 y Persona 14 y deja el apellido Sosa.");
   await correr(Emancipar, L(13), "@12", "desheredar", [L(12)]);
   assert.match(ultimoEnviado().msg.text, /Persona 12 no es hijo tuyo/);
+});
+
+// Two couples asking each other crosswise: once one adoption goes ahead, the other can't, and its fee used to be kept.
+test("adoptar: si ya no se puede (lo adoptaron por otro lado), devuelve el trámite y lo dice", () => {
+  for (const n of [21, 22, 23, 24]) {
+    F.initDataDB(persona(n));
+    fijarSaldo(F, G, L(n), 100);
+  }
+  casar(21, 22);
+  casar(23, 24);
+  assert.equal(Fa.pedirAdopcion(G, L(21), L(23), T0).ok, true);
+  assert.equal(Fa.pedirAdopcion(G, L(23), L(21), T0).ok, true);
+  assert.equal(Fa.responderAdopcion(L(21), true, T0).ok, true, "21 pasa a ser hijo de 23 y 24");
+  assert.equal(F.getSaldoCoins(G, L(21)), 70);
+  const r = Fa.responderAdopcion(L(23), true, T0);
+  assert.deepEqual(r, { ok: false, motivo: "yaNoSePuede", padres: [L(21), L(22)], devuelto: 30 });
+  assert.equal(F.getSaldoCoins(G, L(21)), 100, "el trámite vuelve");
+  assert.equal(Fa.textoRespuestaAdopcion(L(23), r).text, "La adopción ya no se puede hacer: @23 tiene familia por otro lado. A Persona 21 le devolví los 30 UruCoins del trámite.");
 });

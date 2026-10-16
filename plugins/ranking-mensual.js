@@ -1,5 +1,8 @@
 import { obtenerRankingMensual } from "../database-functions.js";
 import { mesDe } from "../lib/hashtags.js";
+import { nombreDe } from "../lib/menciones.js";
+
+const reacciones = (n) => `${n} ${n === 1 ? "reacción" : "reacciones"}`;
 
 const plugin = {};
 plugin.cmd = ["ranking", "rankingmensual"];
@@ -20,7 +23,7 @@ plugin.run = async (m, { client }) => {
     texto += `Nadie todavía.\n`;
   } else {
     masVotado.forEach((r, i) => {
-      texto += `${i + 1}. @${r.usuario.split("@")[0]} — ${r.recibidas} reacciones\n`;
+      texto += `${i + 1}. ${nombreDe(r.usuario)} — ${reacciones(r.recibidas)}\n`;
     });
   }
 
@@ -29,12 +32,12 @@ plugin.run = async (m, { client }) => {
     texto += `Nadie todavía.\n`;
   } else {
     masActivo.forEach((r, i) => {
-      texto += `${i + 1}. @${r.usuario.split("@")[0]} — ${r.emitidas} reacciones dadas\n`;
+      texto += `${i + 1}. ${nombreDe(r.usuario)} — ${reacciones(r.emitidas)} ${r.emitidas === 1 ? "dada" : "dadas"}\n`;
     });
   }
 
-  const mentions = [...new Set([...masVotado.map((r) => r.usuario), ...masActivo.map((r) => r.usuario)])];
-  await client.sendMessage(m.chat, { text: texto.trim(), mentions }, { quoted: m });
+  // Names and no mentions, like .baltop and .timba: a ranking has no business notifying everyone on it.
+  await client.sendMessage(m.chat, { text: texto.trim() }, { quoted: m });
 };
 
 export default plugin;

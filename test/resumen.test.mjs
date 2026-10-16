@@ -101,3 +101,42 @@ test("las horas se acotan de 1 a 24, y sin número son 6", async () => {
   globalThis.resumenCooldown.delete(C);
   assert.match(await pedir(["hola"]), /últimas 6 h\*/);
 });
+
+// A newcomer got told what was said before they came in. main.js notes when each one joins (recordarIngreso).
+test("a quien recién entró le resume solo lo de desde que entró", async () => {
+  const ahora = Date.now();
+  const antes = () => {
+    for (let i = 10; i > 0; i--) CC.recordarMensaje(C, "Ana", `antes ${i}`, false, { fecha: ahora - (45 + i) * MIN });
+  };
+  antes();
+  CC.recordarIngreso(C, ["555@lid"], ahora - 45 * MIN);
+  try {
+    for (let i = 6; i > 0; i--) CC.recordarMensaje(C, "Beto", `después ${i}`, false, { fecha: ahora - i * MIN });
+    assert.match(await pedir(["6"]), /^📝 \*Resumen de las últimas 45 min\* \(6 mensajes; desde que entraste\)/);
+    assert.doesNotMatch(pedidos[0], /antes/);
+    assert.match(pedidos[0], /Beto: después 1/);
+
+    globalThis.contextoChat.delete(C);
+    globalThis.resumenCooldown.delete(C);
+    antes();
+    assert.equal(await pedir(["6"]), "Desde que entraste casi no hubo mensajes, y de lo de antes no te cuento 🤐");
+  } finally {
+    globalThis.ingresosGrupo.clear();
+  }
+  const fs = await import("fs");
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  assert.match(main, /if \(action === "add"\) for \(const p of participants \|\| \[\]\) recordarIngreso\(id, idsDeParticipante\(p\)\)/, "main.js anota cuándo entra cada uno");
+});
+
+test("si el «escribiendo…» falla, el resumen sale igual", async () => {
+  const ahora = Date.now();
+  for (let i = 10; i > 0; i--) CC.recordarMensaje(C, "Ana", `mensaje ${i}`, false, { fecha: ahora - i * MIN });
+  const client = {
+    ...clienteFalso(),
+    sendPresenceUpdate: async () => {
+      throw new Error("Connection Closed");
+    },
+  };
+  await Resumen.run({ chat: C, isGroup: true, sender: "555@lid" }, { client, args: [] });
+  assert.match(ultimoEnviado().msg.text, /^📝 \*Resumen/);
+});

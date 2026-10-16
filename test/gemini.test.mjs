@@ -241,3 +241,14 @@ test(".ia: una pregunta cada 20 s por chat, contestada o no; en otro chat no se 
   assert.equal(await pedir(C, ""), globalThis.txt.iaPeticion);
   assert.equal(await pedir(C, "hola"), `soy ${A}`, "un .ia sin pregunta no arranca la espera");
 });
+
+test(".ia: si el «escribiendo…» falla, contesta igual", async () => {
+  const client = {
+    ...clienteFalso(),
+    sendPresenceUpdate: async () => {
+      throw new Error("Connection Closed");
+    },
+  };
+  await Ia.run({ chat: "presencia@g.us" }, { client, text: "hola" });
+  assert.equal(ultimoEnviado().msg.text, `soy ${G.MODELOS[0]}`);
+});

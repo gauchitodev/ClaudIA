@@ -15,6 +15,9 @@ import { limpiarVentasAlSalir } from "./lib/compraventa.js";
 import { recibirNuevos } from "./lib/bienvenida.js";
 import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
 import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
+import { recordarIngreso } from "./lib/contexto-chat.js";
+import { procesarTanda } from "./lib/tandas.js";
+import { idsDeParticipante } from "./lib/identidad.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -131,28 +134,24 @@ async function startBot() {
 
   client.handler = handler.handleMessage.bind(globalThis.client);
 
-  // ALL messages in the batch are processed (Baileys may deliver several at once), not just the last one.
-  // They go in order and one at a time, so replies within a chat don't get interleaved.
+  // ALL messages in the batch are processed (Baileys may deliver several at once), not just the last one: in order
+  // within each chat, so replies there don't get interleaved, and the chats side by side (lib/tandas.js).
   client.ev.on("messages.upsert", async (chatUpdate) => {
     if (!client.handler) return;
     // When the batch arrived: handle-message measures each message's age against this, not against the moment it
     // gets to it, which in a busy batch can be much later (see atrasoDeLlegada in lib/tiempo.js).
     const llegada = Date.now();
-    for (const m of chatUpdate.messages || []) {
-      try {
-        // Group notices (someone joined, was promoted, requested to join, etc.) arrive without "message" but with
-        // messageStubType, and _detect-events, the blacklist and the group metadata refresh all need them.
-        if (!m?.message && !m?.messageStubType) continue;
-        if (m.message && Object.keys(m.message)[0] === "ephemeralMessage") m.message = m.message.ephemeralMessage.message;
-        if (m.key && m.key.remoteJid === "status@broadcast") continue;
-        // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.
-        m._upsertType = chatUpdate.type;
-        m._llegada = llegada;
-        await client.handler(m, chatUpdate);
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    await procesarTanda(chatUpdate.messages, async (m) => {
+      // Group notices (someone joined, was promoted, requested to join, etc.) arrive without "message" but with
+      // messageStubType, and _detect-events, the blacklist and the group metadata refresh all need them.
+      if (!m?.message && !m?.messageStubType) return;
+      if (m.message && Object.keys(m.message)[0] === "ephemeralMessage") m.message = m.message.ephemeralMessage.message;
+      if (m.key && m.key.remoteJid === "status@broadcast") return;
+      // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.
+      m._upsertType = chatUpdate.type;
+      m._llegada = llegada;
+      await client.handler(m, chatUpdate);
+    });
   });
 
   // When a group's participants or admins change, the stored metadata is refreshed.
@@ -166,6 +165,8 @@ async function startBot() {
         limpiarRolesAlSalir(id, participants);
         limpiarVentasAlSalir(id, participants);
       }
+      // Whoever comes in: when, so .resumen only tells them what was said from then on.
+      if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p));
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
       // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches

@@ -205,8 +205,10 @@ test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   await run("222@lid", "@111");
   const lista = ultimo();
   assert.match(lista, /⭐ Calificaciones de @111 \(3, promedio 2,7 de 5 \(3 calificaciones\)\):/);
-  assert.match(lista, /\*#3\* ⭐ "estafador" — @444 · hace .* · en otro grupo/);
-  assert.match(lista, /\*#2\* ⭐⭐ "me arrepentí" — @333/);
+  // whoever rated goes by name: tagging the whole list notified each of them every time someone looked
+  assert.match(lista, /\*#3\* ⭐ "estafador" — 444 · hace .* · en otro grupo/);
+  assert.match(lista, /\*#2\* ⭐⭐ "me arrepentí" — 333 · /);
+  assert.deepEqual(ultimoEnviado().msg.mentions, ["111@lid"], "solo se arroba a quien se consulta");
   assert.match(lista, /Admins: \.calificaciones borrar N/);
   // an ordinary person can't delete someone else's
   await run("222@lid", "borrar 2");

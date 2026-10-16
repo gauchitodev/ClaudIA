@@ -24,7 +24,7 @@ plugin.run = async (m, { client, text }) => {
   if (falta > 0) return client.sendText(m.chat, `Recién me preguntaron algo; probá de nuevo en ${Math.ceil(falta / 1000)} s.`, m);
   globalThis.esperaIa.set(m.chat, ahora);
 
-  await client.sendPresenceUpdate("composing", m.chat);
+  await client.sendPresenceUpdate("composing", m.chat).catch(() => {}); // a nicety: a failure there mustn't end the command
 
   const respuesta = await preguntarGemini(text);
   if (respuesta.ok) {

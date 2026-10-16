@@ -112,9 +112,22 @@ test(".listaparejas: las del grupo, por nombre y sin arrobar, las casadas primer
   await ListaParejas.run({ chat: G, isGroup: true }, { client, participants: participantes });
   assert.match(ultimoEnviado().msg.text, /^💞 \*Parejas del grupo\* \(3\)\n\n💍 Persona 1 y Persona 2 — juntos hace /);
   assert.doesNotMatch(ultimoEnviado().msg.text, /@/, "antes mencionaba a todas las parejas de todos los grupos");
-  // In private (only the owner uses it there), every couple the bot knows.
-  await ListaParejas.run({ chat: L(1), isGroup: false }, { client, participants: [] });
+  // In private, every couple the bot knows, but only for the owner: anyone writing to her used to get the couples of
+  // every group.
+  await ListaParejas.run({ chat: L(1), isGroup: false }, { client, participants: [], isOwner: true });
   assert.match(ultimoEnviado().msg.text, /^💞 \*Parejas\* \(7\)\n/);
+  await ListaParejas.run({ chat: L(9), isGroup: false }, { client, participants: [], isOwner: false });
+  assert.equal(ultimoEnviado().msg.text, "La lista de parejas se pide en el grupo: escribí .listaparejas allá.");
   await ListaParejas.run({ chat: G, isGroup: true }, { client, participants: [{ id: L(5), admin: null }] });
   assert.match(ultimoEnviado().msg.text, /No hay ninguna todavía\. Se pide con \.pareja @persona\./);
+});
+
+// Every ex and the current partner got tagged each time someone looked: now only whoever it's about is.
+test(".ex: nombra a los ex y a la pareja actual sin arrobarlos; solo arroba a quien se consulta", async () => {
+  const Ex = (await import("../plugins/pareja-exs.js")).default;
+  P.fijarPareja(L(13), L(5), T0 - DIA); // 13 broke up with 14, and now goes out with 5
+  await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(13)], quoted: null }, { client: globalThis.client, text: "@13", usedPrefix: ".", command: "ex" });
+  const { text, mentions } = ultimoEnviado().msg;
+  assert.equal(text, "*Historial de relaciones de @13:*\n\nPersona 14\n\n*Pareja actual:* Persona 5");
+  assert.deepEqual(mentions, [L(13)]);
 });

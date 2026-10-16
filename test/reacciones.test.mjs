@@ -73,3 +73,20 @@ test("main.js cuenta las reacciones con lib/reacciones.js", () => {
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
   assert.match(main, /"messages\.reaction"[\s\S]{0,200}contarReaccion\(client, r\)/);
 });
+
+// It said "1 reacciones", and tagged everyone on it: .baltop and .timba already went by name.
+test(".ranking: «1 reacción» en singular, y por nombre, sin arrobar a nadie", async () => {
+  const R2 = "ranking@g.us";
+  const mes = mesDe();
+  F.initDataDB({ chat: R2, sender: "111@lid", senderJid: "", pushName: "Ana" });
+  F.initDataDB({ chat: R2, sender: "222@lid", senderJid: "", pushName: "Beto" });
+  F.sumarInteraccion(mes, R2, "111@lid", "recibidas");
+  for (let i = 0; i < 2; i++) F.sumarInteraccion(mes, R2, "222@lid", "emitidas");
+  const { clienteFalso, ultimoEnviado } = await import("./helpers.mjs");
+  const Ranking = (await import("../plugins/ranking-mensual.js")).default;
+  await Ranking.run({ chat: R2, isGroup: true }, { client: clienteFalso() });
+  const { text, mentions } = ultimoEnviado().msg;
+  assert.match(text, /1\. Ana — 1 reacción\n/);
+  assert.match(text, /1\. Beto — 2 reacciones dadas$/);
+  assert.equal(mentions, undefined);
+});

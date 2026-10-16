@@ -6,9 +6,9 @@ import { textoMenu } from "../lib/menu.js";
 const plugin = {};
 plugin.cmd = ["menu", "menú", "help", "comandos", "ayuda"];
 
-plugin.run = async (m, { client, usedPrefix, args = [], chat, isMod, isOwner }) => {
+plugin.run = async (m, { client, usedPrefix, args = [], chat, isBotAdmin = true, isMod, isOwner }) => {
   const bloqueados = m.isGroup && chat?.blacklistMode ? new Set(getChatBlacklist(m.chat)) : new Set();
-  const texto = textoMenu({ pedido: args.join(" "), usedPrefix, nombre: m.pushName, chatId: m.chat, isGroup: m.isGroup, datosChat: chat, isMod, isOwner, bloqueados });
+  const texto = textoMenu({ pedido: args.join(" "), usedPrefix, nombre: m.pushName, chatId: m.chat, isGroup: m.isGroup, datosChat: chat, isBotAdmin, isMod, isOwner, bloqueados });
 
   const kz = await client.sendMessage(m.chat, { text: texto }, { quoted: m });
   if (kz) client.sendMessage(m.chat, { react: { text: "📚", key: kz.key } });
