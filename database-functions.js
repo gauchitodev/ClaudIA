@@ -889,18 +889,27 @@ export function sumarInteraccion(mes, chat, usuario, tipo) {
   db.prepare(`UPDATE interacciones_mensuales SET ${tipo} = ${tipo} + 1 WHERE mes = ? AND chat = ? AND usuario = ?`).run(mes, chat, usuario);
 }
 
-// the top 5 "most voted" (received) and "most active" (given) of a chat, for a given month.
+// Claudia's own ids, to leave her out of the rankings, the tops and the totals. Reactions to her messages paid her
+// UruCoins and "received" points until lib/reacciones.js stopped it, and what she gathered is still in the tables.
+function sinClaudia() {
+  const ids = [globalThis.client?.user?.lid, globalThis.client?.user?.jid].filter(Boolean);
+  return { sql: ids.length ? ` AND usuario NOT IN (${ids.map(() => "?").join(", ")})` : "", ids };
+}
+
 // a person's place in the month's ranking by reactions received (1 = most voted); null if they have none
 export function puestoRankingMensual(mes, chat, usuario) {
   const fila = db.prepare(`SELECT recibidas, emitidas FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND usuario = ?`).get(mes, chat, usuario);
   if (!fila || (fila.recibidas <= 0 && fila.emitidas <= 0)) return null;
-  const puesto = db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND recibidas > ?`).get(mes, chat, fila.recibidas).puesto;
+  const sin = sinClaudia();
+  const puesto = db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM interacciones_mensuales WHERE mes = ? AND chat = ? AND recibidas > ?${sin.sql}`).get(mes, chat, fila.recibidas, ...sin.ids).puesto;
   return { ...fila, puesto };
 }
 
+// the top 5 "most voted" (received) and "most active" (given) of a chat, for a given month.
 export function obtenerRankingMensual(chat, mes) {
-  const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0 ORDER BY recibidas DESC LIMIT 5`).all(chat, mes);
-  const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0 ORDER BY emitidas DESC LIMIT 5`).all(chat, mes);
+  const sin = sinClaudia();
+  const masVotado = db.prepare(`SELECT usuario, recibidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND recibidas > 0${sin.sql} ORDER BY recibidas DESC LIMIT 5`).all(chat, mes, ...sin.ids);
+  const masActivo = db.prepare(`SELECT usuario, emitidas FROM interacciones_mensuales WHERE chat = ? AND mes = ? AND emitidas > 0${sin.sql} ORDER BY emitidas DESC LIMIT 5`).all(chat, mes, ...sin.ids);
   return { masVotado, masActivo };
 }
 
@@ -983,14 +992,16 @@ export function movimientosHoy(chat, usuario, motivo) {
 }
 
 export function topCoins(chat, n = 5) {
-  return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0 ORDER BY saldo DESC LIMIT ?`).all(chat, n);
+  const sin = sinClaudia();
+  return db.prepare(`SELECT usuario, saldo FROM urucoins WHERE chat = ? AND saldo > 0${sin.sql} ORDER BY saldo DESC LIMIT ?`).all(chat, ...sin.ids, n);
 }
 
 // a person's place in the group's balance ranking (1 = richest; ties share a place); null if they have no coins
 export function puestoCoins(chat, usuario) {
   const saldo = getSaldoCoins(chat, usuario);
   if (saldo <= 0) return null;
-  return db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM urucoins WHERE chat = ? AND saldo > ?`).get(chat, saldo).puesto;
+  const sin = sinClaudia();
+  return db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM urucoins WHERE chat = ? AND saldo > ?${sin.sql}`).get(chat, saldo, ...sin.ids).puesto;
 }
 
 // how many movements with that reason a person has in the group (duels won = "duelo_premio", for instance)
@@ -1402,7 +1413,8 @@ export function mercadosResueltosDesde(chat, desdeMs) {
 // ===================== Economy (.economia) =====================
 
 export function totalEnCirculacion(chat) {
-  return db.prepare(`SELECT COALESCE(SUM(saldo), 0) AS total, COUNT(*) AS personas FROM urucoins WHERE chat = ? AND saldo > 0`).get(chat);
+  const sin = sinClaudia();
+  return db.prepare(`SELECT COALESCE(SUM(saldo), 0) AS total, COUNT(*) AS personas FROM urucoins WHERE chat = ? AND saldo > 0${sin.sql}`).get(chat, ...sin.ids);
 }
 
 // money in and out by reason since a given date

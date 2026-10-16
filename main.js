@@ -4,12 +4,10 @@ import { rmSync, mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
-import { loadDatabase, sumarInteraccion } from "./database-functions.js";
-import { mesDe } from "./lib/hashtags.js";
-import { otorgarPorReaccion } from "./lib/urucoins.js";
+import { loadDatabase } from "./database-functions.js";
+import { contarReaccion } from "./lib/reacciones.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
-import { registrarReaccionAClaudia } from "./lib/iniciativa.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
@@ -26,17 +24,6 @@ const MAX_REINTENTOS = 5;
 let reconectando = false;
 let yaConectoAlgunaVez = false;
 let horaConexion = 0;
-
-// Reactions already counted (message + who reacted), in RAM and capped, so the same one is never counted twice.
-const reaccionesContadas = new Map();
-const MAX_REACCIONES_RECORDADAS = 5000;
-function marcarReaccionContada(messageId, reactorLid) {
-  const clave = `${messageId}|${reactorLid}`;
-  if (reaccionesContadas.has(clave)) return false;
-  reaccionesContadas.set(clave, Date.now());
-  if (reaccionesContadas.size > MAX_REACCIONES_RECORDADAS) reaccionesContadas.delete(reaccionesContadas.keys().next().value);
-  return true;
-}
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(authFile);
@@ -188,30 +175,11 @@ async function startBot() {
     }
   });
 
-  // Reaction points: adds "received" to whoever wrote the message, "given" to whoever reacted.
+  // Reaction points: "received" for whoever wrote the message, "given" for whoever reacted (lib/reacciones.js).
   client.ev.on("messages.reaction", (reactions) => {
-    for (const { key, reaction } of reactions) {
+    for (const r of reactions) {
       try {
-        if (!key?.remoteJid?.endsWith("@g.us")) continue;
-        if (!reaction?.text) continue;
-
-        const autorLid = key.participant;
-        const reactorLid = reaction.key?.participant;
-        if (!autorLid || !reactorLid) continue;
-        if (autorLid === reactorLid) continue;
-        // The bot's own reactions (🕐 on downloads, 🔥 for streaks, 🪙 for the daily question) hand out no coins or ranking.
-        if (reaction.key?.fromMe || reactorLid === client.user?.lid) continue;
-        // Removing and re-adding a reaction (or changing the emoji) fires the event again: without this it piled up
-        // ranking, UruCoins and hashtag votes without limit.
-        if (!marcarReaccionContada(key.id, reactorLid)) continue;
-        // A reaction to something Claudia said on her own is an answer to it (lib/iniciativa.js). Baileys sets fromMe
-        // on the key when the reacted message is the bot's.
-        if (key.fromMe) registrarReaccionAClaudia(key.remoteJid, key.id);
-
-        const mes = mesDe();
-        sumarInteraccion(mes, key.remoteJid, autorLid, "recibidas");
-        sumarInteraccion(mes, key.remoteJid, reactorLid, "emitidas");
-        otorgarPorReaccion(key.remoteJid, autorLid, reactorLid, key.id);
+        contarReaccion(client, r);
       } catch (e) {
         console.error("[ranking] error procesando reacción:", e);
       }

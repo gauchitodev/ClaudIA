@@ -16,6 +16,8 @@ import { recordarAudioEnviado } from "../lib/audios.js";
 import { elegirAlAzar } from "../lib/azar.js";
 
 const execFileAsync = promisify(execFile);
+// Swappable in the tests, like lib/ytdlp.js: a fake yt-dlp instead of the real one.
+export const _dep = { ejecutar: execFileAsync };
 const ytDlpPath = path.resolve(RUTA_YT_DLP);
 const cookiesPath = path.resolve("cookies.txt");
 const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
@@ -39,12 +41,14 @@ plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetada
   const seconds = remainingTime % 60;
   const formattedTime = minutes > 0 ? `${minutes} min ${seconds} segundos` : `${seconds} segundos`;
 
+  let pagoPorSaltar = 0;
   if (Date.now() - user.lastmining < waitTime && !isOwner) {
     if (saltarCooldown) {
       if (!gastarCoins(m.chat, m.sender, COINS.SALTAR_COOLDOWN, "saltar_cooldown")) {
         return client.sendText(m.chat, `Saltar la espera cuesta *${COINS.SALTAR_COOLDOWN} UruCoins* y tenés ${getSaldoCoins(m.chat, m.sender)}. Esperá ${formattedTime} o juntá más.`, m);
       }
-      // they paid: carry on as if there were no queue
+      // they paid: carry on as if there were no queue (descargarMultimedia gives it back if nothing comes of it)
+      pagoPorSaltar = COINS.SALTAR_COOLDOWN;
     } else {
       updateUser(m.sender, { commandAttempts: user.commandAttempts + 1 });
       const newAttempts = user.commandAttempts + 1;
@@ -70,6 +74,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetada
       quoted: m,
       isOwner,
       esReintento: false,
+      pagoPorSaltar,
     }),
   );
 
@@ -90,11 +95,21 @@ export default plugin;
 
 // The download itself, split off from the command so the retries can call it too.
 // quoted: the original message (to reply and react to) or null when it's an automatic retry.
-export async function descargarMultimedia({ client, chat, usuario, texto, tipo, quoted = null, isOwner = false, esReintento = false }) {
+// pagoPorSaltar: what .playya / .videoya charged to skip the queue, given back when nothing comes out.
+export async function descargarMultimedia({ client, chat, usuario, texto, tipo, quoted = null, isOwner = false, esReintento = false, pagoPorSaltar = 0 }) {
   const isAudio = tipo === "audio";
   const prohibido = ["anuel"];
   const reaccionar = (emoji) => quoted?.react?.(emoji);
   const opcionesEnvio = quoted ? { quoted } : {};
+
+  // Once only: a failure notice that can't be sent falls into the outer catch, which fails again.
+  let devuelto = false;
+  const devolverPago = () => {
+    if (!pagoPorSaltar || devuelto) return "";
+    devuelto = true;
+    ganarCoins(chat, usuario, pagoPorSaltar, "saltar_cooldown_devolucion");
+    return `\n🪙 Te devolví los ${pagoPorSaltar} UruCoins de saltar la espera.`;
+  };
 
   const intentarCandidato = async (candidato) => {
     try {
@@ -109,7 +124,7 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       // search result and is safe today, but a command string would read it as shell syntax, $(...) included.
       const argumentos = ["-f", format, ...postProcess, ...cookiesArgs, "--no-warnings", "-o", outputTemplate, candidato.url];
       // With a timeout: a hung download used to block the whole queue until the bot was restarted.
-      const { stderr } = await execFileAsync(ytDlpPath, argumentos, { timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
+      const { stderr } = await _dep.ejecutar(ytDlpPath, argumentos, { timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }).catch((error) => ({
         stdout: error.stdout || "",
         stderr: error.stderr || error.message || "",
       }));
@@ -136,7 +151,10 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       // So that "claudia, ¿de dónde es esta banda?" quoting it already knows which song it is (lib/audios.js).
       recordarAudioEnviado(enviado?.key?.id, candidato.title);
       await promises.unlink(finalPath).catch(() => {});
-      await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*${isAudio ? pagarMusica(chat, usuario) : ""}`, quoted);
+      // The song is out: from here on it's a success. The "here you go" used to count as part of the download, so when
+      // it failed the next candidate was downloaded, sent and paid for again.
+      const pago = isAudio ? pagarMusica(chat, usuario) : "";
+      await client.sendText(chat, `✅ Ahí tenés, bo. *${candidato.title}*${pago}`, quoted).catch((e) => console.error(`[dl-youtube] no salió el aviso de "${candidato.title}": ${e.message}`));
       return true;
     } catch (error) {
       console.error(`[dl-youtube] excepción con "${candidato.title}" (${candidato.fuente}): ${error.message}`);
@@ -173,18 +191,19 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
   // On failure: it stores the failure so it can be retried and says how to ask for it (the first time only).
   const fallar = async (mensaje) => {
     reaccionar("❌");
+    const devolucion = devolverPago();
     if (esReintento) {
-      await client.sendText(chat, `${mensaje}\n\nEse fue el reintento; si querés, más tarde pedila de nuevo con .${isAudio ? "play" : "video"}.`, quoted);
+      await client.sendText(chat, `${mensaje}${devolucion}\n\nEse fue el reintento; si querés, más tarde pedila de nuevo con .${isAudio ? "play" : "video"}.`, quoted);
       return;
     }
     registrarFalloDescarga(chat, usuario, texto, tipo);
-    await client.sendText(chat, `${mensaje}\n\n🔁 Si querés, mandá .reintentar y la vuelvo a probar sola en media hora.`, quoted);
+    await client.sendText(chat, `${mensaje}${devolucion}\n\n🔁 Si querés, mandá .reintentar y la vuelvo a probar sola en media hora.`, quoted);
   };
 
   try {
     const candidatosYoutube = await buscarYoutube(texto);
     if (!candidatosYoutube || candidatosYoutube.length === 0) {
-      await client.sendText(chat, "❌ No encontré resultados para eso en YouTube. Probá con otro título.", quoted);
+      await client.sendText(chat, `❌ No encontré resultados para eso en YouTube. Probá con otro título.${devolverPago()}`, quoted);
       reaccionar("❌");
       return false;
     }
@@ -223,7 +242,7 @@ export function pagarMusica(chat, usuario) {
 
 async function buscarYoutube(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, [`ytsearch3:${query}`, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
+    const { stdout } = await _dep.ejecutar(ytDlpPath, [`ytsearch3:${query}`, ...cookiesArgs, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
     return parsearResultados(stdout, "youtube");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en YouTube falló: ${error.message}`);
@@ -233,7 +252,7 @@ async function buscarYoutube(query) {
 
 async function buscarSoundcloud(query) {
   try {
-    const { stdout } = await execFileAsync(ytDlpPath, [`scsearch5:${query}`, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
+    const { stdout } = await _dep.ejecutar(ytDlpPath, [`scsearch5:${query}`, "--print", "%(title)s", "--print", "%(webpage_url)s", "--print", "%(thumbnail)s", "--print", "%(id)s", "--skip-download", "--no-warnings", "--ignore-errors"], { timeout: 180 * 1000 });
     return parsearResultados(stdout, "soundcloud");
   } catch (error) {
     console.error(`[dl-youtube] búsqueda en SoundCloud falló: ${error.message}`);

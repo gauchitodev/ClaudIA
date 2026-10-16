@@ -28,7 +28,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .perfil — tu ficha completa · .perfil @alguien — la de otra persona
 ▸ .mitimba — cuánto apostaste en cada juego y cómo te fue · .timba — el ranking del grupo
 ▸ .regalar @alguien 20 — transferí coins
-▸ .playya / .videoya — música sin esperar el cooldown (15 coins)
+▸ .playya / .videoya — música sin esperar el cooldown (15 coins; si falla, te los devuelvo)
 
 🛒 *Tienda*
 ▸ .tienda — qué se puede comprar

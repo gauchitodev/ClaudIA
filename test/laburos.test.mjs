@@ -99,13 +99,34 @@ test("laburos: renunciar y agarrar otro no deja cobrar dos veces el mismo día",
   const C = "renuncia@g.us";
   L.tomarLaburo(C, "r@lid", "tambero");
   assert.ok(L.cobrar(C, "r@lid").ok);
-  const saldo = F.getSaldoCoins(C, "r@lid");
 
   assert.ok(L.renunciar(C, "r@lid").ok);
   assert.equal(L.laburoDe(C, "r@lid"), null, "quedó sin laburo");
   assert.deepEqual(L.topLaburantes(C), [], "y no aparece entre los laburantes");
+  globalThis.db.prepare(`UPDATE laburos SET desde = 0 WHERE chat = ? AND usuario = ?`).run(C, "r@lid"); // the wait went by
+  F.moverCoins(C, "r@lid", 100, "test_carga");
+  const saldo = F.getSaldoCoins(C, "r@lid");
   assert.ok(L.tomarLaburo(C, "r@lid", "dj").ok, "puede agarrar otro");
   assert.match(L.cobrar(C, "r@lid").error, /Ya cobraste hoy/, "pero el sueldo de hoy ya lo cobró");
-  assert.equal(F.getSaldoCoins(C, "r@lid"), saldo);
+  assert.equal(F.getSaldoCoins(C, "r@lid"), saldo - L.LABURO.CAMBIO_COSTO, "solo pagó el cambio");
   assert.equal(L.laburoDe(C, "r@lid").cobros, 0, "y el oficio nuevo arranca de cero, como siempre");
+});
+
+test("laburos: renunciar no saltea la espera ni el costo del cambio", () => {
+  // After .renunciar the next job counted as a first one: free and with no wait, so anyone could move every day to
+  // the trade paying the most.
+  const C = "saltos@g.us";
+  const { CAMBIO_COSTO, CAMBIO_ESPERA_DIAS } = L.LABURO;
+  assert.doesNotMatch(L.tomarLaburo(C, "s@lid", "tambero").mensaje, /Pagaste/, "el primero es gratis");
+  assert.match(L.textoLaburos(C, "t@lid"), /Elegí uno con \.laburo <nombre>\. El primero es gratis\./);
+
+  assert.match(L.renunciar(C, "s@lid").mensaje, new RegExp(`El próximo cuesta ${CAMBIO_COSTO} de trámites y lo podés agarrar en ${CAMBIO_ESPERA_DIAS} días\\.`));
+  assert.equal(L.tomarLaburo(C, "s@lid", "dj").error, `Hace nada que agarraste tu último laburo. Podés agarrar otro en ${CAMBIO_ESPERA_DIAS} días.`);
+  assert.match(L.textoLaburos(C, "s@lid"), new RegExp(`Como ya tuviste uno, cuesta ${CAMBIO_COSTO} de trámites y lo podés agarrar en ${CAMBIO_ESPERA_DIAS} días\\.`));
+
+  globalThis.db.prepare(`UPDATE laburos SET desde = ? WHERE chat = ? AND usuario = ?`).run(Date.now() - (CAMBIO_ESPERA_DIAS + 1) * 24 * 3600e3, C, "s@lid");
+  assert.equal(L.tomarLaburo(C, "s@lid", "dj").error, `Cambiar de laburo cuesta ${CAMBIO_COSTO} UruCoins (trámites, vio) y tenés 0.`);
+  F.moverCoins(C, "s@lid", CAMBIO_COSTO + 10, "test_carga");
+  assert.match(L.tomarLaburo(C, "s@lid", "dj").mensaje, new RegExp(`Pagaste ${CAMBIO_COSTO} de trámites y arrancás de nivel 1\\.`));
+  assert.equal(F.getSaldoCoins(C, "s@lid"), 10);
 });
