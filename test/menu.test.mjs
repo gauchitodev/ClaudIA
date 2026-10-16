@@ -57,7 +57,8 @@ test("menú: cada uno ve los temas que puede usar", () => {
   const temas = (rango) => menu(rango).split("📂")[1];
   assert.match(temas(MIEMBRO), /🎮 juegos/);
   assert.doesNotMatch(temas(MIEMBRO), /admins|config|owner/);
-  assert.match(temas(MOD), /🛡️ admins · ⚙️ config/);
+  assert.match(temas(MOD), /🛡️ admins/);
+  assert.match(temas(MOD), /⚙️ config/);
   assert.doesNotMatch(temas(MOD), /owner/);
   assert.match(temas(OWNER), /🥷 owner/);
   assert.equal(menu({ pedido: "admins" }), "🛡️ Ese tema es para admins y moderadores del grupo.");

@@ -147,7 +147,32 @@ test("apellido: lo elige el matrimonio y lo heredan los que llevaban el mismo", 
   assert.equal(a.apellido, "Pérez");
   assert.equal(Fa.apellidoDe(L(12)), "Pérez");
 
-  assert.equal(Fa.textoFamilias(), "👨‍👩‍👧‍👦 *FAMILIAS*\n\n1. *Pérez* — 5 personas: Persona 1, Persona 2, Persona 4, Persona 10 y Persona 12\n2. *Rodríguez* — 3 personas: Persona 3, Persona 7 y Persona 8");
+  // Each family as its tree, from its founding couple. Rodríguez (3 and 7, who chose their own surname) is a family of
+  // its own and also a branch of Pérez; 5 and 6 never chose a surname, and are still a family.
+  assert.equal(
+    Fa.textoFamilias(),
+    [
+      "👨‍👩‍👧‍👦 *Familias*",
+      "",
+      "1. *Pérez* · 9 personas",
+      "Persona 1 💍 Persona 2",
+      "└ Persona 3 💍 Persona 7",
+      "   └ Persona 8",
+      "└ Persona 4 💍 Persona 9",
+      "   └ Persona 10",
+      "└ Persona 12",
+      "",
+      "2. *Persona 5 y Persona 6* (sin apellido) · 3 personas",
+      "Persona 5 💍 Persona 6",
+      "└ Persona 11",
+      "",
+      "3. *Rodríguez* · 3 personas",
+      "Persona 3 💍 Persona 7",
+      "└ Persona 8",
+    ].join("\n"),
+  );
+  // Only the families with someone in the group asking: with just 11 there, only theirs.
+  assert.match(Fa.textoFamilias((lid) => lid === L(11)), /^👨‍👩‍👧‍👦 \*Familias del grupo\*\n\n1\. \*Persona 5 y Persona 6\* \(sin apellido\) · 3 personas\nPersona 5 💍 Persona 6\n└ Persona 11$/);
 });
 
 test("emancipar y desheredar: se pierden los padres y el apellido de la familia", () => {
@@ -232,8 +257,13 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
 
   await correr(Familia, L(12), "");
   assert.equal(ultimoEnviado().msg.text, "👨‍👩‍👧‍👦 *Familia Sosa* · Persona 12\n👨‍👩‍👧 Padres: Persona 13 y Persona 14");
-  await correr(Familia, L(12), "", "familias");
-  assert.match(ultimoEnviado().msg.text, /^👨‍👩‍👧‍👦 \*FAMILIAS\*\n\n1\. \*Pérez\* — 4 personas: Persona 1, Persona 2, Persona 3 y Persona 8\n2\. \*Sosa\* — 3 personas: Persona 12, Persona 13 y Persona 14\n3\. \*Rodríguez\* — 1 persona: Persona 7$/);
+  // .familias shows the group's families: the plugin gets the participants, like the dispatcher hands them over.
+  const participantes = Array.from({ length: 14 }, (_, i) => ({ id: L(i + 1), admin: null }));
+  await Familia.run({ chat: G, sender: L(12), isGroup: true, mentionedJid: [] }, { client, text: "", usedPrefix: ".", command: "familias", participants: participantes });
+  assert.match(ultimoEnviado().msg.text, /^👨‍👩‍👧‍👦 \*Familias del grupo\*\n\n1\. \*Pérez\* · /);
+  assert.match(ultimoEnviado().msg.text, /\n\d\. \*Sosa\* · 3 personas\nPersona 13 💍 Persona 14\n└ Persona 12(\n|$)/);
+  await Familia.run({ chat: G, sender: L(12), isGroup: true, mentionedJid: [] }, { client, text: "", usedPrefix: ".", command: "familias", participants: [{ id: "otro@lid" }] });
+  assert.match(ultimoEnviado().msg.text, /Todavía no hay ninguna/, "nadie de esas familias está en el grupo");
 
   // kisses and dating within the family: no
   await correr(Besar, L(12), "@13", "besar", [L(13)]);

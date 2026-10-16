@@ -1760,6 +1760,11 @@ export function hijosDe(padre) {
   return db.prepare(`SELECT hijo, desde FROM familia_hijos WHERE padre_a = ? OR padre_b = ? ORDER BY desde ASC`).all(padre, padre);
 }
 
+// every adoption, oldest first: .familias finds each family's founding couple among them
+export function listaAdopciones() {
+  return db.prepare(`SELECT hijo, padre_a, padre_b, desde FROM familia_hijos ORDER BY desde ASC`).all();
+}
+
 export function crearAdopcion(hijo, padreA, padreB, desde) {
   return db.prepare(`INSERT OR REPLACE INTO familia_hijos (hijo, padre_a, padre_b, desde) VALUES (?, ?, ?, ?)`).run(hijo, padreA, padreB, desde).changes > 0;
 }
