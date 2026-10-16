@@ -118,7 +118,8 @@ test("compraventa: estados, permisos y vencimiento", async () => {
 });
 
 test("compraventa: calificaciones y reputación", async () => {
-  const cal = (sender, text) => Cal.run(msg(sender, text), { client: cliente(), command: "calificar", args: text.split(/\s+/), text });
+  const miembros = [111, 222, 333, 444, 555].map((n) => ({ id: `${n}@lid`, admin: null }));
+  const cal = (sender, text) => Cal.run(msg(sender, text), { client: cliente(), command: "calificar", args: text.split(/\s+/), text, participants: miembros });
   await cal("222@lid", "@111 5 buen vendedor, rápido");
   assert.match(ultimo(), /⭐⭐⭐⭐⭐ Calificaste a @111: "buen vendedor, rápido"\. Ahora tiene 5,0 de 5 \(1 calificación\)\./);
   await cal("333@lid", "@111 4");
@@ -363,4 +364,53 @@ test("compraventa: un texto enorme no traba el bot (precio, publicación y búsq
   const busqueda = C.textoBusqueda(G, "bici impecable ".repeat(5000));
   assert.ok(performance.now() - antes < 300, `la búsqueda tardó ${Math.round(performance.now() - antes)} ms`);
   assert.match(busqueda.texto, /^🔎 \*Resultados para "bici impecable bici impecable .{0,40}…"\*/, "repite la búsqueda recortada");
+});
+
+test("compraventa: el «¿sigue en pie?» se contesta renovando, también una reservada", async () => {
+  // .sigue on an active post answered "ya está activa" and changed nothing: two days later it was taken down for lack
+  // of an answer. A reserved one couldn't keep its reservation either (.sigue frees it, .reservado said "ya está").
+  const V = "vigencia@g.us";
+  const ahora = Date.now();
+  const preguntas = [];
+  const cliente2 = { sendMessage: async (chat, mensaje) => (chat === V && preguntas.push(mensaje.text), { key: { id: "x" } }) };
+
+  const activa = C.publicar(V, "777@lid", "vendo", "bici playera $ 2.000").numero;
+  F.actualizarPublicacion(V, activa, { actualizada: ahora - 8 * DIA });
+  await C.chequearPublicaciones(ahora, cliente2);
+  assert.match(preguntas.at(-1), new RegExp(`Respondé \\.sigue ${activa} para mantenerla, o \\.vendido`));
+  assert.equal(C.cambiarEstado(V, activa, "777@lid", false, "sigue", ahora).mensaje, `👍 La #${activa} sigue activa. Te vuelvo a preguntar en ${C.COMPRAVENTA.DIAS_VIGENCIA} días.`);
+  await C.chequearPublicaciones(ahora + 3 * DIA, cliente2);
+  assert.equal(F.getPublicacion(V, activa).estado, "activa", "no la dio de baja");
+
+  const reservada = C.publicar(V, "777@lid", "vendo", "mesa de luz $ 800").numero;
+  C.cambiarEstado(V, reservada, "777@lid", false, "reservado", ahora);
+  F.actualizarPublicacion(V, reservada, { actualizada: ahora - 8 * DIA });
+  await C.chequearPublicaciones(ahora, cliente2);
+  assert.match(preguntas.at(-1), new RegExp(`Respondé \\.reservado ${reservada} para mantenerla reservada, \\.sigue ${reservada} si vuelve a estar libre`));
+  assert.equal(C.cambiarEstado(V, reservada, "777@lid", false, "reservado", ahora).mensaje, `🔒 La #${reservada} sigue reservada. Te vuelvo a preguntar en ${C.COMPRAVENTA.DIAS_VIGENCIA} días.`);
+  assert.deepEqual([F.getPublicacion(V, reservada).estado, F.getPublicacion(V, reservada).aviso], ["reservada", 0]);
+  assert.match(C.cambiarEstado(V, reservada, "777@lid", false, "sigue", ahora).mensaje, /sigue activa/, ".sigue la libera, como antes");
+});
+
+test("compraventa: reactivar una publicación respeta el tope de activas", () => {
+  const V = "tope@g.us";
+  F.initDataDB({ chat: V, sender: "888@lid", senderJid: "", pushName: "Nico" });
+  const numeros = Array.from({ length: C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA }, (_, i) => C.publicar(V, "888@lid", "vendo", `cosa ${i} $ 100`).numero);
+  assert.ok(C.cambiarEstado(V, numeros[0], "888@lid", false, "baja").ok);
+  assert.ok(C.publicar(V, "888@lid", "vendo", "otra cosa $ 100").ok, "con una menos, se puede publicar otra");
+  assert.equal(C.cambiarEstado(V, numeros[0], "888@lid", false, "sigue").error, `La #${numeros[0]} no se puede reactivar: ya tenés ${C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA} publicaciones activas. Cerrá alguna con .vendido N o .baja N.`);
+  assert.match(C.cambiarEstado(V, numeros[0], "999@lid", true, "sigue").error, /Nico ya tiene 10 publicaciones activas/, "tampoco un moderador");
+  assert.equal(F.getPublicacion(V, numeros[0]).estado, "cerrada");
+  assert.equal(F.contarPublicacionesActivas(V, "888@lid"), C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA);
+});
+
+test("compraventa: solo se califica a alguien del grupo", async () => {
+  // From a group the person isn't in, a typed number was enough to leave a one-star "estafador" on their reputation,
+  // which the admins of the person's own group couldn't remove.
+  F.initDataDB({ chat: "otro@g.us", sender: "999@lid", senderJid: "59899999999@s.whatsapp.net" });
+  const calificar = (participants) => Cal.run(msg("222@lid", "@999 1 estafador"), { client: cliente(), command: "calificar", args: ["@999", "1", "estafador"], text: "@999 1 estafador", participants });
+  await calificar([{ id: "111@lid" }, { id: "222@lid" }]);
+  assert.equal(ultimo(), "❌ Solo podés calificar a alguien de este grupo.");
+  await calificar([{ id: "222@lid" }, { id: "59899999999@s.whatsapp.net" }]);
+  assert.match(ultimo(), /^⭐ Calificaste a @999: "estafador"/, "aunque el grupo lo liste por número");
 });

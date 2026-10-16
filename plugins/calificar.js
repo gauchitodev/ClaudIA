@@ -1,5 +1,6 @@
 import { getUser } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
+import { estaEnGrupo } from "../lib/identidad.js";
 import { calificar, textoReputacion, textoCalificaciones, borrarCalificacion, editarCalificacion } from "../lib/reputacion.js";
 
 const plugin = {};
@@ -9,7 +10,7 @@ plugin.onlyGroup = true;
 // .calificar @persona 5 <comentario> (o respondiendo a un mensaje suyo) · .reputacion [@persona] ·
 // .calificaciones [@person] lists them numbered · .calificaciones borrar N · .calificaciones editar N <stars> [comment]
 // (deleting and editing: admins of the group it was made in, the owner, and deleting also whoever made it)
-plugin.run = async (m, { client, command, args, text, isAdmin, isOwner }) => {
+plugin.run = async (m, { client, command, args, text, isAdmin, isOwner, participants }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.ok === false ? `❌ ${r.error}` : r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
   const lid = lidMencionado(m, text);
 
@@ -28,6 +29,9 @@ plugin.run = async (m, { client, command, args, text, isAdmin, isOwner }) => {
   }
 
   if (lid && !getUser(lid)) return client.sendText(m.chat, "❌ No conozco a esa persona todavía.", m);
+  // Only someone of this group: reputation is seen in every group, and from a group the person isn't in, a typed
+  // number was enough to leave a one-star "estafador" that the admins of the person's own group couldn't remove.
+  if (lid && !estaEnGrupo(participants)(lid)) return client.sendText(m.chat, "❌ Solo podés calificar a alguien de este grupo.", m);
   const sinMencion = args.filter((a) => !a.startsWith("@"));
   const puntos = parseInt(sinMencion.find((a) => /^[1-5]$/.test(a)), 10);
   const comentario = sinMencion.filter((a) => !/^[1-5]$/.test(a)).join(" ");
