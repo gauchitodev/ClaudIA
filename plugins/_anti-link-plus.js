@@ -20,7 +20,8 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
   if (!aviso) return;
   if (chat.antiDelete) return client.sendText(m.chat, txt.allAntiLinkDelete, m, { mentions });
   if (isBotAdmin) {
-    // Delete first, warn after: same reason as in _all-anti-links.js.
+    // Delete first, warn after: same reason as in _all-anti-links.js. Marked as moderated, Claudia leaves it alone.
+    m.moderado = true;
     await m.delete();
     client.sendText(m.chat, aviso, null, { mentions }).catch(console.error);
   }

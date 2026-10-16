@@ -60,6 +60,16 @@ test("todo comando nombrado en un menú existe en algún plugin", () => {
   assert.deepEqual(faltan, [], `el menú nombra comandos que no existen:\n${faltan.join("\n")}`);
 });
 
+// Claudia's manual is hand-written too, and what it says is what she tells people to type. The changelog (CAMBIOS)
+// stays out: it may name commands that were removed since, like .apostar.
+test("todo comando que nombra el manual de Claudia existe en algún plugin", async () => {
+  const { RESUMEN, MANUAL } = await import("../lib/manual-claudia.js");
+  const nombrados = [...`${RESUMEN}\n${MANUAL}`.matchAll(FORMAS[1])].map(([, cmd]) => cmd.toLowerCase());
+  assert.ok(nombrados.length > 100, `el manual nombra muy pocos comandos (${nombrados.length}): ¿cambió el formato?`);
+  const faltan = [...new Set(nombrados)].filter((cmd) => !comandos.has(cmd)).map((cmd) => `.${cmd}`);
+  assert.deepEqual(faltan, [], `el manual de Claudia nombra comandos que no existen: ${faltan.join(", ")}`);
+});
+
 // Two plugins sharing a command both run (handle-message.js doesn't stop at the first): almost always an oversight.
 // It happened once already, and was fixed in commit 2c0a874.
 test("no hay dos plugins declarando el mismo comando", () => {

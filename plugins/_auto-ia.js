@@ -5,7 +5,7 @@ import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { sinMenciones } from "../lib/menciones.js";
-import { recordarMensaje, olvidarMensaje, textoContexto } from "../lib/contexto-chat.js";
+import { recordarMensaje, olvidarMensaje, editarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { tipear } from "../lib/ritmo.js";
@@ -69,17 +69,30 @@ export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", 
   return texto ? { texto, fuentes: r.fuentes || [] } : null;
 }
 
+// The text of a message's content: what an edit leaves.
+const textoDe = (contenido) => contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
+
 const plugin = (m) => m;
 
 plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
-    if (m.fromMe || m.isBaileys) return;
-    // A deleted message leaves the recent context: Claudia shouldn't quote it, react to it or summarize it.
-    const revocado = m.message?.protocolMessage;
-    if (revocado?.type === 0) {
-      olvidarMensaje(m.chat, revocado.key?.id);
+    // A deleted message leaves the recent context: Claudia shouldn't quote it, react to it or summarize it. An edited
+    // one stays as it was left. Before the check of her own messages, because a deletion made from Claudia's phone is
+    // one of hers too; the ones the bot sends never come back here (handle-message drops its own echoes), so
+    // lib/envios.js forgets those as they go out. An edit can come wrapped in editedMessage.
+    const protocolo = m.message?.protocolMessage || m.message?.editedMessage?.message?.protocolMessage;
+    if (protocolo?.type === 0) {
+      olvidarMensaje(m.chat, protocolo.key?.id);
       return;
     }
+    if (protocolo?.type === 14) {
+      editarMensaje(m.chat, protocolo.key?.id, textoDe(protocolo.editedMessage), m.sender);
+      return;
+    }
+    if (m.fromMe || m.isBaileys) return;
+    // A message the moderation just deleted (the anti-link hooks mark it): for Claudia it never existed. She used to
+    // answer it, repeating the link, and keep it for .resumen and the initiative.
+    if (m.moderado) return;
     // A reaction arrives as a message whose text is the emoji: it isn't something anyone said.
     if (m.mtype === "reactionMessage") return;
     // A voice note has no text, but it can be an answer to Claudia: that one she listens to (further down).

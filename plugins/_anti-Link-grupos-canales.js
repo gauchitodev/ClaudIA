@@ -21,6 +21,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
     if (chat.antiDelete) return client.sendText(m.chat, txt.antiGroupsDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
     client.sendMessage(m.chat, { text: txt.antiGroupsSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
+    m.moderado = true; // Claudia leaves it alone (plugins/_auto-ia.js)
     await m.delete();
     await client.groupParticipantsUpdate(m.chat, [m.sender], "remove");
   }
@@ -30,6 +31,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
     if (chat.antiDelete) return client.sendText(m.chat, txt.antiChannelDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
     client.sendMessage(m.chat, { text: txt.antiChannelSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
+    m.moderado = true;
     await m.delete();
   }
 

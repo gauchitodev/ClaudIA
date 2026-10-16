@@ -227,3 +227,54 @@ for (const [nombre, envia, lanzar] of [
     }
   });
 }
+
+// Each AI question is a request to the models Claudia chats with: twenty .trivia in a row ran out the per-minute quota
+// and paused all of them, for the chat too. Now it's one a minute and TRIVIA.IA_POR_DIA a day per group; the rest come
+// from the bank.
+test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día en cada grupo; las demás salen del banco", async () => {
+  const Gem = await import("../lib/gemini.js");
+  const C = "racion@g.us";
+  const pedidos = [];
+  const fetchReal = globalThis.fetch;
+  const logReal = console.log;
+  globalThis.geminiApiKey = "clave";
+  console.log = () => {};
+  globalThis.fetch = async (url) => {
+    pedidos.push(String(url));
+    const p = { pregunta: `¿Pregunta de la IA ${pedidos.length}?`, opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A" };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(p) }] } }] }) };
+  };
+  const deLaIa = async (chat) => (await Tr.generarPregunta(chat)).pregunta.startsWith("¿Pregunta de la IA");
+  try {
+    assert.equal(await deLaIa(C), true);
+    for (let i = 0; i < 5; i++) assert.equal(await deLaIa(C), false, "en el mismo minuto, del banco");
+    assert.equal(pedidos.length, 1);
+    assert.equal(await deLaIa("otro-grupo@g.us"), true, "otro grupo tiene lo suyo");
+
+    globalThis.triviaConIa.get(C).ultima -= Tr.TRIVIA.IA_CADA_MS; // a minute went by
+    assert.equal(await deLaIa(C), true);
+    assert.equal(globalThis.triviaConIa.get(C).usadas, 2);
+
+    // The day's AI questions are used up: the bank until tomorrow.
+    globalThis.triviaConIa.set(C, { dia: new Date().toDateString(), usadas: Tr.TRIVIA.IA_POR_DIA, ultima: 0 });
+    pedidos.length = 0;
+    assert.equal(await deLaIa(C), false);
+    assert.equal(pedidos.length, 0);
+    globalThis.triviaConIa.get(C).dia = "ayer";
+    assert.equal(await deLaIa(C), true);
+    assert.equal(globalThis.triviaConIa.get(C).usadas, 1, "al otro día arranca de nuevo");
+
+    // With every Gemini model paused, not the backups either: straight to the bank, without a wait.
+    globalThis.triviaConIa.delete(C);
+    for (const modelo of Gem.MODELOS) globalThis.geminiEnPausa.set(modelo, { hasta: Date.now() + 60 * 1000, seguidos: 1 });
+    pedidos.length = 0;
+    assert.equal(await deLaIa(C), false);
+    assert.equal(pedidos.length, 0);
+    assert.equal(globalThis.triviaConIa.has(C), false, "no gastó el turno de la IA");
+  } finally {
+    globalThis.fetch = fetchReal;
+    console.log = logReal;
+    globalThis.geminiApiKey = "";
+    globalThis.geminiEnPausa.clear();
+  }
+});

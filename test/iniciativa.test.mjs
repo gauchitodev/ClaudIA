@@ -200,10 +200,13 @@ test("vistazo: si la IA falla o devuelve cualquier cosa, no hace nada y no da na
   charlar(chat);
   const leido = F.estadoIniciativa(chat).ultimoVistazo;
 
-  decisiones.push("esto no es JSON");
+  // A broken JSON is that model's failure, and the next one gets a go (lib/gemini.js): here all three answer junk.
+  const consultasAntes = consultas;
+  decisiones.push("esto no es JSON", "{ tampoco", "ni esto");
   let client = cliente(chat);
   let informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
-  assert.equal(informe.error, "JSON roto");
+  assert.equal(informe.error, "no respondió");
+  assert.equal(consultas - consultasAntes, 3, "una consulta por modelo, sin repetir el mismo");
   assert.equal(client.salidas.length, 0);
   assert.equal(F.estadoIniciativa(chat).ultimoVistazo, leido);
 
