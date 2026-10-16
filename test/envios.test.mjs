@@ -44,6 +44,31 @@ test("ritmo: dos mensajes al mismo chat se separan, y otro chat no espera", asyn
   assert.equal(esperas[2], 0, "otro chat no espera al primero");
 });
 
+test("ritmo: una cola larga sale tarde pero espaciada, sin ráfaga", async (t) => {
+  // The wait used to stop at 25 s, and everything further off went out at that moment: 30 messages at once came out
+  // 17 spaced and 13 together. With the clock mocked, the real spacing runs without waiting for it.
+  const minimo = R.RITMO.MIN_ENTRE_MENSAJES_MS;
+  R.RITMO.MIN_ENTRE_MENSAJES_MS = 1500;
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+  try {
+    const salidas = [];
+    const turnos = Array.from({ length: 30 }, () => R.esperarTurno("larga@g.us").then(() => salidas.push(Date.now())));
+    const soltar = () => new Promise((r) => setImmediate(r));
+    await soltar(); // the first one goes right away
+    for (let i = 0; i < 1000 && salidas.length < 30; i++) {
+      t.mock.timers.tick(100);
+      await soltar();
+    }
+    await Promise.all(turnos);
+    const huecos = salidas.slice(1).map((s, i) => s - salidas[i]);
+    assert.ok(Math.min(...huecos) >= 1500, `salieron más juntas que el mínimo: ${huecos.join(", ")} ms`);
+    assert.equal(salidas.at(-1) - salidas[0], 29 * 1500, "la última sale a los 43,5 s");
+  } finally {
+    t.mock.timers.reset();
+    R.RITMO.MIN_ENTRE_MENSAJES_MS = minimo;
+  }
+});
+
 test("ritmo: las reacciones tienen su propia fila y se descartan si el turno queda lejos", async () => {
   const chat = "fila2@g.us";
   // A burst of five with a 100 ms limit: turns at 0, 40 and 80 ms fit; the next ones would wait too long.
