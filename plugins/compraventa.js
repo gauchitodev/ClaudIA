@@ -30,7 +30,7 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
 
   // .catalogo 12 is the detail of #12; with anything else (or nothing) it's the whole catalogue.
   if (command === "catalogo" || command === "catálogo") {
-    return enviar(/^\d+$/.test(args[0] || "") ? textoPublicacion(m.chat, parseInt(args[0], 10)) : textoCatalogo(m.chat, null));
+    return enviar(/^\d+$/.test(args[0] || "") ? textoPublicacion(m.chat, parseInt(args[0], 10), { usuario: m.sender, esMod: isMod }) : textoCatalogo(m.chat, null));
   }
   if (command === "buscar") return enviar(textoBusqueda(m.chat, text));
   if (command === "mias") return enviar(textoMias(m.chat, m.sender));

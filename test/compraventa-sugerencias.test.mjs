@@ -135,3 +135,60 @@ test("modo compraventa: las respuestas a pedidos sueltos tienen tope por hora", 
     C.COMPRAVENTA.SUGERENCIAS_POR_HORA = tope;
   }
 });
+
+// Turning one thing back on after .modo compraventa (the greetings, say) stopped the loose sales without a word, while
+// .menuventas still said buy-and-sell mode: they asked different things. Now both ask for the games and the economy off.
+test("modo compraventa: prender los saludos no apaga las ventas sueltas, y .menuventas dice lo mismo que el hook", async () => {
+  const M = "modo-mixto@g.us";
+  for (const n of [111, 222]) F.initDataDB({ chat: M, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });
+  const Modo = await import("../lib/modo.js");
+  const Menu = (await import("../plugins/menu-ventas.js")).default;
+  const menu = async () => {
+    await Menu.run({ chat: M }, { client: globalThis.client, chat: F.getChat(M) });
+    return ultimoEnviado().msg.text;
+  };
+  Modo.aplicarModo(M, "compraventa");
+  F.updateChat(M, { saludos: 1 });
+  await escribir(M, "111@lid", "Vendo bici rodado 26 $ 4.000");
+  assert.equal(F.publicacionesActivas(M).length, 1, "lo suelto se sigue leyendo");
+  assert.match(await menu(), /Este grupo está en modo compraventa\./);
+  assert.match(Modo.textoModo(M), /🏷️ Leo las ventas sueltas/);
+
+  F.updateChat(M, { games: 1 });
+  await escribir(M, "222@lid", "Vendo silla $ 500");
+  assert.equal(F.publicacionesActivas(M).length, 1, "con los juegos prendidos, ya no");
+  assert.match(await menu(), /Este grupo NO está en modo compraventa/);
+  assert.match(Modo.textoModo(M), /no las leo/);
+});
+
+// "me", "lo" or "ya" counted as what was being asked for: any post that had them matched.
+test("modo compraventa: una frase cualquiera no saca sugerencias por palabras sueltas", async () => {
+  const S = "frases@g.us";
+  for (const n of [111, 222, 333]) F.initDataDB({ chat: S, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });
+  F.updateChat(S, { games: 0, charla: 0, saludos: 0, monedas: 0, ascensos: 0, recapSemanal: 0 });
+  C.publicar(S, "111@lid", "vendo", "sillón 3 cuerpos, me mudo, $ 5.000");
+  C.publicar(S, "111@lid", "vendo", "celular, ya no lo uso, $ 3.000");
+  const antes = globalThis.enviados.length;
+  for (const frase of ["Necesito que me lo reserves hasta el viernes", "Compro, me interesa!", "Tienen ya el horario de mañana?", "busco que me expliquen cómo publicar"]) {
+    await escribir(S, "222@lid", frase);
+  }
+  assert.equal(globalThis.enviados.length, antes);
+  await escribir(S, "333@lid", "¿alguien vende un sillón?");
+  assert.match(ultimoEnviado().msg.text, /@111 está vendiendo «sillón 3 cuerpos/, "lo que sí se busca, se encuentra");
+});
+
+// The "not again for a day" went by post number: publishing and taking down "#vendo bici" over and over mentioned
+// whoever was looking for one every single time.
+test("#vendo: el mismo vendedor no vuelve a arrobar a quien busca, aunque publique de nuevo", () => {
+  const A = "acoso@g.us";
+  for (const n of [111, 222, 333]) F.initDataDB({ chat: A, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });
+  C.publicar(A, "222@lid", "compro", "bici");
+  let veces = 0;
+  for (let i = 0; i < 5; i++) {
+    const r = C.publicar(A, "111@lid", "vendo", `bici ${i}`);
+    if (r.sugerencias?.mentions.includes("222@lid")) veces++;
+    assert.ok(C.cambiarEstado(A, r.numero, "111@lid", false, "baja").ok);
+  }
+  assert.equal(veces, 1);
+  assert.deepEqual(C.publicar(A, "333@lid", "vendo", "bici playera").sugerencias?.mentions, ["222@lid"], "otro vendedor sí se lo cuenta");
+});

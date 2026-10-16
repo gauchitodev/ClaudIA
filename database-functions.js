@@ -79,9 +79,10 @@ export function loadDatabase() {
   `);
 
   // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours, the marketplace mode
-  // switches (chat, greetings, coins, promotions) and Claudia's initiative on databases that already exist.
+  // switches (chat, greetings, coins, promotions), Claudia's initiative and since when the group hours can't be kept
+  // (lib/horario-grupo.js), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -1603,6 +1604,11 @@ export function actualizarPublicacion(chat, numero, data) {
   db.prepare(`UPDATE publicaciones SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE chat = ? AND numero = ?`).run(...keys.map((k) => data[k]), chat, numero);
 }
 
+// Whoever left the group: their live posts are taken down (lib/compraventa.js). Returns how many.
+export function cerrarPublicacionesDe(chat, usuario, ahora = Date.now()) {
+  return db.prepare(`UPDATE publicaciones SET estado = 'cerrada', actualizada = ? WHERE chat = ? AND usuario = ? AND estado IN ${ESTADOS_VIGENTES}`).run(ahora, chat, usuario).changes;
+}
+
 // live ones due for a check: old with no notice sent, or with the notice already expired
 export function publicacionesParaRevisar(limiteActualizada, limiteAviso) {
   return db.prepare(`SELECT * FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} AND ((aviso = 0 AND actualizada < ?) OR (aviso > 0 AND aviso < ?)) ORDER BY chat, numero`).all(limiteActualizada, limiteAviso);
@@ -1623,6 +1629,11 @@ export function alertasDe(chat, usuario) {
 
 export function alertasDelChat(chat) {
   return db.prepare(`SELECT usuario, palabra FROM alertas_compraventa WHERE chat = ?`).all(chat);
+}
+
+// Every alert of someone who left the group. Returns how many.
+export function quitarAlertasDe(chat, usuario) {
+  return db.prepare(`DELETE FROM alertas_compraventa WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes;
 }
 
 // ===================== Compraventa: calificaciones =====================
@@ -1649,7 +1660,7 @@ export function ultimasCalificaciones(para, n = 3) {
 
 // ===================== Group hours =====================
 export function chatsConHorarioGrupo() {
-  return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario FROM chats WHERE horarioGrupo != ''`).all();
+  return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario, horarioGrupoFalla FROM chats WHERE horarioGrupo != ''`).all();
 }
 
 // One rating by id, all the ones a person received (with the group they were made in), plus editing and deleting

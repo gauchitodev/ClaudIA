@@ -1,6 +1,6 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
-import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
 
 let F, C, Reg, HG, Pf, Hook, Cmd, Cal;
 const DIA = 24 * 3600e3;
@@ -413,4 +413,130 @@ test("compraventa: solo se califica a alguien del grupo", async () => {
   assert.equal(ultimo(), "❌ Solo podés calificar a alguien de este grupo.");
   await calificar([{ id: "222@lid" }, { id: "59899999999@s.whatsapp.net" }]);
   assert.match(ultimo(), /^⭐ Calificaste a @999: "estafador"/, "aunque el grupo lo liste por número");
+});
+
+// ---------- tanda 5b ----------
+
+test("compraventa: un .vendo bloqueado con .bladd tampoco se publica con #vendo ni suelto", async () => {
+  const B = "bloqueos@g.us";
+  for (const n of [111, 222]) F.initDataDB({ chat: B, sender: `${n}@lid`, senderJid: "", pushName: `P${n}` });
+  F.updateChat(B, { blacklistMode: 1, games: 0, monedas: 0 }); // a sales group, so the loose "vendo…" is read too
+  F.addToChatBlacklist(B, "vendo");
+  const reacciones = [];
+  const pasar = (sender, text, extra = {}) => Hook.before({ ...msg(sender, text), chat: B, react: async (e) => reacciones.push(e) }, { client: cliente(), chat: F.getChat(B), user: {}, isOwner: false, isMod: false, ...extra });
+  await pasar("111@lid", "#vendo bici rodado 26 $ 4.000");
+  await pasar("111@lid", "vendo bici rodado 26 $ 4.000");
+  assert.equal(F.publicacionesActivas(B).length, 0);
+  assert.deepEqual(reacciones, ["🔒", "🔒"], "como cuando se escribe el comando bloqueado");
+  await pasar("222@lid", "#busco bici");
+  assert.equal(F.publicacionesActivas(B).length, 1, ".compro no está bloqueado");
+  await pasar("111@lid", "#vendo bici rodado 26 $ 4.000", { isOwner: true });
+  assert.equal(F.publicacionesActivas(B, "vendo").length, 1, "el owner sí");
+});
+
+// A pass that outlasted the 5 minutes left the next one listing the posts it hadn't reached yet: both asked the seller.
+test("compraventa: dos pasadas superpuestas preguntan una sola vez por cada publicación", async () => {
+  const P = "pasadas@g.us";
+  F.initDataDB({ chat: P, sender: "111@lid", senderJid: "" });
+  const ahora = Date.now();
+  for (let i = 0; i < 6; i++) F.actualizarPublicacion(P, C.publicar(P, "111@lid", "vendo", `cosa ${i} $ 100`).numero, { actualizada: ahora - 8 * DIA });
+  const preguntas = [];
+  const lento = { sendMessage: async (chat, contenido) => (await esperar(20), chat === P && preguntas.push(contenido.text), { key: { id: "x" } }) };
+  const primera = C.chequearPublicaciones(ahora, lento);
+  await esperar(50); // the second one starts with the first halfway
+  const segunda = C.chequearPublicaciones(ahora + 1, lento);
+  assert.equal((await primera) + (await segunda), 6);
+  const porNumero = preguntas.map((t) => t.match(/vendo #(\d+)/)[1]);
+  assert.deepEqual(porNumero.sort(), ["1", "2", "3", "4", "5", "6"]);
+});
+
+// It may have been taken down for showing a phone number or an address, and anyone could still read it, forever.
+test("compraventa: el detalle de una dada de baja lo ven solo quien la publicó y los moderadores", async () => {
+  const r = C.publicar(G, "444@lid", "vendo", "celular, llamame al 099 123 456, vivo en Rivera 1234");
+  await correr("222@lid", "baja", String(r.numero), { isMod: true });
+  await correr("555@lid", "catalogo", String(r.numero));
+  assert.equal(ultimo(), `🏷️ *Vendo #${r.numero}* · dada de baja\nYa no está publicada.`);
+  await correr("444@lid", "catalogo", String(r.numero));
+  assert.match(ultimo(), /llamame al 099 123 456/, "quien la publicó, sí");
+  await correr("222@lid", "catalogo", String(r.numero), { isMod: true });
+  assert.match(ultimo(), /llamame al 099 123 456/, "un moderador, sí");
+});
+
+// sendText turns every "@digits" into a real mention: one inside a post mentioned that person each time it was shown
+// or suggested, and an alert word with one mentioned them on the spot.
+test("compraventa: un @número en una publicación o en una alerta no menciona a nadie", async () => {
+  const lid = "123456789012345@lid";
+  F.initDataDB({ chat: G, sender: lid, senderJid: "", pushName: "Tercero" });
+  const r = C.publicar(G, "111@lid", "vendo", "monopatín eléctrico, preguntale a @123456789012345 $ 9.000");
+  assert.equal(F.getPublicacion(G, r.numero).texto, "monopatín eléctrico, preguntale a Tercero $ 9.000");
+  const pedido = C.publicar(G, "555@lid", "compro", "monopatín");
+  assert.doesNotMatch(pedido.sugerencias.texto, /@123456789012345/);
+  assert.match(C.gestionarAlerta(G, "222@lid", ["@123456789012345"]).error, /sin @/);
+  assert.equal(F.alertasDe(G, "222@lid").length, 0);
+  assert.doesNotMatch(C.gestionarAlerta(G, "222@lid", ["quitar", "@123456789012345"]).error, /@\d/);
+});
+
+test("compraventa: quien se va del grupo se lleva sus publicaciones y sus alertas", async () => {
+  const S = "salidas@g.us";
+  F.initDataDB({ chat: S, sender: "777@lid", senderJid: "59899777777@s.whatsapp.net", pushName: "Se va" });
+  F.initDataDB({ chat: S, sender: "888@lid", senderJid: "", pushName: "Se queda" });
+  const a = C.publicar(S, "777@lid", "vendo", "mesa de jardín $ 2.000").numero;
+  C.publicar(S, "777@lid", "compro", "sillas");
+  C.publicar(S, "888@lid", "vendo", "lámpara $ 500");
+  assert.ok(C.gestionarAlerta(S, "777@lid", ["heladera"]).ok);
+  // The event may bring the number instead of the LID: the database says whose it is.
+  assert.equal(C.limpiarVentasAlSalir(S, [{ id: "59899777777@s.whatsapp.net" }]), 3);
+  assert.deepEqual(F.publicacionesActivas(S).map((p) => p.usuario), ["888@lid"]);
+  assert.equal(F.getPublicacion(S, a).estado, "cerrada");
+  assert.deepEqual(F.alertasDe(S, "777@lid"), []);
+  const fs = await import("fs");
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  assert.match(main, /if \(action === "remove"\) \{[^}]*limpiarVentasAlSalir\(id, participants\)/, "main.js lo llama cuando alguien sale");
+});
+
+// Without admin WhatsApp refuses the change: it was asked again every 5 minutes, forever, nobody heard about it, and
+// .horariogrupo off itself needed the bot to be admin.
+test("compraventa: el horario del grupo sin admin avisa una vez, reintenta cada hora y se puede sacar", async () => {
+  const H = "horario-sin-admin@g.us";
+  F.initDataDB({ chat: H, sender: "111@lid", senderJid: "" });
+  let pedidos = 0;
+  let admin = false;
+  const avisos = [];
+  const cliente2 = {
+    ...cliente(),
+    groupSettingUpdate: async () => {
+      pedidos++;
+      if (!admin) throw new Error("not-authorized");
+    },
+    sendMessage: async (chat, contenido) => (chat === H && avisos.push(contenido.text), { key: { id: "x" } }),
+  };
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.ok(HG.fijarHorarioGrupo(H, "8:00-22:00").ok);
+    const noche = new Date(2026, 8, 5, 23, 0).getTime();
+    for (let i = 0; i < 12; i++) await HG.chequearHorariosGrupo(new Date(noche + i * 5 * 60 * 1000), cliente2); // an hour
+    assert.equal(pedidos, 1, "una vez por hora, no cada 5 minutos");
+    assert.equal(avisos.length, 1);
+    assert.match(avisos[0], /^🌙 No pude cerrar el grupo como dice el horario: para eso necesito ser admin\./);
+    assert.match(HG.textoHorarioGrupo(H, noche), /⚠️ Desde .+ no lo puedo cumplir/);
+    await HG.chequearHorariosGrupo(new Date(noche + 61 * 60 * 1000), cliente2);
+    assert.deepEqual([pedidos, avisos.length], [2, 1], "a la hora reintenta, sin volver a avisar");
+
+    admin = true; // given admin back
+    await HG.chequearHorariosGrupo(new Date(noche + 122 * 60 * 1000), cliente2);
+    assert.equal(F.getChat(H).grupoCerradoPorHorario, 1);
+    assert.match(avisos.at(-1), /🌙 Grupo cerrado hasta las 08:00/);
+    assert.doesNotMatch(HG.textoHorarioGrupo(H, noche), /⚠️/);
+
+    admin = false; // and taken away again: .horariogrupo off works anyway
+    const HGp = (await import("../plugins/grupo-horario.js")).default;
+    assert.ok(!HGp.botAdmin, "sin admin, sacar el horario es justo lo que hace falta");
+    await HGp.run({ ...msg("111@lid", "off"), chat: H }, { client: cliente2, text: "off" });
+    assert.match(ultimo(), /Lo dejé cerrado porque no pude abrirlo \(no soy admin\): abrilo a mano\./);
+    assert.equal(F.getChat(H).horarioGrupo, "");
+  } finally {
+    console.error = errorReal;
+    await HG.quitarHorarioGrupo(H, { groupSettingUpdate: async () => {} });
+  }
 });

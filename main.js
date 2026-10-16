@@ -11,6 +11,7 @@ import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
 import { limpiarRolesAlSalir } from "./lib/roles.js";
+import { limpiarVentasAlSalir } from "./lib/compraventa.js";
 import { recibirNuevos } from "./lib/bienvenida.js";
 import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
 import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
@@ -160,8 +161,11 @@ async function startBot() {
   client.ev.on("group-participants.update", async ({ id, participants, action }) => {
     try {
       if (!id?.endsWith("@g.us")) return;
-      // Whoever leaves the group (or is removed) loses the bot role they had there.
-      if (action === "remove") limpiarRolesAlSalir(id, participants);
+      // Whoever leaves the group (or is removed) loses the bot role they had there, and their posts and alerts.
+      if (action === "remove") {
+        limpiarRolesAlSalir(id, participants);
+        limpiarVentasAlSalir(id, participants);
+      }
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
       // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches

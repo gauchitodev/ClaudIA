@@ -1,3 +1,5 @@
+import { esGrupoDeVentas } from "../lib/modo.js";
+
 // The marketplace mode menu: what's useful in a sales group, without the games or the economy.
 // If new marketplace commands are added, add them here and in lib/manual-claudia.js too, so Claudia can answer when
 // someone asks how to do something. test/menus.test.mjs checks that what is named here exists.
@@ -6,7 +8,9 @@ plugin.cmd = ["menuventas", "menuventa", "menucompraventa", "ventas"];
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, chat }) => {
-  const enModo = chat?.monedas === 0 && chat?.games === 0;
+  // The same test the loose sales are read by (plugins/_compraventa.js): this menu used to call a group buy-and-sell
+  // while the hook, asking for every switch off, had stopped reading them.
+  const enModo = esGrupoDeVentas(chat);
 
   const texto = `
 🏷️ *MENÚ DE COMPRAVENTA*
