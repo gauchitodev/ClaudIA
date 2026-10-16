@@ -1,4 +1,5 @@
 import { preguntarGemini } from "../lib/gemini.js";
+import { sinMenciones } from "../lib/menciones.js";
 
 const plugin = {
   // The bot's number is one of the commands: since "@" is a prefix, mentioning her with "@<number> something" talks
@@ -22,7 +23,7 @@ plugin.run = async (m, { client, text }) => {
 
   const respuesta = await preguntarGemini(text);
   if (respuesta.ok) {
-    return client.sendText(m.chat, respuesta.texto, m);
+    return client.sendText(m.chat, sinMenciones(respuesta.texto), m);
   } else if (respuesta.porHoy) {
     return client.sendText(m.chat, "Se me acabó la cuota gratis de la IA por hoy, probá de nuevo mañana.", m);
   } else {

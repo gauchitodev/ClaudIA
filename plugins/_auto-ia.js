@@ -2,7 +2,9 @@ import { preguntarIA } from "../lib/ia.js";
 import { preguntarGemini } from "../lib/gemini.js";
 import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
-import { updateUser, registrarIntervencion, isCommandBlacklisted } from "../database-functions.js";
+import { registrarIntervencion, isCommandBlacklisted } from "../database-functions.js";
+import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
+import { sinMenciones } from "../lib/menciones.js";
 import { recordarMensaje, olvidarMensaje, textoContexto } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
@@ -152,8 +154,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
     }
 
-    if (user?.memoria) {
-      partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores: ${user.memoria}`);
+    // What she learned of this person in this group (lib/memoria-persona.js): never what they said in private or elsewhere.
+    const memoria = m.isGroup ? memoriaDe(m.sender, m.chat) : "";
+    if (memoria) {
+      partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores en este grupo: ${memoria}`);
     }
 
     // group memory (.recordá que ...): inside jokes and facts the group noted down for her
@@ -244,17 +248,13 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true });
     }
 
-    if (nuevoRecuerdo && user) {
-      const datosPrevios = user.memoria ? user.memoria.split(" | ") : [];
-      datosPrevios.push(nuevoRecuerdo);
-      const memoriaNueva = datosPrevios.slice(-6).join(" | ").slice(-600);
-      updateUser(m.sender, { memoria: memoriaNueva });
-    }
+    if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);
 
     // what Claudia says also goes into the short-term memory
     // Only the first message carries the typing delay: if Claudia sends two in a row, the second follows right after.
     let yaTipeo = false;
-    const decir = async (texto, quoted = null) => {
+    const decir = async (crudo, quoted = null) => {
+      const texto = sinMenciones(crudo);
       if (!texto) return;
       if (!yaTipeo) {
         yaTipeo = true;

@@ -1,5 +1,6 @@
 import { mensajesRecientes, historialCompletoDesde, esComando } from "../lib/contexto-chat.js";
 import { preguntarIA } from "../lib/ia.js";
+import { sinMenciones } from "../lib/menciones.js";
 import { duracion } from "../lib/tiempo.js";
 
 if (!globalThis.resumenCooldown) globalThis.resumenCooldown = new Map();
@@ -42,7 +43,7 @@ plugin.run = async (m, { client, args }) => {
     return client.sendText(m.chat, r.porHoy ? "Se me acabó la cuota de la IA por hoy, no puedo resumir 😅" : "Se me trabó el resumen, probá de nuevo en un rato.", m);
   }
   const aviso = recortado ? `; pediste ${horas} h, pero no tengo guardado más atrás` : "";
-  await client.sendText(m.chat, `📝 *Resumen de las últimas ${periodo}* (${lista.length} mensajes${aviso})\n\n${r.texto}`, m);
+  await client.sendText(m.chat, `📝 *Resumen de las últimas ${periodo}* (${lista.length} mensajes${aviso})\n\n${sinMenciones(r.texto)}`, m);
 };
 
 export default plugin;

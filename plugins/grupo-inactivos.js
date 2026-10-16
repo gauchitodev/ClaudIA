@@ -1,22 +1,22 @@
-import { getAllUsers } from "../database-functions.js";
+import { getUser } from "../database-functions.js";
 
 const plugin = {};
 plugin.cmd = ["inactivos"];
 plugin.onlyMod = true;
 plugin.onlyGroup = true;
 
+// Each participant's row by any of their two identities: a group that lists its members by number used to match none
+// of them (rows are by LID), so it called everyone inactive and tagged the whole group.
+const filaDe = (p) => [p.id, p.lid, p.phoneNumber].filter(Boolean).map((id) => getUser(id)).find(Boolean);
+
 plugin.run = async (m, { client, participants }) => {
-  const allUsers = getAllUsers();
   const inactivos = [];
 
   for (const participant of participants) {
-    const lid = participant.id;
-
-    const user = allUsers.find((u) => u.lid === lid);
-    const groupData = user?.inGroup?.[m.chat];
+    const groupData = filaDe(participant)?.inGroup?.[m.chat];
 
     if (!groupData || !groupData.messageCount || groupData.messageCount <= 0) {
-      inactivos.push(lid);
+      inactivos.push(participant.id); // the id the group lists them under, so the mention works
     }
   }
 
