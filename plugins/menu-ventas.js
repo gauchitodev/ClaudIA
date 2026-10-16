@@ -16,6 +16,7 @@ plugin.run = async (m, { client, chat }) => {
 ▸ .compro <qué buscás> — publicás que lo estás buscando
 ▸ #vendo o #compro en un mensaje, o en el pie de una foto, hacen lo mismo
 ▸ .vendo respondiendo a una foto — la publica con la descripción que tenga (el dueño de la foto, o un admin)
+▸ En modo compraventa alcanza con empezar el mensaje con «vendo» o «se vende»
 
 🔎 *Ver y buscar*
 ▸ .catalogo — todo lo activo · .catalogo N — el detalle de la #N
@@ -23,6 +24,7 @@ plugin.run = async (m, { client, chat }) => {
 ▸ .buscar <palabra> — filtra por palabra
 ▸ .mias — las tuyas, con su número
 ▸ .avisame <palabra> — te aviso acá cuando aparezca · sin nada las lista · .avisame quitar <palabra> la saca
+▸ #busco — te recuerdo quién vende algo parecido, y a quien venda le cuento que lo buscabas. En modo compraventa también con «¿alguien vende…?»
 
 ✅ *Cerrar la tuya* — respondé a tu publicación y escribí el comando, o agregá el número
 ▸ .vendido — se concretó · .baja — la sacás de la lista

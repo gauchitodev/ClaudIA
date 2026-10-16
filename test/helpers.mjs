@@ -19,8 +19,9 @@ export function clienteFalso() {
       globalThis.enviados.push({ chat, msg });
       return { key: { id: `MSG${globalThis.enviados.length}` } };
     },
-    sendText: async (chat, text) => {
-      globalThis.enviados.push({ chat, msg: { text } });
+    // Like the real one (lib/wa-socket.js), the mentions travel with the message.
+    sendText: async (chat, text, quoted, opciones = {}) => {
+      globalThis.enviados.push({ chat, msg: opciones?.mentions ? { text, mentions: opciones.mentions } : { text } });
       return { key: { id: `MSG${globalThis.enviados.length}` } };
     },
     sendFile: async (chat, archivo) => {
