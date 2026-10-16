@@ -104,12 +104,11 @@ test("menú: el 🔒 va en todas las respuestas, y lo bloqueado no entra en lo m
 });
 
 test("lo más usado: lo del grupo, con los alias de cada línea juntos", () => {
-  globalThis.client.user.lid = "59899000001@lid";
   usar(G, "sticker", 15);
   usar(G, "s", 10); // .s and .sticker are the same line: 25
   usar(G, "play", 12); // dl-youtube: .play is the .audio line
   usar(G, "vídeo", 11); // and .vídeo the .video line, not .audio's
-  usar(G, "59899000001", 9); // the AI by mention: the bot's own number lands on .ia
+  usar(G, "gemini", 9); // .gemini lands on .ia
   const r = masUsados();
   assert.equal(r.fuente, "grupo");
   assert.deepEqual(comandos(r).slice(0, 4), ["s", "audio", "video", "ia"]);

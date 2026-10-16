@@ -6,6 +6,7 @@ import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
+import { hooksEnOrden } from "./load-functions.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -105,11 +106,14 @@ export async function handleMessage(nMsg) {
     }
     // ==========================================
 
-    // Run the 'before' plugins
-    for (const pluginName in globalThis.plugins) {
-      const plugin = globalThis.plugins[pluginName];
-      if (typeof plugin.before === "function") {
+    // Run the 'before' plugins: the moderation first and Claudia's chat last (hooksEnOrden, load-functions.js). A hook
+    // that throws takes only itself down: with the moderation first, a deletion that failed there would otherwise leave
+    // the message without its count, its place in Claudia's memory and its command.
+    for (const plugin of hooksEnOrden(globalThis.plugins)) {
+      try {
         await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
+      } catch (e) {
+        console.error("[hooks] ERROR:", e);
       }
     }
 

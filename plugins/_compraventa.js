@@ -8,6 +8,9 @@ const plugin = (m) => m;
 plugin.before = async (m, { client, chat, user, isOwner, isMod }) => {
   try {
     if (!m.isGroup || !m.text || m.fromMe || m.isBaileys) return;
+    // Deleted by the moderation (an anti-link, the blacklist): it used to be published anyway, link included, and
+    // .avisame passed it on.
+    if (m.moderado) return;
     if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;
     // The doors handle-message closes before any command, which this hook runs ahead of (as in _auto-ia.js): a chat
     // banned with .banchat, .modoadmin for whoever isn't a moderator, and a person banned from the bot.

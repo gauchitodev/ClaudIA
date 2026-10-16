@@ -1,20 +1,15 @@
 import { preguntarGemini } from "../lib/gemini.js";
 import { sinMenciones } from "../lib/menciones.js";
 
-// One question at a time per chat: each one is a request to the models Claudia chats with, and .ia (or "@Claudia ...")
-// over and over spent the quota of the whole bot. It counts from the question, answered or not.
+// One question at a time per chat: each one is a request to the models Claudia chats with, and .ia over and over spent
+// the quota of the whole bot. It counts from the question, answered or not.
 const ESPERA_MS = 20 * 1000;
 if (!globalThis.esperaIa) globalThis.esperaIa = new Map(); // chat -> when she was last asked
 
-const plugin = {
-  // The bot's number is one of the commands: since "@" is a prefix, mentioning her with "@<number> something" talks
-  // to the AI. It's resolved when cmd is read and not when the plugin is imported, because plugins load before the
-  // socket exists and client isn't there yet. If it somehow gets read offline, the usual aliases remain.
-  get cmd() {
-    const botLid = globalThis.client?.user?.lid?.split("@")[0];
-    return botLid ? [botLid, "gemini", "ia", "bot"] : ["gemini", "ia", "bot"];
-  },
-};
+// The bot's number used to be one of the commands too, so "@Claudia ..." came here and got an answer without the
+// group's context. Mentioning her is now talking to her: plugins/_auto-ia.js answers it, like naming her.
+const plugin = {};
+plugin.cmd = ["gemini", "ia", "bot"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

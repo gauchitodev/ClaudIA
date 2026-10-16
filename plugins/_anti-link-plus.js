@@ -6,6 +6,7 @@ const isLinkTelegram = /\b(?:t\.me|telegram\.(?:me|org|dog))\/\S+/i;
 const isLinkInstagram = /\b(?:www\.)?instagram\.com\/\S+/i;
 
 const plugin = (m) => m;
+plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) => {
   if (!m.isGroup || !m.text) return;
   if (isMod || isOwner) return;

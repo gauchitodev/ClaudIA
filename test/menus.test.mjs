@@ -15,8 +15,8 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CARPETA = path.join(RAIZ, "plugins");
 const MENUS = ["lib/menu.js", "plugins/menu-ventas.js", "plugins/menu-juegos-uru.js"];
 
-// The commands are read from the loaded plugin and not from the file's text, because plugins/tools-ia.js declares
-// "get cmd()" to slot in the bot's number and a regex over the source can't see it.
+// The commands are read from the loaded plugin and not from the file's text: that's what handle-message.js sees, and a
+// list built at load time (a getter, a spread) would escape a regex over the source.
 const comandos = new Map();
 const comandosDe = new Map(); // plugin file -> its commands
 

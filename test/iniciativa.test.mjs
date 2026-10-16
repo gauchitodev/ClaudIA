@@ -392,6 +392,27 @@ test("vistazo: si la apagan mientras piensa, tampoco reacciona", async () => {
   assert.deepEqual(F.intervencionesDesde(chat, 0), []);
 });
 
+// .banchat and .modoadmin were looked at only before asking the AI: put while she thought, she reacted and commented
+// anyway.
+for (const [cambio, valor] of [
+  ["isBanned", ".banchat"],
+  ["adminMode", ".modoadmin"],
+]) {
+  test(`vistazo: si le ponen ${valor} mientras piensa, no reacciona ni comenta`, async () => {
+    const chat = nuevoGrupo();
+    charlar(chat);
+    decisiones.push(() => {
+      F.updateChat(chat, { [cambio]: 1 });
+      return { motivo: "x", reacciones: [{ mensaje: 4, emoji: "😂" }], accion: "comentar", mensaje: 0, texto: "qué partido" };
+    });
+    const client = cliente(chat);
+    const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
+    assert.equal(client.salidas.length, 0);
+    assert.equal(informe.retenido, true);
+    assert.deepEqual(F.intervencionesDesde(chat, 0), []);
+  });
+}
+
 test("vistazo: si contestó en la charla recién, igual puede reaccionar", async () => {
   const chat = nuevoGrupo();
   charlar(chat);

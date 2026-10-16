@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { sinRazonamiento, preguntarRespaldo } from "../lib/respaldo-ia.js";
+import { sinRazonamiento, preguntarRespaldo, objetoJson } from "../lib/respaldo-ia.js";
 
 // The AI fallback talks to the providers through fetch; here the global fetch is swapped for canned answers, per model.
 // Only Groq has a key, so the cascade is Groq's three models in order.
@@ -55,4 +55,25 @@ test("respaldo: con esquema, el JSON sale limpio aunque venga con razonamiento y
   const r = await preguntarRespaldo("Una pregunta de trivia", { schema: { type: "object" } });
   assert.equal(r.texto, '{"pregunta":"¿Capital de Japón?"}');
   assert.deepEqual(JSON.parse(r.texto), { pregunta: "¿Capital de Japón?" });
+});
+
+// With a schema, the first non-empty reply used to be taken even when it wasn't JSON: a model that put a sentence
+// before the object ended the chain, and Claudia said "se me trabó" without trying the next one.
+test("respaldo: con esquema, un objeto envuelto en una frase se rescata, y si no hay objeto contesta el siguiente modelo", async () => {
+  respuestas = {
+    "openai/gpt-oss-120b": { status: 200, contenido: "Ahí va, no sé si te sirve" },
+    "qwen/qwen3.6-27b": { status: 200, contenido: '["una lista", "no un objeto"]' },
+    "openai/gpt-oss-20b": { status: 200, contenido: '¡Dale! {"comando":"ninguno","respuesta":"Todo bien"} 😄' },
+  };
+  pedidos.length = 0;
+  const r = await preguntarRespaldo("hola", { schema: { type: "object" } });
+  assert.deepEqual(r, { ok: true, texto: '{"comando":"ninguno","respuesta":"Todo bien"}', modelo: "groq:openai/gpt-oss-20b" });
+  assert.deepEqual(pedidos, ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]);
+
+  respuestas = { "openai/gpt-oss-120b": { status: 200, contenido: "Ahí va, no sé si te sirve" } };
+  assert.equal((await preguntarRespaldo("hola")).texto, "Ahí va, no sé si te sirve", "sin esquema, una frase es una respuesta");
+
+  assert.equal(objetoJson('```json\n{"a": 1}\n```'), '{"a": 1}');
+  assert.equal(objetoJson("} al revés {"), null);
+  assert.equal(objetoJson('{"cortado": "a mitad'), null);
 });

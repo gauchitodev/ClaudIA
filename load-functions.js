@@ -36,6 +36,19 @@ export async function loadPlugins() {
   }
 }
 
+// The order handle-message.js runs the hooks (plugin.before) in. The moderation ones (plugin.moderacion: the
+// anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook; Claudia's chat
+// (plugin.alFinal) goes last, so she knows what was deleted and what a game took as an answer. The rest keep the
+// order they were loaded in. It used to be the folder's alphabetical order alone: a trivia answer that named Claudia
+// waited for her to think and type while a later one took the prize, a blacklisted person got her answer before being
+// removed, and #vendo published a post the anti-link had just deleted.
+export function hooksEnOrden(plugins) {
+  const hooks = Object.values(plugins || {}).filter((plugin) => typeof plugin?.before === "function");
+  const moderacion = hooks.filter((plugin) => plugin.moderacion);
+  const alFinal = hooks.filter((plugin) => plugin.alFinal && !plugin.moderacion);
+  return [...moderacion, ...hooks.filter((plugin) => !moderacion.includes(plugin) && !alFinal.includes(plugin)), ...alFinal];
+}
+
 // Watch plugins for changes
 export function watchPlugins() {
   watch("./plugins/", { recursive: true }, async (eventType, filename) => {

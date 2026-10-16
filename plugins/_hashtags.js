@@ -8,6 +8,7 @@ plugin.before = async (m, { client }) => {
   try {
     if (!m.isGroup || !m.text) return;
     if (m.fromMe || m.isBaileys) return;
+    if (m.moderado) return; // deleted by the moderation: it isn't an entry
 
     const hashtagsEncontrados = [...m.text.matchAll(/#(\w+)/gi)].map((match) => match[1].toLowerCase());
     if (hashtagsEncontrados.length === 0) return;

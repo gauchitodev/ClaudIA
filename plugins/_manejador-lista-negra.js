@@ -5,6 +5,7 @@ import { expulsar } from "../lib/identidad.js";
 // joining is handled by main.js through the participants event; this covers whoever was already inside when they
 // were listed, and whoever the bot couldn't recognize at that moment.
 const plugin = (m) => m;
+plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmin, isOwner }) => {
   // Group admins and the bot's owners can't be on a list (.ln refuses them), but .ln by number can't see who an
   // unresolved number belongs to: a bot admin listed a WhatsApp admin that way, and this removed them as soon as they
@@ -19,7 +20,9 @@ plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmi
   const encontrado = estaEnListaNegra([m.senderJid, m.sender], m.chat, participants);
   if (!encontrado) return;
 
-  // delete the message and remove the user.
+  // delete the message and remove the user. Marked, the hooks after this one leave the message alone (Claudia doesn't
+  // answer it, the marketplace doesn't publish it).
+  m.moderado = true;
   await m.delete();
   const { ok, status } = await expulsar(client, m.chat, encontrado.participante?.id || m.sender);
   if (!ok) {

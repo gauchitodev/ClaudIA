@@ -8,6 +8,8 @@ plugin.before = async (m, { client }) => {
     if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;
     const r = responderTrivia(m);
     if (!r) return;
+    // An answer, even one that names her ("c, claudia"): Claudia's chat, which runs after this hook, leaves it alone.
+    m.respuestaDeJuego = true;
     if (r.reaccion) m.react(r.reaccion).catch(() => {});
     // Not awaited: the turn is taken when it's called, so the order holds, and the hooks after this one don't wait.
     if (r.texto) client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions }, { quoted: m }).catch((e) => console.error("[trivia] ERROR:", e));

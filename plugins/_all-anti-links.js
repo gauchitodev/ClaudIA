@@ -17,6 +17,7 @@ function detectarLink(palabra) {
 }
 
 const plugin = (m) => m;
+plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 
 plugin.before = async (m, { client, isMod, isBotAdmin, isOwner, participants, chat }) => {
   if (!m.isGroup || !isBotAdmin || isMod || isOwner) return;

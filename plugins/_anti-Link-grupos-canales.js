@@ -4,6 +4,7 @@ const groupLinkRegex = /chat\.whatsapp\.com\/[A-Za-z0-9]{6,}/i;
 const channelLinkRegex = /whatsapp\.com\/channel\/[A-Za-z0-9]{6,}/i;
 
 const plugin = (m) => m;
+plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, chat }) => {
   if (isMod || isOwner) return;
   if (!m.isGroup || !m.text) return;

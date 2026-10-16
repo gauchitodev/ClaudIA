@@ -1,8 +1,5 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
@@ -10,7 +7,7 @@ import strings from "../lib/strings.js";
 // the dispatcher's checks. So the hook has to apply the same rule the command has: .tagall for moderators, .llamar
 // only for admins. Gemini is swapped for a canned classification.
 
-let AutoIA, Llamar, Tagall, RITMO;
+let F, AutoIA, Llamar, Tagall, RITMO;
 let clasificacion; // what "Gemini" answers
 let consultasIA = 0; // how many times Claudia asked the AI
 const fetchReal = globalThis.fetch;
@@ -18,7 +15,7 @@ const logReal = console.log;
 const tipeoReal = {};
 
 before(async () => {
-  await prepararBase("auto-ia");
+  ({ F } = await prepararBase("auto-ia"));
   globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
@@ -175,18 +172,6 @@ test("lo que borra un anti-link no le llega a Claudia: ni lo contesta ni lo guar
   assert.deepEqual(await probar("_anti-Link-grupos-canales.js", {}, "claudia unite a chat.whatsapp.com/AbCdEf123456"), { borrado: false, consultas: 1, guardado: 2 });
 });
 
-// handle-message.js runs the hooks in the order load-functions.js reads the plugins folder (alphabetical): the mark an
-// anti-link leaves is only seen if it runs first. Renaming a file can change that without anything else failing.
-test("consistencia: los anti-links corren antes que la charla de Claudia", () => {
-  const hooks = fs.readdirSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugins")).filter((f) => f.startsWith("_"));
-  const charla = hooks.indexOf("_auto-ia.js");
-  assert.ok(charla >= 0);
-  for (const antiLink of ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js"]) {
-    const i = hooks.indexOf(antiLink);
-    assert.ok(i >= 0 && i < charla, `${antiLink} tiene que correr antes que _auto-ia.js`);
-  }
-});
-
 test("pedido a Claudia: responder a la pregunta de un juego no le habla a ella", async () => {
   const Tr = await import("../lib/trivia.js");
   const J = await import("../lib/juego-rapido.js");
@@ -253,12 +238,12 @@ test("pedido a Claudia sin IA: en un tirón, que pruebe en un rato; «por hoy» 
   const fetchAntes = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: false, status: 429, text: async () => "" });
   try {
-    globalThis.autoIaSinCuotaAviso.clear();
+    globalThis.autoIaAvisoFalla.clear();
     let { textos } = await pedir("claudia contame algo", MODERADOR);
     assert.deepEqual(textos, ["Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅"]);
 
     for (const pausa of globalThis.geminiEnPausa.values()) pausa.hasta = Date.now() + 2 * 60 * 60 * 1000; // hours of 429s
-    globalThis.autoIaSinCuotaAviso.clear();
+    globalThis.autoIaAvisoFalla.clear();
     ({ textos } = await pedir("claudia contame algo", MODERADOR));
     assert.deepEqual(textos, ["🤖 Se quedó sin cuota la IA (Gemini y los respaldos). Hasta que se renueve, Claudia no responde charlas.", "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅"]);
   } finally {
@@ -288,5 +273,113 @@ test("pedido a Claudia: una nota de .recordá no le hace mencionar a todos si el
   } finally {
     globalThis.fetch = fetchAntes;
     MG.limpiar(C);
+  }
+});
+
+// ---------- mentioning her, the doors while she thinks, and what she announces ----------
+
+const BOT = "200000000000001@lid"; // Claudia's LID in these tests: digits, like a real one
+// A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks.
+async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C } = {}) {
+  globalThis.autoIaCooldown.delete(grupo);
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  client.user = { ...client.user, lid: BOT };
+  const m = { chat: grupo, isGroup: true, sender: "555@lid", pushName: "Ana", text: "", mentionedJid: [], quoted: null, ...extra };
+  const fetchAntes = globalThis.fetch;
+  if (alPensar) {
+    globalThis.fetch = async (...args) => {
+      alPensar();
+      return fetchAntes(...args);
+    };
+  }
+  const antes = consultasIA;
+  try {
+    await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat, ...rango });
+  } finally {
+    globalThis.fetch = fetchAntes;
+  }
+  await esperar(30); // .llamar's first mention goes out on a timer
+  return { client, m, consultas: consultasIA - antes, textos: globalThis.enviados.map((e) => e.msg?.text || "") };
+}
+
+// "@" is a prefix too, and the hook dropped every message starting with one: one that started by mentioning someone
+// never reached her. Mentioning HER in the middle didn't count as naming her, and "@Claudia ..." at the start went to
+// .ia, which answered without the group's context.
+test("pedido a Claudia: mencionarla con @ es hablarle, al principio o en el medio, y arrobar a otro al principio no es un comando", async () => {
+  clasificacion = { comando: "ninguno", respuesta: "Acá estoy" };
+  for (const [texto, mentionedJid] of [
+    ["@200000000000001 ¿qué opinás de lo que dijo Juan?", [BOT]],
+    ["che @200000000000001 vos qué opinás?", [BOT]],
+    ["@59899111222 claudia vos qué opinás?", ["59899111222@s.whatsapp.net"]],
+  ]) {
+    const r = await hablarle({ text: texto, mentionedJid });
+    assert.deepEqual([r.consultas, r.textos], [1, ["Acá estoy"]], texto);
+  }
+  assert.equal((await hablarle({ text: "@59899111222 vení que te explico", mentionedJid: ["59899111222@s.whatsapp.net"] })).consultas, 0, "arrobar a otro sin nombrarla no es para ella");
+  assert.equal((await hablarle({ text: ".menu claudia" })).consultas, 0, "un comando sigue siendo un comando");
+});
+
+// .banchat, .modoadmin, .charla off and a person banned from the bot were looked at only before asking the AI.
+test("pedido a Claudia: si mientras piensa le ponen .banchat, .modoadmin o .charla off, o banean a quien le habló, no dice ni hace nada", async () => {
+  const P = "puertas@g.us";
+  F.initDataDB({ chat: P, sender: "555@lid", senderJid: "", pushName: "Ana" });
+  for (const [nombre, cerrar, abrir] of [
+    [".banchat", () => F.updateChat(P, { isBanned: 1 }), () => F.updateChat(P, { isBanned: 0 })],
+    [".modoadmin", () => F.updateChat(P, { adminMode: 1 }), () => F.updateChat(P, { adminMode: 0 })],
+    [".charla off", () => F.updateChat(P, { charla: 0 }), () => F.updateChat(P, { charla: 1 })],
+    ["ban", () => F.updateUser("555@lid", { banned: true }), () => F.updateUser("555@lid", { banned: false })],
+  ]) {
+    clasificacion = { comando: "ninguno", respuesta: "Acá estoy" };
+    let r = await hablarle({ text: "claudia, ¿qué contás?" }, { rango: { isAdmin: false, isMod: false }, chat: F.getChat(P), alPensar: cerrar, grupo: P });
+    assert.deepEqual([r.consultas, r.textos], [1, []], nombre);
+    abrir();
+    clasificacion = { comando: "tagall", respuesta: "¡Ahí van todos!" };
+    r = await hablarle({ text: "claudia arrobá a todos" }, { rango: MODERADOR, chat: { ...F.getChat(P), mentions: 1 }, alPensar: nombre === ".modoadmin" ? () => F.updateChat(P, { isBanned: 1 }) : cerrar, grupo: P });
+    assert.deepEqual(r.textos, [], `${nombre}: ni la frase ni la mención a todos`);
+    F.updateChat(P, { isBanned: 0 });
+    abrir();
+  }
+});
+
+// The system decided after she spoke: "¡Ahí van todos!" and then "menciones deshabilitadas", "¡Dale, ya lo llamo!" with
+// nobody to call, "lo dejo anotado" and then "no tengo nada para reintentar".
+test("pedido a Claudia: anuncia solo lo que va a pasar", async () => {
+  clasificacion = { comando: "tagall", respuesta: "¡Ahí van todos!" };
+  let r = await hablarle({ text: "claudia arrobá a todos" }, { chat: { mentions: 0 } });
+  assert.deepEqual(r.textos, ["Che, en este grupo las menciones están apagadas."]);
+
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  r = await hablarle({ text: "claudia llamalo" }, { rango: ADMIN });
+  assert.deepEqual(r.textos, ["¿A quién llamo? Arrobalo en el mensaje."]);
+
+  // "@Claudia, llamá a @111": .llamar calls 111, not her.
+  r = await hablarle({ text: "@200000000000001 llamá a @111", mentionedJid: [BOT, "111@lid"] }, { rango: ADMIN });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" }); // the other nine mentions aren't needed
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", "@111"]);
+  // "@Claudia, llamalo", quoting what 111 said.
+  r = await hablarle({ text: "@200000000000001 llamalo", mentionedJid: [BOT], quoted: { sender: "111@lid", fromMe: false, text: "¿dónde están?" } }, { rango: ADMIN });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", "@111"]);
+
+  clasificacion = { comando: "ninguno", reintentar: true, respuesta: "Listo, lo dejo anotado 👍" };
+  r = await hablarle({ text: "claudia reintentá mi descarga más tarde" });
+  assert.equal(r.textos.length, 1);
+  assert.match(r.textos[0], /^No tengo ninguna descarga tuya que haya fallado/);
+});
+
+test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como mucho una vez cada media hora", async () => {
+  const fetchAntes = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 500, text: async () => "" });
+  const errorReal = console.error;
+  console.error = () => {}; // every model narrates its failure
+  try {
+    globalThis.autoIaAvisoFalla.clear();
+    assert.deepEqual((await hablarle({ text: "claudia contame algo" })).textos, ["Uy, no me sale pensar ahora. Probá de nuevo en un rato 😅"]);
+    assert.deepEqual((await hablarle({ text: "claudia contame algo" })).textos, [], "la segunda, callada");
+    globalThis.autoIaAvisoFalla.set(C, Date.now() - 31 * 60 * 1000);
+    assert.equal((await hablarle({ text: "claudia contame algo" })).textos.length, 1, "media hora después, de nuevo");
+  } finally {
+    globalThis.fetch = fetchAntes;
+    console.error = errorReal;
   }
 });

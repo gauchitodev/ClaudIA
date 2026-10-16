@@ -2,10 +2,10 @@ import { preguntarIA } from "../lib/ia.js";
 import { preguntarGemini } from "../lib/gemini.js";
 import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
-import { registrarIntervencion, isCommandBlacklisted } from "../database-functions.js";
+import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
-import { sinMenciones } from "../lib/menciones.js";
-import { recordarMensaje, olvidarMensaje, editarMensaje, textoContexto } from "../lib/contexto-chat.js";
+import { sinMenciones, lidsMencionados } from "../lib/menciones.js";
+import { recordarMensaje, olvidarMensaje, editarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { tipear } from "../lib/ritmo.js";
@@ -23,10 +23,24 @@ import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
 const COOLDOWN_MS = 20000; // 20 seconds
 
 if (!globalThis.autoIaCooldown) globalThis.autoIaCooldown = new Map();
-if (!globalThis.autoIaSinCuotaAviso) globalThis.autoIaSinCuotaAviso = new Map();
-const AVISO_SIN_CUOTA_MS = 30 * 60 * 1000; // don't repeat the "out of quota" notice more than once every 30 min per chat
+// When the AI fails her (no quota, every model down, a broken answer) she says so, but not more than once every 30 min
+// per chat: with Gemini down, every message naming her would get the same notice.
+if (!globalThis.autoIaAvisoFalla) globalThis.autoIaAvisoFalla = new Map();
+const AVISO_FALLA_MS = 30 * 60 * 1000;
 
 const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
+
+// Whether an id (a mention, the quoted message's author) is Claudia herself.
+const esClaudia = (client, id) => Boolean(id) && (id === client.user?.lid || id === client.user?.jid);
+
+// Who a "llamar" is for: the people mentioned, or failing that the author of the quoted message, but never Claudia,
+// whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times.
+function aQuienLlamar(m, client) {
+  const numero = client.user?.lid?.split("@")[0];
+  const texto = numero ? String(m.text).replaceAll(`@${numero}`, "") : m.text;
+  const mencionados = (m.mentionedJid || []).filter((j) => !esClaudia(client, j));
+  return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto).filter((id) => !esClaudia(client, id));
+}
 
 // A tagall or a llamar the AI picks only goes ahead if the message itself asks for mentions ("arrobá a todos",
 // "llamalo", "mencioná a la gente"). Everything the group noted with .recordá reaches the prompt, and a note like
@@ -73,6 +87,9 @@ export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", 
 const textoDe = (contenido) => contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
 
 const plugin = (m) => m;
+// After every other hook (hooksEnOrden, load-functions.js): by then the moderation has marked what it deleted and the
+// trivia what it took as an answer.
+plugin.alFinal = true;
 
 plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
@@ -90,8 +107,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       return;
     }
     if (m.fromMe || m.isBaileys) return;
-    // A message the moderation just deleted (the anti-link hooks mark it): for Claudia it never existed. She used to
-    // answer it, repeating the link, and keep it for .resumen and the initiative.
+    // A message the moderation just deleted (the anti-links, the blacklist and the mass mentions mark it; they run
+    // before this hook): for Claudia it never existed. She used to answer it, repeating the link, and keep it for
+    // .resumen and the initiative.
     if (m.moderado) return;
     // A reaction arrives as a message whose text is the emoji: it isn't something anyone said.
     if (m.mtype === "reactionMessage") return;
@@ -114,8 +132,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     if (!globalThis.geminiApiKey) return;
 
-    // if the message is a command (starts with a prefix), the normal system handles it
-    if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;
+    // A command is the normal system's. "@" is a prefix too, but a message that starts by mentioning someone isn't a
+    // command ("@Juan, claudia dice que..."), and neither is one that starts by mentioning her: esComando tells them
+    // apart. The raw prefix check used to drop both.
+    if (esComando(m.text)) return;
 
     const textoLower = m.text.toLowerCase();
 
@@ -125,6 +145,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // it, not a message for Claudia, even if it names her: she used to chat back to every answer, and sometimes gave
     // the right one away. See lib/mensajes-de-juego.js.
     if (esRespuestaAlBot && (esMensajeDeJuego(m.quoted.id) || esPreguntaDelDia(m.chat, m.quoted.id))) return;
+    // The same for a loose answer to an open trivia, which the _trivia hook already took ("c, claudia"). It used to
+    // wait for her to think and type before being read, while a later answer took the prize.
+    if (m.respuestaDeJuego) return;
 
     // does the message mention any of the keywords?
     const mencionaPalabra = PALABRAS_CLAVE.some((palabra) => {
@@ -132,9 +155,13 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       return regex.test(textoLower);
     });
 
+    // Mentioned with "@", anywhere in the message. "@Claudia ..." at the start used to be a command of .ia, which
+    // answered without the group's context; in the middle of the message it didn't count at all.
+    const laMencionan = (m.mentionedJid || []).some((j) => esClaudia(client, j));
+
     // she answers if she's named OR if someone replies to a message of hers. A voice note never names her, so she only
     // hears the ones that answer her: the rest of the group's audios are none of her business.
-    if (!esRespuestaAlBot && !mencionaPalabra) return;
+    if (!esRespuestaAlBot && !mencionaPalabra && !laMencionan) return;
 
     // THROTTLE: per-chat cooldown
     const ahora = Date.now();
@@ -227,14 +254,29 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA, adjuntos });
 
-    if (!resultado.ok) {
-      if (resultado.sinCuota) {
-        const ultimoAviso = globalThis.autoIaSinCuotaAviso.get(m.chat) || 0;
-        if (Date.now() - ultimoAviso > AVISO_SIN_CUOTA_MS) {
-          globalThis.autoIaSinCuotaAviso.set(m.chat, Date.now());
-          await client.sendText(m.chat, resultado.porHoy ? "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅" : "Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅", null);
-        }
+    // The doors, again, right before she says anything: the AI took a while, and in the meantime an admin may have put
+    // .banchat, .modoadmin or .charla off, or the owner banned the person. She used to say her piece anyway. Once
+    // closed, she says nothing more for this message.
+    let callada = false;
+    const puedeHablar = () => {
+      if (!callada && !isOwner) {
+        const ahoraChat = getChat(m.chat);
+        callada = Boolean(ahoraChat?.isBanned || ahoraChat?.charla === 0 || (m.isGroup && ahoraChat?.adminMode && !isMod) || getUser(m.sender)?.banned);
       }
+      return !callada;
+    };
+
+    // When the AI fails her, she says so, but not more than once every AVISO_FALLA_MS per chat. A failure that wasn't
+    // the quota (every model down, blocked or cut off) used to get no answer at all.
+    const avisarFalla = async (texto) => {
+      if (Date.now() - (globalThis.autoIaAvisoFalla.get(m.chat) || 0) < AVISO_FALLA_MS || !puedeHablar()) return;
+      globalThis.autoIaAvisoFalla.set(m.chat, Date.now());
+      await client.sendText(m.chat, texto, null);
+    };
+
+    if (!resultado.ok) {
+      if (!resultado.sinCuota) await avisarFalla("Uy, no me sale pensar ahora. Probá de nuevo en un rato 😅");
+      else await avisarFalla(resultado.porHoy ? "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅" : "Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅");
       return;
     }
 
@@ -243,7 +285,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       datos = JSON.parse(resultado.texto);
     } catch (e) {
       console.error("[auto-ia] La IA no devolvió JSON válido:", e.message, "-- texto recibido:", resultado.texto);
-      await client.sendText(m.chat, "Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅", null);
+      await avisarFalla("Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅");
       return;
     }
 
@@ -268,10 +310,11 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     let yaTipeo = false;
     const decir = async (crudo, quoted = null) => {
       const texto = sinMenciones(crudo);
-      if (!texto) return;
+      if (!texto || !puedeHablar()) return;
       if (!yaTipeo) {
         yaTipeo = true;
         await tipear(client, m.chat, texto);
+        if (!puedeHablar()) return; // the typing takes a few seconds too
       }
       const enviado = await client.sendText(m.chat, texto, quoted);
       recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id });
@@ -280,10 +323,12 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       return enviado;
     };
 
-    // Download retry: the AI only flags it; the system decides whether it applies and confirms.
+    // Download retry: the AI only flags it; the system decides whether it applies, and only then does she say she noted
+    // it down. She used to say it first, and then the system said there was nothing to retry.
     if (quiereReintentar) {
-      await decir(respuesta);
+      if (!puedeHablar()) return;
       const r = programarReintento(m.chat, m.sender);
+      if (r.ok) await decir(respuesta);
       await decir(r.ok ? r.mensaje : r.error, m);
       return;
     }
@@ -292,7 +337,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       // Something to check: a second query, this one with Google Search. If it fails, the first answer stands.
       let texto = respuesta;
       let fuentesNuevas = [];
-      if (aBuscar) {
+      if (aBuscar && puedeHablar()) {
         const busqueda = await buscarEnInternet({ contexto: contextoBusqueda, consulta: aBuscar, resumenAudio, nombre });
         if (busqueda) ({ texto, fuentes: fuentesNuevas } = busqueda);
       }
@@ -334,16 +379,28 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
         await decir("Che, eso está bloqueado en este grupo.", m);
         return;
       }
+      // What the command itself would refuse, checked before she announces anything: she used to say "¡Ahí van
+      // todos!" and then the command said the mentions were off, or "¡Dale, ya lo llamo!" with nobody to call.
+      if (comando === "tagall" && !chat?.mentions && !isOwner) {
+        await decir("Che, en este grupo las menciones están apagadas.", m);
+        return;
+      }
+      if (comando === "llamar" && !aQuienLlamar(m, client).length) {
+        await decir("¿A quién llamo? Arrobalo en el mensaje.", m);
+        return;
+      }
     }
 
     await decir(respuesta);
+    if (!puedeHablar()) return;
 
     if (comando === "tagall") {
       const pl = buscarPlugin("tagall");
       if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat });
     } else if (comando === "llamar") {
+      // .llamar gets only the people to call as the message's mentions: never Claudia herself.
       const pl = buscarPlugin("llamar");
-      if (pl) await pl.run(m, { client, text: m.text, command: "llamar" });
+      if (pl) await pl.run(Object.create(m, { mentionedJid: { value: aQuienLlamar(m, client) } }), { client, text: m.text, command: "llamar" });
     }
   } catch (e) {
     console.error("[auto-ia] ERROR:", e);

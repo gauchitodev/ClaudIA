@@ -163,15 +163,13 @@ test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarg
   assert.equal(LT.limpiarTmp("tmp-que-no-existe", ahora), 0);
 });
 
-test("IA por mención: el comando con el número del bot se resuelve al usarse, no al importar el plugin", async () => {
+// Mentioning Claudia is talking to her, and plugins/_auto-ia.js answers it with the group's context
+// (test/auto-ia.test.mjs). Her number used to be a command of .ia, which answered without it.
+test("IA por mención: el número del bot no es un comando de .ia", async () => {
   const previo = globalThis.client;
-  // Plugins load before the socket exists: reading cmd there must not blow up.
-  globalThis.client = undefined;
+  globalThis.client = { user: { lid: "59899111222@lid" } };
   const P = (await import("../plugins/tools-ia.js")).default;
   assert.deepEqual(P.cmd, ["gemini", "ia", "bot"]);
-  // Once connected, the bot's number is a command again (and first, as it was).
-  globalThis.client = { user: { lid: "59899111222@lid" } };
-  assert.deepEqual(P.cmd, ["59899111222", "gemini", "ia", "bot"]);
   globalThis.client = previo;
 });
 
