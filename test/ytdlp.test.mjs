@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { clienteFalso, ultimoEnviado } from "./helpers.mjs";
-import { descargar, bajarYEnviar, textoDescarga, esTikTok, esInstagram, YTDLP, _dep } from "../lib/ytdlp.js";
+import { descargar, bajarYEnviar, textoDescarga, esTikTok, esVideoDeTikTok, esInstagram, YTDLP, _dep } from "../lib/ytdlp.js";
 
 YTDLP.PAUSA_MS = 1;
 _dep.esperar = async () => {};
@@ -151,4 +151,28 @@ test("consistencia: dl-youtube le pasa los argumentos a yt-dlp sin shell", () =>
   assert.ok(importa, "no se encontró el import de child_process: el escaneo no está andando");
   const nombres = importa[1].split(",").map((n) => n.trim()).filter(Boolean);
   assert.deepEqual(nombres, ["execFile"], "dl-youtube tiene que llamar a yt-dlp con execFile y una lista de argumentos");
+});
+
+// A profile, a collection or a hashtag is a list, and yt-dlp downloaded it whole (up to 12 minutes): --no-playlist only
+// applies to a link that is a video and a list at once.
+test("ytdlp: .tiktok acepta videos y no perfiles ni colecciones, y yt-dlp baja un solo elemento", async () => {
+  for (const url of ["https://www.tiktok.com/@tiktok/video/7681414892942839071", "https://www.tiktok.com/@user.name/video/7681414892942839071?is_from_webapp=1", "https://www.tiktok.com/@tiktok/photo/7681414892942839071", "https://vm.tiktok.com/ZMabc123/", "https://vt.tiktok.com/ZSabc123", "https://www.tiktok.com/t/ZTabc123/", "https://m.tiktok.com/v/7681414892942839071.html"]) {
+    assert.ok(esVideoDeTikTok(url), url);
+  }
+  for (const url of ["https://www.tiktok.com/@tiktok", "https://www.tiktok.com/@tiktok/", "https://www.tiktok.com/@tiktok/collection/viajes-7300000000000000001", "https://www.tiktok.com/tag/uruguay", "https://www.tiktok.com/music/tema-7300000000000000002"]) {
+    assert.ok(!esVideoDeTikTok(url), url);
+  }
+
+  globalThis.txt = (await import("../lib/strings.js")).default;
+  const P = (await import("../plugins/dl-tiktok.js")).default;
+  const client = clienteFalso();
+  await P.run({ chat: "g@g.us", react: async () => {} }, { client, text: "https://www.tiktok.com/@tiktok" });
+  assert.match(ultimoEnviado().msg.text, /^❌ Ese link no es de un video: perfiles, colecciones o hashtags enteros no los bajo\./);
+
+  // And yt-dlp is asked for one item: a short link may still lead to a profile.
+  _dep.ejecutar = ytDlpFalso();
+  const r = await descargar("https://vm.tiktok.com/ZMabc123/");
+  fs.unlinkSync(r.archivo);
+  const args = _dep.ejecutar.args;
+  assert.equal(args[args.indexOf("-I") + 1], "1");
 });

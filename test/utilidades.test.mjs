@@ -243,3 +243,100 @@ test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo
   }
   assert.deepEqual(enLaRaiz, [], `los temporales van en ./tmp/, que el .gitignore tapa:\n${enLaRaiz.join("\n")}`);
 });
+
+// ---------- tanda 5d: files and the owner's commands ----------
+
+// A link that didn't answer with the file went out as a ".bin" with the error page inside, and a failed sticker as an
+// empty ".bin". sendFile throws now (lib/wa-socket.js); its whole run is checked with Baileys mocked out in the audit.
+test("sendFile: un 404, un archivo vacío o el error de un sticker no salen como .bin", async () => {
+  const { motivoSinArchivo } = await import("../lib/wa-socket.js");
+  assert.equal(motivoSinArchivo({ res: { ok: false, status: 404 }, data: Buffer.from("<html>404</html>") }), "no se pudo bajar el archivo (HTTP 404)");
+  assert.equal(motivoSinArchivo({ data: Buffer.alloc(0) }), "no hay archivo para mandar");
+  assert.equal(motivoSinArchivo({ res: { ok: true, status: 200 }, data: Buffer.from([0xff, 0xd8, 0xff]) }), null);
+  const fuente = fs.readFileSync(new URL("../lib/wa-socket.js", import.meta.url), "utf8");
+  assert.match(fuente, /sendFile: \{\s*async value\([^)]*\) \{[\s\S]{0,400}if \(path instanceof Error\) throw path;[\s\S]{0,200}const motivo = motivoSinArchivo\(type\);/);
+});
+
+test("horóscopo: si la imagen no llega, manda el texto igual", async () => {
+  const { mandarConImagen } = await import("../plugins/horoscopo.js");
+  const textos = [];
+  const client = { sendFile: async () => Promise.reject(new Error("no se pudo bajar el archivo (HTTP 404)")), sendText: async (chat, t) => (textos.push(t), { key: { id: "H" } }) };
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.deepEqual(await mandarConImagen(client, { chat: G }, "*♈ ARIES ♈*\nHoy te va bien."), { key: { id: "H" } });
+  } finally {
+    console.error = errorReal;
+  }
+  assert.deepEqual(textos, ["*♈ ARIES ♈*\nHoy te va bien."]);
+});
+
+test(".emojimix: un sticker que no se pudo armar no sale como archivo, y si no sale ninguno lo dice", async () => {
+  const P = (await import("../plugins/sticker-emoji-mix.js")).default;
+  const fetchReal = globalThis.fetch;
+  const errorReal = console.error;
+  globalThis.tenorApiKey = "clave";
+  globalThis.fetch = async (url) => (String(url).includes("tenor.googleapis.com") ? { ok: true, status: 200, json: async () => ({ results: [{ url: "http://127.0.0.1:9/a.png" }, { url: "http://127.0.0.1:9/b.png" }] }) } : { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) });
+  console.error = () => {};
+  const archivos = [];
+  const textos = [];
+  try {
+    const client = { sendFile: async (chat, archivo) => archivos.push(archivo), sendText: async (chat, t) => textos.push(t) };
+    await P.run({ chat: G }, { client, text: "😀+🥲", args: ["😀+🥲"], usedPrefix: ".", command: "emojimix" });
+  } finally {
+    globalThis.fetch = fetchReal;
+    console.error = errorReal;
+    globalThis.tenorApiKey = "";
+  }
+  assert.deepEqual(archivos, []);
+  assert.deepEqual(textos, ["No pude armar el sticker de esa mezcla, probá de nuevo en un rato."]);
+});
+
+// .addowner rewrote config.toml with toml.stringify: every comment explaining the settings was gone.
+test(".addowner y .removeowner cambian solo la línea de owners de config.toml", async () => {
+  const P = await import("../plugins/owner-add-owner.js");
+  const ejemplo = fs.readFileSync(new URL("../config.example.toml", import.meta.url), "utf8").replace('owners = [""]', 'owners = ["59899111222"]');
+  fs.writeFileSync("config.toml", ejemplo);
+  const ownersAntes = globalThis.owners;
+  try {
+    const correr = (command, text) => P.default.run({ chat: "59899111222@s.whatsapp.net", sender: "59899111222@s.whatsapp.net", mentionedJid: [], quoted: null }, { client: globalThis.client, text, usedPrefix: ".", command, participants: [] });
+    await correr("addowner", "+598 99 333 444");
+    const despues = fs.readFileSync("config.toml", "utf8");
+    assert.equal(despues, ejemplo.replace('owners = ["59899111222"]', 'owners = ["59899111222", "59899333444"]'), "todo lo demás, comentarios incluidos, queda igual");
+    assert.deepEqual(globalThis.owners, ["59899111222", "59899333444"]);
+    await correr("removeowner", "+598 99 333 444");
+    assert.equal(fs.readFileSync("config.toml", "utf8"), ejemplo);
+    assert.ok(!fs.existsSync("config.toml.tmp"), "el archivo de paso no queda");
+  } finally {
+    globalThis.owners = ownersAntes;
+    fs.rmSync("config.toml", { force: true });
+  }
+  assert.equal(P.conOwners("# x\nowners = [\n  \"1\",\n]\n", ["1", "2"]), '# x\nowners = ["1", "2"]\n', "una lista en varias líneas");
+  assert.equal(P.conOwners("numberBot = \"\"\n", ["5"]), 'owners = ["5"]\nnumberBot = ""\n', "sin la clave, la agrega arriba");
+  assert.equal(P.conOwners("[tabla]\nowners = [\"1\"]\n", ["1", "2"]), null, "si no queda bien, no toca nada");
+});
+
+// The same text to every group every 1.5 s, the ones with .banchat included: a burst like that is what WhatsApp's spam
+// filter looks for.
+test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async () => {
+  const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
+  for (const g of ["uno@g.us", "dos@g.us", "baneado@g.us"]) F.initDataDB({ chat: g, sender: "111@lid", senderJid: "" });
+  F.updateChat("baneado@g.us", { isBanned: 1 });
+  const esperas = [];
+  const esperarReal = _dep.esperar;
+  const azarReal = _dep.azar;
+  _dep.esperar = async (ms) => esperas.push(ms);
+  _dep.azar = () => 0.5;
+  const enviados = [];
+  try {
+    const client = { groupFetchAllParticipating: async () => ({ "uno@g.us": {}, "baneado@g.us": {}, "dos@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
+    await P.run({ chat: "59899111222@s.whatsapp.net" }, { client, text: "Hoy arranca el ranking 🏆", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    _dep.azar = azarReal;
+  }
+  assert.match(enviados[0][1], /^📣 Lo mando a 2 grupo\(s\), de a uno y espaciado: tarda unos 30 s\. Salteo 1 con \.banchat\.$/);
+  assert.deepEqual(enviados.slice(1, 3), [["uno@g.us", "Hoy arranca el ranking 🏆"], ["dos@g.us", "Hoy arranca el ranking 🏆"]]);
+  assert.equal(enviados[3][1], "✅ Mensaje enviado a 2 grupo(s).");
+  assert.deepEqual(esperas, [(AVISO_TODOS.ESPERA_MIN_MS + AVISO_TODOS.ESPERA_MAX_MS) / 2], "una espera entre grupo y grupo, de 20 a 40 s");
+});
