@@ -5,7 +5,7 @@ import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { sinMenciones, lidsMencionados } from "../lib/menciones.js";
-import { recordarMensaje, olvidarMensaje, editarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
+import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
@@ -84,33 +84,19 @@ export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", 
   return texto ? { texto, fuentes: r.fuentes || [] } : null;
 }
 
-// The text of a message's content: what an edit leaves.
-const textoDe = (contenido) => contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
-
 const plugin = (m) => m;
 // After every other hook (hooksEnOrden, load-functions.js): by then the moderation has marked what it deleted and the
-// trivia what it took as an answer.
+// trivia what it took as an answer. The message itself is already in her short-term memory, and deletions and edits
+// are applied there, as they come (plugins/_memoria-corta.js).
 plugin.alFinal = true;
 
 plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
   try {
-    // A deleted message leaves the recent context: Claudia shouldn't quote it, react to it or summarize it. An edited
-    // one stays as it was left. Before the check of her own messages, because a deletion made from Claudia's phone is
-    // one of hers too; the ones the bot sends never come back here (handle-message drops its own echoes), so
-    // lib/envios.js forgets those as they go out. An edit can come wrapped in editedMessage.
-    const protocolo = m.message?.protocolMessage || m.message?.editedMessage?.message?.protocolMessage;
-    if (protocolo?.type === 0) {
-      olvidarMensaje(m.chat, protocolo.key?.id);
-      return;
-    }
-    if (protocolo?.type === 14) {
-      editarMensaje(m.chat, protocolo.key?.id, textoDe(protocolo.editedMessage), m.sender);
-      return;
-    }
+    // Deletions and edits (protocol messages, with no text) only touch her short-term memory, and
+    // plugins/_memoria-corta.js has already applied them.
     if (m.fromMe || m.isBaileys) return;
     // A message the moderation just deleted (the anti-links, the blacklist and the mass mentions mark it; they run
-    // before this hook): for Claudia it never existed. She used to answer it, repeating the link, and keep it for
-    // .resumen and the initiative.
+    // before this hook): for Claudia it never existed. She used to answer it, repeating the link.
     if (m.moderado) return;
     // A reaction arrives as a message whose text is the emoji: it isn't something anyone said.
     if (m.mtype === "reactionMessage") return;
@@ -118,10 +104,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     const notaDeVoz = esAudio(m) && !m.text;
     if (!m.text && !notaDeVoz) return;
 
-    // Short-term memory: every group message (commands included) stays in the recent context, with what a glance of
-    // the initiative needs to react to it or quote it later (lib/vistazos.js).
     const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
-    recordarMensaje(m.chat, nombre, m.text, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
 
     // Automatic chat off in this group (.charla / .modo compraventa): Claudia only answers commands.
     if (chat?.charla === 0) return;
@@ -190,7 +173,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // what Claudia knows about herself and the bot (the full manual only if the message asks about features)
     partes.push(conocimientoPara(m.text));
 
-    const contexto = textoContexto(m.chat, true);
+    // What came before this message: it goes separately, and others may have come in after it while the hooks ran.
+    const contexto = textoContexto(m.chat, m.id ?? m.key?.id);
     if (contexto) {
       partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
     }

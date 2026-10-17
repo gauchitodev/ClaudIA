@@ -38,6 +38,9 @@ export function loadDatabase() {
     db.exec(`ALTER TABLE users ADD COLUMN memoria TEXT DEFAULT ""`);
     console.log("🟢 Migración: columna 'memoria' agregada a la tabla users");
   }
+  // Looking someone up by number (users.jid) used to scan the whole table, and a few things do it for each member of a
+  // group (lib/identidad.js, .inactivos).
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_users_jid ON users (jid)`);
 
   // Create the chats table
   db.exec(`
@@ -698,6 +701,12 @@ export function updateUserInGroup(userId, chat, data) {
   if (!row) return false;
   const inGroup = { ...row.inGroup, [chat]: { ...(row.inGroup[chat] || {}), ...data } };
   return updateUser(userId, { inGroup: JSON.stringify(inGroup) });
+}
+
+// The rows that hold `clave` in the data of some group (inGroup), oldest first, as stored: a flag few people set, read
+// in one query instead of one getUser per member of a big group (lib/menciones-generales.js, for .notagall).
+export function filasConDatoDeGrupo(clave) {
+  return db.prepare(`SELECT lid, jid, inGroup FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
 }
 
 // One more message from a person in a group (inGroup[chat].messageCount), counted over the row as it is now: two

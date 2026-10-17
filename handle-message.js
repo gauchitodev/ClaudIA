@@ -117,6 +117,11 @@ export async function handleMessage(nMsg) {
       }
     }
 
+    // What the moderation deleted (m.moderado: an anti-link, the blacklist, the mass mentions) doesn't run as a command
+    // either. ".tt <link>" with TikTok links banned had the link deleted and warned about, and then .tt downloaded the
+    // video and posted it.
+    if (m.moderado) return;
+
     // check banchat
     if (chat.isBanned && !isOwner) return;
 

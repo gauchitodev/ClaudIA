@@ -37,16 +37,20 @@ export async function loadPlugins() {
 }
 
 // The order handle-message.js runs the hooks (plugin.before) in. The moderation ones (plugin.moderacion: the
-// anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook; Claudia's chat
-// (plugin.alFinal) goes last, so she knows what was deleted and what a game took as an answer. The rest keep the
-// order they were loaded in. It used to be the folder's alphabetical order alone: a trivia answer that named Claudia
-// waited for her to think and type while a later one took the prize, a blacklisted person got her answer before being
+// anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook; right after them,
+// what has to see each message as soon as it's known to stay (plugin.trasModeracion: Claudia's short-term memory, so a
+// message gets there in the order it came and not after the sends of the hooks before it); Claudia's chat
+// (plugin.alFinal) goes last, so she knows what was deleted and what a game took as an answer. The rest keep the order
+// they were loaded in. It used to be the folder's alphabetical order alone: a trivia answer that named Claudia waited
+// for her to think and type while a later one took the prize, a blacklisted person got her answer before being
 // removed, and #vendo published a post the anti-link had just deleted.
 export function hooksEnOrden(plugins) {
   const hooks = Object.values(plugins || {}).filter((plugin) => typeof plugin?.before === "function");
   const moderacion = hooks.filter((plugin) => plugin.moderacion);
-  const alFinal = hooks.filter((plugin) => plugin.alFinal && !plugin.moderacion);
-  return [...moderacion, ...hooks.filter((plugin) => !moderacion.includes(plugin) && !alFinal.includes(plugin)), ...alFinal];
+  const trasModeracion = hooks.filter((plugin) => plugin.trasModeracion && !moderacion.includes(plugin));
+  const alFinal = hooks.filter((plugin) => plugin.alFinal && !moderacion.includes(plugin) && !trasModeracion.includes(plugin));
+  const resto = hooks.filter((plugin) => !moderacion.includes(plugin) && !trasModeracion.includes(plugin) && !alFinal.includes(plugin));
+  return [...moderacion, ...trasModeracion, ...resto, ...alFinal];
 }
 
 // Watch plugins for changes

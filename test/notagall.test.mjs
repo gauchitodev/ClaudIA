@@ -7,7 +7,7 @@ import { prepararBase, G, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 // opted out in the group with .notagall; .sitagall brings them back, and an admin's .tagall -f reaches everyone
 // (lib/menciones-generales.js). A mention notifies even in a muted group, and there was no way out of these.
 
-let F, MG, NoTag, Tagall, Tagall2, Ht, Ht2, Encuesta;
+let F, MG, I, NoTag, Tagall, Tagall2, Ht, Ht2, Encuesta;
 const BOT = "bot@lid"; // clienteFalso's Claudia
 const numero = (n) => `5989900000${n}@s.whatsapp.net`;
 const persona = (n, chat = G) => ({ chat, sender: `${n}@lid`, senderJid: numero(n), pushName: `Persona ${n}` });
@@ -19,6 +19,7 @@ before(async () => {
   ({ F } = await prepararBase("notagall"));
   globalThis.txt = (await import("../lib/strings.js")).default;
   MG = await import("../lib/menciones-generales.js");
+  I = await import("../lib/identidad.js");
   NoTag = (await import("../plugins/grupo-notagall.js")).default;
   Tagall = (await import("../plugins/grupo-tagall.js")).default;
   Tagall2 = (await import("../plugins/grupo-tagall2.js")).default;
@@ -110,6 +111,49 @@ test("con dos filas para la misma persona, decide la del LID", () => {
   assert.equal(MG.noRecibeLlamados(D, [numero(7)]), true);
   assert.equal(MG.noRecibeLlamados(D, [numero(7), "7@lid"]), false);
   assert.equal(MG.noRecibeLlamados(D, ["nadie@lid"]), false);
+});
+
+// The whole group in one query, whatever its size. Each member used to be looked up on their own, up to three lookups
+// each and two of them by number, and a .tagall in a group of a thousand held the whole bot for half a second.
+test("una sola consulta para todo el grupo, no una por persona", () => {
+  const grupo = Array.from({ length: 300 }, (_, i) => ({ id: `${600000 + i}@lid`, phoneNumber: `598970${String(i).padStart(5, "0")}@s.whatsapp.net`, admin: null }));
+  const db = globalThis.db;
+  const prepare = db.prepare;
+  let consultas = 0;
+  db.prepare = function (...args) {
+    consultas++;
+    return prepare.apply(this, args);
+  };
+  try {
+    assert.equal(MG.mencionesParaTodos(G, grupo, { client: clienteFalso() }).ids.length, 300);
+  } finally {
+    delete db.prepare;
+  }
+  assert.ok(consultas <= 1, `${consultas} consultas a la base`);
+});
+
+// And it says the same as asking about each one: by LID or by number, with the other id alongside or not, and with an
+// old second row keyed by number.
+test("la consulta del grupo dice lo mismo que preguntar por cada uno", () => {
+  const D = "consistencia@g.us";
+  const pn = (n) => `5989800000${n}@s.whatsapp.net`;
+  for (const n of [1, 2, 3, 4]) F.initDataDB({ chat: D, sender: `c${n}@lid`, senderJid: pn(n), pushName: `C${n}` });
+  F.initDataDB({ chat: D, sender: "c6viejo@lid", senderJid: pn(6), pushName: "Seis viejo" });
+  F.initDataDB({ chat: D, sender: "c6@lid", senderJid: "", pushName: "Seis" });
+  for (const [id, valor] of [["c1@lid", true], ["c2@lid", false], ["c3@lid", true], ["c6viejo@lid", true], ["c6@lid", false]]) F.updateUserInGroup(id, D, { sinTagall: valor });
+  const formas = [
+    ...[1, 2, 3, 4].flatMap((n) => [{ id: `c${n}@lid`, phoneNumber: pn(n) }, { id: `c${n}@lid` }, { id: pn(n), lid: `c${n}@lid` }, { id: pn(n) }]),
+    { id: "c6@lid", phoneNumber: pn(6) },
+    { id: "c6@lid" },
+    { id: pn(6) },
+    { id: "nadie@lid" },
+    { id: pn(9) },
+  ];
+  for (const p of formas) {
+    const unoPorUno = MG.noRecibeLlamados(D, I.idsDeParticipante(p));
+    assert.equal(MG.mencionesParaTodos(D, [p], { client: clienteFalso() }).fuera, unoPorUno ? 1 : 0, JSON.stringify(p));
+  }
+  assert.equal(MG.mencionesParaTodos(D, formas, { client: clienteFalso() }).fuera, 9, "1 y 3 en sus cuatro formas, y 6 por su número");
 });
 
 test(".tagall2 y .ht2: las diez van sin quien se salió, y el -f no va con la ráfaga", async () => {

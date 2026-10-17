@@ -73,6 +73,16 @@ test("nota de voz respondiéndole: la escucha, contesta y la deja en el hilo con
   assert.ok(hilo.some((x) => x.texto === "🎤 (audio) cuenta que se le rompió el auto" && x.nombre === "Ana"));
 });
 
+// A voice note isn't in her memory until she has heard it, and the prompt left out the last message stored, taking it
+// for the one being answered: what was said right before the audio went missing.
+test("nota de voz respondiéndole: lo último que se dijo antes sigue en el contexto", async () => {
+  const { recordarMensaje } = await import("../lib/contexto-chat.js");
+  recordarMensaje(C, "Beto", "¿alguien sabe a qué hora abre el museo?", false, { id: "ANTES-AUDIO" });
+  clasificacion = { comando: "ninguno", respuesta: "A las 10, creo", resumenAudio: "pregunta si ella sabe" };
+  await mandar({ mtype: "audioMessage", msg: { seconds: 5, mimetype: "audio/ogg; codecs=opus" }, download: async () => AUDIO, quoted: { id: "CL-2", fromMe: true, text: "¿Qué hacemos el domingo?" } });
+  assert.match(textoDe(pedidos[0]), /- Beto: ¿alguien sabe a qué hora abre el museo\?/);
+});
+
 test("los demás audios del grupo no los escucha", async () => {
   clasificacion = { comando: "ninguno", respuesta: "no debería salir" };
   assert.deepEqual(await mandar({ mtype: "audioMessage", msg: { seconds: 8 }, download: async () => AUDIO }), [], "una nota de voz suelta");

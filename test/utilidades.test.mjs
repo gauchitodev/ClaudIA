@@ -257,18 +257,62 @@ test("sendFile: un 404, un archivo vacío o el error de un sticker no salen como
   assert.match(fuente, /sendFile: \{\s*async value\([^)]*\) \{[\s\S]{0,400}if \(path instanceof Error\) throw path;[\s\S]{0,200}const motivo = motivoSinArchivo\(type\);/);
 });
 
-test("horóscopo: si la imagen no llega, manda el texto igual", async () => {
-  const { mandarConImagen } = await import("../plugins/horoscopo.js");
+test("con imagen: si la imagen no llega, manda el texto igual, y sin imagen ni la intenta", async () => {
+  const { mandarConImagen } = await import("../lib/con-imagen.js");
+  const archivos = [];
   const textos = [];
-  const client = { sendFile: async () => Promise.reject(new Error("no se pudo bajar el archivo (HTTP 404)")), sendText: async (chat, t) => (textos.push(t), { key: { id: "H" } }) };
+  const client = { sendFile: async (chat, archivo) => (archivos.push(archivo), Promise.reject(new Error("no se pudo bajar el archivo (HTTP 404)"))), sendText: async (chat, t) => (textos.push(t), { key: { id: "H" } }) };
   const errorReal = console.error;
   console.error = () => {};
   try {
-    assert.deepEqual(await mandarConImagen(client, { chat: G }, "*♈ ARIES ♈*\nHoy te va bien."), { key: { id: "H" } });
+    assert.deepEqual(await mandarConImagen(client, G, "https://telegra.ph/file/x.jpg", "*♈ ARIES ♈*\nHoy te va bien.", null, "horoscopo"), { key: { id: "H" } });
+    await mandarConImagen(client, G, null, "sin imagen", null);
   } finally {
     console.error = errorReal;
   }
-  assert.deepEqual(textos, ["*♈ ARIES ♈*\nHoy te va bien."]);
+  assert.deepEqual(textos, ["*♈ ARIES ♈*\nHoy te va bien.", "sin imagen"]);
+  assert.deepEqual(archivos, ["https://telegra.ph/file/x.jpg"]);
+});
+
+// A picture from the internet that doesn't come down: since sendFile throws, .pelicula, .serie and .ig lost their text
+// with it, and .getpp and .gpu went quiet. Now the text goes alone, or they say they couldn't.
+test("una imagen que no baja: .pelicula e .ig mandan el texto igual, y .getpp y .gpu lo avisan", async () => {
+  globalThis.txt = (await import("../lib/strings.js")).default;
+  const Cine = (await import("../plugins/recomendar-cine.js")).default;
+  const Ig = (await import("../plugins/insta-usuario.js")).default;
+  const FotoGrupo = (await import("../plugins/get-pp-group.js")).default;
+  const FotoPersona = (await import("../plugins/get-pp-user.js")).default;
+  const fetchReal = globalThis.fetch;
+  const errorReal = console.error;
+  let recomendacion = { name: "Una de terror", genres: "Terror", vote: 6, date: "1999-01-01", overview: "Da miedo.", urlImage: "/poster.jpg" };
+  globalThis.fetch = async () => ({ json: async () => ({ success: true, recommendation: recomendacion }) });
+  console.error = () => {};
+  const archivos = [];
+  const textos = [];
+  const client = {
+    sendFile: async (chat, archivo) => (archivos.push(archivo), Promise.reject(new Error("no se pudo bajar el archivo (HTTP 404)"))),
+    sendText: async (chat, t) => (textos.push(t), { key: { id: "T" } }),
+    profilePictureUrl: async () => "https://pps.whatsapp.net/foto.jpg",
+  };
+  const m = { chat: G, sender: "555@lid", react: async () => {}, mentionedJid: ["111@lid"], quoted: null };
+  try {
+    await Cine.run(m, { client, text: "terror", usedPrefix: ".", command: "pelicula" });
+    recomendacion = { ...recomendacion, name: "Otra sin póster", urlImage: null };
+    await Cine.run(m, { client, text: "terror", usedPrefix: ".", command: "pelicula" });
+    await Ig.run(m, { client, text: "@claudia.bot" });
+    await FotoGrupo.run(m, { client });
+    await FotoPersona.run(m, { client, text: "@111", usedPrefix: ".", command: "gpu", participants: [{ id: "111@lid" }] });
+  } finally {
+    globalThis.fetch = fetchReal;
+    console.error = errorReal;
+  }
+  assert.equal(textos.length, 5, JSON.stringify(textos));
+  assert.match(textos[0], /Una de terror/);
+  assert.match(textos[1], /Otra sin póster/);
+  assert.match(textos[2], /instagram\.com\/claudia\.bot/);
+  assert.equal(textos[3], "No pude bajar la foto del grupo; probá de nuevo en un rato.");
+  assert.equal(textos[4], "No pude bajar esa foto de perfil; probá de nuevo en un rato.");
+  assert.equal(archivos.length, 4, "sin póster, ni lo intenta");
 });
 
 test(".emojimix: un sticker que no se pudo armar no sale como archivo, y si no sale ninguno lo dice", async () => {

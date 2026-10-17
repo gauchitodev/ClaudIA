@@ -6,10 +6,10 @@ import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
 
 // The hooks (plugin.before) run one after another on every message, in the order hooksEnOrden gives
-// (load-functions.js): the moderation first, Claudia's chat last. It used to be the plugins folder's alphabetical order
-// alone, with Claudia's chat in the middle: a trivia answer that named her waited for her to think and type while a
-// later one took the prize, a blacklisted person got her answer before being removed, and #vendo published a post the
-// anti-link had just deleted.
+// (load-functions.js): the moderation first, then Claudia's short-term memory, her chat last. It used to be the plugins
+// folder's alphabetical order alone, with Claudia's chat in the middle: a trivia answer that named her waited for her
+// to think and type while a later one took the prize, a blacklisted person got her answer before being removed, and
+// #vendo published a post the anti-link had just deleted.
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const G = "hooks@g.us";
@@ -35,7 +35,7 @@ before(async () => {
   Tr = await import("../lib/trivia.js");
   // The hooks these tests are about, inserted in the folder's order, as loadPlugins does.
   hooks = {};
-  for (const nombre of ["_all-anti-links", "_anti-link-plus", "_auto-ia", "_chatbot-events", "_compraventa", "_hashtags", "_manejador-lista-negra", "_trivia"]) {
+  for (const nombre of ["_all-anti-links", "_anti-link-plus", "_auto-ia", "_chatbot-events", "_compraventa", "_hashtags", "_manejador-lista-negra", "_memoria-corta", "_trivia"]) {
     hooks[nombre] = (await import(`../plugins/${nombre}.js`)).default;
   }
   globalThis.plugins = hooks;
@@ -71,7 +71,7 @@ const mensaje = (sender, text, extra = {}) => {
   return m;
 };
 
-test("orden: la moderación primero, la charla de Claudia al final y el resto como se cargó", () => {
+test("orden: la moderación primero, después la memoria corta, la charla de Claudia al final y el resto como se cargó", () => {
   const hook = (nombre, extra = {}) => ({ nombre, before: async () => {}, ...extra });
   const plugins = {
     a: hook("a"),
@@ -79,23 +79,26 @@ test("orden: la moderación primero, la charla de Claudia al final y el resto co
     antiLink: hook("antiLink", { moderacion: true }),
     comando: { cmd: ["x"], run: async () => {} },
     b: hook("b"),
+    memoria: hook("memoria", { trasModeracion: true }),
     listaNegra: hook("listaNegra", { moderacion: true }),
   };
   assert.deepEqual(
     L.hooksEnOrden(plugins).map((p) => p.nombre),
-    ["antiLink", "listaNegra", "a", "b", "charla"],
+    ["antiLink", "listaNegra", "memoria", "a", "b", "charla"],
   );
   assert.deepEqual(L.hooksEnOrden(undefined), []);
 });
 
 test("orden: los hooks reales tienen su marca, y handle-message corre cada uno por su cuenta en ese orden", async () => {
-  const marcados = { moderacion: [], alFinal: [] };
+  const marcados = { moderacion: [], trasModeracion: [], alFinal: [] };
   for (const archivo of fs.readdirSync(path.join(RAIZ, "plugins")).filter((f) => f.endsWith(".js"))) {
     const p = (await import(`../plugins/${archivo}`)).default;
     if (p?.moderacion) marcados.moderacion.push(archivo);
+    if (p?.trasModeracion) marcados.trasModeracion.push(archivo);
     if (p?.alFinal) marcados.alFinal.push(archivo);
   }
   assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
+  assert.deepEqual(marcados.trasModeracion, ["_memoria-corta.js"]);
   assert.deepEqual(marcados.alFinal, ["_auto-ia.js"]);
   // A hook that throws takes only itself down.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");

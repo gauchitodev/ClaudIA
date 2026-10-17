@@ -1,4 +1,5 @@
 import { pedirHttp } from "../lib/http.js";
+import { mandarConImagen } from "../lib/con-imagen.js";
 
 // Daily horoscope from horoscopo.com.
 // Mind the names: the site uses accent-free URLs and calls Escorpio "escorpion", so what the person types never goes
@@ -37,15 +38,8 @@ export function buscarSigno(texto) {
   return null;
 }
 
-// The picture is a decoration: if it doesn't come (sendFile throws on a 404 since it stopped sending error pages as
-// ".bin" files), the horoscope goes as text.
+// The picture is a decoration: if it doesn't come, the horoscope goes as text (lib/con-imagen.js).
 const IMAGEN = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
-export function mandarConImagen(client, m, texto) {
-  return client.sendFile(m.chat, IMAGEN, null, texto, m).catch((e) => {
-    console.error("[horoscopo] sin imagen:", e.message);
-    return client.sendText(m.chat, texto, m);
-  });
-}
 
 const plugin = {};
 plugin.cmd = ["horoscopo", "horóscopo"];
@@ -79,7 +73,7 @@ plugin.run = async (m, { client, text }) => {
 
     m.react(signo.emoji).catch(() => {});
     const teks = `*${signo.emoji} ${signo.nombre.toUpperCase()} ${signo.emoji}*\n${fecha ? `\n*📅 ${fecha}*\n` : ""}\n${texto}`;
-    const kz = await mandarConImagen(client, m, teks);
+    const kz = await mandarConImagen(client, m.chat, IMAGEN, teks, m, "horoscopo");
     if (kz?.key) client.sendMessage(m.chat, { react: { text: "🌠", key: kz.key } }).catch(() => {});
   } catch (error) {
     console.error("[horoscopo]", error.message);

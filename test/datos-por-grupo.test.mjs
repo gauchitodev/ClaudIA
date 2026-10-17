@@ -10,7 +10,8 @@ import strings from "../lib/strings.js";
 // handle-message reads the person once, when the message arrives, and hands that copy to every hook. The hooks used to
 // write the whole copy back, so whatever changed while the message was being handled went with it: a .silenciar or an
 // .adv given meanwhile was undone, a second message from the same person counted over the same old number, and the
-// rank promotion was paid twice. The window is wide: _auto-ia waits for the AI before the hooks after it run.
+// rank promotion was paid twice. The window is wide: a hook that sends something waits its turn (lib/ritmo.js) before
+// the hooks after it run.
 
 let F, Conteo, Rangos, Afk, AfkCmd;
 const DIA = 24 * 60 * 60 * 1000;

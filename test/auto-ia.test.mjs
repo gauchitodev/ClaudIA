@@ -7,7 +7,7 @@ import strings from "../lib/strings.js";
 // the dispatcher's checks. So the hook has to apply the same rule the command has: .tagall for moderators, .llamar
 // only for admins. Gemini is swapped for a canned classification.
 
-let F, AutoIA, Llamar, Tagall, RITMO;
+let F, AutoIA, MemoriaCorta, Llamar, Tagall, RITMO;
 let clasificacion; // what "Gemini" answers
 let consultasIA = 0; // how many times Claudia asked the AI
 const fetchReal = globalThis.fetch;
@@ -27,6 +27,7 @@ before(async () => {
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(clasificacion) }] } }] }) };
   };
   AutoIA = (await import("../plugins/_auto-ia.js")).default;
+  MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   Llamar = (await import("../plugins/grupo-llamar.js")).default;
   Tagall = (await import("../plugins/grupo-tagall.js")).default;
   globalThis.plugins = { "grupo-llamar.js": Llamar, "grupo-tagall.js": Tagall };
@@ -98,7 +99,7 @@ test("memoria corta: guarda quién dijo qué con su id, no toma las reacciones c
   const B = "buffer@g.us";
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const base = { chat: B, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
-  const correr = (m) => AutoIA.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
+  const correr = (m) => MemoriaCorta.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
 
   await correr({ text: "hola a todos", key: { id: "M1", participant: "555@lid" } });
   const entrada = globalThis.contextoChat.get(B).at(-1);
@@ -111,13 +112,14 @@ test("memoria corta: guarda quién dijo qué con su id, no toma las reacciones c
   assert.equal(globalThis.contextoChat.get(B).length, 0, "lo que alguien borró se olvida");
 });
 
-// An edit used to leave the original in the memory: what someone took back by editing still reached .resumen and the
-// initiative. And a deletion made from Claudia's phone is one of her own messages, which the hook skipped.
+// The memory is written by its own hook, right after the moderation (plugins/_memoria-corta.js). An edit used to leave
+// the original in it: what someone took back by editing still reached .resumen and the initiative. And a deletion made
+// from Claudia's phone is one of her own messages, which the hook skipped.
 test("memoria corta: lo editado queda como lo dejó quien lo escribió, y lo borrado desde el teléfono de Claudia se olvida", async () => {
   const B = "edicion@g.us";
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const base = { chat: B, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
-  const correr = (m) => AutoIA.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
+  const correr = (m) => MemoriaCorta.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
   const textos = () => globalThis.contextoChat.get(B).map((e) => e.texto);
   const edicion = (id, editedMessage) => ({ protocolMessage: { type: 14, key: { id }, editedMessage } });
 
@@ -156,8 +158,7 @@ test("lo que borra un anti-link no le llega a Claudia: ni lo contesta ni lo guar
     const m = { chat: L, isGroup: true, sender: "777@lid", pushName: "Spam", text: texto, mentionedJid: [], quoted: null, key: { id: "SPAM", participant: "777@lid" }, delete: async () => borrados.push("SPAM") };
     const ctx = { client, participants, isAdmin: false, isMod: false, isBotAdmin: true, isOwner: false, user: {}, chat: opciones };
     const antes = consultasIA;
-    await Hook.before(m, ctx);
-    await AutoIA.before(m, ctx);
+    for (const hook of [Hook, MemoriaCorta, AutoIA]) await hook.before(m, ctx); // in handle-message's order
     return { borrado: borrados.length > 0, consultas: consultasIA - antes, guardado: globalThis.contextoChat.get(L)?.length || 0 };
   };
   for (const [archivo, opciones, texto] of [

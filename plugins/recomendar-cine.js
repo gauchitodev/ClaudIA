@@ -1,4 +1,5 @@
 import { elegirAlAzar } from "../lib/azar.js";
+import { mandarConImagen } from "../lib/con-imagen.js";
 
 const plugin = {};
 plugin.cmd = ["serie", "pelicula", "película"];
@@ -38,7 +39,8 @@ plugin.run = async (m, { client, text, usedPrefix, command }) => {
 
   const reco = data.recommendation;
 
-  const poster = `https://image.tmdb.org/t/p/w500${reco.urlImage}`;
+  // Some come without a poster: the recommendation goes as text then, and also when the picture doesn't come down.
+  const poster = reco.urlImage ? `https://image.tmdb.org/t/p/w500${reco.urlImage}` : null;
 
   let caption = `🍿 \`${reco.name}\` 🍿
 
@@ -61,7 +63,7 @@ Total de temporadas: ${reco.number_of_seasons}
 📝 Sinopsis: ${reco.overview}`;
   }
 
-  await client.sendFile(m.chat, poster, "", caption, m);
+  await mandarConImagen(client, m.chat, poster, caption, m, "cine");
 };
 
 export default plugin;

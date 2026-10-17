@@ -36,6 +36,8 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.ok(cols("hashtag_entries").includes("reacciones"));
   const tablas = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all().map((t) => t.name);
   for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "envios_bot", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones", "iniciativa_estado", "intervenciones"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
+  const plan = db.prepare(`EXPLAIN QUERY PLAN SELECT * FROM users WHERE jid = ?`).all("x").map((f) => f.detail).join(" ");
+  assert.match(plan, /idx_users_jid/, "buscar a alguien por número no recorre la tabla entera");
   globalThis.db = F.loadDatabase(); // idempotente
   fs.rmSync(dir, { recursive: true, force: true });
 });

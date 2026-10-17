@@ -1,3 +1,5 @@
+import { mandarConImagen } from "../lib/con-imagen.js";
+
 const plugin = {};
 plugin.cmd = ["ig"];
 plugin.botAdmin = true;
@@ -18,7 +20,8 @@ plugin.run = async (m, { client, text }) => {
 
 *[📌] 𝙴𝙽𝙻𝙰𝙲𝙴:* ${instagramUrl}`.trim();
 
-  await client.sendFile(m.chat, image, null, str, m);
+  // The picture is a decoration: what matters is the link, and it goes even if the picture doesn't come.
+  await mandarConImagen(client, m.chat, image, str, m, "ig");
 };
 
 export default plugin;
