@@ -64,6 +64,16 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   assert.doesNotMatch(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /Pareja/);
 });
 
+// .notagall (lib/menciones-generales.js): the profile says it, to whoever opted out and to anyone looking.
+test("perfil: dice si alguien se salió de los llamados a todos", () => {
+  F.initDataDB(persona(333));
+  F.updateUserInGroup("333@lid", G, { sinTagall: true });
+  assert.match(Pf.textoPerfil(G, "333@lid", F.getUser("333@lid"), true).texto, /\n🔕 No recibís los llamados a todos \(\.sitagall para volver\)$/);
+  assert.match(Pf.textoPerfil(G, "333@lid", F.getUser("333@lid"), false).texto, /\n🔕 No recibe los llamados a todos \(\.notagall\)$/);
+  F.updateUserInGroup("333@lid", G, { sinTagall: false });
+  assert.doesNotMatch(Pf.textoPerfil(G, "333@lid", F.getUser("333@lid"), true).texto, /🔕/);
+});
+
 test("perfil: el comando resuelve a quién mirar", async () => {
   const cliente = globalThis.client;
   await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "" });

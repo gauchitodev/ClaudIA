@@ -1,3 +1,5 @@
+import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
+
 const plugin = {};
 plugin.cmd = ["hidetag2", "ht2"];
 plugin.onlyGroup = true;
@@ -9,8 +11,9 @@ plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);
   if (!text && !m.quoted) return client.sendText(m.chat, txt.hidetagNull, m);
 
-  const excludeJids = ["1234567890@lid"];
-  const users = participants.filter((a) => !excludeJids.includes(a.id)).map((a) => a.id);
+  // Hidden, but it notifies just the same: whoever opted out with .notagall is left out (lib/menciones-generales.js).
+  const { ids: users, fuera } = mencionesParaTodos(m.chat, participants, { client });
+  if (!users.length) return client.sendText(m.chat, textoSinNadie(fuera), m);
 
   const sendMessage = async () => {
     try {

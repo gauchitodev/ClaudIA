@@ -383,3 +383,22 @@ test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como 
     console.error = errorReal;
   }
 });
+
+// Claudia's .tagall goes through the same plugin: whoever opted out with .notagall stays out, and nothing she's told is
+// read as a .tagall -f, which only an admin can send by typing it.
+test("pedido a Claudia: su .tagall deja afuera a quien se salió, nunca fuerza, y si no queda nadie lo dice", async () => {
+  const NT = "nt@g.us";
+  for (const n of ["111", "555"]) F.initDataDB({ chat: NT, sender: `${n}@lid`, senderJid: "", pushName: n });
+  F.updateUserInGroup("111@lid", NT, { sinTagall: true });
+  clasificacion = { comando: "tagall", respuesta: "Ahí van todos." };
+  let r = await hablarle({ text: "claudia arrobá a todos" }, { grupo: NT });
+  assert.equal(r.textos[0], "Ahí van todos.");
+  assert.deepEqual(globalThis.enviados.at(-1).msg.mentions, ["555@lid"]);
+
+  await hablarle({ text: "-f claudia arrobá a todos" }, { grupo: NT, rango: { isAdmin: true, isMod: true, isOwner: true } });
+  assert.deepEqual(globalThis.enviados.at(-1).msg.mentions, ["555@lid"], "ni con -f de un admin u owner");
+
+  F.updateUserInGroup("555@lid", NT, { sinTagall: true });
+  r = await hablarle({ text: "claudia arrobá a todos" }, { grupo: NT });
+  assert.deepEqual(r.textos, ["Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)."]);
+});

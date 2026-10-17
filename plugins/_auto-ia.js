@@ -6,6 +6,7 @@ import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from ".
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { sinMenciones, lidsMencionados } from "../lib/menciones.js";
 import { recordarMensaje, olvidarMensaje, editarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
+import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { tipear } from "../lib/ritmo.js";
@@ -385,6 +386,14 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
         await decir("Che, en este grupo las menciones están apagadas.", m);
         return;
       }
+      // Everyone opted out with .notagall (lib/menciones-generales.js): she can't force it, so there's nobody to call.
+      if (comando === "tagall") {
+        const { ids, fuera } = mencionesParaTodos(m.chat, participants, { client });
+        if (!ids.length) {
+          await decir(fuera > 0 ? "Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)." : textoSinNadie(0), m);
+          return;
+        }
+      }
       if (comando === "llamar" && !aQuienLlamar(m, client).length) {
         await decir("¿A quién llamo? Arrobalo en el mensaje.", m);
         return;
@@ -396,7 +405,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     if (comando === "tagall") {
       const pl = buscarPlugin("tagall");
-      if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat });
+      // desdeClaudia: what she was told is never read as a .tagall -f, which only an admin can send typing it.
+      if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat, desdeClaudia: true });
     } else if (comando === "llamar") {
       // .llamar gets only the people to call as the message's mentions: never Claudia herself.
       const pl = buscarPlugin("llamar");
