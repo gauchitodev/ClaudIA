@@ -106,6 +106,7 @@ test("envíos: el tipo sale del contenido", () => {
 test("envíos: los mensajes esperan su turno, los borrados no, y otro chat no espera al primero", async () => {
   const { client, salidas } = clienteEnvuelto();
   const G1 = "cola1@g.us";
+  const antes = Date.now();
   await Promise.all([
     client.sendMessage(G1, { text: "uno" }),
     client.sendMessage(G1, { text: "dos" }),
@@ -114,7 +115,11 @@ test("envíos: los mensajes esperan su turno, los borrados no, y otro chat no es
   ]);
   const cuando = (pred) => salidas.find(pred).cuando;
   const posicion = (pred) => salidas.findIndex(pred);
-  assert.ok(cuando((s) => s.contenido.text === "dos") - cuando((s) => s.contenido.text === "uno") >= 35, "el segundo mensaje esperó su turno");
+  // "dos" goes out MIN_ENTRE_MENSAJES_MS (40 here) after its turn was asked for, measured from before asking: measured
+  // from when "uno" went out, under load (the whole suite at once) "uno" was sometimes noted a few ms late, and the gap
+  // came out under 35 ms about once in forty runs.
+  const espero = cuando((s) => s.contenido.text === "dos") - antes;
+  assert.ok(espero >= 35, `el segundo mensaje esperó su turno (salió a los ${espero} ms)`);
   // By order, not by milliseconds: counting each send writes to SQLite in between, and on a slow disk (GitHub's
   // runners) that alone took more than the 20 ms these used to allow. What matters is that neither waited behind "dos".
   const dos = posicion((s) => s.contenido.text === "dos");
