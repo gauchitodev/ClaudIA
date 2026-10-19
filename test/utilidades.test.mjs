@@ -379,8 +379,53 @@ test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async
     _dep.esperar = esperarReal;
     _dep.azar = azarReal;
   }
-  assert.match(enviados[0][1], /^📣 Lo mando a 2 grupo\(s\), de a uno y espaciado: tarda unos 30 s\. Salteo 1 con \.banchat\.$/);
+  assert.match(enviados[0][1], /^📣 Lo mando a 2 grupo\(s\), de a uno y espaciado: tarda unos 30 s\. Salteo 1 con \.banchat\. Para cortarlo: \.avisartodos cancelar\.$/);
   assert.deepEqual(enviados.slice(1, 3), [["uno@g.us", "Hoy arranca el ranking 🏆"], ["dos@g.us", "Hoy arranca el ranking 🏆"]]);
   assert.equal(enviados[3][1], "✅ Mensaje enviado a 2 grupo(s).");
   assert.deepEqual(esperas, [(AVISO_TODOS.ESPERA_MIN_MS + AVISO_TODOS.ESPERA_MAX_MS) / 2], "una espera entre grupo y grupo, de 20 a 40 s");
+});
+
+// Spaced out like that, a notice to fifty groups takes some 25 minutes: one with a typo couldn't be stopped, and a second
+// one sent meanwhile went out alongside it.
+test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, y no sale otro mientras tanto", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  // Each wait between groups lasts until the notice is cut.
+  let esperando = 0;
+  _dep.esperar = (ms, valor, { signal } = {}) =>
+    new Promise((resolve, reject) => {
+      esperando++;
+      signal?.addEventListener("abort", () => reject(new Error("cortado")), { once: true });
+    });
+  const enviados = [];
+  const client = { groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
+  const correr = (text) => P.run({ chat: DUENO }, { client, text, isOwner: true });
+  const alDueno = () => enviados.filter(([chat]) => chat === DUENO).map(([, t]) => t);
+  const aLosGrupos = () => enviados.filter(([chat]) => chat !== DUENO);
+  try {
+    const aviso = correr("Mañana no hay ranking");
+    for (let i = 0; i < 100 && !esperando; i++) await new Promise((r) => setImmediate(r));
+    assert.equal(esperando, 1, "mandó al primer grupo y espera para el segundo");
+
+    const otro = correr("Otro aviso"); // awaited after the check: a second notice that did start would wait forever here
+    for (let i = 0; i < 100 && alDueno().length < 2; i++) await new Promise((r) => setImmediate(r));
+    assert.equal(alDueno().at(-1), "📣 Ya estoy mandando un aviso: va por 1 de 3 grupo(s). Esperá a que termine o cortalo con .avisartodos cancelar.");
+    await otro;
+    await correr("");
+    assert.match(alDueno().at(-1), /va por 1 de 3 grupo\(s\)/, "sin texto, dice cómo va");
+
+    await correr("cancelar");
+    await aviso;
+    assert.equal(alDueno().at(-1), "⏹️ Corté el aviso: llegó a 1 de 3 grupo(s).");
+    assert.deepEqual(aLosGrupos(), [["a@g.us", "Mañana no hay ranking"]], "ni el resto, ni el otro aviso");
+
+    await correr("cancelar");
+    assert.equal(alDueno().at(-1), "No hay ningún aviso saliendo.");
+    _dep.esperar = async () => {};
+    await correr("Ahora sí");
+    assert.equal(alDueno().at(-1), "✅ Mensaje enviado a 3 grupo(s).", "cortado el anterior, sale uno nuevo");
+  } finally {
+    _dep.esperar = esperarReal;
+  }
 });
