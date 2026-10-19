@@ -360,6 +360,16 @@ test(".addowner y .removeowner cambian solo la línea de owners de config.toml",
   assert.equal(P.conOwners("[tabla]\nowners = [\"1\"]\n", ["1", "2"]), null, "si no queda bien, no toca nada");
 });
 
+// .info says the code is open, under the MIT license, and links to it.
+test(".info: el código es abierto, con el link al repo", async () => {
+  const Info = (await import("../plugins/info-bot.js")).default;
+  const textos = [];
+  await Info.run({ chat: G }, { client: { sendText: async (chat, t) => textos.push(t) } });
+  assert.match(textos[0], /🔗 https:\/\/github\.com\/gauchitodev\/ClaudIA$/);
+  assert.match(textos[0], /El código es abierto, con licencia MIT/);
+  assert.doesNotMatch(textos[0], /privad|pedime acceso/i);
+});
+
 // The same text to every group every 1.5 s, the ones with .banchat included: a burst like that is what WhatsApp's spam
 // filter looks for.
 test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async () => {
