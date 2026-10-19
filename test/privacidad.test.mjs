@@ -105,6 +105,20 @@ test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo
   assert.equal(await pedir("yo"), "🧠 No tengo nada anotado de vos en este grupo.");
 });
 
+// Forgotten by the bot, and gone from the file too. SQLite used to only mark that space as free, and the text stayed
+// in the database, and in the backups that copy it whole, until something happened to write over it. Here someone
+// whose data takes more than one page, as with a person in many groups.
+test(".memoria olvidame no deja lo que sabía en el archivo de la base", async () => {
+  const fs = await import("fs");
+  const GRANDE = "grande@g.us";
+  F.initDataDB({ chat: GRANDE, sender: ANA, senderJid: "", pushName: "Ana" });
+  F.updateUserInGroup(ANA, GRANDE, { memoria: `NO-LO-OLVIDES ${"le encanta contar sus vacaciones | ".repeat(200)}` });
+  assert.ok(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), "antes está");
+  await Memoria.run({ chat: GRANDE, sender: ANA, isGroup: true }, { client: globalThis.client, text: "olvidame", args: ["olvidame"], command: "memoria", isAdmin: false, isOwner: false });
+  assert.equal(MP.memoriaDe(ANA, GRANDE), "");
+  assert.equal(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), false, "ni en el archivo");
+});
+
 test("lo que escribe la IA no arroba a nadie: charla, .ia y .resumen", async () => {
   F.initDataDB({ chat: FAMILIA, sender: "11111@lid", senderJid: "", pushName: "Beto" });
   assert.equal(M.sinMenciones("hola @11111 y @59899000002"), "hola Beto y 59899000002");

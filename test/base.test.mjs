@@ -175,6 +175,7 @@ test("borra la memoria vieja de todo el bot, una vez, sin dejar rastro en el arc
     assert.deepEqual(db.prepare(`SELECT lid, memoria FROM users ORDER BY lid`).all(), [{ lid: "111@lid", memoria: "" }, { lid: "222@lid", memoria: "" }]);
     assert.equal(F.getUser("111@lid").inGroup[G].memoria, "le gusta el mate", "lo de cada grupo queda");
     assert.deepEqual(rastros(), [], "ni en el archivo");
+    assert.equal(db.prepare(`PRAGMA secure_delete`).get().secure_delete, 1, "y lo que se borre de acá en más se pisa con ceros");
     assert.equal(logs.filter((l) => l.includes("memoria vieja")).length, 1);
     globalThis.db = F.loadDatabase(); // idempotente: no hay nada más que borrar
     assert.equal(logs.filter((l) => l.includes("memoria vieja")).length, 1, "una sola vez");
