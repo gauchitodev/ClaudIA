@@ -41,6 +41,26 @@ export function loadDatabase() {
   // Looking someone up by number (users.jid) used to scan the whole table, and a few things do it for each member of a
   // group (lib/identidad.js, .inactivos).
   db.exec(`CREATE INDEX IF NOT EXISTS idx_users_jid ON users (jid)`);
+  // users.memoria held what Claudia learned of each person before 3.4: one memory for the whole bot, with what people
+  // told her in private. Since then it's kept per group (lib/memoria-persona.js) and nothing reads or writes this
+  // column, so what's left in it is erased, once. SQLite leaves erased text in the file until something writes over it
+  // (its docs: secure_delete before the change, or VACUUM after), and the daily copies and the one sent to the owner
+  // carry the file whole: secure_delete zeroes the values as they're erased, and VACUUM rebuilds the file without the
+  // older versions left behind each time a memory was rewritten. If VACUUM can't run (it needs room for a copy of the
+  // file), the bot starts anyway.
+  const conMemoriaVieja = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE memoria != ''`).get().n;
+  if (conMemoriaVieja > 0) {
+    const inicio = Date.now();
+    db.exec(`PRAGMA secure_delete = ON`);
+    db.prepare(`UPDATE users SET memoria = '' WHERE memoria != ''`).run();
+    db.exec(`PRAGMA secure_delete = OFF`);
+    try {
+      db.exec(`VACUUM`);
+      console.log(`🟢 Migración: borrada la memoria vieja de ${conMemoriaVieja} persona(s) (users.memoria) y compactada la base, en ${Date.now() - inicio} ms`);
+    } catch (e) {
+      console.error(`🟠 Migración: borrada la memoria vieja de ${conMemoriaVieja} persona(s), pero no pude compactar la base (${e.message}): versiones viejas pueden quedar en el archivo hasta que se pisen`);
+    }
+  }
 
   // Create the chats table
   db.exec(`

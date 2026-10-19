@@ -149,6 +149,41 @@ test("migra las advertencias globales al formato por grupo", async () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// What Claudia learned of each person before 3.4 was one memory for the whole bot, with what people told her in private.
+// It's kept per group now, and the old column is erased once: from the file too, where SQLite leaves erased text (an
+// older version, rewritten since, here in pages it freed) and the backups carry it.
+test("borra la memoria vieja de todo el bot, una vez, sin dejar rastro en el archivo, y deja la de cada grupo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-memoria-vieja-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, memoria TEXT DEFAULT "", timestamp INTEGER)`);
+  vieja.prepare(`INSERT INTO users (lid, jid, inGroup) VALUES (?, ?, ?)`).run("111@lid", "111@s.whatsapp.net", JSON.stringify({ [G]: { memoria: "le gusta el mate", messageCount: 7 } }));
+  vieja.prepare(`INSERT INTO users (lid, jid) VALUES (?, ?)`).run("222@lid", "222@s.whatsapp.net");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run(`sale con Pedro a escondidas ${"y lo cuenta todo ".repeat(400)}`, "111@lid");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run("le debe plata al banco", "111@lid");
+  vieja.close();
+  const rastros = () => ["sale con Pedro", "le debe plata"].filter((t) => fs.readFileSync("./database/database.db").includes(t));
+  assert.deepEqual(rastros(), ["sale con Pedro", "le debe plata"], "las dos versiones están en el archivo antes");
+
+  const F = await import("../database-functions.js");
+  const logReal = console.log;
+  const logs = [];
+  console.log = (...partes) => logs.push(partes.join(" "));
+  try {
+    globalThis.db = F.loadDatabase();
+    assert.deepEqual(db.prepare(`SELECT lid, memoria FROM users ORDER BY lid`).all(), [{ lid: "111@lid", memoria: "" }, { lid: "222@lid", memoria: "" }]);
+    assert.equal(F.getUser("111@lid").inGroup[G].memoria, "le gusta el mate", "lo de cada grupo queda");
+    assert.deepEqual(rastros(), [], "ni en el archivo");
+    assert.equal(logs.filter((l) => l.includes("memoria vieja")).length, 1);
+    globalThis.db = F.loadDatabase(); // idempotente: no hay nada más que borrar
+    assert.equal(logs.filter((l) => l.includes("memoria vieja")).length, 1, "una sola vez");
+  } finally {
+    console.log = logReal;
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");
