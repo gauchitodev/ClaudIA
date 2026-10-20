@@ -3,7 +3,9 @@ import { destinatario } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["id"];
-plugin.onlyOwner = true;
+// Every admin: the group's WhatsApp admins, the bot's (lib/roles.js) and the owner; not the moderators. It shows the
+// number the bot knows, even in a group that hides it, and posts it in the chat.
+plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const { quien, lid, jid, mencionado } = destinatario(m, text, participants);

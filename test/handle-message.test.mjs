@@ -118,3 +118,30 @@ test("memoria corta: cada mensaje entra cuando llega, aunque los hooks de antes 
     "en el orden en que llegaron",
   );
 });
+
+// .id (plugins/owner-get-user-data.js) is for every admin: the group's WhatsApp admins, the bot's (.adminbot) and the
+// owner. A moderator, or anyone else, gets the admins-only notice. A group of its own, where Ana is admin: GRUPO's
+// participant list is already cached.
+test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y el resto, no", async () => {
+  const OTRO = "120363000000000002@g.us";
+  const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
+  const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
+  globalThis.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Otro", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
+  F.setRolGrupo(OTRO, CARLA, "admin");
+  F.setRolGrupo(OTRO, DANI, "mod");
+  // The owner's message carries their number too (participantAlt): that's how handle-message recognizes the owner.
+  const pide = async (sender, alt = null) => {
+    globalThis.enviados = [];
+    const key = { remoteJid: OTRO, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: sender, ...(alt && { participantAlt: alt }) };
+    await handleMessage.call(client, { key, message: { conversation: ".id @300000000000003" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text).join("\n");
+  };
+  const datosDeBeto = /Nombre actual: Beto[\s\S]*Lid: 300000000000003@lid[\s\S]*Chat actual: 120363000000000002@g\.us/;
+  assert.match(await pide(ANA), datosDeBeto, "un admin de WhatsApp");
+  assert.match(await pide(CARLA), datosDeBeto, "un admin del bot");
+  assert.match(await pide(DUENO, "59899111222@s.whatsapp.net"), datosDeBeto, "el owner");
+  assert.equal(await pide(DANI), globalThis.txt.onlyAdmin, "un moderador, no");
+  assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
+});
