@@ -29,7 +29,8 @@ plugin.before = async (m, { user }) => {
     if (m.mtype === "reactionMessage" || !m.text) return;
     // Every message with text, commands included, with what a glance of the initiative needs to react to it or quote it
     // later (lib/vistazos.js).
-    const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
+    // Without a name, "alguien": the digits of their id would be their LID, which only the admins see (.id).
+    const nombre = user?.apodo || m.pushName || user?.pushName || "alguien";
     recordarMensaje(m.chat, nombre, m.text, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
   } catch (e) {
     console.error("[memoria corta] ERROR:", e);

@@ -13,7 +13,8 @@ before(async () => {
   Hook = (await import("../plugins/_compraventa.js")).default;
   Cmd = (await import("../plugins/compraventa.js")).default;
   Cal = (await import("../plugins/calificar.js")).default;
-  for (const n of [111, 222, 333, 444, 555]) F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net` });
+  // Named like their ids, so the lists read "— 111" (someone without a name is "alguien").
+  for (const n of [111, 222, 333, 444, 555]) F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: String(n) });
 });
 let k = 0;
 const msg = (sender, text, quoted = null) => ({ chat: G, sender, text, isGroup: true, key: { id: `K${++k}` }, quoted });

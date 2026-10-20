@@ -104,7 +104,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     const notaDeVoz = esAudio(m) && !m.text;
     if (!m.text && !notaDeVoz) return;
 
-    const nombre = user?.apodo || m.pushName || user?.pushName || m.sender.split("@")[0];
+    // Without a name, "alguien": the digits of their id would be their LID, which only the admins see (.id).
+    const nombre = user?.apodo || m.pushName || user?.pushName || "alguien";
 
     // Automatic chat off in this group (.charla / .modo compraventa): Claudia only answers commands.
     if (chat?.charla === 0) return;

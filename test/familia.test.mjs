@@ -295,3 +295,10 @@ test("adoptar: si ya no se puede (lo adoptaron por otro lado), devuelve el trám
   assert.equal(F.getSaldoCoins(G, L(21)), 100, "el trámite vuelve");
   assert.equal(Fa.textoRespuestaAdopcion(L(23), r).text, "La adopción ya no se puede hacer: @23 tiene familia por otro lado. A Persona 21 le devolví los 30 UruCoins del trámite.");
 });
+
+// Someone the bot has no name for is "alguien": not the digits of their LID, which only the admins see, nor their place
+// in the list, which is what nombreDe got as a second argument when it was handed to .map().
+test("textos: un pariente sin nombre es 'alguien'", () => {
+  const padres = ["300000000000031@lid", "300000000000032@lid"];
+  assert.equal(Fa.textoRespuestaAdopcion(L(14), { ok: true, acepta: true, padres }).text, "👨‍👩‍👧 ¡@14 ya es parte de la familia! Sus padres son alguien y alguien.");
+});

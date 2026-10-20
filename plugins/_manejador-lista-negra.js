@@ -1,5 +1,6 @@
 import { estaEnListaNegra } from "../lib/lista-negra.js";
 import { expulsar } from "../lib/identidad.js";
+import { nombreDe } from "../lib/menciones.js";
 
 // The blacklist's safety net: if someone on it got in anyway, they're removed as soon as they write. Removal on
 // joining is handled by main.js through the participants event; this covers whoever was already inside when they
@@ -29,7 +30,8 @@ plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmi
     console.error("[lista negra] no se pudo expulsar de", m.chat, status);
     return true;
   }
-  await client.sendText(m.chat, txt.blackList(m.senderJid || m.sender, encontrado.entrada.reason), null, { mentions: [m.sender] });
+  // By name, not by number: the notice is for the whole group, and the number (or the LID) isn't everyone's to see.
+  await client.sendText(m.chat, txt.blackList(nombreDe(m.sender), encontrado.entrada.reason), null);
   return true;
 };
 

@@ -248,3 +248,32 @@ test(".ttp y .ttp2 dibujan el nombre de quien mencionan, no su LID", async () =>
   }
   assert.deepEqual(dibujado, ["@Beto es un capo", "hola @Beto", "@Beto es un capo", "hola @Beto"]);
 });
+
+// Someone the bot has no name for: the rankings and lists (nombreDe) and what the AI writes (sinMenciones) say
+// "alguien", not the digits of their LID.
+test("nombreDe y sinMenciones: alguien sin nombre es 'alguien'", () => {
+  const SIN_NOMBRE = "300000000000098@lid";
+  F.initDataDB({ chat: FAMILIA, sender: SIN_NOMBRE, senderJid: "", pushName: null });
+  assert.equal(M.nombreDe(SIN_NOMBRE), "alguien");
+  assert.equal(M.nombreDe("300000000000099@lid"), "alguien", "ni en la base");
+  assert.equal(M.sinMenciones("hola @300000000000098"), "hola alguien");
+  assert.equal(M.sinMenciones("hola @59899000001"), "hola 59899000001", "un número que el bot no conoce queda como lo escribió la IA");
+});
+
+// A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen
+// and the initiative read), not the digits of their LID.
+test("Claudia no llama a nadie por los dígitos de su LID", async () => {
+  const SIN_NOMBRE = "300000000000097@lid";
+  F.initDataDB({ chat: AMIGOS, sender: SIN_NOMBRE, senderJid: "", pushName: null });
+  const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
+  globalThis.autoIaCooldown.delete(AMIGOS);
+  globalThis.contextoChat.delete(AMIGOS);
+  respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
+  const m = { chat: AMIGOS, isGroup: true, sender: SIN_NOMBRE, text: "claudia, ¿qué onda?", mentionedJid: [], quoted: null, key: { id: "SINNOMBRE1" } };
+  const user = F.getUser(SIN_NOMBRE);
+  await MemoriaCorta.before(m, { user });
+  await AutoIA.before(m, { client: { ...clienteFalso(), sendPresenceUpdate: async () => {} }, participants: [], isAdmin: false, isMod: false, isOwner: false, user, chat: F.getChat(AMIGOS) });
+  assert.match(prompts.at(-1), /Mensaje de alguien: "claudia, ¿qué onda\?"/);
+  assert.doesNotMatch(prompts.at(-1), /300000000000097/);
+  assert.deepEqual(globalThis.contextoChat.get(AMIGOS).filter((e) => e.usuario === SIN_NOMBRE).map((e) => e.nombre), ["alguien"]);
+});

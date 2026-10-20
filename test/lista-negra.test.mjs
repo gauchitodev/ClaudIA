@@ -131,7 +131,7 @@ test("quien está anotado por número se reconoce por su LID cuando escribe", as
 
   assert.equal(frenado, true);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
-  assert.match(ultimo(), /LISTA NEGRA/);
+  assert.match(ultimo(), /estaba en la lista negra/);
   assert.equal(F.isBlacklisted("59899111111@s.whatsapp.net", G).lid, "111@lid", "de paso aprende el LID");
 });
 
@@ -278,4 +278,18 @@ test("a un admin de WhatsApp o a un dueño anotados no se los echa cuando escrib
   // Without admin, the same person is removed, as before.
   assert.equal(await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false }), true);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["777@lid"], accion: "remove" }]);
+});
+
+// The notice goes to the whole group: it names whoever was removed, never by their number or their LID, which the group
+// may not show.
+test("el aviso de que lo saqué lo nombra, sin su número ni su LID", async () => {
+  F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G);
+  F.initDataDB({ chat: G, sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", pushName: "Pedro" });
+  await Manejador.before(mensaje({ sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
+  assert.equal(ultimo(), "*[⚠️] Saqué a Pedro: estaba en la lista negra.*\n\n*[❗] Razón:* spam");
+
+  // Someone the bot has no name for.
+  F.addToBlacklist("333@lid", "molesta", "100@s.whatsapp.net", G);
+  await Manejador.before(mensaje({ sender: "333@lid", senderJid: "", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
+  assert.equal(ultimo(), "*[⚠️] Saqué a alguien: estaba en la lista negra.*\n\n*[❗] Razón:* molesta");
 });

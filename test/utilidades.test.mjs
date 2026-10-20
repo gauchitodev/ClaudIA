@@ -120,7 +120,8 @@ test("economía", () => {
   assert.match(t.texto, /En circulación: \*110 UruCoins\* entre 2 personas/);
   assert.match(t.texto, /📈/);
   assert.deepEqual(t.mentions, [], "el panel nombra sin etiquetar");
-  assert.match(t.texto, /Saldos más altos:\*\n1\. (a|b) — /);
+  // "a" and "b" have no name on record: "alguien", never the digits of their id.
+  assert.match(t.texto, /Saldos más altos:\*\n1\. alguien — 70\n2\. alguien — 40/);
 });
 
 test("economía: los movimientos de los laburos tienen rubro propio", () => {

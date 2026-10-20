@@ -27,12 +27,15 @@ test(".bal muestra solo tu saldo", async () => {
 test(".baltop lista a los más ricos y te ubica si no entrás", async () => {
   await correr(Top, "a@lid", "vacio@g.us");
   assert.match(ultimoEnviado().msg.text, /nadie tiene UruCoins/);
-  for (let i = 1; i <= 12; i++) fijarSaldo(F, G, `u${i}@lid`, i * 10);
+  for (let i = 1; i <= 12; i++) {
+    F.initDataDB({ chat: G, sender: `u${i}@lid`, senderJid: "", pushName: `u${i}` });
+    fijarSaldo(F, G, `u${i}@lid`, i * 10);
+  }
   fijarSaldo(F, G, "a@lid", 5);
   await correr(Top, "u1@lid");
   const { text, mentions } = ultimoEnviado().msg;
   assert.match(text, /LOS MÁS RICOS DEL GRUPO/);
-  // with a name (or the number when there is none) and without tagging anyone
+  // with a name and without tagging anyone
   assert.match(text, /1\. u12 — \*120\*\n2\. u11 — \*110\*/);
   assert.match(text, /10\. u3 — \*30\*\n\n/);
   assert.doesNotMatch(text, /\bu1 |\bu2 |@/, "los que no entran en el top 10 no se listan, y no hay menciones");
