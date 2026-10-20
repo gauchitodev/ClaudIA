@@ -1,5 +1,6 @@
 import { sticker } from "../lib/sticker.js";
 import { getUser } from "../database-functions.js";
+import { conNombres } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["qc"];
@@ -10,13 +11,15 @@ plugin.run = async (m, { client, text }) => {
 
   let quoteText, quoteSender, quoteName;
 
+  // Mentions drawn as names, not as the LID digits they carry in the text (lib/menciones.js); and someone the bot has no
+  // name for is "Alguien", not the digits of their id.
   if (m.quoted && m.quoted.text) {
-    quoteText = m.quoted.text.trim();
+    quoteText = conNombres(m.quoted.text.trim(), m.quoted.contextInfo?.mentionedJid);
     quoteSender = m.quoted.sender;
     const quotedUser = getUser(quoteSender);
-    quoteName = quotedUser?.pushName || quoteSender.split("@")[0];
+    quoteName = quotedUser?.pushName || quotedUser?.apodo || "Alguien";
   } else {
-    quoteText = text.trim();
+    quoteText = conNombres(text.trim(), m.mentionedJid);
     quoteSender = m.sender;
     quoteName = m.name;
   }

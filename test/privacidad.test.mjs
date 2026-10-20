@@ -4,7 +4,8 @@ import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
 // What Claudia learns of each person stays in the group it was learned in (lib/memoria-persona.js); what the AI writes
-// can't tag anyone (sinMenciones in lib/menciones.js); and .encuesta and .inactivos only tag who they should.
+// can't tag anyone (sinMenciones in lib/menciones.js); .encuesta and .inactivos only tag who they should; and the
+// stickers and voice notes made from a text don't give away a mention's LID (conNombres).
 // Gemini is swapped for canned answers.
 
 let F, MP, AutoIA, IA, Resumen, Memoria, Encuesta, Inactivos, CC, Cumple, M;
@@ -166,4 +167,84 @@ test(".inactivos encuentra a cada uno aunque el grupo lo liste por número", asy
   const porNumero = [{ id: "59899000111@s.whatsapp.net", lid: "111@lid" }, { id: "59899000222@s.whatsapp.net", lid: "222@lid" }];
   assert.deepEqual(await correr(porNumero), ["59899000222@s.whatsapp.net"], "solo el que no habló, con el id del grupo");
   assert.deepEqual(await correr([{ id: "111@lid" }, { id: "222@lid" }]), ["222@lid"], "y lo mismo en un grupo por LID");
+});
+
+// A mention travels in the text as "@" and the person's LID digits, which only the admins see (.id). WhatsApp shows it
+// as "@Name" in the chat, but not inside a sticker or a voice note: there conNombres (lib/menciones.js) names it.
+const BETO = "300000000000003@lid";
+// A message quoted by the command: from someone the bot has no name for, and mentioning Beto.
+const CITADO = { text: "hola @300000000000003", sender: "300000000000009@lid", contextInfo: { mentionedJid: [BETO] } };
+const pedido = (extra = {}) => ({ chat: FAMILIA, sender: ANA, name: "Ana", react: () => {}, mentionedJid: [BETO], quoted: null, ...extra });
+const conBeto = () => F.initDataDB({ chat: FAMILIA, sender: BETO, senderJid: "59899000003@s.whatsapp.net", pushName: "Beto" });
+
+test("conNombres: las menciones como nombres, sin los dígitos de la LID", () => {
+  conBeto();
+  assert.equal(M.conNombres("@300000000000003 es un capo", [BETO]), "@Beto es un capo");
+  assert.equal(M.conNombres("hola @300000000000004", ["300000000000004@lid"]), "hola @alguien", "una mención de alguien sin nombre");
+  assert.equal(M.conNombres("hola @300000000000003"), "hola @Beto", "una LID conocida, aunque falte la lista de menciones");
+  assert.equal(M.conNombres("hola @59899000003"), "hola @59899000003", "un número escrito a mano no dice de quién es");
+  assert.equal(M.conNombres("hola @59899000003", ["59899000003@s.whatsapp.net"]), "hola @Beto", "una mención por número, en un grupo sin LID");
+  assert.equal(M.conNombres("hola @300000000000003", [BETO], { arroba: false }), "hola Beto", "para leerlo en voz alta");
+});
+
+test(".qc, .wm y .tts no muestran la LID de quien mencionan ni la de quien citan", async () => {
+  conBeto();
+  const Qc = (await import("../plugins/sticker-qc.js")).default;
+  const Wm = (await import("../plugins/sticker-wm.js")).default;
+  const Tts = (await import("../plugins/convert-text-to-ptt.js")).default;
+  const tts = await import("../lib/tts.js");
+
+  // .qc: what goes to the service that draws the quote.
+  const fetchAntes = globalThis.fetch;
+  let cita;
+  globalThis.fetch = async (url, opciones) => {
+    cita = JSON.parse(opciones.body).messages[0];
+    return { ok: false, status: 500 };
+  };
+  await Qc.run(pedido({ quoted: CITADO, mentionedJid: [] }), { client: { ...clienteFalso(), profilePictureUrl: async () => "foto" }, text: "" }).catch(() => {});
+  globalThis.fetch = fetchAntes;
+  assert.deepEqual([cita.from.name, cita.text], ["Alguien", "hola @Beto"], ".qc");
+
+  // .wm: the pack name written into the sticker, a 1x1 webp.
+  const webp = Buffer.from("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==", "base64");
+  await Wm.run(pedido({ quoted: { mimetype: "image/webp", download: async () => webp } }), { client: clienteFalso(), text: "@300000000000003|autor" });
+  assert.equal(ultimoEnviado().archivo.toString().match(/"sticker-pack-name":"([^"]*)"/)?.[1], "@Beto", ".wm");
+
+  // .tts: what Google is asked to read out, written and quoted.
+  const leido = [];
+  const pedirAntes = tts._dep.pedir;
+  tts._dep.pedir = async (url) => {
+    leido.push(new URL(url).searchParams.get("q"));
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([1]).buffer };
+  };
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  await Tts.run(pedido(), { client, args: ["hola", "@300000000000003"] });
+  await Tts.run(pedido({ quoted: CITADO, mentionedJid: [] }), { client, args: [] });
+  tts._dep.pedir = pedirAntes;
+  assert.deepEqual(leido, ["hola Beto", "hola Beto"], ".tts");
+});
+
+test(".ttp y .ttp2 dibujan el nombre de quien mencionan, no su LID", async () => {
+  conBeto();
+  const Ttp = await import("../plugins/sticker-ttp.js");
+  const Ttp2 = await import("../plugins/sticker-ttp2.js");
+  const antes = [Ttp._dep.stickerDeTexto, Ttp2._dep.cuadrosArcoiris];
+  const errorReal = console.error;
+  const dibujado = [];
+  // What gets drawn is all this needs: the drawing stops there, and .ttp2 reports it.
+  Ttp._dep.stickerDeTexto = Ttp2._dep.cuadrosArcoiris = async (texto) => {
+    dibujado.push(texto);
+    throw new Error("basta");
+  };
+  console.error = () => {};
+  try {
+    for (const P of [Ttp, Ttp2]) {
+      await P.default.run(pedido(), { client: clienteFalso(), text: "@300000000000003 es un capo" }).catch(() => {});
+      await P.default.run(pedido({ quoted: CITADO, mentionedJid: [] }), { client: clienteFalso(), text: "" }).catch(() => {});
+    }
+  } finally {
+    [Ttp._dep.stickerDeTexto, Ttp2._dep.cuadrosArcoiris] = antes;
+    console.error = errorReal;
+  }
+  assert.deepEqual(dibujado, ["@Beto es un capo", "hola @Beto", "@Beto es un capo", "hola @Beto"]);
 });

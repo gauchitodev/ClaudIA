@@ -1,4 +1,5 @@
 import { addExif } from "../lib/sticker.js";
+import { conNombres } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["wm"];
@@ -11,7 +12,8 @@ plugin.run = async (m, { client, text }) => {
   if (!/webp/.test(mime)) return client.sendText(m.chat, txt.wmNull, m);
 
   try {
-    const [packname, ...partesAutor] = text.split("|");
+    // Mentions written as names, not as the LID digits they carry in the text (lib/menciones.js).
+    const [packname, ...partesAutor] = conNombres(text, m.mentionedJid).split("|");
     const author = partesAutor.join("|");
     const img = await m.quoted.download();
     if (!img) return client.sendText(m.chat, txt.wmNull, m);
