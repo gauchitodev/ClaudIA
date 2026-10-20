@@ -70,6 +70,16 @@ test("todo comando que nombra el manual de Claudia existe en algún plugin", asy
   assert.deepEqual(faltan, [], `el manual de Claudia nombra comandos que no existen: ${faltan.join(", ")}`);
 });
 
+// Except the changelog's newest entry: it's what she tells when asked what's new, and it's written against today's
+// commands.
+test("la última entrada del historial de Claudia nombra solo comandos que existen", async () => {
+  const { CAMBIOS } = await import("../lib/manual-claudia.js");
+  const [ultima] = CAMBIOS;
+  const nombrados = [...`${ultima.titulo}\n${ultima.puntos.join("\n")}`.matchAll(FORMAS[1])].map(([, cmd]) => cmd.toLowerCase());
+  const faltan = [...new Set(nombrados)].filter((cmd) => !comandos.has(cmd)).map((cmd) => `.${cmd}`);
+  assert.deepEqual(faltan, [], `la ${ultima.version} del historial nombra comandos que no existen: ${faltan.join(", ")}`);
+});
+
 // Two plugins sharing a command both run (handle-message.js doesn't stop at the first): almost always an oversight.
 // It happened once already, and was fixed in commit 2c0a874.
 test("no hay dos plugins declarando el mismo comando", () => {
@@ -78,11 +88,15 @@ test("no hay dos plugins declarando el mismo comando", () => {
 });
 
 test("la versión que cuenta Claudia es la del menú y .estado, y el historial arranca por ella", async () => {
-  // Claudia said 3.1 while the menu and .estado, which read package.json (globals.js), still said v3.0.0.
+  // Claudia said 3.1 while the menu and .estado, which read package.json (globals.js), still said v3.0.0. The whole
+  // version counts, patch included; only a .0 patch is left out, the way the manual writes it (3.4 for 3.4.0).
   const { VERSION, CAMBIOS } = await import("../lib/manual-claudia.js");
   const paquete = JSON.parse(fs.readFileSync(path.join(RAIZ, "package.json"), "utf8"));
-  assert.equal(paquete.version.split(".").slice(0, 2).join("."), VERSION, "package.json y lib/manual-claudia.js tienen que ir juntos");
+  assert.equal(paquete.version.replace(/\.0$/, ""), VERSION, "package.json y lib/manual-claudia.js tienen que ir juntos");
   assert.equal(CAMBIOS[0].version, VERSION, "la primera entrada del historial es la versión actual");
+  // package-lock.json carries it too, twice: the same one, so there aren't two numbers around.
+  const lock = JSON.parse(fs.readFileSync(path.join(RAIZ, "package-lock.json"), "utf8"));
+  assert.deepEqual([lock.version, lock.packages[""].version], [paquete.version, paquete.version], "package-lock.json lleva la misma versión que package.json");
 });
 
 // ---------- the general menu (lib/menu.js) ----------
