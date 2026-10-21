@@ -79,7 +79,7 @@ async function startBot() {
 
     if (!numberBot && qr) {
       qrcode.generate(qr, { small: true });
-      console.log("📌 Tienes 45 SEGUNDOS para escanear este QR:");
+      console.log("📌 Escaneá este QR antes de que cambie: el primero dura un minuto y los siguientes, 20 segundos.");
     }
 
     if (connection === "close" && lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
