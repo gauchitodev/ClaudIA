@@ -413,6 +413,21 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al bot ni a
   assert.deepEqual(expulsiones, []);
 });
 
+// The owner is recognized by their number, which a group that lists people by number names them by: going by the LID it
+// brings apart, the owner whose LID the bot didn't know was fair game.
+test("ruleta del ban: en un grupo que lista por número, no se lleva al owner", async () => {
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  const grupo = [
+    { id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, // who spins it
+    { id: `${globalThis.owners[0]}@s.whatsapp.net`, lid: "770077@lid", admin: null }, // the owner, LID unknown to the bot
+    { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: "admin" },
+  ];
+  vigilar();
+  await Ruleta.run({ chat: J, sender: "100@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: true });
+  assert.match(ultimo(), /No se encontraron candidatos/);
+  assert.deepEqual(expulsiones, []);
+});
+
 test("ruleta del ban: el anuncio sale antes de la expulsión, y si WhatsApp no deja, lo dice", async () => {
   const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
   // Two groups spinning at once: in one WhatsApp accepts the removal, in the other it answers 403. Each group's

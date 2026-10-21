@@ -1,5 +1,6 @@
 import { recordar, textoMemoria, borrar, limpiar } from "../lib/memoria-grupo.js";
 import { memoriaDe, olvidarDe } from "../lib/memoria-persona.js";
+import { conNombres } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["recorda", "recordá", "memoria"];
@@ -9,7 +10,9 @@ plugin.onlyGroup = true;
 // .memoria yo: what she learned of you in this group while chatting · .memoria olvidame: she forgets it
 plugin.run = async (m, { client, text, args, command, isAdmin, isOwner }) => {
   if (command !== "memoria") {
-    const r = recordar(m.chat, m.sender, text);
+    // With its mentions as names ("@Ana"): the note goes into every prompt of her chat and her glances, and a mention
+    // travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them to the group.
+    const r = recordar(m.chat, m.sender, conNombres(text, m.mentionedJid));
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }
   const accion = (args[0] || "").toLowerCase();

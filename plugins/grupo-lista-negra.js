@@ -2,6 +2,7 @@ import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwn
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
+import { nombreDe } from "../lib/menciones.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
 // in anyway, they're removed). Each group's admins manage it; admins and the bot's owners can't be put on it. The
@@ -9,6 +10,11 @@ import { guardarVarios } from "../lib/cache-grupos.js";
 const plugin = {};
 plugin.cmd = ["ln", "ln2", "vln", "listanegra"];
 plugin.onlyAdmin = true;
+
+// The last list .vln showed in each group, number → entry, so ".ln2 <number>" takes off the one that was on screen even
+// after another came off (the numbers move up). In memory, for a while.
+if (!globalThis.listaNegraMostrada) globalThis.listaNegraMostrada = new Map();
+const MOSTRADA_MS = 30 * 60 * 1000;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotAdmin, isOwner, isWaAdmin }) => {
   // In a group we work with that group's list; in a private chat (only the owner gets there) with the all-groups one.
@@ -20,10 +26,13 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 
     if (entries.length === 0) return client.sendText(m.chat, "No hay usuarios en lista negra.", m);
 
+    // In a group the whole group reads the list: each one by name, without tagging them, and without their number or
+    // the number of the admin who listed them (an admin takes one off with .ln2 and its number in the list). In the
+    // owner's private chat, the numbers.
     const msg = entries
       .map((entry, i) => {
         // Someone who never wrote has no known number and was recorded by LID: no misleading "+" is shown there.
-        const num = entry.jid.endsWith("@lid") ? `@${entry.jid.split("@")[0]}` : `+${entry.jid.split("@")[0]}`;
+        const num = m.isGroup ? nombreDe(entry.lid || entry.jid) : entry.jid.endsWith("@lid") ? `@${entry.jid.split("@")[0]}` : `+${entry.jid.split("@")[0]}`;
 
         // format the date
         let fechaTexto = "Desconocida";
@@ -42,15 +51,37 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
         }
 
         const razon = entry.reason || "Sin razón";
-        const añadidoPor = entry.addedBy ? `+${entry.addedBy.split("@")[0]}` : "Desconocido";
+        const añadidoPor = !entry.addedBy ? "Desconocido" : m.isGroup ? nombreDe(entry.addedBy) : `+${entry.addedBy.split("@")[0]}`;
 
         const alcance = entry.chat === "*" ? " 🌐 todos los grupos" : m.isGroup ? "" : ` · ${client.chats[entry.chat]?.subject || entry.chat}`;
         return `${i === 2 && entries.length > 2 ? readMore : ""}${entries.length - i}. ${num}${alcance}\n📝 Razón: ${razon}\n👤 Añadido por: ${añadidoPor}\n📆 Fecha: ${fechaTexto}\n`;
       })
       .join("\n");
 
+    if (m.isGroup) {
+      globalThis.listaNegraMostrada.set(m.chat, { fecha: Date.now(), porNumero: new Map(entries.map((e, i) => [entries.length - i, { jid: e.jid, chat: e.chat }])) });
+      return client.sendMessage(m.chat, { text: `${msg}\nPara sacar a alguien: ${usedPrefix}ln2 <su número en esta lista>` }, { quoted: m });
+    }
     const jids = entries.map((e) => e.lid || e.jid);
     return client.sendMessage(m.chat, { text: msg, mentions: jids }, { quoted: m });
+  }
+
+  // ".ln2 3" in a group takes off the third one on .vln's list, which there shows no numbers: someone on it is out of
+  // the group by then, and can't be mentioned either.
+  const deLaLista = command === "ln2" && m.isGroup ? (text || "").trim().match(/^#?(\d{1,3})$/) : null;
+  if (deLaLista) {
+    const numero = Number(deLaLista[1]);
+    const entradas = getBlacklist(m.chat);
+    // The one with that number in the last .vln; without a recent one, in the list as it is now.
+    const mostrada = globalThis.listaNegraMostrada.get(m.chat);
+    const vigente = mostrada && Date.now() - mostrada.fecha < MOSTRADA_MS ? mostrada : null;
+    const vista = vigente?.porNumero.get(numero);
+    const entrada = vigente ? vista && entradas.find((e) => e.jid === vista.jid && e.chat === vista.chat) : [...entradas].reverse()[entradas.length - numero];
+    if (!entrada) return client.sendText(m.chat, `No hay ningún ${numero} en la lista negra de este grupo${vista ? ": ya lo sacaron" : ""}. Mirala con ${usedPrefix}vln.`, m);
+    if (entrada.chat === "*") return client.sendText(m.chat, "Está en la lista negra de todos los grupos: solo la puede sacar el dueño del bot, desde el privado.", m);
+    removeFromBlacklist(entrada.jid, m.chat);
+    // By name, so whoever asked sees it was the right one.
+    return client.sendText(m.chat, `☑️ Saqué de la lista negra a ${nombreDe(entrada.lid || entrada.jid)}.`, m);
   }
 
   // work out the target user and the reason for being blacklisted

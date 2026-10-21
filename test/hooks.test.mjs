@@ -101,10 +101,11 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
   assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
   assert.deepEqual(marcados.trasModeracion, ["_memoria-corta.js"]);
   assert.deepEqual(marcados.alFinal, ["_auto-ia.js"]);
-  // What the moderation deleted reaches only the moderation and the short-term memory, and a hook that throws takes
-  // only itself down.
+  // A hook that throws takes only itself down; the greeting goes once the moderation has run, and only if it deleted
+  // nothing; and what it deleted reaches no other hook but the short-term memory.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  assert.match(fuente, /for \(const plugin of hooksEnOrden\(globalThis\.plugins\)\) \{[^]*?if \(m\.moderado && !plugin\.moderacion && !plugin\.trasModeracion\) continue;\s*try \{\s*await plugin\.before\(/);
+  assert.match(fuente, /const hooks = hooksEnOrden\(globalThis\.plugins\);[^]*?try \{\s*await plugin\.before\(/);
+  assert.match(fuente, /for \(const plugin of hooks\.filter\(\(p\) => p\.moderacion\)\) await correrHook\(plugin\);[^]*?if \(!m\.moderado\) saludar\([^]*?for \(const plugin of hooks\.filter\(\(p\) => !p\.moderacion\)\) \{[^]*?if \(m\.moderado && !plugin\.trasModeracion\) continue;\s*await correrHook\(plugin\);/);
 });
 
 test("trivia: una respuesta que nombra a Claudia se evalúa al toque, y Claudia no la charla", async () => {

@@ -1586,22 +1586,36 @@ export function podarIntervenciones(antesDe) {
 }
 
 // ===================== Per-group bot roles =====================
+// A role is given to the id a mention resolves to, the LID nowadays (the number, for someone the bot didn't know then),
+// and a message from a group that lists people by number may bring only the number. So reading, giving and taking one
+// all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot saying
+// it was gone, and giving it again would add a second one.
+function idsDeRol(usuario) {
+  const fila = db.prepare(`SELECT lid, jid FROM users WHERE ${usuario.endsWith("@lid") ? "lid" : "jid"} = ?`).get(usuario);
+  return [...new Set([usuario, fila?.lid, fila?.jid].filter(Boolean))];
+}
+const enIds = (ids) => `usuario IN (${ids.map(() => "?").join(", ")})`;
+
+// Under the id given, and only there: whatever the person had under their other identity goes.
 export function setRolGrupo(chat, usuario, rol, dadoPor = "") {
-  db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha`).run(chat, usuario, rol, dadoPor, Date.now());
+  const otros = idsDeRol(usuario).filter((id) => id !== usuario);
+  db.transaction(() => {
+    if (otros.length) db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND ${enIds(otros)}`).run(chat, ...otros);
+    db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha`).run(chat, usuario, rol, dadoPor, Date.now());
+  })();
 }
 
 export function quitarRolGrupo(chat, usuario) {
-  return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes > 0;
+  if (!usuario) return false;
+  const ids = idsDeRol(usuario);
+  return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND ${enIds(ids)}`).run(chat, ...ids).changes > 0;
 }
 
-// "admin", "mod" o null. A role is given to the id a mention resolves to, the LID nowadays (the number, for someone the
-// bot didn't know then), and a message from a group that lists people by number may bring only the number: either
-// identity finds it.
+// "admin", "mod" o null
 export function rolGrupo(chat, usuario) {
   if (!usuario) return null;
-  const fila = db.prepare(`SELECT lid, jid FROM users WHERE ${usuario.endsWith("@lid") ? "lid" : "jid"} = ?`).get(usuario);
-  const ids = [...new Set([usuario, fila?.lid, fila?.jid].filter(Boolean))];
-  return db.prepare(`SELECT rol FROM roles_grupo WHERE chat = ? AND usuario IN (${ids.map(() => "?").join(", ")}) ORDER BY rol = 'admin' DESC`).get(chat, ...ids)?.rol || null;
+  const ids = idsDeRol(usuario);
+  return db.prepare(`SELECT rol FROM roles_grupo WHERE chat = ? AND ${enIds(ids)} ORDER BY rol = 'admin' DESC`).get(chat, ...ids)?.rol || null;
 }
 
 export function rolesGrupo(chat) {

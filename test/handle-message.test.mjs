@@ -148,6 +148,45 @@ test("lo que borra la moderación no llega a los juegos ni a los contadores, y u
   }
 });
 
+// The greeting and the two jokes come after the moderation: ahead of it, a spam with a link got a greeting quoting it,
+// with the deleted link in sight, and whoever the blacklist was about to remove got greeted, or the "dame admin" joke.
+test("el saludo y los chistes no le contestan a lo que borra la moderación", async () => {
+  globalThis.plugins = {
+    "_anti-Link-grupos-canales.js": carpeta["_anti-Link-grupos-canales.js"],
+    "_manejador-lista-negra.js": carpeta["_manejador-lista-negra.js"],
+    "_chatbot-events.js": carpeta["_chatbot-events.js"],
+    "_chistes.js": carpeta["_chistes.js"],
+  };
+  const SALUDO = /^(¡Buenas! ¿Todo en orden por acá\?|Holaaa, ¿cómo andamos\?|¡Buenas buenas! ¿Qué se cuenta\?|¡Hola grupo!)$/;
+  const CHISTE = /^(No\.|Jajaja no\.|Acá no se reparte admin, dejá\.|Pedir admin no suma puntos, eh\.|No va a pasar, pero me gusta el entusiasmo\.|Seguí participando 😌)$/;
+  const client = cliente();
+  client.groupInviteCode = async () => "CodigoDeEsteGrupo"; // the anti-link lets this group's own link through
+  client.groupParticipantsUpdate = async (chat, ids) => ids.map((jid) => ({ status: "200", jid }));
+  F.initDataDB({ chat: "120363000000000011@g.us", sender: ANA, senderJid: "", pushName: "Ana" });
+  F.updateChat("120363000000000011@g.us", { antiGroups: 1 });
+  // Each case in a group of its own: the greeting goes at most every 30 minutes per group.
+  const manda = async (grupo, quien, texto) => {
+    globalThis.enviados = [];
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: quien }, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
+    const textos = globalThis.enviados.map((e) => e.msg?.text).filter(Boolean);
+    return { borrado: globalThis.enviados.some((e) => e.msg?.delete?.id === id), saludo: textos.some((x) => SALUDO.test(x)), chiste: textos.some((x) => CHISTE.test(x)) };
+  };
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.deepEqual(await manda("120363000000000011@g.us", ANA, "Hola! sumate a mi grupo de ofertas https://chat.whatsapp.com/AbCdEfGh1234"), { borrado: true, saludo: false, chiste: false }, "al spam no lo saluda");
+    assert.deepEqual(await manda("120363000000000012@g.us", ANA, "hola gente"), { borrado: false, saludo: true, chiste: false }, "a un saludo común, sí");
+    assert.deepEqual(await manda("120363000000000013@g.us", ANA, "dame admin"), { borrado: false, saludo: false, chiste: true }, "y el chiste, también");
+    F.addToBlacklist("59899000034@s.whatsapp.net", "estafa", "owner", "*", BETO);
+    assert.deepEqual(await manda("120363000000000014@g.us", BETO, "holaa, ¿qué tal?"), { borrado: true, saludo: false, chiste: false }, "a quien saca la lista negra, ni el saludo");
+    assert.deepEqual(await manda("120363000000000015@g.us", BETO, "dame admin"), { borrado: true, saludo: false, chiste: false }, "ni el chiste");
+  } finally {
+    console.error = errorReal;
+    F.removeFromBlacklist("59899000034@s.whatsapp.net", "*");
+  }
+});
+
 // Claudia's short-term memory gets each message as it comes, whatever the hooks before her chat send. A "#vendo" waits
 // for its confirmation to go out (one bot message every so often in each chat, lib/ritmo.js), and the question about it
 // that came right after was answered without it, and stored before it. The hooks are the real ones that write that

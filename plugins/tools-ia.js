@@ -1,5 +1,5 @@
 import { preguntarGemini } from "../lib/gemini.js";
-import { sinMenciones } from "../lib/menciones.js";
+import { sinMenciones, conNombres } from "../lib/menciones.js";
 
 // One question at a time per chat: each one is a request to the models Claudia chats with, and .ia over and over spent
 // the quota of the whole bot. It counts from the question, answered or not.
@@ -26,7 +26,8 @@ plugin.run = async (m, { client, text }) => {
 
   await client.sendPresenceUpdate("composing", m.chat).catch(() => {}); // a nicety: a failure there mustn't end the command
 
-  const respuesta = await preguntarGemini(text);
+  // The mentions as names: a mention travels as the digits of a LID, and the answer would repeat them.
+  const respuesta = await preguntarGemini(conNombres(text, m.mentionedJid));
   if (respuesta.ok) {
     return client.sendText(m.chat, sinMenciones(respuesta.texto), m);
   } else if (respuesta.porHoy) {

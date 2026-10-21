@@ -155,6 +155,24 @@ test("roles: en un grupo que lista por número, a un admin de WhatsApp no se le 
   assert.equal(F.rolGrupo(G, "100@lid"), null);
 });
 
+// A role given by number, before the bot knew the person's LID, is taken off by the LID too: it used to stay, with the
+// bot saying it was gone. And giving another one leaves a single row, not one under each identity.
+test("roles: dado por número, se saca y se cambia aunque la mención llegue con la LID", () => {
+  F.setRolGrupo(G, "59899000700@s.whatsapp.net", "mod", "100@lid");
+  F.initDataDB({ chat: G, sender: "700@lid", senderJid: "59899000700@s.whatsapp.net", pushName: "Persona 700" });
+  const delGrupo = () => F.rolesGrupo(G).filter((f) => f.usuario.includes("700")).map((f) => [f.usuario, f.rol]);
+  const admin = { lid: "100@lid", esAdminWhatsApp: true, isAdmin: true };
+  assert.equal(R.quitarRol(G, "mod", admin, { lid: "700@lid" }).ok, true);
+  assert.equal(F.rolGrupo(G, "700@lid"), null, "y de verdad no lo tiene");
+  assert.deepEqual(delGrupo(), []);
+
+  F.setRolGrupo(G, "59899000700@s.whatsapp.net", "mod", "100@lid");
+  assert.equal(R.darRol(G, "admin", { ...admin, esOwner: false }, { lid: "700@lid", estaEnGrupo: true }).ok, true);
+  assert.deepEqual(delGrupo(), [["700@lid", "admin"]], "una sola fila");
+  assert.equal(R.quitarRol(G, "admin", admin, { lid: "700@lid" }).ok, true);
+  assert.equal(F.rolGrupo(G, "59899000700@s.whatsapp.net"), null, "sin el moderador de antes");
+});
+
 test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
   const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
   F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number

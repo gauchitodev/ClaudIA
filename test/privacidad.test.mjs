@@ -371,6 +371,28 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
   }
 });
 
+// A note of .recordá goes into every prompt of her chat and of her glances: with its mentions as names, not the digits
+// of a LID she'd repeat to the group, and .ia the same. A note kept before that, with the digits, names whoever the bot
+// knows.
+test(".recordá y .ia le pasan a la IA las menciones como nombres", async () => {
+  conBeto();
+  const NADIE = "300000000000094@lid"; // mentioned, and never wrote
+  const texto = "que @300000000000003 y @300000000000094 siempre llegan tarde";
+  await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true, mentionedJid: [BETO, NADIE] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
+  assert.match(ultimoEnviado().msg.text, /Anotado \(#\d+\): @Beto y @alguien siempre llegan tarde$/);
+  F.agregarMemoriaGrupo(FAMILIA, "@300000000000003 trae el mate", ANA); // one kept before, as it came
+  const { textoParaPrompt } = await import("../lib/memoria-grupo.js");
+  const enElPrompt = textoParaPrompt(FAMILIA);
+  assert.doesNotMatch(enElPrompt, /300000000000/);
+  assert.match(enElPrompt, /"@Beto y @alguien siempre llegan tarde" · "@Beto trae el mate"/);
+
+  globalThis.esperaIa?.delete(FAMILIA);
+  respuestaIA = "No sé quién es";
+  await IA.run({ chat: FAMILIA, sender: ANA, mentionedJid: [NADIE] }, { client: { ...clienteFalso(), sendPresenceUpdate: async () => {} }, text: "¿quién es @300000000000094?" });
+  assert.match(prompts.at(-1), /¿quién es @alguien\?/);
+  assert.doesNotMatch(prompts.at(-1), /300000000000094/);
+});
+
 // A WhatsApp name is whatever the person typed: an "@" with digits in it became a mention wherever nombreDe names them
 // (the blacklist's notice, the rankings and lists), tagging whoever those digits are.
 test("nombreDe: un nombre con @ y dígitos no arroba a nadie, y Claudia es Claudia", () => {

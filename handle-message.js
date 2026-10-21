@@ -12,7 +12,21 @@ import { buscarEnGrupo } from "./lib/identidad.js";
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
 // Cooldown: 30 minutes (in milliseconds)
-const TIEMPO_COOLDOWN = 30 * 60 * 1000; 
+const TIEMPO_COOLDOWN = 30 * 60 * 1000;
+const SALUDO = /^(hola+|buenas+|buen día|buenos días|holis|q onda)/i;
+const RESPUESTAS_SALUDO = ["¡Buenas! ¿Todo en orden por acá?", "Holaaa, ¿cómo andamos?", "¡Buenas buenas! ¿Qué se cuenta?", "¡Hola grupo!"];
+
+// A greeting back to a message that starts with one, at most every 30 minutes per group. Turned off per group with
+// .saludos (or .modo compraventa).
+function saludar(client, m, text, chat) {
+  if (!m.isGroup || !text || chat.saludos === 0 || !SALUDO.test(text.trim())) return;
+  const ahora = Date.now();
+  if (ahora - (cooldownSaludos.get(m.chat) || 0) <= TIEMPO_COOLDOWN) return;
+  cooldownSaludos.set(m.chat, ahora);
+  // Quoting whoever said hello. Not awaited: it waits its turn (lib/envios.js), and the hooks after it shouldn't wait
+  // for a greeting.
+  client.sendMessage(m.chat, { text: elegirAlAzar(RESPUESTAS_SALUDO) }, { quoted: m }).catch(console.error);
+}
 
 // Handles an incoming message from msgQueue in main.js
 export async function handleMessage(nMsg) {
@@ -76,53 +90,29 @@ export async function handleMessage(nMsg) {
     text = m.text || "";
     args = text.trim().split(/\s+/);
 
-    // ==========================================
-    // 1. GREETINGS, WITH A COOLDOWN
-    // ==========================================
-    // Greetings are turned off per group with .saludos (or .modo compraventa).
-    if (m.isGroup && text && chat.saludos !== 0) {
-        const regexSaludo = /^(hola+|buenas+|buen día|buenos días|holis|q onda)/i;
-        
-        if (regexSaludo.test(text.trim())) {
-            const ahora = Date.now();
-            const ultimoSaludo = cooldownSaludos.get(m.chat) || 0;
-
-            // If the 30 minutes are up for THIS group...
-            if (ahora - ultimoSaludo > TIEMPO_COOLDOWN) {
-                
-                // Reset the clock
-                cooldownSaludos.set(m.chat, ahora);
-
-                const respuestas = [
-                    "¡Buenas! ¿Todo en orden por acá?",
-                    "Holaaa, ¿cómo andamos?",
-                    "¡Buenas buenas! ¿Qué se cuenta?",
-                    "¡Hola grupo!"
-                ];
-                const respuestaElegida = elegirAlAzar(respuestas);
-
-                // Reply quoting whoever said hello. Not awaited: it waits its turn now (lib/envios.js), and the
-                // hooks below (anti-link, blacklist) shouldn't wait for a greeting.
-                this.sendMessage(m.chat, { text: respuestaElegida }, { quoted: m }).catch(console.error);
-            }
-        }
-    }
-    // ==========================================
-
     // Run the 'before' plugins: the moderation first and Claudia's chat last (hooksEnOrden, load-functions.js). A hook
     // that throws takes only itself down: with the moderation first, a deletion that failed there would otherwise leave
     // the message without its count, its place in Claudia's memory and its command.
-    for (const plugin of hooksEnOrden(globalThis.plugins)) {
-      // What the moderation deleted (m.moderado) reaches no other hook: no game takes it as an answer, no counter
-      // counts it, nothing reacts to it. Checked here once for all of them, the ones still to come included. Only
-      // Claudia's short-term memory still gets it: a deletion or an edit from someone on the blacklist applies there all
-      // the same.
-      if (m.moderado && !plugin.moderacion && !plugin.trasModeracion) continue;
+    const hooks = hooksEnOrden(globalThis.plugins);
+    const correrHook = async (plugin) => {
       try {
         await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
       } catch (e) {
         console.error("[hooks] ERROR:", e);
       }
+    };
+    for (const plugin of hooks.filter((p) => p.moderacion)) await correrHook(plugin);
+    // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among them).
+    // Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and so did
+    // whoever the blacklist was about to remove.
+    if (!m.moderado) saludar(this, m, text, chat);
+    for (const plugin of hooks.filter((p) => !p.moderacion)) {
+      // What the moderation deleted (m.moderado) reaches no other hook: no game takes it as an answer, no counter
+      // counts it, nothing reacts to it. Checked here once for all of them, the ones still to come included. Only
+      // Claudia's short-term memory still gets it: a deletion or an edit from someone on the blacklist applies there all
+      // the same.
+      if (m.moderado && !plugin.trasModeracion) continue;
+      await correrHook(plugin);
     }
 
     // What the moderation deleted (m.moderado: an anti-link, the blacklist, the mass mentions) doesn't run as a command

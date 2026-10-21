@@ -211,6 +211,44 @@ test(".ln2 saca a la persona anotada por LID o por número", async () => {
   assert.equal(F.isBlacklisted("59899111111@s.whatsapp.net", G), null, "lo sacó mencionándolo por LID");
 });
 
+// In a group the whole group reads .vln: each one by name, without tagging them, and without their number or the number
+// of whoever listed them, which it used to show. Someone on it is out of the group by then and can't be mentioned, so
+// .ln2 takes them off by their number in the list. The owner's private chat keeps the numbers.
+test(".vln en un grupo nombra sin números ni menciones, y .ln2 saca por el número de la lista", async () => {
+  // People of their own, whom no other test here names.
+  F.initDataDB({ chat: G, sender: "511@lid", senderJid: "59899511511@s.whatsapp.net", pushName: "Beto" });
+  F.initDataDB({ chat: G, sender: "512@lid", senderJid: "59899512512@s.whatsapp.net", pushName: "Ana" });
+  F.addToBlacklist("59899511511@s.whatsapp.net", "estafa", "59899512512@s.whatsapp.net", G, "511@lid");
+  F.addToBlacklist("59899333333@s.whatsapp.net", "spam", "59899512512@s.whatsapp.net", G);
+  F.addToBlacklist("59899444444@s.whatsapp.net", "de todos", "owner", "*");
+  await correr("vln", "");
+  const lista = ultimoEnviado().msg;
+  assert.doesNotMatch(lista.text, /5989\d|@\d/, "ni números ni LID");
+  assert.equal(lista.mentions, undefined, "y no arroba a nadie");
+  assert.match(lista.text, /\d\. Beto\n📝 Razón: estafa\n👤 Añadido por: Ana\n/);
+  assert.match(lista.text, /Para sacar a alguien: \.ln2 <su número en esta lista>$/);
+
+  const numeroDe = (patron) => lista.text.match(new RegExp(`(\\d+)\\. ${patron}`))[1];
+  const [deBeto, delOtro, delGlobal] = [numeroDe("Beto"), numeroDe("alguien\\n📝 Razón: spam"), numeroDe("alguien 🌐")];
+  await correr("ln2", deBeto);
+  assert.equal(ultimo(), "☑️ Saqué de la lista negra a Beto.");
+  assert.equal(F.isBlacklisted("59899511511@s.whatsapp.net", G), null, "lo saca el número de la lista");
+  assert.ok(F.isBlacklisted("59899333333@s.whatsapp.net", G), "y a nadie más");
+  // The numbers are the ones on screen, though one came off since.
+  await correr("ln2", delGlobal);
+  assert.match(ultimo(), /lista negra de todos los grupos: solo la puede sacar el dueño/);
+  await correr("ln2", deBeto);
+  assert.match(ultimo(), new RegExp(`No hay ningún ${deBeto} en la lista negra de este grupo: ya lo sacaron`));
+  await correr("ln2", delOtro);
+  assert.equal(F.isBlacklisted("59899333333@s.whatsapp.net", G), null);
+  await correr("ln2", "9");
+  assert.match(ultimo(), /No hay ningún 9 en la lista negra de este grupo\./);
+
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  assert.match(ultimo(), /\+59899444444/, "por privado, el owner ve los números");
+});
+const PRIVADO_VLN = "59899100100@s.whatsapp.net";
+
 // ---------- all-groups list, from the owner's private chat ----------
 // It used to sweep only the groups whose participants were in memory at that moment: after a change invalidated a
 // group's copy, or for someone who joined after it was taken, it skipped them without a word, and it never said where

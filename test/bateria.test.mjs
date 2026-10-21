@@ -188,7 +188,7 @@ test(".estado: tiene una línea con la batería", async () => {
 
 // ---------- low battery ----------
 // Below 10 % and not charging, the owner hears it in private, and again below 5 %: once each per discharge, ready to
-// tell again once it's charging or past 15 %. The bot goes with the device, and with it every group.
+// tell again once past 15 %. The bot goes with the device, and with it every group.
 const OWNER = "59899111222@s.whatsapp.net"; // prepararBase's owner
 async function chequear(porcentaje, status = "DISCHARGING") {
   simular({ termux: { percentage: porcentaje, status } });
@@ -238,15 +238,17 @@ test("batería baja: con un cable flojo avisa una vez, y si está enchufada sin 
 // dies just as if it were unplugged. Lower than at the check before, while charging, the owner hears it.
 test("batería baja: cargando pero bajando, avisa que el cargador no da abasto", async () => {
   globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaNoAlcanzaAvisada?.clear();
   globalThis.bateriaLecturaAnterior = null;
   assert.deepEqual(await chequear(11, "CHARGING"), { umbral: null, textos: [] });
   assert.deepEqual(await chequear(10, "CHARGING"), { umbral: null, textos: [] }, "con el 10 % justo, todavía no");
   assert.deepEqual(await chequear(9, "CHARGING"), { umbral: 10, textos: ["🤖 🔌 Me queda 9 % de batería y sigue bajando, aunque estoy cargando: el cargador no da abasto. Probá con otro antes de que me apague."] });
-  assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] }, "una sola vez");
+  assert.deepEqual(await chequear(8, "CHARGING"), { umbral: null, textos: [] }, "una sola vez, aunque siga bajando");
   assert.deepEqual(await chequear(4, "CHARGING"), { umbral: 5, textos: ["🤖 🪫 Me queda 4 % de batería y sigue bajando, aunque estoy cargando: me puedo apagar en cualquier momento. ¡Cambiá el cargador ya!"] });
 
   // Without a connection right then, it's told on the next check, though the percentage stayed put.
   globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaNoAlcanzaAvisada?.clear();
   globalThis.bateriaLecturaAnterior = null;
   await chequear(10, "CHARGING");
   globalThis.botConectado = false;
@@ -259,6 +261,7 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
 
   // Going up while charging, the charger keeps up: nothing to tell.
   globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaNoAlcanzaAvisada?.clear();
   globalThis.bateriaLecturaAnterior = null;
   assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] });
   assert.deepEqual(await chequear(7, "CHARGING"), { umbral: null, textos: [] });
@@ -266,6 +269,25 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
   const ahora = B._dep.ahora;
   B._dep.ahora = () => ahora() + B.BATERIA_BAJA.ENTRE_LECTURAS_MS + 60 * 1000;
   assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] });
+});
+
+// The drop has to happen while charging: one since a reading taken unplugged is the time it was unplugged, and blamed a
+// good charger just plugged in. And after an "Enchufame", a weak charger plugged in is still told about: the two
+// notices used to share the record of what was told, and it stayed quiet down to 5 %.
+test("batería baja: no culpa al cargador por lo que bajó desenchufada, y avisa del débil después del Enchufame", async () => {
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaNoAlcanzaAvisada?.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  await chequear(10, "DISCHARGING");
+  assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] }, "bajó antes de que la enchufaran");
+  assert.deepEqual(await chequear(10, "CHARGING"), { umbral: null, textos: [] });
+
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  assert.deepEqual(await chequear(9, "DISCHARGING"), { umbral: 10, textos: [DIEZ(9)] });
+  assert.deepEqual(await chequear(8, "CHARGING"), { umbral: null, textos: [] }, "recién enchufada");
+  assert.deepEqual(await chequear(7, "CHARGING"), { umbral: 10, textos: ["🤖 🔌 Me queda 7 % de batería y sigue bajando, aunque estoy cargando: el cargador no da abasto. Probá con otro antes de que me apague."] });
+  assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] }, "una vez");
 });
 
 test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, en la vuelta siguiente; sin batería que leer, nada", async () => {
