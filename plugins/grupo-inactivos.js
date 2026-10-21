@@ -1,39 +1,19 @@
-import { getUser } from "../database-functions.js";
+import { avisarInactivos, INACTIVOS } from "../lib/inactivos.js";
 
 const plugin = {};
 plugin.cmd = ["inactivos"];
 plugin.onlyMod = true;
 plugin.onlyGroup = true;
 
-// Each participant's row by any of their two identities: a group that lists its members by number used to match none
-// of them (rows are by LID), so it called everyone inactive and tagged the whole group.
-const filaDe = (p) => [p.id, p.lid, p.phoneNumber].filter(Boolean).map((id) => getUser(id)).find(Boolean);
+// .inactivos [días]: tags who hasn't written in that many days (INACTIVOS.DIAS if none) and warns them. It used to tag
+// only who had never written, and the newly arrived along with them.
+plugin.run = async (m, { client, participants, text }) => {
+  const pedido = String(text || "").trim();
+  const dias = pedido ? Number(pedido) : INACTIVOS.DIAS;
+  if (!Number.isInteger(dias) || dias < 1 || dias > 365) return client.sendText(m.chat, `Decime cuántos días sin escribir: .inactivos 30 (sin número son ${INACTIVOS.DIAS}).`, m);
 
-plugin.run = async (m, { client, participants }) => {
-  const inactivos = [];
-
-  for (const participant of participants) {
-    const groupData = filaDe(participant)?.inGroup?.[m.chat];
-
-    if (!groupData || !groupData.messageCount || groupData.messageCount <= 0) {
-      inactivos.push(participant.id); // the id the group lists them under, so the mention works
-    }
-  }
-
-  if (inactivos.length === 0) return client.sendMessage(m.chat, { text: "No hay inactivos en este grupo." }, { quoted: m });
-
-  const more = String.fromCharCode(8206);
-  const readMore = more.repeat(4001);
-
-  let texto = `📢 *Usuarios inactivos (${inactivos.length}):*\n`;
-  texto += `${readMore}\n\n`;
-
-  for (const lid of inactivos) {
-    const numero = lid.split("@")[0];
-    texto += `@${numero}\n`;
-  }
-
-  await client.sendMessage(m.chat, { text: texto, mentions: inactivos }, { quoted: null });
+  const { texto, mentions } = avisarInactivos(m.chat, participants, client, { dias });
+  await client.sendMessage(m.chat, { text: texto, mentions }, { quoted: mentions.length ? null : m });
 };
 
 export default plugin;

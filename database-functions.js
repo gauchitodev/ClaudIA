@@ -571,6 +571,20 @@ export function loadDatabase() {
       desde INTEGER NOT NULL
     )
   `);
+  // Presence in each group, for .inactivos (lib/inactivos.js): when someone came in, their last message of any kind
+  // and when .inactivos warned them (null once they write again). By any id the person may come under, like the
+  // roles: a join may bring only the number and a message only the LID. actividad_diaria can't tell when someone last
+  // wrote: it only counts conversation (two words or more), and only since 2/9.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS presencia_grupo (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      ingreso INTEGER,
+      ultimo_mensaje INTEGER,
+      avisado INTEGER,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
 
   // Migration: the nickname Claudia uses for each person (bought in the shop)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
@@ -1340,6 +1354,47 @@ export function primerDiaActividadHoraria(chat) {
 // Drops the hourly detail older than a date, in every group. Returns how many rows went.
 export function podarActividadHoraria(antesDe) {
   return db.prepare(`DELETE FROM actividad_horaria WHERE fecha < ?`).run(antesDe).changes;
+}
+
+// ---------- presence, for .inactivos (presencia_grupo) ----------
+const marcasDe = (ids) => ids.map(() => "?").join(", ");
+
+// Someone came into a group, under each of their ids. Coming back is a fresh start: a warning from before they left
+// doesn't carry over.
+export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ingreso) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = excluded.ingreso, avisado = NULL`);
+  for (const id of ids) st.run(chat, id, cuando);
+}
+
+// A message from someone: it's stamped on the first id and lifts the warning from all of them. Returns when they had
+// been warned, or null: who comes back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so
+// two messages at once can't both find the warning).
+export function registrarMensajeGrupo(chat, ids, cuando = Date.now()) {
+  if (!ids.length) return null;
+  const avisado = db.prepare(`SELECT MAX(avisado) AS avisado FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids)?.avisado || null;
+  if (avisado) quitarAvisoInactivo(chat, ids);
+  db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = excluded.ultimo_mensaje`).run(chat, ids[0], cuando);
+  return avisado;
+}
+
+// The warning of .inactivos. A second .inactivos keeps the date of the first one, so it doesn't restart the countdown.
+export function marcarAvisoInactivo(chat, ids, cuando = Date.now()) {
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET avisado = COALESCE(avisado, excluded.avisado)`);
+  for (const id of ids) st.run(chat, id, cuando);
+}
+
+export function quitarAvisoInactivo(chat, ids) {
+  if (!ids.length) return;
+  db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).run(chat, ...ids);
+}
+
+export function presenciaDelGrupo(chat) {
+  return db.prepare(`SELECT usuario, ingreso, ultimo_mensaje, avisado FROM presencia_grupo WHERE chat = ?`).all(chat);
+}
+
+// Each person's last day with conversation in a group ("YYYY-MM-DD"): what's known of before presencia_grupo.
+export function ultimoDiaConversacion(chat) {
+  return db.prepare(`SELECT usuario, MAX(fecha) AS fecha FROM actividad_diaria WHERE chat = ? AND mensajes > 0 GROUP BY usuario`).all(chat);
 }
 
 // ---------- what the bot itself sends ----------
