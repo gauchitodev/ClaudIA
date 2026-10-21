@@ -4,7 +4,7 @@ import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
-import { sinMenciones, lidsMencionados } from "../lib/menciones.js";
+import { sinMenciones, lidsMencionados, conNombres } from "../lib/menciones.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
@@ -168,6 +168,11 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     }
     const adjuntos = audio?.ok ? [audio.adjunto] : [];
 
+    // What they said, with its mentions as names ("@Ana"), and the same for the message of hers they answer: a mention
+    // travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them to the group.
+    const dicho = conNombres(m.text, m.mentionedJid);
+    const citado = conNombres(m.quoted?.text, m.quoted?.contextInfo?.mentionedJid);
+
     // ---------- build the prompt ----------
     const partes = [];
 
@@ -205,17 +210,17 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
     if (notaDeVoz) {
-      const aQue = m.quoted?.text ? ` a este mensaje tuyo: "${m.quoted.text}"` : "";
+      const aQue = citado ? ` a este mensaje tuyo: "${citado}"` : "";
       partes.push(`${nombre} te responde con un audio${aQue}. El audio va adjunto: escuchalo y contestá a lo que dice, siguiendo la charla, con tu onda.${sinEscuchar}`);
     } else if (temaEnviado) {
-      partes.push(`${nombre} cita el tema "${temaEnviado}", que mandaste vos al grupo cuando te lo pidieron con .play, y te dice: "${m.text}"`);
+      partes.push(`${nombre} cita el tema "${temaEnviado}", que mandaste vos al grupo cuando te lo pidieron con .play, y te dice: "${dicho}"`);
     } else if (citaAudio) {
       const deQuien = m.quoted.fromMe ? "tuyo" : "que mandó alguien del grupo";
-      partes.push(`${nombre} cita un audio ${deQuien} y te dice: "${m.text}". El audio va adjunto: escuchalo para contestar (puede ser alguien hablando o un tema de música).${sinEscuchar}`);
+      partes.push(`${nombre} cita un audio ${deQuien} y te dice: "${dicho}". El audio va adjunto: escuchalo para contestar (puede ser alguien hablando o un tema de música).${sinEscuchar}`);
     } else if (esRespuestaAlBot && m.quoted.text) {
-      partes.push(`${nombre} responde a este mensaje tuyo: "${m.quoted.text}"\n\nSu mensaje: "${m.text}"\n\nContestá siguiendo la charla, con tu onda.`);
+      partes.push(`${nombre} responde a este mensaje tuyo: "${citado}"\n\nSu mensaje: "${dicho}"\n\nContestá siguiendo la charla, con tu onda.`);
     } else {
-      partes.push(`Mensaje de ${nombre}: "${m.text}"`);
+      partes.push(`Mensaje de ${nombre}: "${dicho}"`);
     }
 
     // The sources of an earlier search, in case they're what's being asked for.

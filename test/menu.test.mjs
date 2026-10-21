@@ -184,6 +184,13 @@ test(".menu: manda el índice citando y reacciona; con el modo blacklist marca l
   assert.ok(ultimoEnviado().msg.react);
 });
 
+// .info tells that the bot's code is open, and where (plugins/info-bot.js); its line still said "Cómo instalar el bot".
+test("menú: la línea de .info dice lo que cuenta .info", () => {
+  const linea = M.seccionesDelMenu(".").flatMap((s) => s.lineas.split("\n")).find((l) => l.includes(".info 💻"));
+  assert.match(linea, /código es abierto/);
+  assert.doesNotMatch(linea, /instalar/);
+});
+
 test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-message", () => {
   // The ranking leaves out what wouldn't run here. If handle-message checks change, lib/menu.js has to follow.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");

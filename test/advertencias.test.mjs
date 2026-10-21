@@ -138,6 +138,19 @@ test("la lista de advertidos es la del grupo donde se pide", async () => {
   assert.equal(F.advertidos(H).length, 1);
 });
 
+// The list is the owner's: from their private chat, someone without a name shows their number, since "alguien" wouldn't
+// say who. In a group the whole group reads it, and there it stays "alguien".
+test("la lista de advertidos: por privado, el número de quien no tiene nombre; en un grupo, no", async () => {
+  F.setAdvertencias("111@lid", G, 2);
+  F.setAdvertencias("222@lid", H, 1);
+  await Lista.run({ chat: "59899111222@s.whatsapp.net", sender: "100@lid", text: "", mentionedJid: [], isGroup: false }, { client: globalThis.client });
+  assert.match(ultimo(), /│ Fulano \*\(2\/3\)\*/);
+  assert.match(ultimo(), /│ \+5989911222 \*\(1\/3\)\*/);
+  await Lista.run(m("", { chat: H }), { client: globalThis.client });
+  assert.match(ultimo(), /│ alguien \*\(1\/3\)\*/);
+  assert.doesNotMatch(ultimo(), /5989911222|222@lid/);
+});
+
 // This lives here because it is the root of the bug above: updateUser always wrote against the lid column, so given
 // a number the UPDATE touched no row and returned true anyway. The plugins now normalize to LID before writing, but
 // if that normalization ever breaks, this has to keep failing loudly.

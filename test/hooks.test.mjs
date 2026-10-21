@@ -52,6 +52,7 @@ beforeEach(() => {
 // What handle-message.js does with a message, as far as the hooks go.
 async function correrHooks(m, { client = cliente(), participants = [], chat = {}, rango = {} } = {}) {
   for (const plugin of L.hooksEnOrden(hooks)) {
+    if (m.moderado && !plugin.moderacion && !plugin.trasModeracion) continue;
     await plugin.before(m, { client, participants, isAdmin: false, isMod: false, isRAdmin: false, isWaAdmin: false, isBotAdmin: true, isOwner: false, user: {}, chat: { mentions: 1, ...chat }, ...rango });
   }
   return client;
@@ -100,9 +101,10 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
   assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
   assert.deepEqual(marcados.trasModeracion, ["_memoria-corta.js"]);
   assert.deepEqual(marcados.alFinal, ["_auto-ia.js"]);
-  // A hook that throws takes only itself down.
+  // What the moderation deleted reaches only the moderation and the short-term memory, and a hook that throws takes
+  // only itself down.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  assert.match(fuente, /for \(const plugin of hooksEnOrden\(globalThis\.plugins\)\) \{\s*try \{\s*await plugin\.before\(/);
+  assert.match(fuente, /for \(const plugin of hooksEnOrden\(globalThis\.plugins\)\) \{[^]*?if \(m\.moderado && !plugin\.moderacion && !plugin\.trasModeracion\) continue;\s*try \{\s*await plugin\.before\(/);
 });
 
 test("trivia: una respuesta que nombra a Claudia se evalúa al toque, y Claudia no la charla", async () => {

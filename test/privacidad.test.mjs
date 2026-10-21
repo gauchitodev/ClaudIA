@@ -81,14 +81,19 @@ test("lo que Claudia aprende de alguien queda en ese grupo: nada del privado ni 
   assert.doesNotMatch(prompts.at(-1), /Pedro/);
 });
 
-test("el saludo de cumpleaños usa solo lo de ese grupo", async () => {
+// The AI gets a mark where the mention goes, not the digits of the person's id (their LID, or their phone number); the
+// bot puts the mention in, and whatever "@<digits>" the AI adds tags nobody.
+test("el saludo de cumpleaños usa solo lo de ese grupo, y la IA no ve los dígitos del id", async () => {
   Cumple.CUMPLE.HORA_SALUDO = 0;
   const hoy = new Date();
   hoy.setHours(10, 0, 0, 0);
-  respuestaIA = "@555 ¡Feliz cumple!";
+  respuestaIA = "@MENCION ¡Feliz cumple! Te saluda @59899000002";
   F.setCumple(AMIGOS, ANA, hoy.getDate(), hoy.getMonth() + 1);
   await Cumple.chequearCumpleanos(hoy);
   assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. /, "en Amigos no sabe nada de Ana");
+  assert.doesNotMatch(prompts.at(-1), /555/, "ni los dígitos de su id");
+  assert.match(prompts.at(-1), /con el texto exacto "@MENCION"/);
+  assert.deepEqual(ultimoEnviado().msg, { text: "@555 ¡Feliz cumple! Te saluda 59899000002", mentions: [ANA] });
   F.borrarCumple(AMIGOS, ANA);
   F.setCumple(FAMILIA, ANA, hoy.getDate(), hoy.getMonth() + 1);
   await Cumple.chequearCumpleanos(hoy);
@@ -331,6 +336,51 @@ test("nombreDe y sinMenciones: alguien sin nombre es 'alguien'", () => {
 
 // A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen
 // and the initiative read), not the digits of their LID.
+// What someone tells her reaches the AI, and her short-term memory, with its mentions as names: a mention travels as the
+// digits of a LID, which only the admins see (.id), and she repeated them in the group. Her own mention is "@Claudia",
+// and the message of hers they answer comes with names too.
+test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con LID", async () => {
+  conBeto();
+  const YO = "200000000000001@lid"; // Claudia's LID, which has no row in the database
+  const NADIE = "300000000000096@lid"; // mentioned, and never wrote
+  const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const lidReal = globalThis.client.user.lid;
+  client.user = { ...client.user, lid: YO };
+  globalThis.client.user.lid = YO;
+  respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
+  globalThis.contextoChat.delete(AMIGOS);
+  const habla = async (extra) => {
+    globalThis.autoIaCooldown.delete(AMIGOS);
+    const m = { chat: AMIGOS, isGroup: true, sender: ANA, pushName: "Ana", quoted: null, ...extra };
+    const user = F.getUser(ANA);
+    await MemoriaCorta.before(m, { user });
+    await AutoIA.before(m, { client, participants: [], isAdmin: false, isMod: false, isOwner: false, user, chat: F.getChat(AMIGOS) });
+    return prompts.at(-1);
+  };
+  try {
+    const prompt = await habla({ text: "@200000000000001 decile a @300000000000003 y a @300000000000096 que vengan", mentionedJid: [YO, BETO, NADIE], key: { id: "NOMBRES1" } });
+    assert.match(prompt, /Mensaje de Ana: "@Claudia decile a @Beto y a @alguien que vengan"/);
+    assert.doesNotMatch(prompt, /300000000000|200000000000001/);
+    assert.deepEqual(globalThis.contextoChat.get(AMIGOS).filter((e) => !e.esBot).map((e) => e.texto), ["@Claudia decile a @Beto y a @alguien que vengan"], "y así queda en su memoria");
+
+    const respuesta = await habla({ text: "jaja sí, ¿y @300000000000003?", mentionedJid: [BETO], key: { id: "NOMBRES2" }, quoted: { fromMe: true, id: "DECLAUDIA1", text: "¡Bien ahí @300000000000096!", contextInfo: { mentionedJid: [NADIE] } } });
+    assert.match(respuesta, /responde a este mensaje tuyo: "¡Bien ahí @alguien!"\n\nSu mensaje: "jaja sí, ¿y @Beto\?"/);
+  } finally {
+    globalThis.client.user.lid = lidReal;
+  }
+});
+
+// A WhatsApp name is whatever the person typed: an "@" with digits in it became a mention wherever nombreDe names them
+// (the blacklist's notice, the rankings and lists), tagging whoever those digits are.
+test("nombreDe: un nombre con @ y dígitos no arroba a nadie, y Claudia es Claudia", () => {
+  F.initDataDB({ chat: FAMILIA, sender: "300000000000095@lid", senderJid: "", pushName: "@300000000000003 y @0" });
+  assert.equal(M.nombreDe("300000000000095@lid"), "300000000000003 y 0");
+  assert.equal(menciones(M.nombreDe("300000000000095@lid")), 0);
+  assert.equal(M.nombreDe(globalThis.client.user.lid), "Claudia");
+  assert.equal(M.nombreDe(globalThis.client.user.jid), "Claudia");
+});
+
 test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   const SIN_NOMBRE = "300000000000097@lid";
   F.initDataDB({ chat: AMIGOS, sender: SIN_NOMBRE, senderJid: "", pushName: null });

@@ -110,6 +110,11 @@ export async function handleMessage(nMsg) {
     // that throws takes only itself down: with the moderation first, a deletion that failed there would otherwise leave
     // the message without its count, its place in Claudia's memory and its command.
     for (const plugin of hooksEnOrden(globalThis.plugins)) {
+      // What the moderation deleted (m.moderado) reaches no other hook: no game takes it as an answer, no counter
+      // counts it, nothing reacts to it. Checked here once for all of them, the ones still to come included. Only
+      // Claudia's short-term memory still gets it: a deletion or an edit from someone on the blacklist applies there all
+      // the same.
+      if (m.moderado && !plugin.moderacion && !plugin.trasModeracion) continue;
       try {
         await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
       } catch (e) {

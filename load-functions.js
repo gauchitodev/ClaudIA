@@ -37,7 +37,8 @@ export async function loadPlugins() {
 }
 
 // The order handle-message.js runs the hooks (plugin.before) in. The moderation ones (plugin.moderacion: the
-// anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook; right after them,
+// anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook (handle-message.js
+// skips the rest for it, all but the short-term memory); right after them,
 // what has to see each message as soon as it's known to stay (plugin.trasModeracion: Claudia's short-term memory, so a
 // message gets there in the order it came and not after the sends of the hooks before it); Claudia's chat
 // (plugin.alFinal) goes last, so she knows what was deleted and what a game took as an answer. The rest keep the order

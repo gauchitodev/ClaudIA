@@ -185,6 +185,54 @@ test("borra la memoria vieja de todo el bot, una vez, sin dejar rastro en el arc
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// VACUUM needs room for a copy of the file, and Android can kill the bot halfway through it. The column is already
+// empty by then, so the next start had nothing telling it the VACUUM was owed: the old memory stayed in the file.
+test("si no pudo compactar la base al borrar la memoria vieja, lo vuelve a intentar al arrancar", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-vacuum-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, memoria TEXT DEFAULT "", timestamp INTEGER)`);
+  vieja.prepare(`INSERT INTO users (lid, jid) VALUES (?, ?)`).run("111@lid", "111@s.whatsapp.net");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run(`sale con Pedro a escondidas ${"y lo cuenta todo ".repeat(400)}`, "111@lid");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run("le debe plata al banco", "111@lid");
+  vieja.close();
+  const rastros = () => ["sale con Pedro", "le debe plata"].filter((t) => fs.readFileSync("./database/database.db").includes(t));
+
+  const F = await import("../database-functions.js");
+  const execReal = Database.prototype.exec;
+  const [logReal, errorReal] = [console.log, console.error];
+  const logs = [];
+  console.log = console.error = (...partes) => logs.push(partes.join(" "));
+  let vacuums = 0;
+  let falla = true;
+  Database.prototype.exec = function (sql) {
+    if (/^\s*VACUUM\s*$/i.test(sql)) {
+      vacuums++;
+      if (falla) throw new Error("database or disk is full");
+    }
+    return execReal.call(this, sql);
+  };
+  try {
+    globalThis.db = F.loadDatabase();
+    assert.equal(db.prepare(`SELECT memoria FROM users`).get().memoria, "", "la columna queda vacía");
+    db.close();
+    falla = false;
+    globalThis.db = F.loadDatabase();
+    assert.equal(vacuums, 2, "al arrancar de nuevo, compacta");
+    assert.deepEqual(rastros(), [], "y lo viejo ya no está en el archivo");
+    assert.match(logs.join("\n"), /no pude compactar la base \(database or disk is full\)[^\n]*lo vuelvo a intentar en el próximo arranque/, "y la primera vez avisó que lo iba a reintentar");
+    db.close();
+    globalThis.db = F.loadDatabase();
+    assert.equal(vacuums, 2, "una vez que pudo, no lo repite");
+  } finally {
+    Database.prototype.exec = execReal;
+    console.log = logReal;
+    console.error = errorReal;
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

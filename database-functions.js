@@ -51,16 +51,25 @@ export function loadDatabase() {
   // column, so what's left in it is erased, once. secure_delete (on since the database was opened, above) zeroes the
   // values as they're erased; VACUUM rebuilds the file without the older versions left behind each time a memory was
   // rewritten, back when erasing only marked the space as free, and the daily copies and the one sent to the owner
-  // carry the file whole. If VACUUM can't run (it needs room for a copy of the file), the bot starts anyway.
+  // carry the file whole. If VACUUM can't run (it needs room for a copy of the file, and Android may kill the bot
+  // halfway), the bot starts anyway, and it's owed until it works: mantenimiento_pendiente keeps it from one start to
+  // the next, since the column is already empty by then.
+  db.exec(`CREATE TABLE IF NOT EXISTS mantenimiento_pendiente (tarea TEXT PRIMARY KEY)`);
   const conMemoriaVieja = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE memoria != ''`).get().n;
   if (conMemoriaVieja > 0) {
-    const inicio = Date.now();
     db.prepare(`UPDATE users SET memoria = '' WHERE memoria != ''`).run();
+    db.prepare(`INSERT OR IGNORE INTO mantenimiento_pendiente (tarea) VALUES ('vacuum-memoria-vieja')`).run();
+  }
+  if (db.prepare(`SELECT 1 FROM mantenimiento_pendiente WHERE tarea = 'vacuum-memoria-vieja'`).get()) {
+    const inicio = Date.now();
+    const que = conMemoriaVieja > 0 ? `borrada la memoria vieja de ${conMemoriaVieja} persona(s) (users.memoria)` : "borrada la memoria vieja (users.memoria) en un arranque anterior";
     try {
       db.exec(`VACUUM`);
-      console.log(`🟢 Migración: borrada la memoria vieja de ${conMemoriaVieja} persona(s) (users.memoria) y compactada la base, en ${Date.now() - inicio} ms`);
+      // After VACUUM, and not before: if the bot dies in between, the next start compacts once more.
+      db.prepare(`DELETE FROM mantenimiento_pendiente WHERE tarea = 'vacuum-memoria-vieja'`).run();
+      console.log(`🟢 Migración: ${que}, y compactada la base, en ${Date.now() - inicio} ms`);
     } catch (e) {
-      console.error(`🟠 Migración: borrada la memoria vieja de ${conMemoriaVieja} persona(s), pero no pude compactar la base (${e.message}): versiones viejas pueden quedar en el archivo hasta que se pisen`);
+      console.error(`🟠 Migración: ${que}, pero no pude compactar la base (${e.message}): versiones viejas siguen en el archivo, lo vuelvo a intentar en el próximo arranque`);
     }
   }
 

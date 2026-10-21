@@ -202,17 +202,31 @@ test("batería baja: avisa al owner por debajo del 10 % y del 5 %, una vez cada 
   assert.deepEqual(await chequear(8), { umbral: null, textos: [] }, "una sola vez");
   assert.deepEqual(await chequear(4), { umbral: 5, textos: [CINCO(4)] });
   assert.deepEqual(await chequear(3), { umbral: null, textos: [] });
-  // On the charger it's ready again; unplugged before 15 %, the same notice isn't given twice.
+  // Charging doesn't make them ready again, only going past 15 %: a short charge, unplugged before that, used to bring
+  // the same notice again.
   assert.deepEqual(await chequear(3, "CHARGING"), { umbral: null, textos: [] });
-  assert.equal((await chequear(7)).umbral, 10);
+  assert.equal((await chequear(7)).umbral, null, "cargó un poco y se desenchufó: el del 10 % ya está dado");
   assert.equal((await chequear(12)).umbral, null);
-  assert.equal((await chequear(9)).umbral, null, "sin enchufarse ni pasar del 15 %, el del 10 % ya está dado");
+  assert.equal((await chequear(9)).umbral, null, "sin pasar del 15 %, tampoco");
   assert.equal((await chequear(16)).umbral, null);
   assert.equal((await chequear(9)).umbral, 10, "pasado el 15 %, de nuevo");
   // Connected without charging doesn't keep up, and full counts as charging.
   assert.equal((await chequear(4, "NOT_CHARGING")).umbral, 5);
   assert.equal((await chequear(100, "FULL")).umbral, null);
   assert.equal((await chequear(9, "Discharging")).umbral, 10, "con el estado de los archivos del sistema también");
+});
+
+// A loose cable plugs and unplugs by itself: charging used to make the notices ready again, and the same one came every
+// 10 minutes. And plugged in without charging, the notice says so instead of asking to be plugged in.
+test("batería baja: con un cable flojo avisa una vez, y si está enchufada sin cargar, lo dice", async () => {
+  globalThis.bateriaBajaAvisada.clear();
+  const avisos = [];
+  for (let i = 0; i < 6; i++) avisos.push(...(await chequear(9, i % 2 ? "CHARGING" : "DISCHARGING")).textos);
+  assert.deepEqual(avisos, [DIEZ(9)]);
+
+  globalThis.bateriaBajaAvisada.clear();
+  assert.deepEqual((await chequear(9, "NOT_CHARGING")).textos, ["🤖 🔌 Me queda 9 % de batería: estoy enchufada, pero no carga. Revisá el cargador o el cable antes de que me apague."]);
+  assert.deepEqual((await chequear(4, "Not charging")).textos, ["🤖 🪫 Me queda 4 % de batería y no carga, aunque estoy enchufada: me puedo apagar en cualquier momento. ¡Revisá el cargador ya!"], "con el estado de los archivos del sistema también");
 });
 
 test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, en la vuelta siguiente; sin batería que leer, nada", async () => {

@@ -1,4 +1,5 @@
 import { recordarMensaje, olvidarMensaje, editarMensaje } from "../lib/contexto-chat.js";
+import { conNombres } from "../lib/menciones.js";
 
 // Claudia's short-term memory (lib/contexto-chat.js), what her chat, her glances and .resumen read: each message as it
 // comes, right after the moderation (hooksEnOrden, load-functions.js). Her chat hook used to write it, and that one
@@ -8,8 +9,12 @@ import { recordarMensaje, olvidarMensaje, editarMensaje } from "../lib/contexto-
 const plugin = (m) => m;
 plugin.trasModeracion = true;
 
-// The text of a message's content: what an edit leaves.
-const textoDe = (contenido) => contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
+// The text of a message's content: what an edit leaves. With its mentions as names ("@Ana"), like every text she keeps:
+// a mention travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them.
+const textoDe = (contenido) => {
+  const texto = contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
+  return conNombres(texto, Object.values(contenido || {}).map((v) => v?.contextInfo?.mentionedJid).find(Array.isArray));
+};
 
 plugin.before = async (m, { user }) => {
   try {
@@ -31,7 +36,7 @@ plugin.before = async (m, { user }) => {
     // later (lib/vistazos.js).
     // Without a name, "alguien": the digits of their id would be their LID, which only the admins see (.id).
     const nombre = user?.apodo || m.pushName || user?.pushName || "alguien";
-    recordarMensaje(m.chat, nombre, m.text, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
+    recordarMensaje(m.chat, nombre, conNombres(m.text, m.mentionedJid), false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
   } catch (e) {
     console.error("[memoria corta] ERROR:", e);
   }

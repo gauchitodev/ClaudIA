@@ -97,6 +97,57 @@ test("lo que borra la moderación no corre como comando", async () => {
   assert.deepEqual(await mandar(".ss https://sitio-permitido.com"), { borrado: false, corrieron: [".ss https://sitio-permitido.com"] }, "sin anti-link, el comando corre");
 });
 
+// Nor does it reach the hooks after the moderation: a trivia answer with a banned link took the prize, and the message
+// counters counted it. Only Claudia's short-term memory still gets what the moderation marks: a deletion from someone on
+// the blacklist (whom the blacklist removes as soon as they do anything) has to apply there all the same.
+test("lo que borra la moderación no llega a los juegos ni a los contadores, y un borrado igual sale de la memoria", async () => {
+  const Tr = await import("../lib/trivia.js");
+  const oyeron = [];
+  globalThis.plugins = {
+    "_all-anti-links.js": carpeta["_all-anti-links.js"],
+    "_manejador-lista-negra.js": carpeta["_manejador-lista-negra.js"],
+    "_memoria-corta.js": carpeta["_memoria-corta.js"],
+    "_trivia.js": carpeta["_trivia.js"],
+    "_messsage-count.js": carpeta["_messsage-count.js"],
+    "zz-espia.js": { before: async (m) => oyeron.push(m.text) },
+  };
+  const client = cliente();
+  const errorReal = console.error;
+  console.error = () => {};
+  const cuenta = () => F.getUser(ANA).inGroup?.[GRUPO]?.messageCount || 0;
+  const acerto = () => globalThis.enviados.some((e) => /¡Acertó/.test(e.msg?.text || ""));
+  try {
+    Tr.abrirRonda(GRUPO, { tipo: "trivia", pregunta: { pregunta: "¿Capital de Japón?", opciones: ["Osaka", "Kioto", "Tokio", "Nara"], correcta: "c" }, mensajeId: "TRIVIA-MOD", segundos: 30, client });
+    F.updateChat(GRUPO, { allAntiLinks: 1 });
+    const antes = cuenta();
+    globalThis.enviados = [];
+    const conLink = llega(client, ANA, "c https://sitio-prohibido.com");
+    await conLink.hecho;
+    assert.ok(globalThis.enviados.some((e) => e.msg?.delete?.id === conLink.id), "lo borró");
+    assert.deepEqual([acerto(), cuenta() - antes, oyeron], [false, 0, []], "ni ganó, ni contó, ni lo oyó otro hook");
+
+    F.updateChat(GRUPO, { allAntiLinks: 0 });
+    await llega(client, ANA, "c").hecho;
+    assert.deepEqual([acerto(), cuenta() - antes, oyeron], [true, 1, ["c"]], "sin el link, sí");
+
+    // Beto said something; then he's put on the blacklist, and he deletes it.
+    globalThis.contextoChat.delete(GRUPO);
+    const dicho = llega(client, BETO, "algo que después borro");
+    await dicho.hecho;
+    assert.deepEqual(globalThis.contextoChat.get(GRUPO)?.map((e) => e.texto), ["algo que después borro"]);
+    F.addToBlacklist("59899000033@s.whatsapp.net", "estafa", "owner", GRUPO, BETO);
+    globalThis.enviados = [];
+    const borrado = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id: borrado, participant: BETO }, message: { protocolMessage: { type: 0, key: { remoteJid: GRUPO, fromMe: false, id: dicho.id, participant: BETO } } }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Beto", _upsertType: "notify", _llegada: Date.now() });
+    assert.ok(globalThis.enviados.some((e) => e.msg?.delete?.id === borrado), "la lista negra lo tomó como suyo");
+    assert.deepEqual(globalThis.contextoChat.get(GRUPO)?.map((e) => e.texto), [], "y lo que borró ya no está en la memoria");
+  } finally {
+    console.error = errorReal;
+    Tr.cerrarRonda(GRUPO);
+    F.updateChat(GRUPO, { allAntiLinks: 0 });
+  }
+});
+
 // Claudia's short-term memory gets each message as it comes, whatever the hooks before her chat send. A "#vendo" waits
 // for its confirmation to go out (one bot message every so often in each chat, lib/ritmo.js), and the question about it
 // that came right after was answered without it, and stored before it. The hooks are the real ones that write that

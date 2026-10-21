@@ -91,6 +91,23 @@ test("backup con la copia real de SQLite, rotación y envío semanal", async () 
   assert.equal(await Av.avisarOwner("hola", "k", 60e3), false);
 });
 
+// A config edited by hand can start with an empty owner (config.example.toml comes with owners = [""]): the notices and
+// the weekly backup went to nobody.
+test("avisos al owner: van al primer owner con número, aunque el primero esté vacío", async () => {
+  const ownersReal = globalThis.owners;
+  try {
+    globalThis.owners = ["", " ", "+598 99 333 444", "59899111222"];
+    assert.equal(Av.jidOwner(), "59899333444@s.whatsapp.net");
+    globalThis.enviados = [];
+    assert.equal(await Av.avisarOwner("hola", "primero-vacio"), true);
+    assert.equal(globalThis.enviados.at(-1).chat, "59899333444@s.whatsapp.net");
+    globalThis.owners = [""];
+    assert.equal(Av.jidOwner(), null);
+  } finally {
+    globalThis.owners = ownersReal;
+  }
+});
+
 test("memoria corta y memoria del grupo", () => {
   for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
   assert.equal(globalThis.contextoChat.get("c").length, 200);
