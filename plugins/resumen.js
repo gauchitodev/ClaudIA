@@ -1,4 +1,4 @@
-import { mensajesRecientes, historialCompletoDesde, esComando, ingresoDe } from "../lib/contexto-chat.js";
+import { mensajesRecientes, historialCompletoDesde, fueComando, ingresoDe } from "../lib/contexto-chat.js";
 import { preguntarIA } from "../lib/ia.js";
 import { sinMenciones } from "../lib/menciones.js";
 import { duracion } from "../lib/tiempo.js";
@@ -25,7 +25,7 @@ plugin.run = async (m, { client, args }) => {
   const entro = ingresoDe(m.chat, m.sender);
   const desdeEntro = entro > ahora - horas * 60 * 60 * 1000;
   const desde = desdeEntro ? entro : ahora - horas * 60 * 60 * 1000;
-  const lista = mensajesRecientes(m.chat, desde).filter((x) => !esComando(x.texto));
+  const lista = mensajesRecientes(m.chat, desde).filter((x) => !fueComando(x));
   if (lista.length < 5 && desdeEntro) return client.sendText(m.chat, "Desde que entraste casi no hubo mensajes, y de lo de antes no te cuento 🤐", m);
   if (lista.length < 5) return client.sendText(m.chat, `Casi no hubo mensajes en las últimas ${horas} h. Ojo que guardo solo lo que pasa desde que arranqué, hace ${duracion(process.uptime() * 1000)}.`, m);
 

@@ -35,10 +35,13 @@ const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cm
 const esClaudia = (client, id) => Boolean(id) && (id === client.user?.lid || id === client.user?.jid);
 
 // Who a "llamar" is for: the people mentioned, or failing that the author of the quoted message, but never Claudia,
-// whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times.
+// whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times. Her
+// mention leaves the text by her number as well as her LID: a group listed by number mentions her by the number, which
+// stayed as a typed "@number" and beat the quoted message's author, and with no row of hers in the database it was taken
+// for someone else's, so she called herself.
 function aQuienLlamar(m, client) {
-  const numero = client.user?.lid?.split("@")[0];
-  const texto = numero ? String(m.text).replaceAll(`@${numero}`, "") : m.text;
+  const suyos = [client.user?.lid, client.user?.jid].map((id) => id?.split("@")[0].split(":")[0]).filter(Boolean);
+  const texto = suyos.reduce((t, digitos) => t.replace(new RegExp(`@${digitos}(?!\\d)`, "g"), ""), String(m.text || ""));
   const mencionados = (m.mentionedJid || []).filter((j) => !esClaudia(client, j));
   return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto).filter((id) => !esClaudia(client, id));
 }
@@ -275,7 +278,13 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     try {
       datos = JSON.parse(resultado.texto);
     } catch (e) {
-      console.error("[auto-ia] La IA no devolvió JSON válido:", e.message, "-- texto recibido:", resultado.texto);
+      // Without the text: it carries what she was going to remember of the person and what a voice note said, and the
+      // log (~/claudia.log) keeps whatever goes into it. Not even the bit of it V8 quotes in the error ("hola, la c"...).
+      // Gemini and the fallbacks already throw a broken JSON away (lib/gemini.js, lib/respaldo-ia.js): this is in case
+      // one of them stops doing it.
+      const motivo = String(e.message).split('"')[0].replace(/[,\s]+$/, "");
+      const largo = String(resultado.texto || "").length;
+      console.error(`[auto-ia] La IA (${globalThis.modeloActivo || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);
       await avisarFalla("Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅");
       return;
     }

@@ -82,6 +82,28 @@ test("un mensaje que arranca con una mención entra; un comando no", async () =>
   assert.equal(CC.esComando(".cualquiercosa"), true);
 });
 
+// The memory keeps the mentions as names, and "@Sol ¿venís…?" read as "@" and the command .sol: what someone said to
+// Sol dropped out of .resumen and the glances. Whether a message is a command is told by its text as it came.
+test("lo que le dicen a alguien que se llama como un comando entra", async () => {
+  const F = await import("../database-functions.js");
+  const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
+  const SOL = "300000000000005@lid";
+  F.initDataDB({ chat: C, sender: SOL, senderJid: "", pushName: "Sol" });
+  globalThis.plugins["aero.js"] = { cmd: ["sol"] };
+  const decir = (id, text, mentionedJid = []) => MemoriaCorta.before({ chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text, mentionedJid, key: { id } }, { user: {} });
+  try {
+    const ahora = Date.now();
+    for (let i = 5; i > 0; i--) CC.recordarMensaje(C, "Beto", `charla ${i}`, false, { fecha: ahora - i * MIN });
+    await decir("SOL1", "@300000000000005 ¿venís al cumple el sábado?", [SOL]);
+    await decir("SOL2", ".sol montevideo");
+    await pedir();
+    assert.match(pedidos[0], /Ana: @Sol ¿venís al cumple el sábado\?/);
+    assert.doesNotMatch(pedidos[0], /\.sol montevideo/, "el comando sigue afuera");
+  } finally {
+    delete globalThis.plugins["aero.js"];
+  }
+});
+
 test("si la IA falla, se puede volver a pedir enseguida; si sale bien, hay que esperar", async () => {
   const ahora = Date.now();
   for (let i = 10; i > 0; i--) CC.recordarMensaje(C, "Ana", `mensaje ${i}`, false, { fecha: ahora - i * MIN });

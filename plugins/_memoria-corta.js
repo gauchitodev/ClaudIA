@@ -1,4 +1,4 @@
-import { recordarMensaje, olvidarMensaje, editarMensaje } from "../lib/contexto-chat.js";
+import { recordarMensaje, olvidarMensaje, editarMensaje, esComando } from "../lib/contexto-chat.js";
 import { conNombres } from "../lib/menciones.js";
 
 // Claudia's short-term memory (lib/contexto-chat.js), what her chat, her glances and .resumen read: each message as it
@@ -10,10 +10,11 @@ const plugin = (m) => m;
 plugin.trasModeracion = true;
 
 // The text of a message's content: what an edit leaves. With its mentions as names ("@Ana"), like every text she keeps:
-// a mention travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them.
+// a mention travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them. And whether
+// it's a command, told by the text as typed (fueComando, lib/contexto-chat.js).
 const textoDe = (contenido) => {
   const texto = contenido?.conversation || Object.values(contenido || {}).map((v) => v?.text ?? v?.caption).find((t) => typeof t === "string") || "";
-  return conNombres(texto, Object.values(contenido || {}).map((v) => v?.contextInfo?.mentionedJid).find(Array.isArray));
+  return { texto: conNombres(texto, Object.values(contenido || {}).map((v) => v?.contextInfo?.mentionedJid).find(Array.isArray)), comando: esComando(texto) };
 };
 
 plugin.before = async (m, { user }) => {
@@ -24,7 +25,11 @@ plugin.before = async (m, { user }) => {
     // those as they go out. An edit can come wrapped in editedMessage.
     const protocolo = m.message?.protocolMessage || m.message?.editedMessage?.message?.protocolMessage;
     if (protocolo?.type === 0) return void olvidarMensaje(m.chat, protocolo.key?.id);
-    if (protocolo?.type === 14) return void editarMensaje(m.chat, protocolo.key?.id, textoDe(protocolo.editedMessage), m.sender);
+    if (protocolo?.type === 14) {
+      const { texto, comando } = textoDe(protocolo.editedMessage);
+      // Its author by any of their ids: an edit may come without the LID the message came with, or the other way around.
+      return void editarMensaje(m.chat, protocolo.key?.id, texto, [m.sender, m.senderJid, m.key?.participant], { comando });
+    }
     if (m.fromMe || m.isBaileys) return;
     // What the moderation just deleted (the anti-links, the blacklist and the mass mentions mark it) never existed for
     // her: she used to keep it for .resumen and the initiative.
@@ -36,7 +41,7 @@ plugin.before = async (m, { user }) => {
     // later (lib/vistazos.js).
     // Without a name, "alguien": the digits of their id would be their LID, which only the admins see (.id).
     const nombre = user?.apodo || m.pushName || user?.pushName || "alguien";
-    recordarMensaje(m.chat, nombre, conNombres(m.text, m.mentionedJid), false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant });
+    recordarMensaje(m.chat, nombre, conNombres(m.text, m.mentionedJid), false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, comando: esComando(m.text) });
   } catch (e) {
     console.error("[memoria corta] ERROR:", e);
   }

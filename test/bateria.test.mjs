@@ -131,6 +131,7 @@ test("batería: tras un timeout de Termux:API, el chequeo lo deja tranquilo un r
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
   globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null; // no reading yet: nothing says the battery is low
   assert.equal(await B.chequearBateriaBaja(), null);
   assert.equal(llamadas, 1);
   ahora += 5 * 60 * 1000;
@@ -307,6 +308,42 @@ test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, 
   globalThis.bateriaBajaAvisada.clear();
   simular();
   assert.equal(await B.chequearBateriaBaja(), null);
+});
+
+// On a device whose system files can't be read, a single slow answer from Termux:API left the check half an hour
+// without readings: here the notice at 9 % would have come 25 minutes late, or never. With the battery low it asks again
+// on the next check; with the battery fine, the pause holds.
+test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin lecturas", async () => {
+  let llamadas = 0;
+  let responde = null; // what Termux:API answers; null: not in time
+  let ahora = 2_000_000_000;
+  B._dep.ahora = () => ahora;
+  B._dep.ejecutar = async () => {
+    llamadas++;
+    if (!responde) throw Object.assign(new Error("termux-battery-status no contestó en 8 s"), { code: "ETIMEDOUT" });
+    return { stdout: JSON.stringify(responde) };
+  };
+  B._dep.leer = async (ruta) => {
+    throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
+  };
+  const cadaCinco = async (respuesta) => {
+    responde = respuesta;
+    ahora += 5 * 60 * 1000;
+    return B.chequearBateriaBaja();
+  };
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  globalThis.enviados = [];
+  assert.equal(await cadaCinco({ percentage: 12, status: "DISCHARGING" }), null);
+  assert.equal(await cadaCinco(null), null);
+  assert.equal(await cadaCinco({ percentage: 9, status: "DISCHARGING" }), 10, "en el chequeo siguiente lo prueba de nuevo, y avisa");
+  assert.equal(llamadas, 3);
+  assert.deepEqual(globalThis.enviados.filter((e) => e.chat === OWNER).map((e) => e.msg.text), [DIEZ(9)]);
+
+  await cadaCinco({ percentage: 40, status: "CHARGING" });
+  await cadaCinco(null);
+  await cadaCinco({ percentage: 40, status: "CHARGING" });
+  assert.equal(llamadas, 5, "con la batería bien, la pausa sigue");
 });
 
 test("consistencia: las tareas de cada 5 minutos miran la batería", () => {

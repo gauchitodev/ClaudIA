@@ -555,6 +555,72 @@ test(".avisartodos: si el bot se reconecta a mitad del aviso, sigue por la conex
   assert.deepEqual(enviados.slice(1), ["viejo → a@g.us: Mañana no hay ranking", "nuevo → b@g.us: Mañana no hay ranking", "nuevo → c@g.us: Mañana no hay ranking", `nuevo → ${DUENO}: ✅ Mensaje enviado a 3 grupo(s).`]);
 });
 
+// While main.js reconnects (5 s later, then 10 s...), each group whose turn came failed and was lost, and the end said
+// "(2 fallaron)" without saying which. It waits for the connection, gives what fails one more go at the end, and names
+// the groups it couldn't reach even so.
+test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no llegó", async () => {
+  const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const enviados = [];
+  const esperas = [];
+  let vuelveEn = 0; // waits until the connection is back
+  _dep.esperar = async (ms) => {
+    esperas.push(ms);
+    if (vuelveEn && --vuelveEn === 0) globalThis.botConectado = true;
+  };
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" }, "d@g.us": { subject: "Laburo" } }),
+    sendText: async (chat, t) => {
+      if (!globalThis.botConectado) throw new Error("Connection Closed");
+      if (chat === "c@g.us") throw new Error("forbidden"); // a group where it can't write
+      enviados.push([chat, t]);
+      // Right after the first group the connection drops, and it's back two waits later.
+      if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2];
+    },
+  };
+  globalThis.client = client;
+  console.error = () => {};
+  try {
+    await P.run({ chat: DUENO }, { client, text: "Mañana no hay ranking", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+    globalThis.botConectado = true;
+  }
+  assert.deepEqual(enviados.slice(1).map(([chat]) => chat), ["a@g.us", "b@g.us", "d@g.us", DUENO], "el de mientras estuvo caída sale al volver");
+  assert.ok(esperas.includes(AVISO_TODOS.REVISAR_CONEXION_MS), "esperó a la conexión");
+  assert.equal(enviados.at(-1)[1], "✅ Mensaje enviado a 3 grupo(s). No salió en 1, ni probando de nuevo: Fútbol.");
+});
+
+// If the connection dropped right as "📣 Lo mando a…" went out, the notice ended there: no group got it, and nobody
+// told the owner.
+test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega igual", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const enviados = [];
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {} }),
+    sendText: async (chat, t) => {
+      if (t.startsWith("📣")) throw new Error("Connection Closed");
+      enviados.push([chat, t]);
+    },
+  };
+  globalThis.client = client;
+  _dep.esperar = async () => {};
+  console.error = () => {};
+  try {
+    await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+  assert.deepEqual(enviados, [["a@g.us", "Hola"], ["b@g.us", "Hola"], [DUENO, "✅ Mensaje enviado a 2 grupo(s)."]]);
+});
+
 // With two owners, the one who cuts it hears it from the cancel, and the one who started it, at the end. And cut while
 // the list of groups was coming, it doesn't go to any.
 test(".avisartodos: cortado desde otro chat, les avisa a los dos; cortado antes de arrancar, no sale", async () => {

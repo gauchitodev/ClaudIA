@@ -142,6 +142,28 @@ test("memoria corta: lo editado queda como lo dejó quien lo escribió, y lo bor
   assert.deepEqual(textos(), [], "borrado desde el teléfono de Claudia");
 });
 
+// In a group listed by number, a message may come with the LID alongside (participantAlt) and the next one without: an
+// edit that came with the other id was taken for someone else's, and the memory kept what its author had taken back.
+test("memoria corta: una edición vale aunque llegue con la otra identidad de quien escribió", async () => {
+  const B = "edicion-pn@g.us";
+  const [LID, PN] = ["300000000000055@lid", "59899000055@s.whatsapp.net"];
+  const correr = (m) => MemoriaCorta.before({ chat: B, isGroup: true, pushName: "Ana", mentionedJid: [], quoted: null, ...m }, { user: {} });
+  const textos = () => globalThis.contextoChat.get(B).map((e) => e.texto);
+  const edicion = (id, conversation) => ({ protocolMessage: { type: 14, key: { id }, editedMessage: { conversation } } });
+
+  // The message with the LID alongside, and the edit without it.
+  await correr({ sender: LID, senderJid: PN, text: "mi clave del wifi es pepito123", key: { id: "P1", participant: PN } });
+  await correr({ sender: PN, senderJid: PN, text: "", message: edicion("P1", "nada, me equivoqué"), key: { id: "P2", participant: PN } });
+  assert.deepEqual(textos(), ["nada, me equivoqué"]);
+  // And the other way around.
+  await correr({ sender: PN, senderJid: PN, text: "paso a las 8", key: { id: "P3", participant: PN } });
+  await correr({ sender: LID, senderJid: PN, text: "", message: edicion("P3", "paso a las 9"), key: { id: "P4", participant: PN } });
+  assert.deepEqual(textos(), ["nada, me equivoqué", "paso a las 9"]);
+
+  await correr({ sender: "300000000000077@lid", senderJid: "59899000077@s.whatsapp.net", text: "", message: edicion("P3", "odio a todos"), key: { id: "P5", participant: "59899000077@s.whatsapp.net" } });
+  assert.deepEqual(textos(), ["nada, me equivoqué", "paso a las 9"], "y nadie más la cambia");
+});
+
 // ---------- what the moderation deletes ----------
 // The anti-link hooks run before this one. They deleted the link and removed its author, and Claudia answered it
 // anyway, repeating the link, and kept it in her memory for .resumen and the initiative.
@@ -280,11 +302,11 @@ test("pedido a Claudia: una nota de .recordá no le hace mencionar a todos si el
 // ---------- mentioning her, the doors while she thinks, and what she announces ----------
 
 const BOT = "200000000000001@lid"; // Claudia's LID in these tests: digits, like a real one
-// A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks.
-async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C } = {}) {
+// A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks, and bot changes her ids.
+async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {} } = {}) {
   globalThis.autoIaCooldown.delete(grupo);
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
-  client.user = { ...client.user, lid: BOT };
+  client.user = { ...client.user, lid: BOT, ...bot };
   const m = { chat: grupo, isGroup: true, sender: "555@lid", pushName: "Ana", text: "", mentionedJid: [], quoted: null, ...extra };
   const fetchAntes = globalThis.fetch;
   if (alPensar) {
@@ -366,6 +388,16 @@ test("pedido a Claudia: anuncia solo lo que va a pasar", async () => {
   r = await hablarle({ text: "claudia reintentá mi descarga más tarde" });
   assert.equal(r.textos.length, 1);
   assert.match(r.textos[0], /^No tengo ninguna descarga tuya que haya fallado/);
+});
+
+// A group that lists people by number mentions her by her number: only her LID left the text, the typed number beat the
+// quoted message's author, and with no row of hers in the database it was taken for someone else's. She called herself.
+test("pedido a Claudia: «@Claudia llamalo» en un grupo por número llama a quien citan, no a ella", async () => {
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  const NUMERO = "59800000001@s.whatsapp.net"; // hers, with no row in the database
+  const r = await hablarle({ text: "@59800000001 llamalo", mentionedJid: [NUMERO], quoted: { sender: "59899000111@s.whatsapp.net", fromMe: false, text: "¿dónde están?" } }, { rango: ADMIN, bot: { jid: NUMERO } });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", "@59899000111"]);
 });
 
 test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como mucho una vez cada media hora", async () => {

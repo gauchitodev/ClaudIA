@@ -233,6 +233,53 @@ test("si no pudo compactar la base al borrar la memoria vieja, lo vuelve a inten
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// Erasing the old memory and writing down the VACUUM it owes were two writes: a bot that Android killed in between was
+// left with the column empty and nothing owed, and the next start never compacted. Here the start dies right after the
+// erase, the way it would there.
+test("si el bot muere entre el borrado de la memoria vieja y la anotación del VACUUM, compacta al arrancar de nuevo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-vacuum-muerto-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, memoria TEXT DEFAULT "", timestamp INTEGER)`);
+  vieja.prepare(`INSERT INTO users (lid, jid) VALUES (?, ?)`).run("111@lid", "111@s.whatsapp.net");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run(`sale con Pedro a escondidas ${"y lo cuenta todo ".repeat(400)}`, "111@lid");
+  vieja.prepare(`UPDATE users SET memoria = ? WHERE lid = ?`).run("le debe plata al banco", "111@lid");
+  vieja.close();
+  const rastros = () => ["sale con Pedro", "le debe plata"].filter((t) => fs.readFileSync("./database/database.db").includes(t));
+
+  const F = await import("../database-functions.js");
+  const prepareReal = Database.prototype.prepare;
+  const [logReal, errorReal] = [console.log, console.error];
+  console.log = console.error = () => {};
+  let muere = true;
+  Database.prototype.prepare = function (sql) {
+    const st = prepareReal.call(this, sql);
+    if (muere && /UPDATE users SET memoria = ''/.test(sql)) {
+      const runReal = st.run.bind(st);
+      st.run = (...args) => {
+        runReal(...args);
+        throw new Error("muerto después del borrado");
+      };
+    }
+    return st;
+  };
+  try {
+    assert.throws(() => F.loadDatabase(), /muerto después del borrado/);
+    muere = false;
+    globalThis.db = F.loadDatabase();
+    assert.equal(db.prepare(`SELECT memoria FROM users`).get().memoria, "");
+    assert.deepEqual(rastros(), [], "lo viejo ya no está en el archivo");
+    assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM mantenimiento_pendiente`).get().n, 0, "y no queda nada pendiente");
+    db.close();
+  } finally {
+    Database.prototype.prepare = prepareReal;
+    console.log = logReal;
+    console.error = errorReal;
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

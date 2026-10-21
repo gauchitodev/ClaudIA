@@ -57,8 +57,12 @@ export function loadDatabase() {
   db.exec(`CREATE TABLE IF NOT EXISTS mantenimiento_pendiente (tarea TEXT PRIMARY KEY)`);
   const conMemoriaVieja = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE memoria != ''`).get().n;
   if (conMemoriaVieja > 0) {
-    db.prepare(`UPDATE users SET memoria = '' WHERE memoria != ''`).run();
-    db.prepare(`INSERT OR IGNORE INTO mantenimiento_pendiente (tarea) VALUES ('vacuum-memoria-vieja')`).run();
+    // Erased and owed together, or neither: as two writes, a bot killed in between was left with the column empty and
+    // nothing owed, and never compacted.
+    db.transaction(() => {
+      db.prepare(`UPDATE users SET memoria = '' WHERE memoria != ''`).run();
+      db.prepare(`INSERT OR IGNORE INTO mantenimiento_pendiente (tarea) VALUES ('vacuum-memoria-vieja')`).run();
+    })();
   }
   if (db.prepare(`SELECT 1 FROM mantenimiento_pendiente WHERE tarea = 'vacuum-memoria-vieja'`).get()) {
     const inicio = Date.now();

@@ -4,22 +4,40 @@ import { duracion } from "../lib/tiempo.js";
 
 // The same text to every group, spaced out and at an uneven pace: a burst of identical messages to many chats is what
 // WhatsApp's spam filter looks for, and the number was already blocked once for volume. It used to go every 1.5 s, and
-// to the groups with .banchat too, where the bot is off.
-export const AVISO_TODOS = { ESPERA_MIN_MS: 20 * 1000, ESPERA_MAX_MS: 40 * 1000 };
+// to the groups with .banchat too, where the bot is off. With the connection down it looks again every
+// REVISAR_CONEXION_MS whether it came back.
+export const AVISO_TODOS = { ESPERA_MIN_MS: 20 * 1000, ESPERA_MAX_MS: 40 * 1000, REVISAR_CONEXION_MS: 5 * 1000 };
 // Injectable for the tests.
 export const _dep = { esperar, azar: Math.random };
 
-// The notice going out right now, or null: { total, enviados, fallidos, saliendo, cortadoDesde, control }. Spaced out
-// like this, fifty groups take some 25 minutes: one with a typo couldn't be stopped, and a second one sent meanwhile went
-// out alongside it. In globalThis, so a reload of this file doesn't lose track of it.
+// The notice going out right now, or null: { total, enviados, fallidos (the groups it didn't reach, for now), nombres
+// (each group's name), reintentando, saliendo, cortadoDesde, control }. Spaced out like this, fifty groups take some 25
+// minutes: one with a typo couldn't be stopped, and a second one sent meanwhile went out alongside it. In globalThis, so
+// a reload of this file doesn't lose track of it.
 if (globalThis.avisoATodos === undefined) globalThis.avisoATodos = null;
 
-const comoVa = (aviso) => (aviso.total ? `va por ${aviso.enviados + aviso.fallidos} de ${aviso.total} grupo(s)` : "recién arranca");
+// The groups it didn't reach, by their names: the owner used to hear only how many.
+const nombresDe = (aviso) => aviso.fallidos.map((jid) => aviso.nombres.get(jid) || jid).join(", ");
+function comoVa(aviso) {
+  if (!aviso.total) return "recién arranca";
+  const n = aviso.fallidos.length;
+  const otraVez = aviso.reintentando && n ? `, y vuelve a probar ${n === 1 ? "con el que falló" : `con los ${n} que fallaron`}` : "";
+  return `va por ${aviso.enviados + n} de ${aviso.total} grupo(s)${otraVez}`;
+}
 // How far one that was cut got. A group send already on its way can't be called back.
 function hastaDonde(aviso) {
   if (!aviso.total) return "no salió a ningún grupo";
-  const fallaron = aviso.fallidos > 0 ? ` (${aviso.fallidos} fallaron)` : "";
+  const fallaron = aviso.fallidos.length ? ` (no salió en ${nombresDe(aviso)})` : "";
   return `llegó a ${aviso.enviados} de ${aviso.total} grupo(s)${aviso.saliendo ? ", más el que estaba saliendo" : ""}${fallaron}`;
+}
+
+// Without a connection a send fails: each group whose turn came while main.js reconnected (5 s or more) used to be
+// counted as failed, and lost. It waits for the connection instead, and says whether the notice is still on (false if
+// it was cut meanwhile). Without a signal it just waits: if main.js can't reconnect it ends the process, and
+// start-process.js starts it again, the notice gone with it.
+async function conectado(signal) {
+  while (!globalThis.botConectado && !signal?.aborted) await _dep.esperar(AVISO_TODOS.REVISAR_CONEXION_MS, undefined, { signal }).catch(() => {});
+  return !signal?.aborted;
 }
 
 const plugin = {};
@@ -41,47 +59,69 @@ plugin.run = async (m, { client, text, isOwner }) => {
   if (!text) return client.sendText(m.chat, "Escribí el mensaje después del comando. Ej: .avisartodos Hoy arranca el ranking mensual 🏆", m);
 
   // Taken before the first wait, so a second .avisartodos sent right after this one finds it.
-  const aviso = { total: 0, enviados: 0, fallidos: 0, saliendo: false, cortadoDesde: null, control: new AbortController() };
+  const aviso = { total: 0, enviados: 0, fallidos: [], nombres: new Map(), reintentando: false, saliendo: false, cortadoDesde: null, control: new AbortController() };
   globalThis.avisoATodos = aviso;
+  const { signal } = aviso.control;
   // Through the socket of the moment: after a reconnection, the one that took the command is closed, and everything
   // sent through it fails (main.js makes a new one, globalThis.client).
   const socket = () => globalThis.client || client;
+  const pausa = () => _dep.esperar(AVISO_TODOS.ESPERA_MIN_MS + Math.floor(_dep.azar() * (AVISO_TODOS.ESPERA_MAX_MS - AVISO_TODOS.ESPERA_MIN_MS)), undefined, { signal }).catch(() => {});
+  // One group; whether it got there.
+  const mandar = async (jid) => {
+    aviso.saliendo = true;
+    try {
+      await socket().sendText(jid, text, null);
+      aviso.enviados++;
+      return true;
+    } catch (e) {
+      console.error(`[avisar-todos] falló en ${jid}:`, e.message);
+      return false;
+    } finally {
+      aviso.saliendo = false;
+    }
+  };
   try {
-    const grupos = Object.keys(await client.groupFetchAllParticipating());
-    const jids = grupos.filter((jid) => !getChat(jid)?.isBanned);
+    const grupos = await client.groupFetchAllParticipating();
+    const todos = Object.keys(grupos);
+    const jids = todos.filter((jid) => !getChat(jid)?.isBanned);
+    for (const jid of jids) if (grupos[jid]?.subject) aviso.nombres.set(jid, grupos[jid].subject);
     // Cut while the list came, it doesn't go anywhere.
-    if (!aviso.control.signal.aborted) {
+    if (!signal.aborted) {
       aviso.total = jids.length;
-      const salteados = grupos.length - jids.length;
+      const salteados = todos.length - jids.length;
       const promedio = (AVISO_TODOS.ESPERA_MIN_MS + AVISO_TODOS.ESPERA_MAX_MS) / 2;
-      await socket().sendText(m.chat, `📣 Lo mando a ${jids.length} grupo(s), de a uno y espaciado: tarda unos ${duracion(Math.max(0, jids.length - 1) * promedio)}.${salteados ? ` Salteo ${salteados} con .banchat.` : ""} Para cortarlo: .avisartodos cancelar.`, m);
+      const empieza = `📣 Lo mando a ${jids.length} grupo(s), de a uno y espaciado: tarda unos ${duracion(Math.max(0, jids.length - 1) * promedio)}.${salteados ? ` Salteo ${salteados} con .banchat.` : ""} Para cortarlo: .avisartodos cancelar.`;
+      // If this one doesn't go out (the connection dropped right then), the groups get the notice all the same: it used
+      // to end here, without reaching any of them, and nobody told the owner.
+      if (await conectado(signal)) await socket().sendText(m.chat, empieza, m).catch((e) => console.error("[avisar-todos] no salió el aviso de que arranca:", e.message));
     }
 
     for (const [i, jid] of jids.entries()) {
-      if (i > 0) await _dep.esperar(AVISO_TODOS.ESPERA_MIN_MS + Math.floor(_dep.azar() * (AVISO_TODOS.ESPERA_MAX_MS - AVISO_TODOS.ESPERA_MIN_MS)), undefined, { signal: aviso.control.signal }).catch(() => {});
-      if (aviso.control.signal.aborted) break;
-      aviso.saliendo = true;
-      try {
-        await socket().sendText(jid, text, null);
-        aviso.enviados++;
-      } catch (e) {
-        console.error(`[avisar-todos] falló en ${jid}:`, e.message);
-        aviso.fallidos++;
-      } finally {
-        aviso.saliendo = false;
-      }
+      if (i > 0) await pausa();
+      if (!(await conectado(signal))) break;
+      if (!(await mandar(jid))) aviso.fallidos.push(jid);
+    }
+    // What failed even so (the connection dropped halfway through a send, a group that didn't take it) gets one more go
+    // once the rest went out.
+    aviso.reintentando = true;
+    for (const jid of [...aviso.fallidos]) {
+      if (signal.aborted) break;
+      await pausa();
+      if (!(await conectado(signal))) break;
+      if (await mandar(jid)) aviso.fallidos.splice(aviso.fallidos.indexOf(jid), 1);
     }
   } finally {
     // A cancel already let go of it, and a new notice may have taken it since.
     if (globalThis.avisoATodos === aviso) globalThis.avisoATodos = null;
   }
 
-  if (aviso.control.signal.aborted) {
+  await conectado(); // the owner hears how it went once there's a connection to tell them through
+  if (signal.aborted) {
     // The chat it was cut from already heard how far it got; the one that started it hears it here, if that was another.
     if (aviso.cortadoDesde !== m.chat) await socket().sendText(m.chat, `⏹️ Cortaron el aviso desde otro chat: ${hastaDonde(aviso)}.`, m);
     return;
   }
-  const fallaron = aviso.fallidos > 0 ? ` (${aviso.fallidos} fallaron)` : "";
+  const fallaron = aviso.fallidos.length ? ` No salió en ${aviso.fallidos.length}, ni probando de nuevo: ${nombresDe(aviso)}.` : "";
   await socket().sendText(m.chat, `✅ Mensaje enviado a ${aviso.enviados} grupo(s).${fallaron}`, m);
 };
 

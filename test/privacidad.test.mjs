@@ -1,5 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "fs";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
@@ -335,8 +336,6 @@ test("nombreDe y sinMenciones: alguien sin nombre es 'alguien'", () => {
   assert.equal(M.sinMenciones("hola @59899000001"), "hola 59899000001", "un número que el bot no conoce queda como lo escribió la IA");
 });
 
-// A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen
-// and the initiative read), not the digits of their LID.
 // What someone tells her reaches the AI, and her short-term memory, with its mentions as names: a mention travels as the
 // digits of a LID, which only the admins see (.id), and she repeated them in the group. Her own mention is "@Claudia",
 // and the message of hers they answer comes with names too.
@@ -400,10 +399,20 @@ test("nombreDe: un nombre con @ y dígitos no arroba a nadie, y Claudia es Claud
   F.initDataDB({ chat: FAMILIA, sender: "300000000000095@lid", senderJid: "", pushName: "@300000000000003 y @0" });
   assert.equal(M.nombreDe("300000000000095@lid"), "300000000000003 y 0");
   assert.equal(menciones(M.nombreDe("300000000000095@lid")), 0);
+  // Two in a row too: taking out one left the other, also where the AI's text names someone (sinMenciones).
+  F.initDataDB({ chat: FAMILIA, sender: "300000000000092@lid", senderJid: "", pushName: "@@300000000000003" });
+  assert.equal(M.nombreDe("300000000000092@lid"), "300000000000003");
+  assert.equal(menciones(M.sinMenciones("Gracias @300000000000092")), 0);
+  // And conNombres puts an "@" in front of the name: one made of digits was a mention again (.recordá answers with it).
+  conBeto();
+  assert.equal(M.conNombres("che @300000000000092", ["300000000000092@lid"]), "che 300000000000003");
+  assert.equal(M.conNombres("che @300000000000095 y @300000000000003", []), "che 300000000000003 y 0 y @Beto", "con letras, con su @");
   assert.equal(M.nombreDe(globalThis.client.user.lid), "Claudia");
   assert.equal(M.nombreDe(globalThis.client.user.jid), "Claudia");
 });
 
+// A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen
+// and the initiative read), not the digits of their LID.
 test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   const SIN_NOMBRE = "300000000000097@lid";
   F.initDataDB({ chat: AMIGOS, sender: SIN_NOMBRE, senderJid: "", pushName: null });
@@ -418,4 +427,14 @@ test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   assert.match(prompts.at(-1), /Mensaje de alguien: "claudia, ¿qué onda\?"/);
   assert.doesNotMatch(prompts.at(-1), /300000000000097/);
   assert.deepEqual(globalThis.contextoChat.get(AMIGOS).filter((e) => e.usuario === SIN_NOMBRE).map((e) => e.nombre), ["alguien"]);
+});
+
+// What the AI answers carries what she was going to remember of the person and what a voice note said, and the log
+// (~/claudia.log) keeps whatever goes into it: the chat's line for a broken JSON wrote the answer whole. Gemini and the
+// fallbacks throw a broken one away before it gets there (lib/gemini.js, lib/respaldo-ia.js), so the code is checked.
+test("consistencia: los logs de la charla no llevan lo que contestó la IA", () => {
+  const fuente = fs.readFileSync(new URL("../plugins/_auto-ia.js", import.meta.url), "utf8");
+  const logs = fuente.split("\n").filter((l) => /console\.(log|error|warn)\(/.test(l));
+  assert.ok(logs.some((l) => l.includes("no devolvió JSON válido")));
+  for (const l of logs) assert.doesNotMatch(l, /resultado\.texto|datos\b/, l.trim());
 });
