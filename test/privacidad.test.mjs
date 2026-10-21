@@ -249,6 +249,75 @@ test(".ttp y .ttp2 dibujan el nombre de quien mencionan, no su LID", async () =>
   assert.deepEqual(dibujado, ["@Beto es un capo", "hola @Beto", "@Beto es un capo", "hola @Beto"]);
 });
 
+// A reply as Baileys hands it over (a proto.Message decoded from its bytes), through the bot's own wrapper: pushMessage
+// keeps a copy of the quoted message, and then smsg turns the reply into m, as in handle-message. m.quoted has to bring
+// the mentions the quoted message came with, for .ttp, .ttp2, .tts and .qc to name them.
+test("una cita llega con sus propias menciones: .ttp dibuja el nombre y no la LID", async () => {
+  conBeto();
+  const { proto } = await import("@whiskeysockets/baileys");
+  const WS = await import("../lib/wa-socket.js");
+  const Ttp = await import("../plugins/sticker-ttp.js");
+  WS.serialize();
+  const crearReal = WS._dep.crearSocket;
+  WS._dep.crearSocket = () => ({
+    ...clienteFalso(),
+    user: { id: "59800000001:5@s.whatsapp.net", lid: "200000000000001@lid" },
+    ev: { emit() {}, on() {} },
+    groupFetchAllParticipating: async () => ({}),
+    groupMetadata: async (id) => ({ id, subject: "Familia", participants: [] }),
+  });
+  let client;
+  try {
+    client = WS.makeWASocket({});
+  } finally {
+    WS._dep.crearSocket = crearReal;
+  }
+  const NADIE = "300000000000009@lid"; // mentioned, and never wrote: not in the database
+  let n = 0;
+  // ".ttp" replying to Beto's message, which mentions someone; the reply mentions nobody.
+  const responde = async (citado) => {
+    const msg = {
+      key: { remoteJid: FAMILIA, fromMe: false, id: `RESPUESTA${++n}`, participant: ANA },
+      message: proto.Message.decode(proto.Message.encode({ extendedTextMessage: { text: ".ttp", contextInfo: { stanzaId: `CITADO${n}`, participant: BETO, quotedMessage: citado } } }).finish()),
+    };
+    const guardando = client.pushMessage(msg); // not awaited before smsg, as in handle-message
+    const m = WS.smsg(client, msg);
+    await guardando;
+    return m;
+  };
+  const conMencion = (text, mencionado) => ({ extendedTextMessage: { text, contextInfo: { mentionedJid: [mencionado] } } });
+
+  const m = await responde(conMencion("hola @300000000000009", NADIE));
+  assert.deepEqual(m.quoted.contextInfo?.mentionedJid, [NADIE], "m.quoted, con la mención del citado");
+  const guardado = client.chats[BETO].messages.CITADO1.message.extendedTextMessage;
+  assert.deepEqual([guardado.text, guardado.contextInfo.mentionedJid], ["hola @300000000000009", [NADIE]], "y la copia guardada, también la suya");
+
+  const antes = Ttp._dep.stickerDeTexto;
+  const dibujado = [];
+  Ttp._dep.stickerDeTexto = async (texto) => {
+    dibujado.push(texto);
+    throw new Error("basta");
+  };
+  try {
+    await Ttp.default.run(m, { client: clienteFalso(), text: "" }).catch(() => {});
+    // In a group that lists people by number, the mention comes with the number, and Beto is known by it.
+    await Ttp.default.run(await responde(conMencion("hola @59899000003", "59899000003@s.whatsapp.net")), { client: clienteFalso(), text: "" }).catch(() => {});
+  } finally {
+    Ttp._dep.stickerDeTexto = antes;
+  }
+  assert.deepEqual(dibujado, ["hola @alguien", "hola @Beto"]);
+  const texto = await responde({ conversation: "un texto sin menciones" });
+  assert.equal(texto.quoted.text, "un texto sin menciones", "un texto simple citado se sigue leyendo");
+});
+
+// sinMenciones gets what the AI writes and what people type (an alert, a post for sale): a phone number stays as the
+// digits, without saying whose it is, as conNombres does. Ana is known by hers.
+test("sinMenciones no dice de quién es un número de teléfono", async () => {
+  assert.equal(M.sinMenciones("hola @59899555555"), "hola 59899555555");
+  const CV = await import("../lib/compraventa.js");
+  assert.deepEqual(CV.gestionarAlerta(FAMILIA, "300000000000066@lid", ["quitar", "@59899555555"]), { ok: false, error: 'No tenías una alerta "59899555555".' });
+});
+
 // Someone the bot has no name for: the rankings and lists (nombreDe) and what the AI writes (sinMenciones) say
 // "alguien", not the digits of their LID.
 test("nombreDe y sinMenciones: alguien sin nombre es 'alguien'", () => {

@@ -55,35 +55,39 @@ export function hooksEnOrden(plugins) {
 
 // Watch plugins for changes
 export function watchPlugins() {
-  watch("./plugins/", { recursive: true }, async (eventType, filename) => {
+  watch("./plugins/", { recursive: true }, (eventType, filename) => {
     if (!filename || !filename.endsWith(".js")) return;
-
-    const pluginName = filename.replace(".js", "");
-    const pluginPath = `./plugins/${filename}`;
-
-    if (!existsSync(pluginPath)) {
-      delete globalThis.plugins[pluginName];
-      console.log(`🗑️ Plugin eliminado: ${filename}`);
-      return;
-    }
-
-    try {
-      const isNewPlugin = !(pluginName in globalThis.plugins);
-
-      delete globalThis.plugins[pluginName];
-
-      const module = await import(`${pluginPath}?update=${Date.now()}`);
-      const plugin = module.default || module;
-
-      globalThis.plugins[pluginName] = plugin;
-
-      if (eventType === "rename" && isNewPlugin) {
-        console.log(`✅ Plugin añadido: ${filename}`);
-      } else if (!isNewPlugin) {
-        console.log(`♻️ Plugin actualizado: ${filename}`);
-      }
-    } catch (error) {
-      console.error(`❌ Error al recargar el plugin ${filename}:`, error);
-    }
+    recargarPlugin(filename, eventType);
   });
+}
+
+// One plugin again, after its file changed. The version that works stays until the new one loads, so a file saved
+// halfway, or with a typo, doesn't leave the command missing. Each reload imports a URL of its own: one already loaded
+// comes back from the cache as it was then, and a save can bring two events in the same millisecond.
+let recargas = 0;
+export async function recargarPlugin(filename, eventType, carpeta = "./plugins/") {
+  const pluginName = filename.replace(".js", "");
+  const pluginPath = `${carpeta}${filename}`;
+
+  if (!existsSync(pluginPath)) {
+    delete globalThis.plugins[pluginName];
+    console.log(`🗑️ Plugin eliminado: ${filename}`);
+    return;
+  }
+
+  const isNewPlugin = !(pluginName in globalThis.plugins);
+  try {
+    const module = await import(`${pluginPath}?update=${Date.now()}-${++recargas}`);
+    // A file caught empty while it's being written loads without errors, and without a plugin.
+    if (!module.default) throw new Error("el archivo no exporta ningún plugin (¿se estaba guardando?)");
+    globalThis.plugins[pluginName] = module.default;
+
+    if (eventType === "rename" && isNewPlugin) {
+      console.log(`✅ Plugin añadido: ${filename}`);
+    } else if (!isNewPlugin) {
+      console.log(`♻️ Plugin actualizado: ${filename}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error al recargar el plugin ${filename}${isNewPlugin ? "" : " (sigue andando la versión anterior)"}:`, error);
+  }
 }

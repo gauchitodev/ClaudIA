@@ -380,15 +380,18 @@ test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async
   const esperas = [];
   const esperarReal = _dep.esperar;
   const azarReal = _dep.azar;
+  const clientReal = globalThis.client;
   _dep.esperar = async (ms) => esperas.push(ms);
   _dep.azar = () => 0.5;
   const enviados = [];
   try {
     const client = { groupFetchAllParticipating: async () => ({ "uno@g.us": {}, "baneado@g.us": {}, "dos@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
+    globalThis.client = client; // what it sends goes through the socket of the moment
     await P.run({ chat: "59899111222@s.whatsapp.net" }, { client, text: "Hoy arranca el ranking 🏆", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
     _dep.azar = azarReal;
+    globalThis.client = clientReal;
   }
   assert.match(enviados[0][1], /^📣 Lo mando a 2 grupo\(s\), de a uno y espaciado: tarda unos 30 s\. Salteo 1 con \.banchat\. Para cortarlo: \.avisartodos cancelar\.$/);
   assert.deepEqual(enviados.slice(1, 3), [["uno@g.us", "Hoy arranca el ranking 🏆"], ["dos@g.us", "Hoy arranca el ranking 🏆"]]);
@@ -402,6 +405,7 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
+  const clientReal = globalThis.client;
   // Each wait between groups lasts until the notice is cut.
   let esperando = 0;
   _dep.esperar = (ms, valor, { signal } = {}) =>
@@ -411,6 +415,7 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
     });
   const enviados = [];
   const client = { groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
+  globalThis.client = client;
   const correr = (text) => P.run({ chat: DUENO }, { client, text, isOwner: true });
   const alDueno = () => enviados.filter(([chat]) => chat === DUENO).map(([, t]) => t);
   const aLosGrupos = () => enviados.filter(([chat]) => chat !== DUENO);
@@ -438,5 +443,133 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
     assert.equal(alDueno().at(-1), "✅ Mensaje enviado a 3 grupo(s).", "cortado el anterior, sale uno nuevo");
   } finally {
     _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
+  }
+});
+
+const vuelta = () => new Promise((r) => setImmediate(r));
+async function hasta(condicion) {
+  for (let i = 0; i < 200 && !condicion(); i++) await vuelta();
+  assert.ok(condicion(), "no llegó a pasar");
+}
+// A wait between groups that lasts until the notice is cut; like the real one, cut already, it doesn't even start.
+const esperaHastaCortar = (ms, valor, { signal } = {}) =>
+  new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new Error("cortado"));
+    signal?.addEventListener("abort", () => reject(new Error("cortado")), { once: true });
+  });
+
+// The cancel answers right away, even while a group send is on its way, which can't be called back; and the corrected
+// notice can go out right after, without waiting for that send to finish.
+test(".avisartodos: cancelar contesta en el momento, aunque un envío esté saliendo, y deja mandar el corregido", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const clientReal = globalThis.client;
+  const enviados = [];
+  let soltar = null;
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }),
+    sendText: (chat, t) => {
+      enviados.push([chat, t]);
+      // The second group's send takes its time: its queue is busy, or it's a big group.
+      return chat === "b@g.us" && t === "Con un error" ? new Promise((r) => (soltar = r)) : Promise.resolve();
+    },
+  };
+  globalThis.client = client;
+  const correr = (text) => P.run({ chat: DUENO }, { client, text, isOwner: true });
+  const alDueno = () => enviados.filter(([chat]) => chat === DUENO).map(([, t]) => t);
+  const grupos = (texto) => enviados.filter(([, t]) => t === texto).map(([chat]) => chat);
+  try {
+    _dep.esperar = async () => {};
+    const conError = correr("Con un error");
+    await hasta(() => soltar);
+    await correr("cancelar");
+    assert.equal(alDueno().at(-1), "⏹️ Corté el aviso: llegó a 1 de 3 grupo(s), más el que estaba saliendo.");
+
+    // The corrected one's waits last until it's cut.
+    _dep.esperar = esperaHastaCortar;
+    const corregido = correr("El corregido");
+    await hasta(() => grupos("El corregido").length === 1);
+    soltar();
+    await conError;
+    assert.deepEqual(grupos("Con un error"), ["a@g.us", "b@g.us"], "el cortado no sigue");
+    assert.ok(globalThis.avisoATodos, "y al terminar no le saca el lugar al corregido");
+    await correr("cancelar");
+    await corregido;
+    assert.deepEqual(alDueno().filter((t) => t.startsWith("⏹️")), ["⏹️ Corté el aviso: llegó a 1 de 3 grupo(s), más el que estaba saliendo.", "⏹️ Corté el aviso: llegó a 1 de 3 grupo(s)."], "una respuesta por cada corte");
+  } finally {
+    _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
+  }
+});
+
+// After a reconnection the socket that took the command is closed, and whatever goes through it fails: the rest goes
+// through the new one (globalThis.client, which main.js replaces).
+test(".avisartodos: si el bot se reconecta a mitad del aviso, sigue por la conexión nueva", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const clientReal = globalThis.client;
+  const enviados = [];
+  const socket = (nombre) => {
+    const s = { abierto: true, groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }) };
+    s.sendText = async (chat, t) => {
+      if (!s.abierto) throw new Error("Connection Closed");
+      enviados.push(`${nombre} → ${chat}: ${t}`);
+      // Right after the first group, the connection drops and main.js makes a new socket.
+      if (chat === "a@g.us") {
+        s.abierto = false;
+        globalThis.client = nuevo;
+      }
+    };
+    return s;
+  };
+  const viejo = socket("viejo");
+  const nuevo = socket("nuevo");
+  globalThis.client = viejo;
+  _dep.esperar = async () => {};
+  try {
+    await P.run({ chat: DUENO }, { client: viejo, text: "Mañana no hay ranking", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
+  }
+  assert.deepEqual(enviados.slice(1), ["viejo → a@g.us: Mañana no hay ranking", "nuevo → b@g.us: Mañana no hay ranking", "nuevo → c@g.us: Mañana no hay ranking", `nuevo → ${DUENO}: ✅ Mensaje enviado a 3 grupo(s).`]);
+});
+
+// With two owners, the one who cuts it hears it from the cancel, and the one who started it, at the end. And cut while
+// the list of groups was coming, it doesn't go to any.
+test(".avisartodos: cortado desde otro chat, les avisa a los dos; cortado antes de arrancar, no sale", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const [A, B] = ["59899111222@s.whatsapp.net", "59899333444@s.whatsapp.net"];
+  const esperarReal = _dep.esperar;
+  const clientReal = globalThis.client;
+  const enviados = [];
+  let lista = async () => ({ "a@g.us": {}, "b@g.us": {} });
+  const client = { groupFetchAllParticipating: () => lista(), sendText: async (chat, t) => enviados.push([chat, t]) };
+  globalThis.client = client;
+  const a = (chat) => enviados.filter(([c]) => c === chat).map(([, t]) => t);
+  _dep.esperar = esperaHastaCortar;
+  try {
+    const deA = P.run({ chat: A }, { client, text: "Hola", isOwner: true });
+    await hasta(() => a("a@g.us").length === 1);
+    await P.run({ chat: B }, { client, text: "cancelar", isOwner: true });
+    assert.deepEqual(a(B), ["⏹️ Corté el aviso: llegó a 1 de 2 grupo(s)."]);
+    await deA;
+    assert.equal(a(A).at(-1), "⏹️ Cortaron el aviso desde otro chat: llegó a 1 de 2 grupo(s).");
+
+    enviados.length = 0;
+    let soltarLista;
+    lista = () => new Promise((r) => (soltarLista = () => r({ "a@g.us": {}, "b@g.us": {} })));
+    const otro = P.run({ chat: A }, { client, text: "Hola de nuevo", isOwner: true });
+    await hasta(() => soltarLista);
+    await P.run({ chat: A }, { client, text: "cancelar", isOwner: true });
+    soltarLista();
+    await otro;
+    assert.deepEqual(enviados, [[A, "⏹️ Corté el aviso: no salió a ningún grupo."]], "ni el 📣 de que arranca");
+  } finally {
+    _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
   }
 });

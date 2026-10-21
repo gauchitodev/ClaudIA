@@ -1,7 +1,8 @@
 import { test, before, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
-import { prepararBase, ultimoEnviado } from "./helpers.mjs";
+import path from "path";
+import { prepararBase, ultimoEnviado, esperar } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
 // The battery of the phone or tablet the bot runs on (lib/bateria.js), for .bat and .estado. termux-battery-status and
@@ -53,6 +54,102 @@ test("batería: sin Termux:API prueba los archivos del sistema, y si no puede le
   assert.equal(await B.leerBateria(), null, "un archivo vacío no es 0 %");
   simular();
   assert.equal(await B.leerBateria(), null);
+});
+
+// The real thing, with scripts standing in for Termux's in a folder put first in the PATH.
+function comandoFalso(nombre, contenido) {
+  const carpeta = path.resolve("bin-falso");
+  fs.mkdirSync(carpeta, { recursive: true });
+  fs.writeFileSync(path.join(carpeta, nombre), `#!/bin/sh\n${contenido}\n`, { mode: 0o755 });
+  return carpeta;
+}
+async function conPath(carpeta, hacer) {
+  const real = process.env.PATH;
+  process.env.PATH = `${carpeta}${path.delimiter}${real}`;
+  try {
+    return await hacer();
+  } finally {
+    process.env.PATH = real;
+  }
+}
+// Gone, or a zombie on its way out (dead, waiting for whoever adopted it to collect it).
+function vivo(pid) {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  try {
+    return fs.readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1]?.[0] !== "Z";
+  } catch {
+    return true;
+  }
+}
+
+test("batería: corre termux-battery-status y lee lo que contesta; sin el comando, falla enseguida", async () => {
+  const carpeta = comandoFalso("termux-battery-status", `echo '{"percentage": 77, "status": "FULL"}'`);
+  const { stdout } = await conPath(carpeta, () => reales.ejecutar("termux-battery-status", [], { timeout: 5000 }));
+  assert.equal(stdout, '{"percentage": 77, "status": "FULL"}\n');
+  await assert.rejects(reales.ejecutar("claudia-comando-que-no-existe", [], { timeout: 5000 }), { code: "ENOENT" });
+});
+
+// termux-battery-status runs Termux's API helper as its child, and the helper waits for the Termux:API app: without it,
+// forever. Here the helper writes down its pid and waits; when the time is up, it can't be left behind.
+test("batería: si Termux:API no contesta, no deja procesos colgados", async () => {
+  const pid = path.resolve("pid-del-ayudante");
+  comandoFalso("ayudante", `echo $$ > "${pid}"\nexec sleep 1000`);
+  // Like termux-api-package's script: the helper runs as a plain child, not with exec.
+  const carpeta = comandoFalso("termux-battery-status", `"$(dirname "$0")/ayudante" BatteryStatus`);
+  const t0 = Date.now();
+  await assert.rejects(conPath(carpeta, () => reales.ejecutar("termux-battery-status", [], { timeout: 1500 })));
+  assert.ok(Date.now() - t0 < 5000, "se da por vencido a tiempo");
+  const ayudante = Number(fs.readFileSync(pid, "utf8"));
+  for (let i = 0; i < 40 && vivo(ayudante); i++) await esperar(50);
+  const quedo = vivo(ayudante);
+  if (quedo) process.kill(ayudante, "SIGKILL");
+  assert.equal(quedo, false, "el ayudante quedó colgado");
+});
+
+// The check every 5 minutes: after Termux:API didn't answer, it leaves it alone for a while instead of starting one more
+// helper waiting for nothing each time. .bat and .estado still try it, and an answer ends the pause.
+test("batería: tras un timeout de Termux:API, el chequeo lo deja tranquilo un rato", async () => {
+  let llamadas = 0;
+  let contesta = false;
+  let ahora = 1_000_000_000;
+  B._dep.ahora = () => ahora;
+  B._dep.ejecutar = async () => {
+    llamadas++;
+    if (!contesta) throw Object.assign(new Error("termux-battery-status no contestó en 8 s"), { code: "ETIMEDOUT" });
+    return { stdout: JSON.stringify({ percentage: 50, status: "DISCHARGING" }) };
+  };
+  B._dep.leer = async (ruta) => {
+    throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
+  };
+  globalThis.bateriaBajaAvisada.clear();
+  assert.equal(await B.chequearBateriaBaja(), null);
+  assert.equal(llamadas, 1);
+  ahora += 5 * 60 * 1000;
+  assert.equal(await B.chequearBateriaBaja(), null);
+  assert.equal(llamadas, 1, "en la pausa, el chequeo no lo llama");
+  assert.equal(await B.leerBateria(), null);
+  assert.equal(llamadas, 2, ".bat y .estado lo prueban igual");
+  ahora += B.TERMUX_API.PAUSA_MS;
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 3, "pasada la pausa, vuelve a probar");
+
+  contesta = true;
+  assert.deepEqual(await B.leerBateria(), { porcentaje: 50, estado: "DISCHARGING", temperatura: undefined });
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 5, "si contestó, el chequeo lo llama de nuevo");
+
+  // Not installed fails right away, with nothing left waiting: no pause for that.
+  B._dep.ejecutar = async () => {
+    llamadas++;
+    throw Object.assign(new Error("spawn termux-battery-status ENOENT"), { code: "ENOENT" });
+  };
+  await B.chequearBateriaBaja();
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 7);
 });
 
 test("batería: los estados en castellano, vengan de Termux:API o de los archivos", () => {

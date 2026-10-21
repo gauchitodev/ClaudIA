@@ -145,3 +145,40 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.equal(await pide(DANI), globalThis.txt.onlyAdmin, "un moderador, no");
   assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
 });
+
+// An admin asks .id about the people in that group; only the owner, about anyone the bot knows. In a group of their own
+// with the bot, an admin got the number behind a LID from any other group, or whose a number was.
+test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async () => {
+  const PROPIO = "120363000000000003@g.us"; // a group Eva made and added the bot to
+  const SIN_LISTA = "120363000000000004@g.us"; // one whose member list didn't come
+  const [EVA, FEDE, DUENO] = ["300000000000007@lid", "300000000000008@lid", "300000000000006@lid"];
+  F.initDataDB({ chat: "120363000000000005@g.us", sender: FEDE, senderJid: "59899000008@s.whatsapp.net", pushName: "Fede" }); // in another group only
+  globalThis.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
+  const client = cliente();
+  client.groupMetadata = async (id) => {
+    if (id === SIN_LISTA) throw new Error("rate-overlimit");
+    return { id, subject: "Propio", participants: [{ id: EVA, admin: "superadmin" }, { id: ANA, admin: null }, { id: DUENO, admin: null }, { id: BOT, admin: "admin" }] };
+  };
+  F.setRolGrupo(SIN_LISTA, EVA, "admin");
+  const pide = async (sender, texto, { chat = PROPIO, alt = null } = {}) => {
+    globalThis.enviados = [];
+    const key = { remoteJid: chat, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: sender, ...(alt && { participantAlt: alt }) };
+    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: sender === EVA ? "Eva" : "Dueño", _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text).join("\n");
+  };
+  const NO = "🆔 Solo puedo mostrarte el id de alguien de este grupo.";
+  assert.equal(await pide(EVA, ".id @300000000000008"), NO, "la LID de alguien de otro grupo");
+  assert.equal(await pide(EVA, ".id +598 99 000 008"), NO, "ni de quién es un número");
+  assert.equal(await pide(EVA, ".id +598 99 000 077"), NO, "y lo mismo con un número que el bot no conoce: no dice cuál conoce");
+  assert.match(await pide(EVA, ".id @300000000000002"), /Nombre actual: Ana[\s\S]*Lid: 300000000000002@lid/, "alguien de su grupo, sí");
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await pide(EVA, ".id @300000000000002", { chat: SIN_LISTA }), "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.", "sin la lista del grupo, no adivina");
+  } finally {
+    console.error = errorReal;
+  }
+  const delDueno = { alt: "59899111222@s.whatsapp.net" };
+  assert.match(await pide(DUENO, ".id @300000000000008", delDueno), /Usuario: \+59899000008[\s\S]*Nombre actual: Fede/, "el owner, de cualquiera");
+  assert.match(await pide(DUENO, ".id +598 99 000 008", delDueno), /Nombre actual: Fede[\s\S]*Lid: 300000000000008@lid/);
+});
