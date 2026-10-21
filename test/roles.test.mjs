@@ -131,6 +131,30 @@ test("roles: el rango ordena dueño > admin de WhatsApp > admin del bot > modera
   assert.match(R.impedimentoParaModerar(G, { lid: "100@lid", esAdminWhatsApp: true }, { lid: "444@lid", esAdminWhatsApp: true }), /\.demote/);
 });
 
+// A role is given to the id a mention resolves to: the LID nowadays, the number for someone the bot didn't know yet. And
+// a message from a group that lists people by number may bring only the number: either identity has to find it.
+test("roles: un rol se encuentra por cualquiera de las dos identidades", () => {
+  F.initDataDB(persona(601));
+  F.setRolGrupo(G, "601@lid", "mod", "100@lid");
+  assert.equal(F.rolGrupo(G, "601@s.whatsapp.net"), "mod", "dado a la LID, se encuentra con el número");
+  assert.deepEqual(R.permisosDe(G, "601@s.whatsapp.net"), { rol: "mod", isAdmin: false, isMod: true });
+  F.setRolGrupo(G, "602@s.whatsapp.net", "admin", "100@lid");
+  F.initDataDB(persona(602));
+  assert.equal(F.rolGrupo(G, "602@lid"), "admin", "dado al número, se encuentra con la LID");
+  assert.equal(R.rango(G, { lid: "602@lid" }), 2);
+  assert.equal(F.rolGrupo(G, "603@s.whatsapp.net"), null, "y alguien sin rol sigue sin rol");
+});
+
+// The same group, listed by number: a WhatsApp admin is named by their number there, with the LID apart.
+test("roles: en un grupo que lista por número, a un admin de WhatsApp no se le da rol", async () => {
+  const porNumero = participants.map((p) => ({ ...p, id: `${p.id.split("@")[0]}@s.whatsapp.net`, lid: p.id }));
+  F.setRolGrupo(G, "333@lid", "admin", "100@lid"); // a bot admin
+  const { isAdmin } = R.permisosDe(G, "333@lid", {});
+  await P.run({ chat: G, sender: "333@lid", isGroup: true, mentionedJid: ["100@lid"] }, { client: globalThis.client, command: "moderador", args: ["@100"], text: "@100", participants: porNumero, isOwner: false, isWaAdmin: false, isAdmin });
+  assert.match(ultimo(), /@100 ya es admin de WhatsApp: tiene todo sin necesidad de rol/);
+  assert.equal(F.rolGrupo(G, "100@lid"), null);
+});
+
 test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
   const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
   F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number

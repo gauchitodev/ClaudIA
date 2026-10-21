@@ -106,6 +106,24 @@ test("si el ✅ no sale, el tema ya se mandó: no baja otro ni paga dos veces", 
 
 // The searches used to print four lines per result, read by position: a title with a line break moved the fields up,
 // and whatever landed in the thumbnail's place went to sendFile, which reads any local file that exists.
+// The joke when a song has to wait: it's "in the queue" of someone in the group, never the bot nor whoever asked. A group
+// that lists people by number names both by it, with the LID apart, and the joke used to pick either of them there.
+test("la cola de .play no se la cuelga al bot ni a quien pidió, aunque el grupo los liste por número", async () => {
+  const { encolarDescarga } = await import("../lib/cola-descargas.js");
+  let soltar;
+  encolarDescarga(() => new Promise((resolve) => (soltar = resolve)));
+  const bot = globalThis.client.user;
+  const participants = [
+    { id: bot.jid, lid: bot.lid, admin: "admin" },
+    { id: "59899000071@s.whatsapp.net", lid: YO, admin: null },
+  ];
+  const m = { chat: G, sender: YO, senderJid: "59899000071@s.whatsapp.net", isGroup: true, react: () => {} };
+  await D.default.run(m, { client: globalThis.client, args: ["tema"], text: "tema", isOwner: false, command: "play", user: { lastmining: 0, commandAttempts: 0 }, groupMetadata: { participants } });
+  assert.match(ultimoEnviado().msg.text, /^⏳ Tu descarga está en la cola\. Hay 1 antes que la tuya/);
+  soltar();
+  await terminarCola();
+});
+
 test("búsquedas: un resultado por línea JSON, y el link y la miniatura solo valen si son https", () => {
   const salida = [
     "WARNING: [soundcloud] algo",

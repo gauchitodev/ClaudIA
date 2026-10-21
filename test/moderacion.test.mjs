@@ -176,6 +176,16 @@ test("destinatario: resuelve las dos identidades venga como venga", async () => 
   assert.equal(destinatario(men(""), "", participants).mencionado, null);
 });
 
+// A group that lists people by number names them by it and brings the LID apart: someone pointed at by their LID is
+// found there too, even when the bot doesn't know their number, which the group gives.
+test("destinatario: en un grupo que lista por número, encuentra a la persona por su LID", async () => {
+  const { destinatario } = await import("../lib/identidad.js");
+  const porNumero = [{ id: "59899333333@s.whatsapp.net", lid: "333@lid", admin: "admin" }];
+  const r = destinatario({ chat: G, sender: "100@lid", text: "@333", mentionedJid: ["333@lid"], quoted: null }, "@333", porNumero);
+  assert.deepEqual([r.participante?.id, r.lid, r.jid], ["59899333333@s.whatsapp.net", "333@lid", "59899333333@s.whatsapp.net"]);
+  assert.equal(r.participante.admin, "admin", "con lo que el grupo dice de ella");
+});
+
 test(".p y .d miran lo que contesta WhatsApp", async () => {
   const Promote = (await import("../plugins/grupo-promote.js")).default;
   const Demote = (await import("../plugins/grupo-demote.js")).default;
@@ -379,6 +389,24 @@ test("jerarquía: la ruleta del ban no se lleva a nadie que quien la gira no pod
   F.setRolGrupo(J, "888@lid", "admin", "100@lid");
   // Besides the admins, only two bot admins: the one spinning it and another one. Neither is fair game.
   const grupo = [{ id: "100@lid", admin: "superadmin" }, { id: "555@lid", admin: null }, { id: "888@lid", admin: null }, { id: "999@lid", admin: "admin" }];
+  vigilar();
+  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
+  assert.match(ultimo(), /No se encontraron candidatos/);
+  assert.deepEqual(expulsiones, []);
+});
+
+// A group that lists people by number names them by it, LID apart, and may still list the bot as not admin (metadata
+// from before it was promoted). The bot, or a bot admin listed that way, used to be fair game.
+test("ruleta del ban: en un grupo que lista por número, no se lleva al bot ni a un admin del bot", async () => {
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  prepararJerarquia();
+  const grupo = [
+    { id: "100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" },
+    { id: "555@s.whatsapp.net", lid: "555@lid", admin: null }, // bot admin, who spins it
+    { id: "888@s.whatsapp.net", lid: "888@lid", admin: null }, // another bot admin
+    { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: null }, // the bot
+  ];
+  F.setRolGrupo(J, "888@lid", "admin", "100@lid");
   vigilar();
   await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
   assert.match(ultimo(), /No se encontraron candidatos/);

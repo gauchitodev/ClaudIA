@@ -197,6 +197,65 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
 });
 
+// A group that lists people by number (addressingMode "pn"): Baileys lists its participants by number (id), with the LID
+// apart (lid), and a message brings the number in key.participant and, when the server sends it, the LID in
+// participantAlt. Looking at the id alone, the bot didn't see itself as admin there (commands that need it refused, and
+// the anti-link didn't act), nor a WhatsApp admin whose message brought their LID; and a bot moderator whose message
+// brought only the number lost the role.
+test("en un grupo que lista a la gente por número, el bot se ve admin y reconoce a los admins y a los roles", async () => {
+  const PN = "120363000000000006@g.us";
+  const gente = {
+    admin: { jid: "59899000061@s.whatsapp.net", lid: "300000000000061@lid", nombre: "Admin" },
+    mod: { jid: "59899000062@s.whatsapp.net", lid: "300000000000062@lid", nombre: "Mod" },
+    miembro: { jid: "59899000063@s.whatsapp.net", lid: "300000000000063@lid", nombre: "Miembro" },
+  };
+  for (const p of Object.values(gente)) F.initDataDB({ chat: PN, sender: p.lid, senderJid: p.jid, pushName: p.nombre });
+  F.setRolGrupo(PN, gente.mod.lid, "mod");
+  const corrieron = [];
+  globalThis.plugins = {
+    "owner-get-user-data.js": carpeta["owner-get-user-data.js"],
+    "_all-anti-links.js": carpeta["_all-anti-links.js"],
+    "espia-bot-admin.js": { cmd: ["necesitoadmin"], botAdmin: true, run: async () => corrieron.push(".necesitoadmin") },
+    "espia-mod.js": { cmd: ["solomods"], onlyMod: true, run: async () => corrieron.push(".solomods") },
+  };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({
+    id,
+    subject: "Por número",
+    addressingMode: "pn",
+    participants: [
+      { id: gente.admin.jid, lid: gente.admin.lid, admin: "superadmin" },
+      { id: gente.mod.jid, lid: gente.mod.lid, admin: null },
+      { id: gente.miembro.jid, lid: gente.miembro.lid, admin: null },
+      { id: client.user.jid, lid: BOT, admin: "admin" },
+    ],
+  });
+  const manda = async (quien, texto, { conLid = true } = {}) => {
+    globalThis.enviados = [];
+    corrieron.length = 0;
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    const key = { remoteJid: PN, fromMe: false, id, participant: quien.jid, ...(conLid && { participantAlt: quien.lid }), addressingMode: "pn" };
+    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien.nombre, _upsertType: "notify", _llegada: Date.now() });
+    return { id, corrieron: [...corrieron], textos: globalThis.enviados.map((e) => e.msg?.text).filter(Boolean), borrados: globalThis.enviados.filter((e) => e.msg?.delete).map((e) => e.msg.delete.id) };
+  };
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.match((await manda(gente.admin, ".id @59899000063")).textos.join("\n"), /Usuario: \+59899000063[\s\S]*Lid: 300000000000063@lid/, "el admin de WhatsApp, con su LID en el mensaje");
+    assert.deepEqual((await manda(gente.miembro, ".necesitoadmin")).corrieron, [".necesitoadmin"], "Claudia se ve admin");
+    F.updateChat(PN, { allAntiLinks: 1 });
+    const link = await manda(gente.miembro, "miren https://sitio-prohibido.com");
+    assert.deepEqual(link.borrados, [link.id], "y el anti-link actúa");
+    F.updateChat(PN, { allAntiLinks: 0 });
+    assert.deepEqual((await manda(gente.mod, ".solomods", { conLid: false })).corrieron, [".solomods"], "el moderador, con un mensaje que trae solo el número");
+    assert.deepEqual((await manda(gente.mod, ".solomods")).corrieron, [".solomods"], "y con uno que trae la LID");
+    assert.deepEqual((await manda(gente.miembro, ".solomods")).textos, [globalThis.txt.onlyMod], "alguien sin rol, no");
+  } finally {
+    console.error = errorReal;
+    F.updateChat(PN, { allAntiLinks: 0 });
+  }
+});
+
 // An admin asks .id about the people in that group; only the owner, about anyone the bot knows. In a group of their own
 // with the bot, an admin got the number behind a LID from any other group, or whose a number was.
 test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async () => {

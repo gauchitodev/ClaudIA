@@ -1594,9 +1594,14 @@ export function quitarRolGrupo(chat, usuario) {
   return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes > 0;
 }
 
-// "admin", "mod" o null
+// "admin", "mod" o null. A role is given to the id a mention resolves to, the LID nowadays (the number, for someone the
+// bot didn't know then), and a message from a group that lists people by number may bring only the number: either
+// identity finds it.
 export function rolGrupo(chat, usuario) {
-  return db.prepare(`SELECT rol FROM roles_grupo WHERE chat = ? AND usuario = ?`).get(chat, usuario)?.rol || null;
+  if (!usuario) return null;
+  const fila = db.prepare(`SELECT lid, jid FROM users WHERE ${usuario.endsWith("@lid") ? "lid" : "jid"} = ?`).get(usuario);
+  const ids = [...new Set([usuario, fila?.lid, fila?.jid].filter(Boolean))];
+  return db.prepare(`SELECT rol FROM roles_grupo WHERE chat = ? AND usuario IN (${ids.map(() => "?").join(", ")}) ORDER BY rol = 'admin' DESC`).get(chat, ...ids)?.rol || null;
 }
 
 export function rolesGrupo(chat) {

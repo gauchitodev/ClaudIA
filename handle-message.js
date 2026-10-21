@@ -7,6 +7,7 @@ import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
+import { buscarEnGrupo } from "./lib/identidad.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -50,8 +51,10 @@ export async function handleMessage(nMsg) {
     // Current permissions
     const groupMetadata = (m.isGroup ? await metadataDe(this, m.chat) : {}) || {};
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
-    const userSender = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === m.sender) : {}) || {};
-    const bot = (m.isGroup ? participants.find((u) => client.decodeJid(u.id) === client.user.lid) : {}) || {};
+    // Whoever wrote, and the bot, by either identity (lib/identidad.js): a group that lists people by number names them
+    // by it, and the message may bring their LID.
+    const userSender = (m.isGroup ? buscarEnGrupo(participants, { lid: m.sender, jid: m.senderJid || user?.jid }) : {}) || {};
+    const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: client.user.lid, jid: client.user.jid }) : {}) || {};
     // esOwner takes @lid or @s.whatsapp.net (it resolves the owner's lid through the database), so the owner is
     // recognized even when the message only carries their LID.
     const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
@@ -190,7 +193,7 @@ export async function handleMessage(nMsg) {
         // The stored metadata may be stale. Before rejecting, ask WhatsApp; the cache keeps the answer, so the
         // next command doesn't ask again.
         const metadataFresca = await metadataDe(this, m.chat, { fresca: true });
-        const botFresco = metadataFresca?.participants?.find((u) => client.decodeJid(u.id) === client.user.lid);
+        const botFresco = buscarEnGrupo(metadataFresca?.participants, { lid: client.user.lid, jid: client.user.jid });
         if (!botFresco?.admin) {
           rechazar(() => client.sendText(m.chat, txt.botAdmin, m));
           continue;
