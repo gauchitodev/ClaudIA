@@ -4,7 +4,7 @@ import { rmSync, mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
-import { loadDatabase } from "./database-functions.js";
+import { loadDatabase, registrarIngresoGrupo } from "./database-functions.js";
 import { contarReaccion } from "./lib/reacciones.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
@@ -165,8 +165,10 @@ async function startBot() {
         limpiarRolesAlSalir(id, participants);
         limpiarVentasAlSalir(id, participants);
       }
-      // Whoever comes in: when, so .resumen only tells them what was said from then on.
+      // Whoever comes in: when, so .resumen only tells them what was said from then on. And in the database, so
+      // .inactivos gives them time even after a restart.
       if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p));
+      if (action === "add") for (const p of participants || []) registrarIngresoGrupo(id, idsDeParticipante(p));
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
       // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches

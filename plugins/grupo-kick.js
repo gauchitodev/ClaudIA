@@ -1,6 +1,7 @@
 import { esOwner } from "../database-functions.js";
 import { destinatario, expulsar } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import { sacarInactivos } from "../lib/inactivos.js";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const plugin = {};
@@ -9,8 +10,15 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command, isOwner, isWaAdmin }) => {
+plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, command, isOwner, isWaAdmin, isAdmin }) => {
   try {
+    // .k inactivos [confirmar]: the warned who stayed quiet (lib/inactivos.js). Removing in bulk is for admins only.
+    const inactivos = String(text || "").trim().match(/^inactivos(?:\s+(confirmar|si|sí))?$/i);
+    if (inactivos) {
+      if (!isAdmin) return client.sendText(m.chat, "Sacar inactivos en bloque es solo para admins.", m);
+      return sacarInactivos(client, m, participants, { confirmar: Boolean(inactivos[1]) });
+    }
+
     // The identity is resolved before removing: the old parsing built "<digits>@lid" from whatever was typed, and
     // with a phone number that is a LID which doesn't exist.
     const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);

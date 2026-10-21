@@ -165,6 +165,7 @@ test(".inactivos encuentra a cada uno aunque el grupo lo liste por número", asy
   const G = "pn@g.us";
   for (const [lid, jid] of [["111@lid", "59899000111@s.whatsapp.net"], ["222@lid", "59899000222@s.whatsapp.net"]]) F.initDataDB({ chat: G, sender: lid, senderJid: jid, pushName: lid });
   for (let i = 0; i < 30; i++) F.sumarMensajeEnGrupo("111@lid", G);
+  F.registrarMensajeGrupo(G, ["111@lid"]); // what counts is when they last wrote, stamped under their LID
   const correr = async (participants) => {
     await Inactivos.run({ chat: G, sender: "111@lid", isGroup: true }, { client: globalThis.client, participants });
     return ultimoEnviado().msg.mentions;

@@ -1,4 +1,5 @@
 import { sumarMensajeEnGrupo } from "../database-functions.js";
+import { registrarPresencia } from "../lib/inactivos.js";
 
 // What isn't a message of its own doesn't count: a reaction, a deletion or an edit (protocolMessage, editedMessage), a
 // poll vote, a pin. They used to, and reacting a lot or deleting a lot climbed the ranks (lib/rangos.js).
@@ -13,6 +14,9 @@ plugin.before = async (m, { client, user }) => {
   const total = sumarMensajeEnGrupo(m.sender, m.chat);
   // The copy is kept in step for the hooks after this one (the ranks read the count from it).
   if (total != null && user?.inGroup?.[m.chat]) user.inGroup[m.chat].messageCount = total;
+
+  // When they last wrote, for .inactivos; someone it had warned is spared.
+  await registrarPresencia(client, m).catch((e) => console.error("[inactivos] ERROR:", e));
 
   return;
 };
