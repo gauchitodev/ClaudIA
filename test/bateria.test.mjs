@@ -72,7 +72,8 @@ async function conPath(carpeta, hacer) {
     process.env.PATH = real;
   }
 }
-// Gone, or a zombie on its way out (dead, waiting for whoever adopted it to collect it).
+// Gone, or a zombie on its way out (dead, waiting for whoever adopted it to collect it). It can be collected between
+// the two looks, and then /proc no longer has it either.
 function vivo(pid) {
   try {
     process.kill(pid, 0);
@@ -81,8 +82,8 @@ function vivo(pid) {
   }
   try {
     return fs.readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1]?.[0] !== "Z";
-  } catch {
-    return true;
+  } catch (e) {
+    return e.code !== "ENOENT";
   }
 }
 
@@ -106,7 +107,11 @@ test("batería: si Termux:API no contesta, no deja procesos colgados", async () 
   const ayudante = Number(fs.readFileSync(pid, "utf8"));
   for (let i = 0; i < 40 && vivo(ayudante); i++) await esperar(50);
   const quedo = vivo(ayudante);
-  if (quedo) process.kill(ayudante, "SIGKILL");
+  if (quedo) {
+    try {
+      process.kill(ayudante, "SIGKILL");
+    } catch {}
+  }
   assert.equal(quedo, false, "el ayudante quedó colgado");
 });
 
@@ -227,6 +232,40 @@ test("batería baja: con un cable flojo avisa una vez, y si está enchufada sin 
   globalThis.bateriaBajaAvisada.clear();
   assert.deepEqual((await chequear(9, "NOT_CHARGING")).textos, ["🤖 🔌 Me queda 9 % de batería: estoy enchufada, pero no carga. Revisá el cargador o el cable antes de que me apague."]);
   assert.deepEqual((await chequear(4, "Not charging")).textos, ["🤖 🪫 Me queda 4 % de batería y no carga, aunque estoy enchufada: me puedo apagar en cualquier momento. ¡Revisá el cargador ya!"], "con el estado de los archivos del sistema también");
+});
+
+// A weak charger, or the tablet using more than it gets: it says "charging" and goes down all the same, and the device
+// dies just as if it were unplugged. Lower than at the check before, while charging, the owner hears it.
+test("batería baja: cargando pero bajando, avisa que el cargador no da abasto", async () => {
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  assert.deepEqual(await chequear(11, "CHARGING"), { umbral: null, textos: [] });
+  assert.deepEqual(await chequear(10, "CHARGING"), { umbral: null, textos: [] }, "con el 10 % justo, todavía no");
+  assert.deepEqual(await chequear(9, "CHARGING"), { umbral: 10, textos: ["🤖 🔌 Me queda 9 % de batería y sigue bajando, aunque estoy cargando: el cargador no da abasto. Probá con otro antes de que me apague."] });
+  assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] }, "una sola vez");
+  assert.deepEqual(await chequear(4, "CHARGING"), { umbral: 5, textos: ["🤖 🪫 Me queda 4 % de batería y sigue bajando, aunque estoy cargando: me puedo apagar en cualquier momento. ¡Cambiá el cargador ya!"] });
+
+  // Without a connection right then, it's told on the next check, though the percentage stayed put.
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  await chequear(10, "CHARGING");
+  globalThis.botConectado = false;
+  try {
+    assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] });
+  } finally {
+    globalThis.botConectado = true;
+  }
+  assert.equal((await chequear(9, "CHARGING")).umbral, 10, "al volver la conexión");
+
+  // Going up while charging, the charger keeps up: nothing to tell.
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] });
+  assert.deepEqual(await chequear(7, "CHARGING"), { umbral: null, textos: [] });
+  // Against a reading from too long ago it can't tell: it may have been unplugged in between.
+  const ahora = B._dep.ahora;
+  B._dep.ahora = () => ahora() + B.BATERIA_BAJA.ENTRE_LECTURAS_MS + 60 * 1000;
+  assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] });
 });
 
 test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, en la vuelta siguiente; sin batería que leer, nada", async () => {
