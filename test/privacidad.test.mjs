@@ -166,6 +166,7 @@ test(".inactivos encuentra a cada uno aunque el grupo lo liste por número", asy
   const G = "pn@g.us";
   for (const [lid, jid] of [["111@lid", "59899000111@s.whatsapp.net"], ["222@lid", "59899000222@s.whatsapp.net"]]) F.initDataDB({ chat: G, sender: lid, senderJid: jid, pushName: lid });
   for (let i = 0; i < 30; i++) F.sumarMensajeEnGrupo("111@lid", G);
+  F.registrarMensajeGrupo(G, ["333@lid"], Date.now() - 20 * 24 * 60 * 60 * 1000); // the bot keeps track of it since 20 days ago
   F.registrarMensajeGrupo(G, ["111@lid"]); // what counts is when they last wrote, stamped under their LID
   const correr = async (participants) => {
     await Inactivos.run({ chat: G, sender: "111@lid", isGroup: true }, { client: globalThis.client, participants });
@@ -173,6 +174,7 @@ test(".inactivos encuentra a cada uno aunque el grupo lo liste por número", asy
   };
   const porNumero = [{ id: "59899000111@s.whatsapp.net", lid: "111@lid" }, { id: "59899000222@s.whatsapp.net", lid: "222@lid" }];
   assert.deepEqual(await correr(porNumero), ["59899000222@s.whatsapp.net"], "solo el que no habló, con el id del grupo");
+  F.quitarAvisoInactivo(G, ["222@lid", "59899000222@s.whatsapp.net"]); // a second .inactivos doesn't tag the warned again
   assert.deepEqual(await correr([{ id: "111@lid" }, { id: "222@lid" }]), ["222@lid"], "y lo mismo en un grupo por LID");
 });
 

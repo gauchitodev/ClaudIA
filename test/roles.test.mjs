@@ -173,6 +173,26 @@ test("roles: dado por número, se saca y se cambia aunque la mención llegue con
   assert.equal(F.rolGrupo(G, "59899000700@s.whatsapp.net"), null, "sin el moderador de antes");
 });
 
+// A number may have an old row keyed by itself besides the one with the LID, and looking it up by number found that one
+// first: a role given by LID wasn't seen by number, a mention by number came out as the number and gave a second row,
+// and taking it off said "Listo" and left the one under the LID.
+test("roles: con una fila vieja por número, el rol se ve, se cambia y se saca igual mencionando por número", async () => {
+  const N = "59899000701@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: N, senderJid: N, pushName: "Persona 701" }); // the old row, keyed by the number
+  F.initDataDB({ chat: G, sender: "701@lid", senderJid: N, pushName: "Persona 701" });
+  F.setRolGrupo(G, "701@lid", "mod", "100@lid");
+  assert.equal(F.rolGrupo(G, N), "mod");
+  const { lidMencionado } = await import("../lib/menciones.js");
+  const objetivo = lidMencionado({ mentionedJid: [N] }, "");
+  assert.equal(objetivo, "701@lid", "la mención por número llega a la LID");
+  const admin = { lid: "100@lid", esAdminWhatsApp: true, isAdmin: true, esOwner: false };
+  const delGrupo = () => F.rolesGrupo(G).filter((f) => f.usuario.includes("701")).map((f) => [f.usuario, f.rol]);
+  assert.equal(R.darRol(G, "admin", admin, { lid: objetivo, estaEnGrupo: true }).ok, true);
+  assert.deepEqual(delGrupo(), [["701@lid", "admin"]], "una sola fila");
+  assert.equal(R.quitarRol(G, "admin", admin, { lid: objetivo }).ok, true);
+  assert.deepEqual(delGrupo(), []);
+});
+
 test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
   const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
   F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number

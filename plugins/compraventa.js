@@ -1,5 +1,5 @@
 import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarEstado, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
-import { getUser, getPublicacionPorMensaje } from "../database-functions.js";
+import { lidDeNumero, getPublicacionPorMensaje } from "../database-functions.js";
 
 const plugin = {};
 plugin.cmd = ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
@@ -47,7 +47,7 @@ async function publicarCitando(m, citado, tipo, { client, isMod }) {
   // m.quoted.sender may arrive as a lid or as a jid, and m.sender is a lid: without normalizing, the photo's owner
   // couldn't post their own. Same pattern as lib/menciones.js.
   const crudo = citado.sender;
-  const autor = crudo?.endsWith("@lid") ? crudo : getUser(crudo)?.lid || crudo;
+  const autor = crudo?.endsWith("@lid") ? crudo : lidDeNumero(crudo) || crudo;
   if (!autor) return client.sendText(m.chat, "❌ No pude ver quién mandó ese mensaje.", m);
   if (autor !== m.sender && !isMod) {
     return client.sendText(m.chat, `❌ Ese mensaje no es tuyo: solo quien lo mandó, o un moderador, puede publicarlo. (Sin responder a nada, .${tipo} te muestra el catálogo.)`, m);

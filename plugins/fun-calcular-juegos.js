@@ -1,4 +1,4 @@
-import { getUser } from "../database-functions.js";
+import { lidDeNumero } from "../database-functions.js";
 import { lidMencionado } from "../lib/menciones.js";
 
 const plugin = {};
@@ -13,7 +13,7 @@ plugin.run = async (m, { client, command, text, chat }) => {
   // The "saint" is the second configured owner; their @lid is resolved through the database because mentions arrive as @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
   const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
-  const santoLid = santoJid ? getUser(santoJid)?.lid : null;
+  const santoLid = santoJid ? lidDeNumero(santoJid) : null;
   if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, `0% @${who.split("@")[0]} es un santo 😇`, m, { mentions: [who] });
 
   const porcentaje = Math.floor(Math.random() * 101);

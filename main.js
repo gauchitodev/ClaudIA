@@ -18,6 +18,7 @@ import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from ".
 import { recordarIngreso } from "./lib/contexto-chat.js";
 import { procesarTanda } from "./lib/tandas.js";
 import { idsDeParticipante } from "./lib/identidad.js";
+import { reiniciarSiEsElBot } from "./lib/inactivos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -165,6 +166,8 @@ async function startBot() {
         limpiarRolesAlSalir(id, participants);
         limpiarVentasAlSalir(id, participants);
       }
+      // The bot itself coming in or leaving: .inactivos starts counting the group over (lib/inactivos.js).
+      if (action === "add" || action === "remove") reiniciarSiEsElBot(client, id, participants);
       // Whoever comes in: when, so .resumen only tells them what was said from then on. And in the database, so
       // .inactivos gives them time even after a restart.
       if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p));

@@ -8,6 +8,7 @@ import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
 import { buscarEnGrupo } from "./lib/identidad.js";
+import { anotarPresencia } from "./lib/inactivos.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -43,10 +44,11 @@ export async function handleMessage(nMsg) {
     // ==========================================
     // A message that reached the bot more than 60 seconds after it was sent is dropped (the bot was offline, or the
     // connection stalled). Measured at arrival, not now: waiting behind the rest of its batch doesn't make it stale.
-    if (atrasoDeLlegada(m) > 60) return;
+    // It's still a sign of life for .inactivos (anotarPresencia), like the two cuts below.
+    if (atrasoDeLlegada(m) > 60) return anotarPresencia(m);
 
     // Keeps the bot from answering command messages from while it was offline.
-    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return;
+    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m);
 
     // initialize data if it doesn't exist yet
     initDataDB(m);
@@ -60,7 +62,10 @@ export async function handleMessage(nMsg) {
     // autoRead msg
     if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
     // Muted user
-    if (user.inGroup[m.chat]?.mute && m.message) return m.delete();
+    if (user.inGroup[m.chat]?.mute && m.message) {
+      anotarPresencia(m);
+      return m.delete();
+    }
 
     // Current permissions
     const groupMetadata = (m.isGroup ? await metadataDe(this, m.chat) : {}) || {};

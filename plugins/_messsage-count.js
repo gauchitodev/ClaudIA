@@ -1,9 +1,8 @@
 import { sumarMensajeEnGrupo } from "../database-functions.js";
-import { registrarPresencia } from "../lib/inactivos.js";
+import { registrarPresencia, NO_SON_MENSAJES } from "../lib/inactivos.js";
 
-// What isn't a message of its own doesn't count: a reaction, a deletion or an edit (protocolMessage, editedMessage), a
-// poll vote, a pin. They used to, and reacting a lot or deleting a lot climbed the ranks (lib/rangos.js).
-const NO_SON_MENSAJES = new Set(["reactionMessage", "encReactionMessage", "protocolMessage", "editedMessage", "pollUpdateMessage", "pinInChatMessage", "keepInChatMessage"]);
+// What isn't a message of its own doesn't count (NO_SON_MENSAJES): a reaction, a deletion or an edit, a poll vote, a
+// pin. They used to, and reacting a lot or deleting a lot climbed the ranks (lib/rangos.js).
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, user }) => {

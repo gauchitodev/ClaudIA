@@ -1,11 +1,14 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import fs from "fs";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
 const DIA = 24 * 60 * 60 * 1000;
-let F, I, Inactivos, Kick;
+let F, I, CG, Inactivos, Kick;
 let expulsiones = [];
+let alExpulsar = null; // runs inside a removal: something that happens while the batch goes on
+const miembros = new Map(); // chat -> participants, what the fake groupMetadata answers
 
 before(async () => {
   ({ F } = await prepararBase("inactivos"));
@@ -13,20 +16,25 @@ before(async () => {
   globalThis.client.user.lid = "999@lid";
   globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
+    await alExpulsar?.(ids[0]);
     return ids.map((jid) => ({ status: "200", jid }));
   };
+  globalThis.client.groupMetadata = async (chat) => ({ id: chat, subject: "Los Pibes", participants: miembros.get(chat) || [] });
   I = await import("../lib/inactivos.js");
   I.INACTIVOS.PAUSA_MS = 0;
+  CG = await import("../lib/cache-grupos.js");
   Inactivos = (await import("../plugins/grupo-inactivos.js")).default;
   Kick = (await import("../plugins/grupo-kick.js")).default;
 });
 
 beforeEach(() => {
   expulsiones = [];
+  alExpulsar = null;
   globalThis.enviados = [];
 });
 
-// One group per test, so what one warns doesn't leak into the next. The cast:
+// One group per test, so what one warns doesn't leak into the next. The bot keeps track of it since 20 days ago (the
+// first message it noted there, 101's). The cast:
 // 101 wrote 20 days ago · 102 never wrote · 103 wrote 2 days ago · 104 came in 5 days ago and never wrote ·
 // 105 is a WhatsApp admin · 106 a mod of the bot · 107 an owner · 999 the bot ·
 // 108 is listed by number and wrote yesterday under their LID · 109 has no row at all.
@@ -38,16 +46,22 @@ function armarGrupo(chat, ahora = Date.now()) {
   F.registrarMensajeGrupo(chat, ["108@lid"], ahora - 1 * DIA);
   F.registrarIngresoGrupo(chat, ["104@lid"], ahora - 5 * DIA);
   F.setRolGrupo(chat, "106@lid", "mod", "105@lid");
-  return [
+  const participants = [
     ...[101, 102, 103, 104, 106, 107, 109].map((n) => ({ id: `${n}@lid`, admin: null })),
     { id: "105@lid", admin: "admin" },
     { id: "999@lid", admin: "admin" },
     { id: "59899000108@s.whatsapp.net", lid: "108@lid", admin: null },
   ];
+  miembros.set(chat, participants);
+  return participants;
 }
 
 const m = (chat, text, sender = "105@lid") => ({ chat, sender, text, isGroup: true, react: async () => {}, delete: async () => {} });
 const textoEnviado = () => ultimoEnviado()?.msg?.text || "";
+const kick = (chat, participants, text, rango = {}) => Kick.run(m(chat, text), { client: globalThis.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true, ...rango });
+const avisar = (chat, ...ids) => {
+  for (const id of ids) F.marcarAvisoInactivo(chat, [id], Date.now() - 4 * DIA); // warned 4 days ago: the grace period went by
+};
 
 test(".inactivos etiqueta solo a los callados de verdad: ni admins, ni roles, ni el bot, ni recién llegados", async () => {
   const chat = "inactivos-1@g.us";
@@ -64,6 +78,7 @@ test(".inactivos etiqueta solo a los callados de verdad: ni admins, ni roles, ni
 
 test(".inactivos 30 cambia el corte, y un número que no es de días se rechaza", async () => {
   const chat = "inactivos-2@g.us";
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA); // here the bot keeps track since 40 days ago
   const participants = armarGrupo(chat);
   await Inactivos.run(m(chat, "30"), { client: globalThis.client, participants, text: "30" });
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["102@lid", "109@lid"]); // 101 wrote 20 days ago: not 30 yet
@@ -72,12 +87,12 @@ test(".inactivos 30 cambia el corte, y un número que no es de días se rechaza"
   assert.match(textoEnviado(), /cuántos días/);
 });
 
-test("un segundo .inactivos no reinicia el plazo del primero", () => {
+test("un segundo .inactivos no reinicia el plazo del primero", async () => {
   const chat = "inactivos-3@g.us";
   const ahora = Date.now();
   const participants = armarGrupo(chat, ahora);
-  I.avisarInactivos(chat, participants, globalThis.client, { ahora: ahora - 4 * DIA });
-  I.avisarInactivos(chat, participants, globalThis.client, { ahora });
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora });
   const { listos } = I.paraSacar(chat, participants, globalThis.client, ahora);
   assert.deepEqual(listos.map((e) => e.participante.id).sort(), ["101@lid", "102@lid", "109@lid"]);
 });
@@ -85,7 +100,7 @@ test("un segundo .inactivos no reinicia el plazo del primero", () => {
 test("el avisado que vuelve a escribir se salva y cobra una sola vez", async () => {
   const chat = "inactivos-4@g.us";
   const participants = armarGrupo(chat);
-  I.avisarInactivos(chat, participants, globalThis.client);
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
   const antes = F.getSaldoCoins(chat, "101@lid");
 
   await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
@@ -102,7 +117,7 @@ test("con la economía apagada el que vuelve se salva igual, sin monedas", async
   const chat = "inactivos-5@g.us";
   const participants = armarGrupo(chat);
   F.updateChat(chat, { monedas: 0 });
-  const { texto } = I.avisarInactivos(chat, participants, globalThis.client);
+  const { texto } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
   assert.doesNotMatch(texto, /🪙/);
 
   await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
@@ -110,49 +125,55 @@ test("con la economía apagada el que vuelve se salva igual, sin monedas", async
   assert.equal(F.getSaldoCoins(chat, "102@lid"), 0);
 });
 
-test(".k inactivos: solo admins, respeta el plazo y primero muestra quiénes sin etiquetarlos", async () => {
+// The preview goes to the admin in private, mentioned: there their WhatsApp names each one, and a mention only notifies
+// whoever is in the chat. In the group the bot named them, and whoever it knew no name for was "alguien".
+test(".k inactivos: solo admins, respeta el plazo y primero le dice al admin por privado quiénes saldrían", async () => {
   const chat = "inactivos-6@g.us";
   const participants = armarGrupo(chat);
-  const correr = (text, rango) => Kick.run(m(chat, text), { client: globalThis.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true, ...rango });
 
-  await correr("inactivos", { isWaAdmin: false, isAdmin: false });
+  await kick(chat, participants, "inactivos", { isWaAdmin: false, isAdmin: false });
   assert.match(textoEnviado(), /solo para admins/);
 
-  await correr("inactivos");
+  await kick(chat, participants, "inactivos");
   assert.match(textoEnviado(), /No hay a quién sacar/);
 
-  I.avisarInactivos(chat, participants, globalThis.client);
-  await correr("inactivos");
+  for (const id of ["101@lid", "102@lid", "109@lid"]) F.marcarAvisoInactivo(chat, [id], Date.now()); // warned just now
+  await kick(chat, participants, "inactivos");
   assert.match(textoEnviado(), /No hay a quién sacar.*Hay 3 avisados que todavía están en plazo/);
 
   // The grace period goes by.
   F.quitarAvisoInactivo(chat, ["101@lid", "102@lid", "109@lid"]);
-  F.marcarAvisoInactivo(chat, ["101@lid", "102@lid", "109@lid"], Date.now() - 4 * DIA);
-  await correr("inactivos");
-  const vista = ultimoEnviado().msg;
-  assert.match(vista.text, /Saldrían 3/);
-  assert.match(vista.text, /• Persona101 — hace 20 días/);
-  assert.match(vista.text, /\.k inactivos confirmar/);
-  assert.equal(vista.mentions, undefined);
+  avisar(chat, "101@lid", "102@lid", "109@lid");
+  globalThis.enviados = [];
+  await kick(chat, participants, "inactivos");
+  const privado = globalThis.enviados.find((e) => e.chat === "105@lid")?.msg;
+  assert.match(privado?.text || "", /^☠️ \*En Los Pibes saldrían 3\*/);
+  assert.match(privado.text, /• @101 — hace 20 días/);
+  assert.match(privado.text, /\.k inactivos confirmar/);
+  assert.deepEqual(privado.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
+  const enElGrupo = ultimoEnviado();
+  assert.equal(enElGrupo.chat, chat);
+  assert.equal(enElGrupo.msg.text, "☠️ Saldrían 3: te mandé por privado quiénes son. Para sacarlos: *.k inactivos confirmar*");
+  assert.equal(enElGrupo.msg.mentions, undefined);
   assert.equal(expulsiones.length, 0);
 });
 
 test(".k inactivos confirmar saca a los avisados callados, no al que volvió, y les borra el aviso", async () => {
   const chat = "inactivos-7@g.us";
   const participants = armarGrupo(chat);
-  I.avisarInactivos(chat, participants, globalThis.client, { ahora: Date.now() - 4 * DIA });
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
   await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
 
-  await Kick.run(m(chat, "inactivos confirmar"), { client: globalThis.client, participants, text: "inactivos confirmar", command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true });
+  await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]).sort(), ["101@lid", "109@lid"]);
-  assert.match(textoEnviado(), /Saqué a 2 inactivos/);
+  assert.equal(textoEnviado(), "🧹 Saqué a 2 personas.");
   assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0);
 });
 
 test("saca de a tandas y dice cuántos quedan", async () => {
   const chat = "inactivos-8@g.us";
   const participants = armarGrupo(chat);
-  I.avisarInactivos(chat, participants, globalThis.client, { ahora: Date.now() - 4 * DIA });
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
   const tanda = I.INACTIVOS.POR_TANDA;
   I.INACTIVOS.POR_TANDA = 2;
   try {
@@ -161,13 +182,13 @@ test("saca de a tandas y dice cuántos quedan", async () => {
     I.INACTIVOS.POR_TANDA = tanda;
   }
   assert.equal(expulsiones.length, 2);
-  assert.match(textoEnviado(), /Saqué a 2 inactivos\. Quedan 1: repetí \.k inactivos confirmar\./);
+  assert.equal(textoEnviado(), "🧹 Saqué a 2 personas. Queda 1: repetí .k inactivos confirmar.");
 });
 
-test("el que vuelve a entrar arranca de cero: el aviso de antes de irse no cuenta", () => {
+test("el que vuelve a entrar arranca de cero: el aviso de antes de irse no cuenta", async () => {
   const chat = "inactivos-9@g.us";
   const participants = armarGrupo(chat);
-  I.avisarInactivos(chat, participants, globalThis.client, { ahora: Date.now() - 4 * DIA });
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
   F.registrarIngresoGrupo(chat, ["101@lid"]);
   const { listos } = I.paraSacar(chat, participants, globalThis.client);
   assert.deepEqual(listos.map((e) => e.participante.id).sort(), ["102@lid", "109@lid"]);
@@ -181,4 +202,131 @@ test("cuenta la charla de antes de la tabla nueva (actividad_diaria)", () => {
   const dia = `${hace3.getFullYear()}-${String(hace3.getMonth() + 1).padStart(2, "0")}-${String(hace3.getDate()).padStart(2, "0")}`;
   F.sumarMensajeDiario(chat, "102@lid", dia);
   assert.ok(!I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "102@lid"));
+});
+
+// Before the bot kept track of a group, nobody can be told apart from someone silent. It used to go by the first time it
+// had seen each one write: right after the update, whoever sent only stickers, audios or one-word messages (counted, but
+// not when) came out "hace 120 días", tagged, and three days later removable.
+test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado", async () => {
+  const deAntes = (chat, ...ns) => {
+    for (const n of ns) {
+      F.initDataDB({ chat, sender: `${n}@lid`, senderJid: "", pushName: `Persona${n}` });
+      F.getUser(`${n}@lid`, chat);
+      for (let i = 0; i < 50; i++) F.sumarMensajeEnGrupo(`${n}@lid`, chat);
+      F.updateUserInGroup(`${n}@lid`, chat, { desde: Date.now() - 120 * DIA }); // first seen writing, 4 months ago
+    }
+    const participants = ns.map((n) => ({ id: `${n}@lid`, admin: null }));
+    miembros.set(chat, participants);
+    return participants;
+  };
+
+  // It keeps track since yesterday: nobody yet, and it says when it can tell.
+  const ayer = "inactivos-11@g.us";
+  let participants = deAntes(ayer, 101, 102);
+  F.registrarMensajeGrupo(ayer, ["105@lid"], Date.now() - DIA);
+  await Inactivos.run(m(ayer, ""), { client: globalThis.client, participants, text: "" });
+  assert.equal(textoEnviado(), "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 1 día. Probá en 14 días.");
+  assert.equal(ultimoEnviado().msg.mentions, undefined);
+
+  // Since 16 days ago: who sent a sticker 5 days ago stays, and who sent nothing counts from then, not from 4 months back.
+  const antes = "inactivos-12@g.us";
+  participants = deAntes(antes, 101, 102);
+  F.registrarMensajeGrupo(antes, ["105@lid"], Date.now() - 16 * DIA);
+  F.registrarMensajeGrupo(antes, ["101@lid"], Date.now() - 5 * DIA);
+  await Inactivos.run(m(antes, ""), { client: globalThis.client, participants, text: "" });
+  assert.deepEqual(ultimoEnviado().msg.mentions, ["102@lid"]);
+  assert.match(textoEnviado(), /@102 — hace 16 días o más/);
+});
+
+// The bot coming back to a group after a while: what it noted before doesn't cover the time it wasn't there, and
+// everyone would have looked silent for that long.
+test("cuando el bot entra o sale de un grupo, la cuenta de .inactivos empieza de nuevo", () => {
+  const chat = "inactivos-13@g.us";
+  const participants = armarGrupo(chat);
+  assert.ok(I.inactivosDe(chat, participants, globalThis.client).length > 0);
+  assert.equal(I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "101@lid" }]), false, "si no es el bot, nada");
+  assert.equal(I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]), true);
+  assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), []);
+  F.registrarMensajeGrupo(chat, ["103@lid"]);
+  assert.ok(Math.abs(F.inicioPresencia(chat) - Date.now()) < 5000, "el próximo mensaje la arranca");
+  assert.match(fs.readFileSync(new URL("../main.js", import.meta.url), "utf8"), /action === "add" \|\| action === "remove"\) reiniciarSiEsElBot\(client, id, participants\)/);
+});
+
+// It used to take the list once and go through it: someone who wrote while the removals went on was told "Volvió" and
+// removed all the same. Each one is looked at again right before.
+test(".k inactivos confirmar vuelve a mirar a cada uno justo antes de sacarlo", async () => {
+  const chat = "inactivos-14@g.us";
+  const participants = armarGrupo(chat);
+  avisar(chat, "101@lid", "102@lid", "109@lid");
+  // While the first one goes: 102 writes, and 109 is made admin (main.js refreshes the group on a promotion).
+  alExpulsar = async (id) => {
+    if (id !== "101@lid") return;
+    await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
+    miembros.set(chat, participants.map((p) => (p.id === "109@lid" ? { ...p, admin: "admin" } : p)));
+    await CG.metadataDe(globalThis.client, chat, { fresca: true });
+  };
+  await kick(chat, participants, "inactivos confirmar");
+  assert.deepEqual(expulsiones.map((e) => e.ids[0]), ["101@lid"]);
+  assert.equal(textoEnviado(), "🧹 Saqué a 1 persona. 2 se salvaron a último momento: escribieron, o las hicieron admins o les dieron un rol.");
+});
+
+// They counted as warned before the message went out: if it didn't, their 3 days ran without them knowing.
+test("si el aviso de .inactivos no sale, nadie queda avisado", async () => {
+  const chat = "inactivos-15@g.us";
+  const participants = armarGrupo(chat);
+  const client = {
+    ...globalThis.client,
+    sendMessage: async () => {
+      throw new Error("Connection Closed");
+    },
+  };
+  await assert.rejects(Inactivos.run(m(chat, ""), { client, participants, text: "" }), /Connection Closed/);
+  assert.deepEqual(F.presenciaDelGrupo(chat).filter((r) => r.avisado), []);
+});
+
+// A second .inactivos tagged the warned again with "Tienen 3 días", while their days ran from the first notice: they
+// could be removed that same minute.
+test("un segundo .inactivos no vuelve a etiquetar a los ya avisados, que siguen con su plazo", async () => {
+  const chat = "inactivos-16@g.us";
+  const participants = armarGrupo(chat);
+  F.initDataDB({ chat, sender: "110@lid", senderJid: "", pushName: "Persona110" });
+  F.registrarMensajeGrupo(chat, ["110@lid"], Date.now() - 17 * DIA);
+  participants.push({ id: "110@lid", admin: null });
+  avisar(chat, "101@lid", "102@lid", "109@lid");
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  const { msg } = ultimoEnviado();
+  assert.deepEqual(msg.mentions, ["110@lid"]);
+  assert.match(msg.text, /Inactivos \(1\)/);
+  assert.match(msg.text, /A 3 personas avisadas antes ya se las puede sacar con \.k inactivos\./);
+
+  // And who was warned a moment ago is still within their days.
+  for (const id of ["101@lid", "102@lid", "109@lid"]) F.quitarAvisoInactivo(chat, [id]);
+  for (const id of ["101@lid", "102@lid", "109@lid", "110@lid"]) F.marcarAvisoInactivo(chat, [id], Date.now());
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.equal(textoEnviado(), "No hay inactivos nuevos. 4 personas ya estaban avisadas y siguen en su plazo.");
+});
+
+test("quien avisó con .afk que no está no entra en .inactivos", async () => {
+  const chat = "inactivos-17@g.us";
+  const participants = armarGrupo(chat);
+  F.getUser("101@lid", chat);
+  F.updateUserInGroup("101@lid", chat, { afk: Date.now() - 16 * DIA, afkReason: "me voy de viaje un mes" });
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["102@lid", "109@lid"]);
+});
+
+// A number may have an old row keyed by itself besides the one with the LID. In a group listed by number whose list
+// doesn't bring the LID, looking the person up by number found the old row, and what they wrote under their LID wasn't
+// seen: they were tagged every time.
+test("en un grupo por número sin la LID en la lista, quien tiene una fila vieja por número no queda como callado", async () => {
+  const chat = "inactivos-18@g.us";
+  const PN = "59899000222@s.whatsapp.net";
+  F.initDataDB({ chat, sender: PN, senderJid: PN, pushName: "Beto" }); // the old row, keyed by the number
+  F.initDataDB({ chat, sender: "222@lid", senderJid: PN, pushName: "Beto" });
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
+  F.registrarMensajeGrupo(chat, ["222@lid", PN], Date.now() - DIA); // yesterday, a message that brought the LID
+  const participants = [{ id: PN, admin: null }];
+  miembros.set(chat, participants);
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.match(textoEnviado(), /^No hay inactivos/);
 });

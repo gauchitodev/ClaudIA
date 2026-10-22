@@ -280,6 +280,35 @@ test("si el bot muere entre el borrado de la memoria vieja y la anotación del V
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// The warnings .inactivos gave before the bot kept track of since when it watches each group came from data it couldn't
+// trust: whoever sent only stickers or audios counted as silent since the first time the bot saw them write. They're
+// dropped once, when that table is created.
+test("los avisos de .inactivos de antes de que el bot anote desde cuándo mira cada grupo se borran, una vez", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-avisos-viejos-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE presencia_grupo (chat TEXT NOT NULL, usuario TEXT NOT NULL, ingreso INTEGER, ultimo_mensaje INTEGER, avisado INTEGER, PRIMARY KEY (chat, usuario))`);
+  vieja.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje, avisado) VALUES (?, ?, ?, ?)`).run("g@g.us", "101@lid", 1000, 5000);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  const logReal = console.log;
+  console.log = () => {};
+  try {
+    globalThis.db = F.loadDatabase();
+    assert.deepEqual(db.prepare(`SELECT usuario, ultimo_mensaje, avisado FROM presencia_grupo`).all(), [{ usuario: "101@lid", ultimo_mensaje: 1000, avisado: null }], "lo que escribió queda; el aviso, no");
+    F.marcarAvisoInactivo("g@g.us", ["101@lid"], 9000);
+    db.close();
+    globalThis.db = F.loadDatabase();
+    assert.equal(db.prepare(`SELECT avisado FROM presencia_grupo`).get().avisado, 9000, "una sola vez");
+    db.close();
+  } finally {
+    console.log = logReal;
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("db");

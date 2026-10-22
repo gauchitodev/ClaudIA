@@ -1,4 +1,4 @@
-import { getUser } from "../database-functions.js";
+import { lidDeNumero } from "../database-functions.js";
 import { estaEnListaNegra } from "../lib/lista-negra.js";
 
 const plugin = (m) => m;
@@ -41,7 +41,7 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
   // If the event involves one of the bot's owners, bail out so no alert is posted to the chat.
   const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
   for (const ownerJid of ownerJids) {
-    const ownerLid = getUser(ownerJid)?.lid;
+    const ownerLid = lidDeNumero(ownerJid);
     // Strict comparison: with == an owner with no row in the database (undefined) matched a null userLid and silenced everything.
     if (ownerLid && (m.sender === ownerLid || userLid === ownerLid)) return;
   }

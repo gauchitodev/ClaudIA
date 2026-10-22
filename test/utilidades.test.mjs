@@ -240,7 +240,7 @@ test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con
   assert.ok(bloque.length > 100, "no se encontró el handler de messages.upsert: el escaneo no está andando");
   assert.match(bloque, /const llegada = Date\.now\(\);[\s\S]*m\._llegada = llegada;/, "main.js dejó de marcar cuándo llegó la tanda");
   const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
-  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return;/, "handle-message dejó de filtrar por el atraso de llegada");
+  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return anotarPresencia\(m\);/, "handle-message dejó de filtrar por el atraso de llegada");
 });
 
 test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo", async () => {

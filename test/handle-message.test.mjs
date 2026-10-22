@@ -331,3 +331,25 @@ test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async ()
   assert.match(await pide(DUENO, ".id @300000000000008", delDueno), /Usuario: \+59899000008[\s\S]*Nombre actual: Fede/, "el owner, de cualquiera");
   assert.match(await pide(DUENO, ".id +598 99 000 008", delDueno), /Nombre actual: Fede[\s\S]*Lid: 300000000000008@lid/);
 });
+
+// A message that doesn't get to the hooks is a sign of life for .inactivos all the same: one that came late (the bot
+// was offline, or reconnecting), and one from someone silenced, deleted on arrival. Whoever was warned and wrote within
+// the 3 days stayed warned, and .k inactivos could remove them.
+test("un mensaje atrasado o de alguien silenciado le levanta el aviso de .inactivos", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const [CARLA, DANI] = ["300000000000004@lid", "300000000000005@lid"];
+  for (const [quien, nombre] of [[CARLA, "Carla"], [DANI, "Dani"]]) F.initDataDB({ chat: GRUPO, sender: quien, senderJid: "", pushName: nombre });
+  for (const quien of [CARLA, DANI]) F.marcarAvisoInactivo(GRUPO, [quien], Date.now() - 24 * 60 * 60 * 1000);
+  F.getUser(CARLA, GRUPO);
+  F.updateUserInGroup(CARLA, GRUPO, { mute: true });
+  try {
+    await llega(client, CARLA, "perdón, acá estoy").hecho;
+    const enviado = Math.floor(Date.now() / 1000) - 90; // sent while the bot was offline
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id: "ABCDEF999001", participant: DANI }, message: { conversation: "acá estoy" }, messageTimestamp: enviado, pushName: "Dani", _upsertType: "notify", _llegada: Date.now() });
+  } finally {
+    F.updateUserInGroup(CARLA, GRUPO, { mute: false });
+  }
+  assert.deepEqual(F.presenciaDelGrupo(GRUPO).filter((r) => r.avisado).map((r) => r.usuario), []);
+  assert.ok(globalThis.enviados.some((e) => e.msg?.delete), "a Carla le borró el mensaje igual");
+});

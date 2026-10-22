@@ -589,6 +589,13 @@ export function loadDatabase() {
       PRIMARY KEY (chat, usuario)
     )
   `);
+  // Since when the bot keeps track of who writes in each group: the first message or join it noted there. Before that,
+  // nobody can be told apart from someone silent, so lib/inactivos.js counts everyone as seen that day at the latest.
+  // .inactivos used to go by the first time the bot had seen someone write: whoever sent only stickers, audios or
+  // one-word messages came out silent for months right after the update. The warnings it gave then are dropped, once.
+  const habiaInicio = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'presencia_inicio'`).get();
+  db.exec(`CREATE TABLE IF NOT EXISTS presencia_inicio (chat TEXT PRIMARY KEY, desde INTEGER NOT NULL)`);
+  if (!habiaInicio) db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE avisado IS NOT NULL`).run();
 
   // Migration: the nickname Claudia uses for each person (bought in the shop)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
@@ -677,6 +684,17 @@ export function getUser(userId, chatJid = null) {
   }
 
   return row;
+}
+
+// The LID of whoever uses a number now: of the rows with that number, the one with a LID, and of those the one updated
+// last (syncUserInfo stamps each message). A number may also have an old row keyed by itself, from before WhatsApp used
+// LIDs or a message that came without the LID, and getUser by number used to find that one first: a mention by number
+// came out as the number, a role given by LID wasn't seen, and in a group listed by number whoever wrote under their
+// LID looked silent to .inactivos. A recycled number has two people's LIDs: the last one to write is the one using it.
+// Without a LID row, what getUser(number) gives (the old row, keyed by the number), or null.
+export function lidDeNumero(jid) {
+  if (!jid) return null;
+  return db.prepare(`SELECT lid FROM users WHERE jid = ? ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`).get(jid)?.lid || null;
 }
 
 // Get a chat's data
@@ -1363,21 +1381,38 @@ export function podarActividadHoraria(antesDe) {
 // ---------- presence, for .inactivos (presencia_grupo) ----------
 const marcasDe = (ids) => ids.map(() => "?").join(", ");
 
+// Since when the bot keeps track of a group (presencia_inicio): the first message or join noted there, kept.
+const marcarInicioPresencia = (chat, cuando) => db.prepare(`INSERT OR IGNORE INTO presencia_inicio (chat, desde) VALUES (?, ?)`).run(chat, cuando);
+
+// In ms, 0 if it hasn't noted anything there yet.
+export function inicioPresencia(chat) {
+  return db.prepare(`SELECT desde FROM presencia_inicio WHERE chat = ?`).get(chat)?.desde || 0;
+}
+
+// The bot itself came into the group or left it: what it noted before doesn't cover the time it wasn't there, and the
+// next message starts the count again.
+export function olvidarInicioPresencia(chat) {
+  db.prepare(`DELETE FROM presencia_inicio WHERE chat = ?`).run(chat);
+}
+
 // Someone came into a group, under each of their ids. Coming back is a fresh start: a warning from before they left
 // doesn't carry over.
 export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
   const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ingreso) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = excluded.ingreso, avisado = NULL`);
   for (const id of ids) st.run(chat, id, cuando);
+  marcarInicioPresencia(chat, cuando);
 }
 
 // A message from someone: it's stamped on the first id and lifts the warning from all of them. Returns when they had
 // been warned, or null: who comes back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so
-// two messages at once can't both find the warning).
+// two messages at once can't both find the warning). The stamp only moves forward: a message that arrives late, with
+// the time it was sent, doesn't take back a newer one.
 export function registrarMensajeGrupo(chat, ids, cuando = Date.now()) {
   if (!ids.length) return null;
   const avisado = db.prepare(`SELECT MAX(avisado) AS avisado FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids)?.avisado || null;
   if (avisado) quitarAvisoInactivo(chat, ids);
-  db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = excluded.ultimo_mensaje`).run(chat, ids[0], cuando);
+  db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`).run(chat, ids[0], cuando);
+  marcarInicioPresencia(chat, cuando);
   return avisado;
 }
 
@@ -1650,8 +1685,8 @@ export function podarIntervenciones(antesDe) {
 // all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot saying
 // it was gone, and giving it again would add a second one.
 function idsDeRol(usuario) {
-  const fila = db.prepare(`SELECT lid, jid FROM users WHERE ${usuario.endsWith("@lid") ? "lid" : "jid"} = ?`).get(usuario);
-  return [...new Set([usuario, fila?.lid, fila?.jid].filter(Boolean))];
+  const otro = usuario.endsWith("@lid") ? db.prepare(`SELECT jid FROM users WHERE lid = ?`).get(usuario)?.jid : lidDeNumero(usuario);
+  return [...new Set([usuario, otro].filter(Boolean))];
 }
 const enIds = (ids) => `usuario IN (${ids.map(() => "?").join(", ")})`;
 
