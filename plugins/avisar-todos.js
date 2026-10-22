@@ -68,9 +68,13 @@ plugin.run = async (m, { client, text, isOwner }) => {
   // sent through it fails (main.js makes a new one, globalThis.client).
   const socket = () => globalThis.client || client;
   const pausa = () => _dep.esperar(AVISO_TODOS.ESPERA_MIN_MS + Math.floor(_dep.azar() * (AVISO_TODOS.ESPERA_MAX_MS - AVISO_TODOS.ESPERA_MIN_MS)), undefined, { signal }).catch(() => {});
-  // One group: "ok", "reintentar" when it surely didn't go out, or "dudoso". Baileys throws Connection Closed (428)
-  // before writing anything, but a Timed Out (408) may come with the message already sent: it races the write against
-  // a timer (lib/Socket/socket.js, sendRawMessage), and trying that one again sent it twice.
+  // One group: "ok", "reintentar" when it surely didn't go out, or "dudoso". Before writing the message Baileys asks
+  // WhatsApp the group's devices (and its metadata, if the cache doesn't have it), and what fails up to there didn't
+  // go out: a Connection Closed (428) from the write itself, the socket's close code (a number) if it closed while
+  // waiting for an answer, and an error WhatsApp answered with (a Boom whose data is its code). That's
+  // lib/Socket/socket.js and messages-send.js, in node_modules. The rest may come with the message already sent: a
+  // Timed Out (408) races the write against a timer, and trying that one again sent it twice. A close mid-question used
+  // to be taken for that, and the group was left without the notice.
   const mandar = async (jid) => {
     aviso.saliendo = jid;
     try {
@@ -78,8 +82,9 @@ plugin.run = async (m, { client, text, isOwner }) => {
       aviso.enviados++;
       return "ok";
     } catch (e) {
-      console.error(`[avisar-todos] falló en ${jid}:`, e.message);
-      return e?.output?.statusCode === 428 || e?.message === "Connection Closed" ? "reintentar" : "dudoso";
+      console.error(`[avisar-todos] falló en ${jid}:`, e?.message ?? e);
+      const noSalio = typeof e === "number" || e?.output?.statusCode === 428 || e?.message === "Connection Closed" || (e?.isBoom && typeof e.data === "number");
+      return noSalio ? "reintentar" : "dudoso";
     } finally {
       aviso.saliendo = null;
     }
@@ -130,7 +135,7 @@ plugin.run = async (m, { client, text, isOwner }) => {
     return;
   }
   const fallaron = aviso.fallidos.length ? ` No salió en ${aviso.fallidos.length}, ni probando de nuevo: ${nombresDe(aviso, aviso.fallidos)}.` : "";
-  const dudosos = aviso.dudosos.length ? ` No sé si llegó a ${aviso.dudosos.length} (WhatsApp no confirmó el envío), y no lo repetí para no mandarlo dos veces: ${nombresDe(aviso, aviso.dudosos)}.` : "";
+  const dudosos = aviso.dudosos.length ? ` No sé si llegó a ${aviso.dudosos.length} (falló mientras salía), y no lo repetí para no mandarlo dos veces: ${nombresDe(aviso, aviso.dudosos)}.` : "";
   await socket().sendText(m.chat, `✅ Mensaje enviado a ${aviso.enviados} grupo(s).${fallaron}${dudosos}`, m);
 };
 

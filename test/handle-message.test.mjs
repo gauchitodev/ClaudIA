@@ -369,3 +369,80 @@ test("un mensaje atrasado o de alguien silenciado le levanta el aviso de .inacti
   assert.deepEqual(F.presenciaDelGrupo(GRUPO).filter((r) => r.avisado).map((r) => r.usuario), []);
   assert.ok(globalThis.enviados.some((e) => e.msg?.delete), "a Carla le borró el mensaje igual");
 });
+
+// A number may have an old row keyed by itself besides the one with the LID. getUser by number found the old one, and
+// updateUser by number wrote to both: a message that came with only the number (in a group listed by number, without the
+// LID alongside, or in private) copied the old row over the one with the LID, and the person lost their warnings, their
+// silence and their .afk in every group. The muted one's message wasn't deleted either.
+test("un mensaje que llega solo con el número no le pisa a nadie lo que tiene en sus grupos", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const [grupo, otro] = ["120363000000000021@g.us", "120363000000000022@g.us"];
+  const [PN, LID] = ["59899000444@s.whatsapp.net", "300000000000444@lid"];
+  client.groupMetadata = async (id) => ({ id, subject: "Grupo", addressingMode: "pn", participants: [{ id: PN, admin: null }, { id: "59800000001@s.whatsapp.net", lid: BOT, admin: "admin" }] });
+  const enGrupos = { [grupo]: { afk: Date.now() - 1000, afkReason: "de viaje", mute: true, warn: 2, messageCount: 80, desde: 1 }, [otro]: { afk: -1, mute: false, warn: 1, messageCount: 30, desde: 1 } };
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(PN, PN, "Dani", 1); // the old row, keyed by the number
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp, inGroup) VALUES (?, ?, ?, ?, ?)").run(LID, PN, "Dani", 2, JSON.stringify(enGrupos));
+  globalThis.enviados = [];
+  const llegaDe = (remoteJid, participant, id) => handleMessage.call(client, { key: { remoteJid, fromMe: false, id, participant }, message: { conversation: "hola, perdón la demora" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Dani", _upsertType: "notify", _llegada: Date.now() });
+  await llegaDe(grupo, PN, "ABCDEF999444");
+  await llegaDe(PN, undefined, "ABCDEF999445");
+  const { inGroup } = F.getUser(LID);
+  assert.deepEqual([inGroup[grupo], inGroup[otro]], [enGrupos[grupo], enGrupos[otro]]);
+  assert.ok(globalThis.enviados.some((e) => e.msg?.delete), "y al silenciado le borró el mensaje");
+});
+
+// What the bot couldn't decrypt comes from Baileys as a CIPHERTEXT stub: who sent it and when, but no message (a
+// broken session with that person, or the group's keys missing after relinking). To .inactivos they stayed silent, and
+// could be removed having written.
+test("un mensaje que el bot no pudo descifrar le levanta el aviso de .inactivos, llegue en vivo o atrasado", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const grupo = "120363000000000023@g.us";
+  const [EVA, GABI] = ["300000000000009@lid", "300000000000010@lid"];
+  for (const [quien, nombre] of [[EVA, "Eva"], [GABI, "Gabi"]]) F.initDataDB({ chat: grupo, sender: quien, senderJid: "", pushName: nombre });
+  for (const quien of [EVA, GABI]) F.marcarAvisoInactivo(grupo, [quien], Date.now() - 24 * 60 * 60 * 1000);
+  const indescifrable = (quien, id, enviado) => handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: quien }, messageStubType: 2, messageStubParameters: ["Bad MAC"], messageTimestamp: enviado, _upsertType: "notify", _llegada: Date.now() });
+  globalThis.enviados = [];
+  await indescifrable(EVA, "ABCDEF999446", Math.floor(Date.now() / 1000));
+  await indescifrable(GABI, "ABCDEF999447", Math.floor(Date.now() / 1000) - 90); // sent while the bot was offline
+  assert.deepEqual(F.presenciaDelGrupo(grupo).filter((r) => r.avisado).map((r) => r.usuario), []);
+  assert.deepEqual(globalThis.enviados, [], "sin «Volvió» ni monedas: por lo que se sabe, pudo ser una reacción");
+});
+
+// The group's notice that it was closed or opened (GROUP_CHANGE_ANNOUNCE) is noted with the time it happened, even when
+// it arrives late: .inactivos doesn't count the time it was closed, since only the admins could write then. Three weeks
+// closed looked like three weeks of silence: everyone was tagged the day it opened, and whoever had been warned right
+// before it closed could be removed without having been able to write.
+test("el aviso de que el grupo se cerró o se abrió cuenta para .inactivos, aunque llegue atrasado", async () => {
+  const client = cliente();
+  globalThis.plugins = {};
+  const I = await import("../lib/inactivos.js");
+  const DIA = 24 * 60 * 60 * 1000;
+  const ahora = Date.now();
+  const [EVA, GABI] = ["300000000000009@lid", "300000000000010@lid"];
+  const participants = [{ id: EVA, admin: null }, { id: GABI, admin: null }, { id: BOT, admin: "admin" }];
+  const aviso = (grupo, cerrado, cuando) => handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: `ABCDEF${cuando}`, participant: ANA }, messageStubType: 26, messageStubParameters: [cerrado ? "on" : "off"], messageTimestamp: Math.floor(cuando / 1000), _upsertType: "append", _llegada: Date.now() });
+
+  // Eva was warned and the group was closed right after; Gabi wrote just before. It opened a minute ago, and both
+  // notices arrive now, with the bot back from being offline.
+  const grupo = "120363000000000024@g.us";
+  F.registrarMensajeGrupo(grupo, [ANA], ahora - 60 * DIA); // the bot keeps track of the group since 60 days ago
+  F.registrarMensajeGrupo(grupo, [EVA], ahora - 30 * DIA);
+  F.registrarMensajeGrupo(grupo, [GABI], ahora - 21 * DIA);
+  F.marcarAvisoInactivo(grupo, [EVA], ahora - 21 * DIA);
+  await aviso(grupo, true, ahora - 20.5 * DIA);
+  await aviso(grupo, false, ahora - 60 * 1000);
+  const { listos, enPlazo } = I.paraSacar(grupo, participants, client, ahora);
+  assert.deepEqual([listos, enPlazo.map((e) => e.participante.id)], [[], [EVA]], "a Eva le queda casi todo el plazo");
+  assert.deepEqual(I.inactivosDe(grupo, participants, client, { ahora }), [], "nadie estuvo callado 15 días con el grupo abierto");
+
+  // A group it keeps track of since 16 days ago, closed for 5 of them: it doesn't know yet, and says so.
+  const nuevo = "120363000000000025@g.us";
+  F.registrarMensajeGrupo(nuevo, [ANA], ahora - 16 * DIA);
+  await aviso(nuevo, true, ahora - 10 * DIA);
+  await aviso(nuevo, false, ahora - 5 * DIA);
+  globalThis.enviados = [];
+  await I.avisarInactivos(client, { chat: nuevo, sender: ANA, isGroup: true }, participants, { ahora });
+  assert.equal(globalThis.enviados.at(-1).msg.text, "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 16 días, y el tiempo que estuvo cerrado no cuenta. Probá en 4 días.");
+});

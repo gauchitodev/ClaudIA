@@ -8,7 +8,7 @@ import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
 import { buscarEnGrupo } from "./lib/identidad.js";
-import { anotarPresencia } from "./lib/inactivos.js";
+import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -38,6 +38,10 @@ export async function handleMessage(nMsg) {
 
   try {
     m = smsg(this, m) || m;
+
+    // A group closed or opened: .inactivos doesn't count the time it was closed. Ahead of the cut below, with the time
+    // it happened: a notice from while the bot was offline arrives late.
+    anotarCierreDe(m);
 
     // ==========================================
     // 0. HANGOVER FILTER (ignore stale messages)

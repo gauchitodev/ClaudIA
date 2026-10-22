@@ -1,4 +1,5 @@
 import { metadataDe } from "../lib/cache-grupos.js";
+import { anotarCierre } from "../lib/inactivos.js";
 
 const plugin = {};
 plugin.cmd = ["g"];
@@ -16,6 +17,7 @@ plugin.run = async (m, { client, groupMetadata }) => {
     m.react(reaction);
   }, 500);
   await client.groupSettingUpdate(m.chat, newState);
+  anotarCierre(m.chat, !isClosed); // the time it's closed doesn't count for .inactivos
 };
 
 export default plugin;

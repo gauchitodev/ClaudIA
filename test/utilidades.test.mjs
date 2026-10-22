@@ -581,7 +581,7 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
     groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" }, "d@g.us": { subject: "Laburo" } }),
     sendText: async (chat, t) => {
       if (!globalThis.botConectado) throw cerrada();
-      if (chat === "c@g.us") throw cerrada(); // a group where it never goes out
+      if (chat === "c@g.us") throw rechazada(403, "forbidden"); // a group where it never goes out: the bot isn't in it
       enviados.push([chat, t]);
       // Right after the first group the connection drops, and it's back two waits later.
       if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2];
@@ -603,9 +603,14 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
 
 // What Baileys throws when the socket is closed: before writing anything (lib/Socket/socket.js, sendRawMessage).
 const cerrada = () => Object.assign(new Error("Connection Closed"), { output: { statusCode: 428 } });
+// What it throws when WhatsApp answers one of the questions it asks before writing the message with an error (the
+// group's devices, its metadata): a Boom whose data is WhatsApp's code (assertNodeErrorFree, WABinary/generic-utils.js).
+const rechazada = (codigo, texto) => Object.assign(new Error(texto), { isBoom: true, data: codigo, output: { statusCode: 500 } });
 
-// The second go is for what surely didn't go out: a Timed Out (408) may come with the message already sent, since
-// Baileys races the write against a timer, and trying it again sent it twice. That one is told apart, not repeated.
+// The second go is for what surely didn't go out: Baileys' Connection Closed, the socket's close code (a number) if it
+// closed while Baileys asked the group's devices, an error WhatsApp answered with. A Timed Out (408) may come with the
+// message already sent, since Baileys races the write against a timer, and trying it again sent it twice. That one is
+// told apart, not repeated. The close code used to be taken for it: the group was left without the notice.
 test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si llegó no lo repite", async () => {
   const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
@@ -613,12 +618,15 @@ test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si
   const [clientReal, errorReal] = [globalThis.client, console.error];
   const intentos = {};
   const esperas = [];
+  const errores = [];
   const client = {
-    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" } }),
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" }, "d@g.us": { subject: "Laburo" }, "e@g.us": { subject: "Barrio" } }),
     sendText: async (chat, t) => {
       if (chat !== DUENO) intentos[chat] = (intentos[chat] || 0) + 1;
       if (chat === "a@g.us" && intentos[chat] === 1) throw cerrada(); // the first time only
       if (chat === "b@g.us") throw Object.assign(new Error("Timed Out"), { output: { statusCode: 408 } });
+      if (chat === "d@g.us" && intentos[chat] === 1) return Promise.reject(1006); // the first time only
+      if (chat === "e@g.us") throw rechazada(403, "forbidden");
       return { chat, t };
     },
   };
@@ -630,16 +638,17 @@ test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si
   };
   globalThis.client = client;
   _dep.esperar = async (ms) => esperas.push(ms);
-  console.error = () => {};
+  console.error = (...partes) => errores.push(partes.join(" "));
   try {
     await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
     [globalThis.client, console.error] = [clientReal, errorReal];
   }
-  assert.deepEqual(intentos, { "a@g.us": 2, "b@g.us": 1, "c@g.us": 1 }, "Amigos sale al segundo intento; Familia, una sola vez");
-  assert.equal(esperas.length, 3, "una espera antes de cada grupo después del primero, y otra antes del segundo intento");
-  assert.equal(finales.at(-1), "✅ Mensaje enviado a 2 grupo(s). No sé si llegó a 1 (WhatsApp no confirmó el envío), y no lo repetí para no mandarlo dos veces: Familia.");
+  assert.deepEqual(intentos, { "a@g.us": 2, "b@g.us": 1, "c@g.us": 1, "d@g.us": 2, "e@g.us": 2 }, "Amigos y Laburo salen al segundo intento, Barrio prueba dos veces; Familia, una sola vez");
+  assert.equal(esperas.length, 7, "una espera antes de cada grupo después del primero, y otra antes de cada segundo intento");
+  assert.equal(finales.at(-1), "✅ Mensaje enviado a 3 grupo(s). No salió en 1, ni probando de nuevo: Barrio. No sé si llegó a 1 (falló mientras salía), y no lo repetí para no mandarlo dos veces: Familia.");
+  assert.ok(errores.includes("[avisar-todos] falló en d@g.us: 1006"), "el log dice el código de cierre");
   assert.ok(AVISO_TODOS.REVISAR_CONEXION_MS > 0);
 });
 

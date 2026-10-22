@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
+import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 
@@ -365,6 +366,8 @@ test("el premio por volver va una vez cada 30 días, y .inactivos pide 7 días c
   for (let vez = 0; vez < 2; vez++) {
     avisar(chat, "101@lid");
     await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid" });
+    // They came back 10 days ago: the next warning, 4 days ago, is after that (one from before isn't a warning).
+    db.prepare("UPDATE presencia_grupo SET ultimo_mensaje = ? WHERE chat = ? AND usuario = ?").run(Date.now() - 10 * DIA, chat, "101@lid");
   }
   assert.equal(F.getSaldoCoins(chat, "101@lid"), 10);
   assert.equal(textoEnviado(), "🎉 Volvió @101: sale de la lista de inactivos.", "la segunda vez, sin premio");
@@ -502,4 +505,130 @@ test("una fila con inGroup roto no rompe .inactivos", () => {
   db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run("{roto", "8001@lid");
   participants.push({ id: "8001@lid", admin: null });
   assert.ok(I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "8001@lid"));
+});
+
+// The bot leaving the group and coming back starts the count over, and its warnings from before don't stand. Whoever it
+// had warned wasn't tagged again, .inactivos said they could be removed and .k inactivos that there was nobody to
+// remove; and writing, weeks later, paid the prize for coming back.
+test("los avisos de antes de que el bot vuelva al grupo no dejan a nadie afuera, ni pagan el regreso", async () => {
+  const ahora = Date.now();
+  const volver = (chat) => {
+    const participants = armarGrupo(chat, ahora); // 101 wrote 20 days ago
+    F.marcarAvisoInactivo(chat, ["101@lid"], ahora - 19 * DIA);
+    I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]); // it left the group…
+    F.registrarIngresoGrupo(chat, ["999@lid"], ahora - 16 * DIA); // …and came back 16 days ago
+    return participants;
+  };
+
+  const chat = "inactivos-42@g.us";
+  const participants = volver(chat);
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
+  await kick(chat, participants, "inactivos");
+  assert.equal(textoEnviado(), "No hay a quién sacar: nadie fue avisado con .inactivos hace 3 días o más y siguió callado. Hay 3 personas avisadas que todavía están en plazo.");
+
+  const otro = "inactivos-43@g.us";
+  volver(otro);
+  globalThis.enviados = [];
+  await I.registrarPresencia(globalThis.client, { chat: otro, sender: "101@lid" });
+  assert.deepEqual(globalThis.enviados, [], "sin «Volvió»");
+  assert.equal(F.getSaldoCoins(otro, "101@lid"), 0);
+});
+
+// Someone on the list who writes while the notice waits its turn to go out (lib/envios.js): the warning was marked
+// afterwards, with the time of the command, from before their message. Writing didn't lift it, .k inactivos never took
+// it, and it kept them out of the next .inactivos: "ya se la puede sacar", and "No hay a quién sacar".
+test("quien escribe mientras sale el aviso no queda afuera de los .inactivos que siguen", async () => {
+  const avisarMientras = async (chat, antes) => {
+    const participants = armarGrupo(chat, antes);
+    const client = {
+      ...globalThis.client,
+      sendMessage: async (...args) => {
+        if (args[1]?.mentions?.length) F.registrarMensajeGrupo(chat, ["101@lid"], antes + 2000); // 101 writes meanwhile
+        return globalThis.client.sendMessage(...args);
+      },
+    };
+    await I.avisarInactivos(client, m(chat, ""), participants, { ahora: antes });
+    return participants;
+  };
+
+  // 25 days later, 101 silent since: tagged again, with the ones who went silent meanwhile, and warned with the whole
+  // grace period ahead. 102 and 109, warned then, can be removed.
+  const chat = "inactivos-44@g.us";
+  const participants = await avisarMientras(chat, Date.now() - 25 * DIA);
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.ok(ultimoEnviado().msg.mentions.includes("101@lid"), JSON.stringify(ultimoEnviado().msg.mentions));
+  assert.match(textoEnviado(), /A 2 personas avisadas antes ya se las puede sacar/);
+  assert.ok(I.paraSacar(chat, participants, globalThis.client).enPlazo.some((e) => e.participante.id === "101@lid"));
+
+  // And writing again isn't coming back: they had written already.
+  const otro = "inactivos-47@g.us";
+  await avisarMientras(otro, Date.now() - DIA);
+  globalThis.enviados = [];
+  await I.registrarPresencia(globalThis.client, { chat: otro, sender: "101@lid" });
+  assert.deepEqual(globalThis.enviados, [], "sin «Volvió»");
+  assert.equal(F.getSaldoCoins(otro, "101@lid"), 0);
+});
+
+// The nights .horariogrupo closes the group don't count: nobody can write to save themselves then. The warned's 3 days
+// take longer, and nobody is removed for the hours they couldn't write. .g notes it the same.
+test("las noches que .horariogrupo cierra el grupo no cuentan para el plazo de los avisados", async () => {
+  const HG = await import("../lib/horario-grupo.js");
+  const chat = "inactivos-45@g.us";
+  const participants = armarGrupo(chat);
+  const ahora = Date.now();
+  const avisada = ahora - 3.5 * DIA;
+  F.marcarAvisoInactivo(chat, ["101@lid"], avisada);
+  assert.ok(HG.fijarHorarioGrupo(chat, "8:00-22:00").ok);
+  const client = { ...globalThis.client, groupSettingUpdate: async () => {} };
+  try {
+    for (let t = avisada; t <= ahora; t += 15 * 60 * 1000) await HG.chequearHorariosGrupo(new Date(t), client); // as tareas-programadas runs it
+  } finally {
+    await HG.quitarHorarioGrupo(chat, client);
+  }
+  const { listos, enPlazo } = I.paraSacar(chat, participants, globalThis.client, ahora);
+  assert.deepEqual([listos, enPlazo.map((e) => e.participante.id)], [[], ["101@lid"]], "con tres noches cerradas, sigue en plazo");
+
+  const G = (await import("../plugins/grupo-abrir-cerrar.js")).default;
+  const otro = "inactivos-46@g.us";
+  const g = () => G.run(m(otro, ".g"), { client, groupMetadata: { participants: [] } });
+  await g();
+  assert.deepEqual(F.cierresGrupo(otro).map((c) => c.hasta), [null], "lo cerró");
+  cerrados.add(otro);
+  CG.invalidar(client, otro);
+  await g();
+  assert.ok(F.cierresGrupo(otro)[0].hasta >= F.cierresGrupo(otro)[0].desde, "y lo abrió");
+});
+
+// The bot tells itself apart by client.user, whose ids lib/wa-socket.js cleans when it makes the socket. On connecting,
+// Baileys writes the LID the server sends, with the device ("…:5@lid"), into its own creds (Socket/socket.js); the
+// bot's client.user is a copy taken when the socket was made (each layer of Baileys spreads the one below it), and it
+// keeps the clean one. If that changed, in a group listed by LID the bot wouldn't know itself: .inactivos would tag it,
+// and its coming back to a group wouldn't start the count over. With Baileys' real socket, over a fake connection.
+test("la LID del bot sigue limpia después de que Baileys la cambia al conectar", async () => {
+  const { WebSocketClient } = await import("@whiskeysockets/baileys/lib/Socket/Client/websocket.js");
+  const { initAuthCreds } = await import("@whiskeysockets/baileys");
+  const pino = (await import("pino")).default;
+  const WS = await import("../lib/wa-socket.js");
+  const conectar = WebSocketClient.prototype.connect;
+  WebSocketClient.prototype.connect = function () {
+    const falso = new EventEmitter();
+    falso.readyState = 1;
+    falso.send = (datos, cb) => setImmediate(() => cb?.());
+    falso.close = () => ((falso.readyState = 3), falso.emit("close", 1000, Buffer.alloc(0)));
+    this.socket = falso;
+  };
+  try {
+    const creds = initAuthCreds();
+    creds.me = { id: "59800000001:5@s.whatsapp.net", lid: "200000000000001:5@lid", name: "Claudia" };
+    const sock = WS.makeWASocket({ logger: pino({ level: "silent" }), version: [2, 3000, 1], auth: { creds, keys: { get: async () => ({}), set: async () => {} } }, markOnlineOnConnect: false, fireInitQueries: false });
+    // What Baileys does once the connection opens (Socket/socket.js, on "success").
+    sock.ev.emit("creds.update", { me: { ...sock.authState.creds.me, lid: "200000000000001:5@lid" } });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(sock.authState.creds.me.lid, "200000000000001:5@lid", "Baileys guarda la que mandó el servidor");
+    assert.deepEqual([sock.user.lid, sock.user.jid], ["200000000000001@lid", "59800000001@s.whatsapp.net"]);
+    sock.end(undefined);
+  } finally {
+    WebSocketClient.prototype.connect = conectar;
+  }
 });

@@ -346,3 +346,38 @@ test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", 
   assert.equal(F.cumplesDeHoy(14, 3).length, 1);
   assert.deepEqual(F.chatsConOpcion("nombre_falso"), []);
 });
+
+// A number may have more than one row: an old one keyed by the number itself (from before WhatsApp used LIDs, or a
+// message that came without the LID) besides the one with the LID, or the LIDs of two people if the number was
+// recycled. getUser by number read the oldest one and updateUser by number wrote to all of them: whatever came by number
+// copied the old row over the one with the LID. Both go to the same row now, and a message with only the number from
+// someone already known adds no row keyed by it.
+test("por número se lee y se escribe una sola fila: la de la LID, y si el número cambió de dueño, la del que lo usa", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("filas-por-numero");
+  const PN = "59899000555@s.whatsapp.net";
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  fila.run(PN, PN, "Fila vieja", 1);
+  fila.run("300000000000551@lid", PN, "Quien tenía el número", 2);
+  fila.run("300000000000552@lid", PN, "Quien lo tiene ahora", 3);
+  assert.equal(F.getUser(PN).lid, "300000000000552@lid");
+  assert.ok(F.updateUser(PN, { apodo: "Tito" }));
+  assert.ok(F.updateUserInGroup(PN, G, { warn: 1, messageCount: 7 }));
+  F.getUser(PN, "otro@g.us"); // what a message in a new group sets up
+  const filas = db.prepare("SELECT lid, apodo, inGroup FROM users WHERE jid = ? ORDER BY rowid").all(PN);
+  assert.deepEqual(
+    filas.map((f) => [f.lid, f.apodo, Object.keys(JSON.parse(f.inGroup))]),
+    [
+      [PN, "", []],
+      ["300000000000551@lid", "", []],
+      ["300000000000552@lid", "Tito", [G, "otro@g.us"]],
+    ],
+  );
+  assert.equal(F.advertenciasDe(PN, G), 1);
+  assert.equal(F.enGrupoDe(PN, G).messageCount, 7, "y .inactivos lee la misma");
+
+  const solo = "59899000556@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: "300000000000556@lid", senderJid: solo, pushName: "Uno" });
+  F.initDataDB({ chat: G, sender: solo, senderJid: solo, pushName: "Uno" }); // a message with only the number
+  assert.deepEqual(db.prepare("SELECT lid FROM users WHERE jid = ?").all(solo), [{ lid: "300000000000556@lid" }]);
+});

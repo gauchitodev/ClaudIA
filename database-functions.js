@@ -596,6 +596,10 @@ export function loadDatabase() {
   const habiaInicio = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'presencia_inicio'`).get();
   db.exec(`CREATE TABLE IF NOT EXISTS presencia_inicio (chat TEXT PRIMARY KEY, desde INTEGER NOT NULL)`);
   if (!habiaInicio) db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE avisado IS NOT NULL`).run();
+  // When each group was closed (only the admins write), from when to when, in ms; hasta is null while it still is. That
+  // time doesn't count for .inactivos, since nobody else could write then (lib/inactivos.js).
+  db.exec(`CREATE TABLE IF NOT EXISTS cierres_grupo (chat TEXT NOT NULL, desde INTEGER NOT NULL, hasta INTEGER)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_cierres_grupo_chat ON cierres_grupo (chat)`);
 
   // Migration: the nickname Claudia uses for each person (bought in the shop)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
@@ -632,8 +636,9 @@ export function initDataDB(m) {
   const botJid = client?.user?.lid;
   const pushName = m?.pushName || "";
 
-  // Make sure the user's default data exists
-  db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName) VALUES (?, ?, ?)`).run(m.sender, m.senderJid, pushName);
+  // Make sure the user's default data exists. A message that came with only the number, from someone the database
+  // already knows by it, adds no row keyed by the number: getUser and updateUser by number go to the one there is.
+  if (m.sender.endsWith("@lid") || !lidDeNumero(m.sender)) db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName) VALUES (?, ?, ?)`).run(m.sender, m.senderJid, pushName);
 
   // Make sure the chat's default data exists
   db.prepare(`INSERT OR IGNORE INTO chats (remoteJid) VALUES (?)`).run(chatJid);
@@ -642,15 +647,17 @@ export function initDataDB(m) {
   db.prepare(`INSERT OR IGNORE INTO settings (botJid) VALUES (?)`).run(botJid);
 }
 
-// Get a user's data
+// Of the rows with a number, the one it stands for: the one with a LID, and of those the one updated last (syncUserInfo
+// stamps each message). A number may also have an old row keyed by itself, from before WhatsApp used LIDs or a message
+// that came without the LID; a recycled number has two people's LIDs, and the last one to write is the one using it.
+const FILA_DEL_NUMERO = `ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`;
+
+// Get a user's data: by LID, that row; by number, the one the number stands for (FILA_DEL_NUMERO), which is also the
+// one updateUser writes to. getUser by number used to find the old row keyed by the number, and updateUser wrote to
+// every row with it: a message that came with only the number copied the old row over the one with the LID, and the
+// person lost their warnings, their silence and their .afk in every group.
 export function getUser(userId, chatJid = null) {
-  let lidJid;
-  if (userId.endsWith("@lid")) {
-    lidJid = "lid";
-  } else {
-    lidJid = "jid";
-  }
-  const row = db.prepare(`SELECT * FROM users WHERE ${lidJid} = ?`).get(userId);
+  const row = userId.endsWith("@lid") ? db.prepare(`SELECT * FROM users WHERE lid = ?`).get(userId) : db.prepare(`SELECT * FROM users WHERE jid = ? ${FILA_DEL_NUMERO}`).get(userId);
   if (!row) return null;
 
   // Parse the JSON
@@ -677,32 +684,29 @@ export function getUser(userId, chatJid = null) {
         desde: Date.now(), // first time the bot saw this person in this group (seniority, for the ranks)
       };
 
-      updateUser(userId, {
-        inGroup: JSON.stringify(row.inGroup),
-      });
+      updateRow("users", "lid", row.lid, { inGroup: JSON.stringify(row.inGroup) });
     }
   }
 
   return row;
 }
 
-// The LID of whoever uses a number now: of the rows with that number, the one with a LID, and of those the one updated
-// last (syncUserInfo stamps each message). A number may also have an old row keyed by itself, from before WhatsApp used
-// LIDs or a message that came without the LID, and getUser by number used to find that one first: a mention by number
-// came out as the number, a role given by LID wasn't seen, and in a group listed by number whoever wrote under their
-// LID looked silent to .inactivos. A recycled number has two people's LIDs: the last one to write is the one using it.
-// Without a LID row, what getUser(number) gives (the old row, keyed by the number), or null.
+// The LID of whoever uses a number now, the row the number stands for (FILA_DEL_NUMERO): getUser by number used to
+// find the old row keyed by the number first, so a mention by number came out as the number, a role given by LID
+// wasn't seen, and in a group listed by number whoever wrote under their LID looked silent to .inactivos. Without a LID
+// row, the old one's id (the number itself), or null.
 export function lidDeNumero(jid) {
   if (!jid) return null;
-  return db.prepare(`SELECT lid FROM users WHERE jid = ? ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`).get(jid)?.lid || null;
+  return db.prepare(`SELECT lid FROM users WHERE jid = ? ${FILA_DEL_NUMERO}`).get(jid)?.lid || null;
 }
 
 // Just what .inactivos needs of someone in a group, { afk, messageCount }, or null without a row: read by SQLite out of
 // inGroup, since getUser parses all of it in JS, every group the person is in, and in a full group that was most of the
-// time. A row whose inGroup isn't valid JSON counts as having nothing there, as getUser takes it.
+// time. A row whose inGroup isn't valid JSON counts as having nothing there, as getUser takes it. By number, the row
+// getUser would read.
 export function enGrupoDe(id, chat) {
-  const columna = id.endsWith("@lid") ? "lid" : "jid";
-  const sql = `SELECT CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS afk, CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS mensajes FROM users WHERE ${columna} = ?`;
+  const donde = id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA_DEL_NUMERO}`;
+  const sql = `SELECT CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS afk, CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS mensajes FROM users WHERE ${donde}`;
   const fila = db.prepare(sql).get(`$."${chat}".afk`, `$."${chat}".messageCount`, id);
   return fila ? { afk: fila.afk ?? -1, messageCount: fila.mensajes || 0 } : null;
 }
@@ -770,21 +774,23 @@ function updateRow(table, primaryKey, primaryValue, data) {
 }
 
 // update a user's data
-// Takes a LID or a number, like getUser: it used to filter by lid always, so with a number the UPDATE matched no
-// row and nobody noticed.
+// Takes a LID or a number, like getUser, and writes to the row getUser reads: by number, the one the number stands for
+// (FILA_DEL_NUMERO), and only that one. It used to write to every row with the number, the old one keyed by it too.
 export function updateUser(userId, data) {
-  return updateRow("users", String(userId).endsWith("@lid") ? "lid" : "jid", userId, data);
+  const id = String(userId);
+  const lid = id.endsWith("@lid") ? id : lidDeNumero(id);
+  return lid ? updateRow("users", "lid", lid, data) : false;
 }
 
 // A person's data inside one particular group (users.inGroup), merged with whatever they already had.
-// It's the way to write inGroup: it reads the row as it is now and touches only the given fields. Writing back the
-// whole "user" handle-message read when the message arrived undid whatever changed meanwhile (a .silenciar or an .adv
-// given while that message was still being handled).
+// It's the way to write inGroup: it reads the row as it is now and touches only the given fields, in that same row.
+// Writing back the whole "user" handle-message read when the message arrived undid whatever changed meanwhile (a
+// .silenciar or an .adv given while that message was still being handled).
 export function updateUserInGroup(userId, chat, data) {
   const row = getUser(userId);
   if (!row) return false;
   const inGroup = { ...row.inGroup, [chat]: { ...(row.inGroup[chat] || {}), ...data } };
-  return updateUser(userId, { inGroup: JSON.stringify(inGroup) });
+  return updateRow("users", "lid", row.lid, { inGroup: JSON.stringify(inGroup) });
 }
 
 // The rows that hold `clave` in the data of some group (inGroup), oldest first, as stored: a flag few people set, read
@@ -1426,9 +1432,27 @@ export function inicioPresencia(chat) {
 }
 
 // The bot itself came into the group or left it: what it noted before doesn't cover the time it wasn't there, and the
-// next message starts the count again.
-export function olvidarInicioPresencia(chat) {
-  db.prepare(`DELETE FROM presencia_inicio WHERE chat = ?`).run(chat);
+// next message starts the count again. The warnings it gave before don't stand either (whoever it warned may have
+// written meanwhile: they weren't tagged again, and coming back weeks later paid the prize), nor the closings it noted.
+export function reiniciarPresencia(chat) {
+  db.transaction(() => {
+    db.prepare(`DELETE FROM presencia_inicio WHERE chat = ?`).run(chat);
+    db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE chat = ? AND avisado IS NOT NULL`).run(chat);
+    db.prepare(`DELETE FROM cierres_grupo WHERE chat = ?`).run(chat);
+  })();
+}
+
+// A group closed (only the admins write) or opened at `cuando`: it starts a stretch in cierres_grupo, or ends the one
+// going on. Seen twice (the group's notice and the bot's own .g, say), the second changes nothing.
+export function anotarCierreGrupo(chat, cerrado, cuando = Date.now()) {
+  const enCurso = db.prepare(`SELECT rowid, desde FROM cierres_grupo WHERE chat = ? AND hasta IS NULL`).get(chat);
+  if (cerrado && !enCurso) db.prepare(`INSERT INTO cierres_grupo (chat, desde) VALUES (?, ?)`).run(chat, cuando);
+  if (!cerrado && enCurso) db.prepare(`UPDATE cierres_grupo SET hasta = ? WHERE rowid = ?`).run(Math.max(cuando, enCurso.desde), enCurso.rowid);
+}
+
+// When a group was closed, oldest first: { desde, hasta } in ms, hasta null while it still is.
+export function cierresGrupo(chat) {
+  return db.prepare(`SELECT desde, hasta FROM cierres_grupo WHERE chat = ? ORDER BY desde`).all(chat);
 }
 
 // Someone came into a group, under each of their ids. Coming back is a fresh start: a warning from before they left
@@ -1441,20 +1465,23 @@ export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
 
 // A message from someone: it's stamped on the first id and lifts the warning from all of them. Returns when they had
 // been warned, or null: who comes back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so
-// two messages at once can't both find the warning). The stamp only moves forward: a message that arrives late, with
-// the time it was sent, doesn't take back a newer one.
+// two messages at once can't both find the warning). A warning from before their last message doesn't count, and goes
+// all the same: it went out while they were writing, and they had answered it already. The stamp only moves forward: a
+// message that arrives late, with the time it was sent, doesn't take back a newer one.
 export function registrarMensajeGrupo(chat, ids, cuando = Date.now()) {
   if (!ids.length) return null;
-  const avisado = db.prepare(`SELECT MAX(avisado) AS avisado FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids)?.avisado || null;
-  if (avisado) quitarAvisoInactivo(chat, ids);
+  const previo = db.prepare(`SELECT MAX(avisado) AS avisado, MAX(ultimo_mensaje) AS ultimo FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids);
+  if (previo?.avisado) quitarAvisoInactivo(chat, ids);
   db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`).run(chat, ids[0], cuando);
   marcarInicioPresencia(chat, cuando);
-  return avisado;
+  return previo?.avisado > (previo?.ultimo || 0) ? previo.avisado : null;
 }
 
-// The warning of .inactivos. A second .inactivos keeps the date of the first one, so it doesn't restart the countdown.
+// The warning of .inactivos. Whoever has one standing isn't warned again (lib/inactivos.js), so what's here is a first
+// one, or one that no longer stands (from before the person last wrote, or before the bot came back into the group),
+// and it's written over. It used to keep the first date always: whoever was tagged again could be removed that minute.
 export function marcarAvisoInactivo(chat, ids, cuando = Date.now()) {
-  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET avisado = COALESCE(avisado, excluded.avisado)`);
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET avisado = excluded.avisado`);
   for (const id of ids) st.run(chat, id, cuando);
 }
 
