@@ -131,7 +131,7 @@ test("batería: tras un timeout de Termux:API, el chequeo lo deja tranquilo un r
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
   globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaLecturaAnterior = null; // no reading yet: nothing says the battery is low
+  globalThis.bateriaLecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora }; // the battery is fine
   assert.equal(await B.chequearBateriaBaja(), null);
   assert.equal(llamadas, 1);
   ahora += 5 * 60 * 1000;
@@ -344,6 +344,25 @@ test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin 
   await cadaCinco(null);
   await cadaCinco({ percentage: 40, status: "CHARGING" });
   assert.equal(llamadas, 5, "con la batería bien, la pausa sigue");
+
+  // With no reading yet, the first check after a restart: nothing says the battery is fine, so no pause either.
+  globalThis.bateriaLecturaAnterior = null;
+  ahora += B.TERMUX_API.PAUSA_MS; // the pause from before is over
+  await cadaCinco(null);
+  assert.equal(await cadaCinco({ percentage: 4, status: "DISCHARGING" }), 5, "cinco minutos después lo prueba, y avisa");
+  assert.equal(llamadas, 7);
+});
+
+// Going past 15 % makes both records ready again: the low battery's and the weak charger's.
+test("batería baja: pasado el 15 %, el aviso del cargador que no da abasto vuelve a estar listo", async () => {
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaNoAlcanzaAvisada?.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  await chequear(10, "CHARGING");
+  assert.equal((await chequear(9, "CHARGING")).umbral, 10);
+  await chequear(16, "CHARGING");
+  await chequear(10, "CHARGING");
+  assert.equal((await chequear(9, "CHARGING")).umbral, 10, "otra descarga, otro aviso");
 });
 
 test("consistencia: las tareas de cada 5 minutos miran la batería", () => {

@@ -193,6 +193,18 @@ test("roles: con una fila vieja por número, el rol se ve, se cambia y se saca i
   assert.deepEqual(delGrupo(), []);
 });
 
+// From before giving a role went by both identities, a person may have one under each (a mod by number, an admin by
+// LID): the higher one is what counts.
+test("roles: con un rol bajo cada identidad, vale el más alto", () => {
+  const N = "59899000702@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: "702@lid", senderJid: N, pushName: "Persona 702" });
+  const poner = db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?)`);
+  poner.run(G, N, "mod", "100@lid", 1);
+  poner.run(G, "702@lid", "admin", "100@lid", 2);
+  assert.equal(F.rolGrupo(G, "702@lid"), "admin");
+  assert.equal(F.rolGrupo(G, N), "admin");
+});
+
 test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
   const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
   F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number

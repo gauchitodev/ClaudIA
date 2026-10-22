@@ -82,6 +82,18 @@ test("un mensaje que arranca con una mención entra; un comando no", async () =>
   assert.equal(CC.esComando(".cualquiercosa"), true);
 });
 
+// The mark is looked at again when someone edits: a message edited into a command leaves .resumen, as it did when the
+// text was all there was to go by.
+test("una edición vuelve a mirar si el mensaje es un comando", async () => {
+  const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
+  const base = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [] };
+  await MemoriaCorta.before({ ...base, text: "hola gente", key: { id: "ED1", participant: "555@lid" } }, { user: {} });
+  const entrada = () => globalThis.contextoChat.get(C).find((e) => e.id === "ED1");
+  assert.equal(CC.fueComando(entrada()), false);
+  await MemoriaCorta.before({ ...base, text: "", message: { protocolMessage: { type: 14, key: { id: "ED1" }, editedMessage: { conversation: ".menu" } } }, key: { id: "ED2", participant: "555@lid" } }, { user: {} });
+  assert.equal(CC.fueComando(entrada()), true);
+});
+
 // The memory keeps the mentions as names, and "@Sol ¿venís…?" read as "@" and the command .sol: what someone said to
 // Sol dropped out of .resumen and the glances. Whether a message is a command is told by its text as it came.
 test("lo que le dicen a alguien que se llama como un comando entra", async () => {

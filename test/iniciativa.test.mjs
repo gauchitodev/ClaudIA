@@ -448,6 +448,25 @@ test("ambiente: un mensaje que arranca con una mención no es un comando", async
   assert.match(ultimoPrompt(), /\[6\] Beto \(hace 1 min\): @59899111222 vení que te cuento/, "y lo lee");
 });
 
+// The memory keeps the mentions as names, and whether a message is a command is marked as it comes (fueComando): by its
+// text, "@Sol ¿venís?" read as "@" and the command .sol. The glances go by the mark, and so does .vistazo reaccion, which
+// skipped anything that started with a prefix.
+test("vistazos: lo que le dicen a Sol entra y un comando no, por la marca de la memoria", async () => {
+  const chat = nuevoGrupo();
+  const pluginsReales = globalThis.plugins;
+  globalThis.plugins = { ...(pluginsReales || {}), "aero.js": { cmd: ["sol"] } };
+  try {
+    C.recordarMensaje(chat, "Ana", "@Sol ¿venís al cumple?", false, { id: "SOL1", usuario: "Ana@lid", participant: "Ana@lid", fecha: AHORA - 2 * MIN, comando: false });
+    C.recordarMensaje(chat, "Beto", ".sol montevideo", false, { id: "SOL2", usuario: "Beto@lid", participant: "Beto@lid", fecha: AHORA - MIN, comando: true });
+    assert.deepEqual(V.leerLoNuevo(chat, F.estadoIniciativa(chat), AHORA).nuevos.map((e) => e.id), ["SOL1"]);
+    const client = cliente(chat);
+    await OwnerVistazo.run({ chat, isGroup: true, sender: "100@lid", senderJid: "59899100100@s.whatsapp.net", id: "SOL3" }, { client, args: ["reaccion"], isOwner: true });
+    assert.match(client.salidas.at(-1).contenido.text, /mensaje SOL1 de Ana/);
+  } finally {
+    globalThis.plugins = pluginsReales;
+  }
+});
+
 test("comandos: .vistazo es para admins, con un vistazo cada tanto; el owner no tiene límite", async () => {
   const chat = nuevoGrupo();
   const client = cliente(chat);

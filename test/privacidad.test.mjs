@@ -413,6 +413,34 @@ test("nombreDe: un nombre con @ y dígitos no arroba a nadie, y Claudia es Claud
   assert.equal(M.nombreDe(globalThis.client.user.jid), "Claudia");
 });
 
+// sinMenciones took out one "@": asked to repeat "@@<digits>", Claudia answered with "@<digits>", a mention again, in a
+// group with mentions off. And conNombres took the "@" off any name starting with a digit, "2Pac" too, when only five
+// digits or a 0 make a mention (parseMention, lib/wa-socket.js).
+test("sinMenciones con dos @ seguidas, y conNombres solo le saca la @ a un nombre que arrobaría", () => {
+  assert.equal(M.sinMenciones("Listo: @@300000000000081 @@300000000000082"), "Listo: 300000000000081 300000000000082");
+  conBeto();
+  assert.equal(M.sinMenciones("Gracias @@300000000000003"), "Gracias Beto");
+  F.initDataDB({ chat: FAMILIA, sender: "300000000000071@lid", senderJid: "", pushName: "2Pac" });
+  F.initDataDB({ chat: FAMILIA, sender: "300000000000072@lid", senderJid: "", pushName: "0800 Pizza" });
+  assert.equal(M.conNombres("¿venís @300000000000071?", ["300000000000071@lid"]), "¿venís @2Pac?");
+  assert.equal(M.conNombres("che @300000000000072", ["300000000000072@lid"]), "che 0800 Pizza");
+  assert.equal(menciones(M.conNombres("che @300000000000072", ["300000000000072@lid"])), 0);
+});
+
+// A note kept before .recordá turned mentions into names has the digits of a LID: the prompt already named it, and
+// .memoria listed it as it was, tagging that person every time someone looked at the notes.
+test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrarlas", async () => {
+  conBeto();
+  const Mem = await import("../lib/memoria-grupo.js");
+  const G = "notas-viejas@g.us";
+  F.agregarMemoriaGrupo(G, "@300000000000003 trae el mate", ANA);
+  const id = F.agregarMemoriaGrupo(G, "@300000000000096 debe una ronda", ANA); // someone the bot doesn't know
+  const lista = Mem.textoMemoria(G);
+  assert.match(lista, /· @Beto trae el mate/);
+  assert.equal(menciones(lista), 0);
+  assert.equal(menciones(Mem.borrar(G, ANA, id, false).mensaje), 0);
+});
+
 // A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen
 // and the initiative read), not the digits of their LID.
 test("Claudia no llama a nadie por los dígitos de su LID", async () => {

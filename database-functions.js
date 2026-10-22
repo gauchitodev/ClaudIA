@@ -697,6 +697,23 @@ export function lidDeNumero(jid) {
   return db.prepare(`SELECT lid FROM users WHERE jid = ? ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`).get(jid)?.lid || null;
 }
 
+// Just what .inactivos needs of someone in a group, { afk, messageCount }, or null without a row: read by SQLite out of
+// inGroup, since getUser parses all of it in JS, every group the person is in, and in a full group that was most of the
+// time. A row whose inGroup isn't valid JSON counts as having nothing there, as getUser takes it.
+export function enGrupoDe(id, chat) {
+  const columna = id.endsWith("@lid") ? "lid" : "jid";
+  const sql = `SELECT CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS afk, CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS mensajes FROM users WHERE ${columna} = ?`;
+  const fila = db.prepare(sql).get(`$."${chat}".afk`, `$."${chat}".messageCount`, id);
+  return fila ? { afk: fila.afk ?? -1, messageCount: fila.mensajes || 0 } : null;
+}
+
+// The number the database knows for a LID, or null. Just that column, for what runs on every message: getUser parses
+// the whole of inGroup, every group the person is in.
+export function jidDeLid(lid) {
+  if (!lid) return null;
+  return db.prepare(`SELECT jid FROM users WHERE lid = ?`).get(lid)?.jid || null;
+}
+
 // Get a chat's data
 export function getChat(jid) {
   return db.prepare(`SELECT * FROM chats WHERE remoteJid = ?`).get(jid) || null;
@@ -1006,6 +1023,20 @@ export function esOwner(id) {
   return false;
 }
 
+// Every id the owners may come under, at once, for checking many people (lib/inactivos.js): their numbers and the ids
+// of every row with them, as esOwner looks one up.
+export function idsDeOwners() {
+  const ids = new Set();
+  for (const numero of globalThis.owners || []) {
+    const limpio = String(numero).replace(/[^0-9]/g, "");
+    if (!limpio) continue;
+    const jid = `${limpio}@s.whatsapp.net`;
+    ids.add(jid);
+    for (const fila of db.prepare(`SELECT lid FROM users WHERE jid = ?`).all(jid)) ids.add(fila.lid);
+  }
+  return ids;
+}
+
 // ===================== UruCoins =====================
 
 // a person's current balance in a group
@@ -1049,6 +1080,11 @@ export function transferirCoins(chat, de, para, cantidad) {
     return true;
   });
   return tx();
+}
+
+// When someone was last paid for a reason (ms), 0 if never: for a prize that goes once every so often.
+export function ultimoCobro(chat, usuario, motivo) {
+  return db.prepare(`SELECT MAX(fecha) AS fecha FROM urucoins_log WHERE chat = ? AND usuario = ? AND motivo = ? AND cantidad > 0`).get(chat, usuario, motivo)?.fecha || 0;
 }
 
 // total earned TODAY from reasons starting with a prefix (say "reaccion_") — for the daily cap

@@ -1,5 +1,5 @@
 import { getChat } from "../database-functions.js";
-import { mensajesRecientes } from "../lib/contexto-chat.js";
+import { mensajesRecientes, fueComando } from "../lib/contexto-chat.js";
 import { hacerVistazo, textoInforme, claveDe, citaDe } from "../lib/vistazos.js";
 import { duracion } from "../lib/tiempo.js";
 
@@ -20,14 +20,13 @@ plugin.cmd = ["vistazo"];
 plugin.onlyAdmin = true;
 plugin.onlyGroup = true;
 
-const esComando = (texto) => globalThis.prefix.some((p) => texto.startsWith(p));
-
 plugin.run = async (m, { client, args, isOwner }) => {
   const opcion = (args[0] || "").toLowerCase();
   const privado = m.senderJid || m.sender;
 
   if (opcion === "reaccion" || opcion === "reacción" || opcion === "cita") {
-    const entrada = [...mensajesRecientes(m.chat, 0)].reverse().find((e) => !e.esBot && e.id && e.id !== m.id && !esComando(e.texto));
+    // The way a glance tells commands apart (fueComando): by any prefix, "@Sol ¿venís?" was one, and it was skipped.
+    const entrada = [...mensajesRecientes(m.chat, 0)].reverse().find((e) => !e.esBot && e.id && e.id !== m.id && !fueComando(e));
     if (!entrada) return client.sendText(m.chat, "No tengo en memoria ningún mensaje de alguien (con su id) para probar.", m);
     if (opcion === "cita") await client.sendText(m.chat, "(prueba de cita)", citaDe(m.chat, entrada));
     else await client.sendMessage(m.chat, { react: { text: "👀", key: claveDe(m.chat, entrada) } });

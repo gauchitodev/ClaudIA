@@ -153,6 +153,13 @@ test("economía: los movimientos de los laburos tienen rubro propio", () => {
   assert.match(E.textoEconomia(G).texto, /• Sueldos de laburos: \+9 \/ −0 \(1 mov\.\)/);
 });
 
+test("economía: el premio por volver después de .inactivos tiene rubro propio", () => {
+  F.ganarCoins(G, "volvio@lid", 10, "regreso_inactivo");
+  const nombres = E.resumenEconomia(G, 7).rubros.map((r) => r.nombre);
+  assert.ok(nombres.includes("Volver después de .inactivos"), nombres.join(", "));
+  assert.match(E.textoEconomia(G).texto, /• Volver después de \.inactivos: \+10 \/ −0 \(1 mov\.\)/);
+});
+
 test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarga en curso", () => {
   const dir = "tmp-prueba";
   fs.mkdirSync(dir, { recursive: true });
@@ -573,8 +580,8 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
   const client = {
     groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" }, "d@g.us": { subject: "Laburo" } }),
     sendText: async (chat, t) => {
-      if (!globalThis.botConectado) throw new Error("Connection Closed");
-      if (chat === "c@g.us") throw new Error("forbidden"); // a group where it can't write
+      if (!globalThis.botConectado) throw cerrada();
+      if (chat === "c@g.us") throw cerrada(); // a group where it never goes out
       enviados.push([chat, t]);
       // Right after the first group the connection drops, and it's back two waits later.
       if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2];
@@ -592,6 +599,139 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
   assert.deepEqual(enviados.slice(1).map(([chat]) => chat), ["a@g.us", "b@g.us", "d@g.us", DUENO], "el de mientras estuvo caída sale al volver");
   assert.ok(esperas.includes(AVISO_TODOS.REVISAR_CONEXION_MS), "esperó a la conexión");
   assert.equal(enviados.at(-1)[1], "✅ Mensaje enviado a 3 grupo(s). No salió en 1, ni probando de nuevo: Fútbol.");
+});
+
+// What Baileys throws when the socket is closed: before writing anything (lib/Socket/socket.js, sendRawMessage).
+const cerrada = () => Object.assign(new Error("Connection Closed"), { output: { statusCode: 428 } });
+
+// The second go is for what surely didn't go out: a Timed Out (408) may come with the message already sent, since
+// Baileys races the write against a timer, and trying it again sent it twice. That one is told apart, not repeated.
+test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si llegó no lo repite", async () => {
+  const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const intentos = {};
+  const esperas = [];
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" } }),
+    sendText: async (chat, t) => {
+      if (chat !== DUENO) intentos[chat] = (intentos[chat] || 0) + 1;
+      if (chat === "a@g.us" && intentos[chat] === 1) throw cerrada(); // the first time only
+      if (chat === "b@g.us") throw Object.assign(new Error("Timed Out"), { output: { statusCode: 408 } });
+      return { chat, t };
+    },
+  };
+  const finales = [];
+  const enviarFinal = client.sendText;
+  client.sendText = async (chat, t, ...resto) => {
+    if (chat === DUENO) finales.push(t);
+    return enviarFinal(chat, t, ...resto);
+  };
+  globalThis.client = client;
+  _dep.esperar = async (ms) => esperas.push(ms);
+  console.error = () => {};
+  try {
+    await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+  assert.deepEqual(intentos, { "a@g.us": 2, "b@g.us": 1, "c@g.us": 1 }, "Amigos sale al segundo intento; Familia, una sola vez");
+  assert.equal(esperas.length, 3, "una espera antes de cada grupo después del primero, y otra antes del segundo intento");
+  assert.equal(finales.at(-1), "✅ Mensaje enviado a 2 grupo(s). No sé si llegó a 1 (WhatsApp no confirmó el envío), y no lo repetí para no mandarlo dos veces: Familia.");
+  assert.ok(AVISO_TODOS.REVISAR_CONEXION_MS > 0);
+});
+
+// Cut with a group that didn't take it yet: the owner hears which one, by name.
+test(".avisartodos: cortado con un grupo que falló, dice cuál", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const al = [];
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" } }),
+    sendText: async (chat, t) => {
+      al.push([chat, t]);
+      if (chat === "a@g.us") throw cerrada();
+    },
+  };
+  globalThis.client = client;
+  _dep.esperar = esperaHastaCortar;
+  console.error = () => {};
+  try {
+    const corre = P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+    await hasta(() => al.some(([chat]) => chat === "a@g.us"));
+    await P.run({ chat: DUENO }, { client, text: "cancelar", isOwner: true });
+    await corre;
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+  assert.equal(al.filter(([chat]) => chat === DUENO).at(-1)[1], "⏹️ Corté el aviso: llegó a 0 de 2 grupo(s) (no salió en Amigos).");
+});
+
+// How it goes, and how far a cut one got, during the second go: the group on its way isn't one it didn't reach. And the
+// summary waits for the connection to tell the owner.
+test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no cuenta como no salido al que estaba saliendo", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const al = [];
+  let soltar = null;
+  let intentosB = 0;
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" } }),
+    sendText: (chat, t) => {
+      al.push([chat, t]);
+      if (chat === "b@g.us" && ++intentosB === 1) return Promise.reject(cerrada());
+      if (chat === "b@g.us") return new Promise((r) => (soltar = r)); // the second go takes its time
+      return Promise.resolve();
+    },
+  };
+  const alDueno = () => al.filter(([chat]) => chat === DUENO).map(([, t]) => t);
+  globalThis.client = client;
+  _dep.esperar = async () => {};
+  console.error = () => {};
+  try {
+    const corre = P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+    await hasta(() => soltar);
+    await P.run({ chat: DUENO }, { client, text: "", isOwner: true });
+    assert.equal(alDueno().at(-1), "📣 Ya estoy mandando un aviso: va por 3 de 3 grupo(s), y vuelve a probar con el que falló. Esperá a que termine o cortalo con .avisartodos cancelar.");
+    await P.run({ chat: DUENO }, { client, text: "cancelar", isOwner: true });
+    assert.equal(alDueno().at(-1), "⏹️ Corté el aviso: llegó a 2 de 3 grupo(s), más el que estaba saliendo.");
+    soltar();
+    await corre;
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+
+  // The summary, once the connection is back.
+  const finales = [];
+  let vuelveEn = 0;
+  const conCaida = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": {} }),
+    sendText: async (chat, t) => {
+      if (chat === DUENO && !globalThis.botConectado) throw cerrada();
+      if (chat === DUENO) finales.push(t);
+      if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2]; // it drops right after the last group
+    },
+  };
+  globalThis.client = conCaida;
+  _dep.esperar = async () => {
+    if (vuelveEn && --vuelveEn === 0) globalThis.botConectado = true;
+  };
+  try {
+    await P.run({ chat: DUENO }, { client: conCaida, text: "Chau", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
+    globalThis.botConectado = true;
+  }
+  assert.equal(finales.at(-1), "✅ Mensaje enviado a 1 grupo(s).", "esperó a la conexión para avisar");
 });
 
 // If the connection dropped right as "📣 Lo mando a…" went out, the notice ended there: no group got it, and nobody

@@ -249,6 +249,36 @@ test(".vln en un grupo nombra sin números ni menciones, y .ln2 saca por el núm
 });
 const PRIVADO_VLN = "59899100100@s.whatsapp.net";
 
+// Without a recent .vln, ".ln2 2" took the second one of the list as it was then: if someone had come off it since,
+// that was someone else than the one on the admin's screen.
+test(".ln2 con un número, sin una .vln de la última media hora, pide mirar la lista de nuevo", async () => {
+  F.initDataDB({ chat: G, sender: "601@lid", senderJid: "59899000601@s.whatsapp.net", pushName: "Carla" });
+  F.addToBlacklist("59899000601@s.whatsapp.net", "uno", "", G, "601@lid");
+  globalThis.listaNegraMostrada.delete(G);
+  await correr("ln2", "1");
+  assert.match(ultimo(), /^Mirá la lista negra con \.vln y después usá \.ln2 con el número que aparece ahí/);
+  assert.ok(F.isBlacklisted("59899000601@s.whatsapp.net", G), "no sacó a nadie");
+
+  await correr("vln", "");
+  globalThis.listaNegraMostrada.get(G).fecha -= 31 * 60 * 1000; // half an hour went by
+  await correr("ln2", "1");
+  assert.match(ultimo(), /^Mirá la lista negra con \.vln/);
+  assert.ok(F.isBlacklisted("59899000601@s.whatsapp.net", G));
+});
+
+// In a group listed by number the mention comes by number, and the reason kept "@59899… estafa": the whole group reads
+// the reason in .vln.
+test("en un grupo por número, el motivo de .ln no guarda el número de la persona", async () => {
+  const porNumero = [
+    { id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" },
+    { id: "59899555555@s.whatsapp.net", lid: "555@lid", admin: null },
+    { id: "59899999000@s.whatsapp.net", lid: "999000@lid", admin: "admin" },
+  ];
+  F.initDataDB({ chat: G, sender: "555@lid", senderJid: "59899555555@s.whatsapp.net", pushName: "Beto" });
+  await correr("ln", "@59899555555 estafa", { mentionedJid: ["59899555555@s.whatsapp.net"] }, { participants: porNumero });
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.reason), ["estafa"]);
+});
+
 // ---------- all-groups list, from the owner's private chat ----------
 // It used to sweep only the groups whose participants were in memory at that moment: after a change invalidated a
 // group's copy, or for someone who joined after it was taken, it skipped them without a word, and it never said where

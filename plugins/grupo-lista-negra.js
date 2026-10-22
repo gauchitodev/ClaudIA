@@ -2,7 +2,7 @@ import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwn
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
-import { nombreDe } from "../lib/menciones.js";
+import { nombreDe, conNombres } from "../lib/menciones.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
 // in anyway, they're removed). Each group's admins manage it; admins and the bot's owners can't be put on it. The
@@ -72,11 +72,13 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   if (deLaLista) {
     const numero = Number(deLaLista[1]);
     const entradas = getBlacklist(m.chat);
-    // The one with that number in the last .vln; without a recent one, in the list as it is now.
+    // The one with that number in the last .vln, and only a recent one: the numbers move up when someone comes off the
+    // list, and going by the list as it stood then took off someone other than the one on the screen.
     const mostrada = globalThis.listaNegraMostrada.get(m.chat);
     const vigente = mostrada && Date.now() - mostrada.fecha < MOSTRADA_MS ? mostrada : null;
-    const vista = vigente?.porNumero.get(numero);
-    const entrada = vigente ? vista && entradas.find((e) => e.jid === vista.jid && e.chat === vista.chat) : [...entradas].reverse()[entradas.length - numero];
+    if (!vigente) return client.sendText(m.chat, `Mirá la lista negra con ${usedPrefix}vln y después usá ${usedPrefix}ln2 con el número que aparece ahí: los números cambian cuando alguien sale de la lista.`, m);
+    const vista = vigente.porNumero.get(numero);
+    const entrada = vista && entradas.find((e) => e.jid === vista.jid && e.chat === vista.chat);
     if (!entrada) return client.sendText(m.chat, `No hay ningún ${numero} en la lista negra de este grupo${vista ? ": ya lo sacaron" : ""}. Mirala con ${usedPrefix}vln.`, m);
     if (entrada.chat === "*") return client.sendText(m.chat, "Está en la lista negra de todos los grupos: solo la puede sacar el dueño del bot, desde el privado.", m);
     removeFromBlacklist(entrada.jid, m.chat);
@@ -92,7 +94,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     reason = text.replace(phoneMatches[0], "").trim();
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
-    reason = who ? text.replace(`@${who.replace("@lid", "")}`, "").trim() : null;
+    // Without the mention of who goes on the list, by its digits (it comes as a LID or, in a group listed by number, as
+    // the number), and with any other one as a name: the whole group reads the reason (.vln), and the number was left
+    // in it.
+    reason = who ? conNombres(text.replace(`@${who.split("@")[0]}`, ""), m.mentionedJid).trim() : null;
   }
 
   if (!who) return client.sendText(m.chat, txt.defaultWhoBlackList(usedPrefix, command), m);

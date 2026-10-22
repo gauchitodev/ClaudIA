@@ -10,25 +10,27 @@ export const AVISO_TODOS = { ESPERA_MIN_MS: 20 * 1000, ESPERA_MAX_MS: 40 * 1000,
 // Injectable for the tests.
 export const _dep = { esperar, azar: Math.random };
 
-// The notice going out right now, or null: { total, enviados, fallidos (the groups it didn't reach, for now), nombres
-// (each group's name), reintentando, saliendo, cortadoDesde, control }. Spaced out like this, fifty groups take some 25
-// minutes: one with a typo couldn't be stopped, and a second one sent meanwhile went out alongside it. In globalThis, so
-// a reload of this file doesn't lose track of it.
+// The notice going out right now, or null: { total, enviados, fallidos (the groups it surely didn't reach, for now),
+// dudosos (the ones it can't tell), nombres (each group's name), reintentando, saliendo (the group on its way),
+// cortadoDesde, control }. Spaced out like this, fifty groups take some 25 minutes: one with a typo couldn't be stopped,
+// and a second one sent meanwhile went out alongside it. In globalThis, so a reload of this file doesn't lose track of it.
 if (globalThis.avisoATodos === undefined) globalThis.avisoATodos = null;
 
-// The groups it didn't reach, by their names: the owner used to hear only how many.
-const nombresDe = (aviso) => aviso.fallidos.map((jid) => aviso.nombres.get(jid) || jid).join(", ");
+// Groups by their names: the owner used to hear only how many it didn't reach.
+const nombresDe = (aviso, jids) => jids.map((jid) => aviso.nombres.get(jid) || jid).join(", ");
 function comoVa(aviso) {
   if (!aviso.total) return "recién arranca";
   const n = aviso.fallidos.length;
   const otraVez = aviso.reintentando && n ? `, y vuelve a probar ${n === 1 ? "con el que falló" : `con los ${n} que fallaron`}` : "";
-  return `va por ${aviso.enviados + n} de ${aviso.total} grupo(s)${otraVez}`;
+  return `va por ${aviso.enviados + n + aviso.dudosos.length} de ${aviso.total} grupo(s)${otraVez}`;
 }
-// How far one that was cut got. A group send already on its way can't be called back.
+// How far one that was cut got. A group send already on its way can't be called back, and it isn't among the ones that
+// didn't go out: cut during the second try, the group on its way came out as one it hadn't reached.
 function hastaDonde(aviso) {
   if (!aviso.total) return "no salió a ningún grupo";
-  const fallaron = aviso.fallidos.length ? ` (no salió en ${nombresDe(aviso)})` : "";
-  return `llegó a ${aviso.enviados} de ${aviso.total} grupo(s)${aviso.saliendo ? ", más el que estaba saliendo" : ""}${fallaron}`;
+  const fallidos = aviso.fallidos.filter((jid) => jid !== aviso.saliendo);
+  const detalle = [fallidos.length && `no salió en ${nombresDe(aviso, fallidos)}`, aviso.dudosos.length && `no sé si llegó a ${nombresDe(aviso, aviso.dudosos)}`].filter(Boolean).join("; ");
+  return `llegó a ${aviso.enviados} de ${aviso.total} grupo(s)${aviso.saliendo ? ", más el que estaba saliendo" : ""}${detalle ? ` (${detalle})` : ""}`;
 }
 
 // Without a connection a send fails: each group whose turn came while main.js reconnected (5 s or more) used to be
@@ -59,25 +61,27 @@ plugin.run = async (m, { client, text, isOwner }) => {
   if (!text) return client.sendText(m.chat, "Escribí el mensaje después del comando. Ej: .avisartodos Hoy arranca el ranking mensual 🏆", m);
 
   // Taken before the first wait, so a second .avisartodos sent right after this one finds it.
-  const aviso = { total: 0, enviados: 0, fallidos: [], nombres: new Map(), reintentando: false, saliendo: false, cortadoDesde: null, control: new AbortController() };
+  const aviso = { total: 0, enviados: 0, fallidos: [], dudosos: [], nombres: new Map(), reintentando: false, saliendo: null, cortadoDesde: null, control: new AbortController() };
   globalThis.avisoATodos = aviso;
   const { signal } = aviso.control;
   // Through the socket of the moment: after a reconnection, the one that took the command is closed, and everything
   // sent through it fails (main.js makes a new one, globalThis.client).
   const socket = () => globalThis.client || client;
   const pausa = () => _dep.esperar(AVISO_TODOS.ESPERA_MIN_MS + Math.floor(_dep.azar() * (AVISO_TODOS.ESPERA_MAX_MS - AVISO_TODOS.ESPERA_MIN_MS)), undefined, { signal }).catch(() => {});
-  // One group; whether it got there.
+  // One group: "ok", "reintentar" when it surely didn't go out, or "dudoso". Baileys throws Connection Closed (428)
+  // before writing anything, but a Timed Out (408) may come with the message already sent: it races the write against
+  // a timer (lib/Socket/socket.js, sendRawMessage), and trying that one again sent it twice.
   const mandar = async (jid) => {
-    aviso.saliendo = true;
+    aviso.saliendo = jid;
     try {
       await socket().sendText(jid, text, null);
       aviso.enviados++;
-      return true;
+      return "ok";
     } catch (e) {
       console.error(`[avisar-todos] falló en ${jid}:`, e.message);
-      return false;
+      return e?.output?.statusCode === 428 || e?.message === "Connection Closed" ? "reintentar" : "dudoso";
     } finally {
-      aviso.saliendo = false;
+      aviso.saliendo = null;
     }
   };
   try {
@@ -99,16 +103,20 @@ plugin.run = async (m, { client, text, isOwner }) => {
     for (const [i, jid] of jids.entries()) {
       if (i > 0) await pausa();
       if (!(await conectado(signal))) break;
-      if (!(await mandar(jid))) aviso.fallidos.push(jid);
+      const resultado = await mandar(jid);
+      if (resultado === "reintentar") aviso.fallidos.push(jid);
+      if (resultado === "dudoso") aviso.dudosos.push(jid);
     }
-    // What failed even so (the connection dropped halfway through a send, a group that didn't take it) gets one more go
-    // once the rest went out.
+    // What surely didn't go out even so (the connection dropped as it went) gets one more go once the rest went out.
     aviso.reintentando = true;
     for (const jid of [...aviso.fallidos]) {
       if (signal.aborted) break;
       await pausa();
       if (!(await conectado(signal))) break;
-      if (await mandar(jid)) aviso.fallidos.splice(aviso.fallidos.indexOf(jid), 1);
+      const resultado = await mandar(jid);
+      if (resultado === "reintentar") continue;
+      aviso.fallidos.splice(aviso.fallidos.indexOf(jid), 1);
+      if (resultado === "dudoso") aviso.dudosos.push(jid);
     }
   } finally {
     // A cancel already let go of it, and a new notice may have taken it since.
@@ -121,8 +129,9 @@ plugin.run = async (m, { client, text, isOwner }) => {
     if (aviso.cortadoDesde !== m.chat) await socket().sendText(m.chat, `⏹️ Cortaron el aviso desde otro chat: ${hastaDonde(aviso)}.`, m);
     return;
   }
-  const fallaron = aviso.fallidos.length ? ` No salió en ${aviso.fallidos.length}, ni probando de nuevo: ${nombresDe(aviso)}.` : "";
-  await socket().sendText(m.chat, `✅ Mensaje enviado a ${aviso.enviados} grupo(s).${fallaron}`, m);
+  const fallaron = aviso.fallidos.length ? ` No salió en ${aviso.fallidos.length}, ni probando de nuevo: ${nombresDe(aviso, aviso.fallidos)}.` : "";
+  const dudosos = aviso.dudosos.length ? ` No sé si llegó a ${aviso.dudosos.length} (WhatsApp no confirmó el envío), y no lo repetí para no mandarlo dos veces: ${nombresDe(aviso, aviso.dudosos)}.` : "";
+  await socket().sendText(m.chat, `✅ Mensaje enviado a ${aviso.enviados} grupo(s).${fallaron}${dudosos}`, m);
 };
 
 export default plugin;

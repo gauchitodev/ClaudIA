@@ -332,6 +332,22 @@ test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async ()
   assert.match(await pide(DUENO, ".id +598 99 000 008", delDueno), /Nombre actual: Fede[\s\S]*Lid: 300000000000008@lid/);
 });
 
+// The greeting goes out right after the moderation, before the other hooks: Claudia's answer to the same "hola claudia"
+// comes after it.
+test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async () => {
+  const client = cliente();
+  globalThis.plugins = Object.fromEntries(Object.entries(carpeta).filter(([, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal)));
+  const grupo = "120363000000000016@g.us"; // a group of its own: the greeting goes at most every 30 minutes per group
+  F.initDataDB({ chat: grupo, sender: ANA, senderJid: "", pushName: "Ana" });
+  globalThis.enviados = [];
+  await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: "ABCDEF999016", participant: ANA }, message: { conversation: "hola claudia, ¿cómo andás?" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Ana", _upsertType: "notify", _llegada: Date.now() });
+  await esperar(50);
+  const textos = globalThis.enviados.map((e) => e.msg?.text).filter(Boolean);
+  const saludo = textos.findIndex((t) => /^(¡Buenas! ¿Todo en orden por acá\?|Holaaa, ¿cómo andamos\?|¡Buenas buenas! ¿Qué se cuenta\?|¡Hola grupo!)$/.test(t));
+  const claudia = textos.indexOf("Ni idea, preguntale a quien la publicó");
+  assert.ok(saludo >= 0 && claudia > saludo, JSON.stringify(textos));
+});
+
 // A message that doesn't get to the hooks is a sign of life for .inactivos all the same: one that came late (the bot
 // was offline, or reconnecting), and one from someone silenced, deleted on arrival. Whoever was warned and wrote within
 // the 3 days stayed warned, and .k inactivos could remove them.
