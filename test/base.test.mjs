@@ -531,6 +531,40 @@ test("una LID con el dispositivo no le saca el número a la fila de la persona",
   assert.deepEqual(db.prepare("SELECT lid, jid FROM users WHERE lid LIKE '300000000000802%' ORDER BY rowid").all(), [{ lid: CON, jid: "" }, { lid: L2, jid: N2 }]);
 });
 
+// An old row keyed by a number, from before LIDs, while a LID row has that number: nobody reads it. When the person
+// moved to another number it was "the number's row" again: whatever came with only that number got its ban and its
+// silence of back then, and the listings showed it again. It goes once no LID row has the number.
+test("la fila vieja de un número se borra cuando ninguna fila con LID tiene ese número", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("fila-vieja-se-va");
+  const [L, X, Y] = ["300000000000981@lid", "59899000981@s.whatsapp.net", "59899000989@s.whatsapp.net"];
+  const escribe = (sender, senderJid) => {
+    const m = { chat: G, sender, senderJid, pushName: "Carla", isGroup: true };
+    F.initDataDB(m);
+    F.syncUserInfo(m);
+  };
+  const hayFila = (lid) => Boolean(db.prepare("SELECT 1 FROM users WHERE lid = ?").get(lid));
+  escribe(X, X); // the old row, from before LIDs
+  db.prepare("UPDATE users SET inGroup = ?, banned = 1 WHERE lid = ?").run(JSON.stringify({ [G]: { warn: 2, messageCount: 40 } }), X);
+  escribe(L, X);
+  assert.ok(hayFila(X), "mientras la fila con LID tiene el número, la vieja queda");
+  escribe(L, Y); // Carla changed to Y
+  assert.equal(hayFila(X), false);
+  assert.equal(F.getUser(X), null, "por ese número ya no hay nadie");
+  assert.deepEqual(F.getAllUsers().map((u) => u.lid), [L]);
+
+  // With two LID rows for the number, from before a number left the other rows, it stays until the last one leaves.
+  const [P, Q, Z] = ["300000000000982@lid", "300000000000983@lid", "59899000982@s.whatsapp.net"];
+  escribe(Z, Z);
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  fila.run(P, Z, "P", 1);
+  fila.run(Q, Z, "Q", 2);
+  F.syncUserInfo({ sender: P, senderJid: "59899000983@s.whatsapp.net" }); // P leaves Z, and Q's row still has it
+  assert.ok(hayFila(Z));
+  F.syncUserInfo({ sender: Q, senderJid: "59899000984@s.whatsapp.net" }); // and then Q
+  assert.equal(hayFila(Z), false);
+});
+
 // An old row keyed by the number next to the one with the LID, which is the one read and written by number: listed,
 // .listaadv showed warnings no one could take off, .listabaneados a ban that no longer applied, and .conteo the same
 // person twice. A number with no LID row keeps its own.
@@ -545,7 +579,11 @@ test("los listados de todas las filas dejan afuera la fila vieja de un número q
   F.updateUserInGroup(L, G, { warn: 1, messageCount: 7 });
   F.initDataDB({ chat: G, sender: SOLO, senderJid: SOLO, pushName: "Dani" });
   db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run(JSON.stringify({ [G]: { messageCount: 3 } }), SOLO);
-  assert.deepEqual(F.getAllUsers().map((u) => u.lid).sort(), [L, SOLO].sort());
+  // A row keyed by a number with no number on it, next to LID rows without one: no LID row has its number.
+  const SIN = "59899000446@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: "300000000000447@lid", senderJid: "", pushName: "Eli" });
+  db.prepare("INSERT INTO users (lid, jid, pushName) VALUES (?, '', ?)").run(SIN, "Fede");
+  assert.deepEqual(F.getAllUsers().map((u) => u.lid).sort(), [L, SOLO, SIN, "300000000000447@lid"].sort());
   assert.deepEqual(F.advertidos(G).map((a) => [a.lid, a.warn]), [[L, 1]]);
   const enviados = [];
   const client = { user: { lid: "bot@lid", jid: "bot@s.whatsapp.net" }, chats: {}, sendText: async (chat, text) => enviados.push(text) };

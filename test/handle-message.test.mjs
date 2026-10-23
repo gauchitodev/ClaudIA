@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WAMessageStubType } from "@whiskeysockets/baileys";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 
 // The whole of handle-message, from the message as Baileys hands it over: the hooks in their order (hooksEnOrden,
@@ -497,6 +498,54 @@ test("con un número reciclado, lo de cada uno queda con cada uno", async () => 
   await llegaDe(N, null, "Beto"); // B, a message that came with only the number
   assert.ok(!globalThis.enviados.some((e) => e.msg?.delete), "el silencio de A no le borra el mensaje a B");
   assert.deepEqual([F.getUser(A).pushName, F.getUser(N).lid], ["Ana", B]);
+});
+
+// The two halves of that, each on its own: the number a message brings goes on the row (A, moving to N2 before B takes
+// N, kept N), and it comes off the others' (A, writing last with only the LID, was "the row of N" again).
+test("con un número reciclado, en otro orden, o con un mensaje que no trae el número", async () => {
+  const client = cliente();
+  globalThis.plugins = {};
+  const grupo = "120363000000000032@g.us";
+  const [A, B, C, D] = ["300000000000033@lid", "300000000000034@lid", "300000000000035@lid", "300000000000036@lid"];
+  const [N, N2, M] = ["59899000733@s.whatsapp.net", "59899000734@s.whatsapp.net", "59899000735@s.whatsapp.net"];
+  let n = 0;
+  const llegaDe = async (participant, participantAlt) => {
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: `ABCDEF9998${++n}`, participant, ...(participantAlt ? { participantAlt } : {}) }, message: { conversation: "hola" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "x", _upsertType: "notify", _llegada: Date.now() });
+    await esperar(5); // each one stamped apart (FILA_DEL_NUMERO goes by the last one)
+  };
+  await llegaDe(A, N);
+  await llegaDe(A, N2); // A moved to N2
+  await llegaDe(B, N); // and N is B's now
+  assert.deepEqual([F.jidDeLid(A), F.jidDeLid(B), F.lidDeNumero(N), F.lidDeNumero(N2)], [N2, N, B, A]);
+  await llegaDe(C, M);
+  await llegaDe(D, M); // M is D's now
+  await llegaDe(C); // C writes last, with only the LID
+  assert.deepEqual([F.jidDeLid(C), F.lidDeNumero(M)], [null, D]);
+});
+
+// Under the number too only what gets here before syncUserInfo notes it: a late message, or a command from while the
+// bot was offline (lib/inactivos.js, delMensaje). The rest, the LID is enough: stamped on the number as well, a muted
+// person's message or one the bot couldn't decrypt made the next owner of that number look active.
+test("la presencia va bajo el número solo para lo que llega antes de anotarlo", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const grupo = "120363000000000033@g.us";
+  const gente = [1, 2, 3, 4, 5].map((i) => [`30000000000004${i}@lid`, `5989900074${i}@s.whatsapp.net`]);
+  client.groupMetadata = async (id) => ({ id, subject: "Grupo", participants: [...gente.map(([lid]) => ({ id: lid, admin: null })), { id: BOT, admin: "admin" }] });
+  let n = 0;
+  const llegaDe = ([lid, numero], { atras = 0, texto = "hola", ...extra } = {}) =>
+    handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: `ABCDEF9997${++n}${lid.slice(-3)}`, participant: lid, participantAlt: numero }, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000) - atras, pushName: "x", _upsertType: "notify", _llegada: Date.now(), ...extra });
+  for (const persona of gente) await llegaDe(persona); // everyone's number noted
+  db.prepare("DELETE FROM presencia_grupo WHERE chat = ?").run(grupo);
+  const sellados = ([lid, numero]) => db.prepare("SELECT usuario FROM presencia_grupo WHERE chat = ? AND usuario IN (?, ?) AND ultimo_mensaje IS NOT NULL ORDER BY usuario").all(grupo, lid, numero).map((r) => r.usuario.split("@")[1]);
+  await llegaDe(gente[0]);
+  await llegaDe(gente[1], { atras: 120 }); // late
+  await llegaDe(gente[2], { texto: ".menu", _upsertType: "append" }); // a command from while the bot was offline
+  F.getUser(gente[3][0], grupo);
+  F.updateUserInGroup(gente[3][0], grupo, { mute: true });
+  await llegaDe(gente[3]); // muted
+  await llegaDe(gente[4], { message: undefined, messageStubType: WAMessageStubType.CIPHERTEXT, messageStubParameters: ["No session"] }); // undecryptable
+  assert.deepEqual(gente.map(sellados), [["lid"], ["lid", "s.whatsapp.net"], ["lid", "s.whatsapp.net"], ["lid"], ["lid"]]);
 });
 
 // Meta AI writes in a group as …@bot, neither a LID nor a number: m.sender comes out empty, and by "" getUser found

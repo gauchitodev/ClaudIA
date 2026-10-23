@@ -23,4 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      # 30 s a test instead of npm test's 120, which are for the tablet: at 120 s each, a broken fake that hung a
+      # handful of tests ran out the 15 minutes, and GitHub cut the job without saying which ones.
+      - run: npm run test:ci

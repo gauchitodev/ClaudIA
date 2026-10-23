@@ -777,9 +777,16 @@ export function syncUserInfo(m) {
 // protected by their role, while whoever got the number next got both. Only when a single LID row had the number: with
 // two, there's no telling whose it was, and it stays as it was. A row with a device's LID, from before syncUserInfo
 // left them out, isn't anybody's.
+// The old row keyed by the number this row leaves, from before LIDs, goes when no other LID row has that number: while
+// one had it, the number stood for that one, and the old row was read by nobody. With the number left to it, getUser
+// read it again for whatever came with only that number, its ban and its silence of back then included, and the
+// listings showed it again (.listaadv, .listabaneados, .conteo).
 function seguirALaPersona(lid, antes, numero) {
   const filasCon = (n) => db.prepare(`SELECT lid FROM users WHERE jid = ? AND lid LIKE '%@lid' AND lid NOT LIKE '%:%'`).all(n).map((f) => f.lid);
-  if (antes !== numero && antes?.endsWith?.("@s.whatsapp.net") && filasCon(antes).length === 1) atarAlLid(antes, lid); // this row's
+  if (antes !== numero && antes?.endsWith?.("@s.whatsapp.net") && filasCon(antes).length === 1) {
+    atarAlLid(antes, lid); // the only row with it is this one
+    db.prepare(`DELETE FROM users WHERE lid = ?`).run(antes);
+  }
   const otros = filasCon(numero).filter((l) => l !== lid);
   if (otros.length === 1) atarAlLid(numero, otros[0]);
 }

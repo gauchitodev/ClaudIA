@@ -1,4 +1,4 @@
-import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner } from "../database-functions.js";
+import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner, getUser } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
@@ -94,11 +94,13 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   // mentioned or quoted: further on, after a mention, it's part of the reason (".ln @persona le pasó el +598…"), and
   // the number's owner was listed, and removed, instead of the one mentioned.
   if (phoneMatches?.length > 0 && (/^\s*\+\d/.test(text) || (!m.mentionedJid?.[0] && !m.quoted))) {
-    // Typed all together, the number ends where its digits do: "+59899666666 2 veces me estafó" took the 2 for one
-    // more, and listed someone else. Spaced out ("+598 99 666 666"), it takes every group.
-    const tipeado = phoneMatches[0].match(/^\+\d{8,}/)?.[0] || phoneMatches[0];
-    who = `${tipeado.replace(/[^\d]/g, "")}@s.whatsapp.net`;
-    reason = conNombres(text.replace(tipeado, ""), m.mentionedJid).trim();
+    const numero = numeroTipeado(phoneMatches[0], participants);
+    if (numero.dudas) return client.sendText(m.chat, `No sé dónde termina el número: puede ser ${alternativas(numero.dudas.map((d) => `+${d}`))}. Mandalo todo junto, sin espacios${command === "ln" ? ", y el motivo después" : ""}.`, m);
+    who = `${numero.digitos}@s.whatsapp.net`;
+    // The number goes with the spaces or dashes after it: "+59899666666 - me estafó" left "- me estafó" as the reason.
+    const desde = text.indexOf(numero.tipeado);
+    const despues = text.slice(desde + numero.tipeado.length).replace(/^[\s-]+/, "");
+    reason = conNombres(`${text.slice(0, desde)}${despues}`, m.mentionedJid).trim();
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
     // Without the mention of who goes on the list, by its digits (it comes as a LID or, in a group listed by number, as
@@ -191,15 +193,50 @@ export default plugin;
 
 // A reason as the group reads it (.vln there): without the listed person's own number or LID, which one from before the
 // reasons left them out still has ("@59899555555 estafa"), with the LIDs the bot knows as names, and anyone else as
-// "@alguien", which is how a reason given now names them: the digits of their LID were left in sight.
+// "@alguien", which is how a reason given now names them: the digits of their LID were left in sight. Not an e-mail
+// address ("pepe@12345.com" was "pepe@alguien.com"). Anybody else's number doesn't show either, written with its "+" or
+// as a run of eight digits or more: the whole group reads the list, and an entry of the all-groups list was written by
+// the owner in private.
 function razonParaElGrupo(entrada) {
   let razon = String(entrada.reason || "");
   for (const id of [entrada.jid, entrada.lid]) {
     const digitos = String(id || "").split("@")[0];
     if (/^\d{5,}$/.test(digitos)) razon = razon.replace(new RegExp(`(?<!\\d)[@+]?${digitos}(?!\\d)`, "g"), "");
   }
-  return conNombres(razon).replace(/@\d{5,}/g, "@alguien").replace(/\s+/g, " ").trim();
+  return conNombres(razon)
+    .replace(/(?<![\p{L}\p{N}_.])@\d{5,}/gu, "@alguien")
+    .replace(/\+\d(?:[\s-]?\d){7,}|(?<![\p{L}\p{N}@])\d{8,}(?![\p{L}\p{N}])/gu, "(número oculto)")
+    .replace(/\s+/g, " ")
+    .trim();
 }
+
+// Where a number typed after .ln ends: the reason may start with digits too. Typed all together, ten digits or more, it
+// ends where they do: "+59899666666 2 veces me estafó" listed 598996666662. Spaced out or with dashes, any group may be
+// the reason's first word ("+598 99 666 666 2 veces me estafó" listed 598996666662 too, and "+59899666 666" became
+// 59899666 when it was taken as typed all together): the cut that is someone the bot knows wins, in the group or in the
+// database, and with none, the only one that makes a whole number with its country's code, 10 to 15 digits. With more
+// than one it asks, rather than listing someone else. Past 15 digits no cut is a number, and it stops: a long run of
+// spaced digits was otherwise copied once for each of them. Returns { tipeado, digitos } or { dudas }.
+function numeroTipeado(texto, participants) {
+  const cortes = [];
+  for (const grupo of texto.matchAll(/\d+/g)) {
+    const tipeado = texto.slice(0, grupo.index + grupo[0].length);
+    const digitos = tipeado.replace(/\D/g, "");
+    if (digitos.length > 15) break;
+    cortes.push({ tipeado, digitos });
+  }
+  if (!cortes.length) return { tipeado: texto.match(/^\+\d+/)[0], digitos: texto.match(/^\+(\d+)/)[1] }; // no number is that long
+  if (cortes[0].digitos.length >= 10) return cortes[0];
+  const conocidos = cortes.filter(({ digitos }) => {
+    const jid = `${digitos}@s.whatsapp.net`;
+    return (participants || []).some((p) => p?.phoneNumber === jid || p?.id === jid) || getUser(jid);
+  });
+  const posibles = conocidos.length ? conocidos : cortes.filter(({ digitos }) => digitos.length >= 10);
+  if (posibles.length > 1) return { dudas: posibles.map(({ digitos }) => digitos) };
+  return posibles[0] || cortes.at(-1);
+}
+
+const alternativas = (opciones) => `${opciones.slice(0, -1).join(", ")} o ${opciones.at(-1)}`;
 
 // What the all-groups sweep tells the owner: where the person was removed from, and where it's up to them.
 function textoBarrido(sacado, aMano) {

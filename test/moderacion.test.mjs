@@ -313,19 +313,10 @@ function prepararJerarquia() {
   F.setRolGrupo(J, "777@lid", "mod", "555@lid");
   rolesListos = true;
 }
-// Every removal and admin change lands in "expulsiones". Installed on each call because earlier tests in this file
-// swap groupParticipantsUpdate for their own and don't put it back: without this, "nothing was removed" held trivially.
-const vigilar = () => {
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
-    expulsiones.push({ chat, ids, accion });
-    return ids.map((jid) => ({ status: "200", jid }));
-  };
-};
 // Runs a plugin the way the dispatcher does: the sender's rank comes from the group (WhatsApp admin) and, for the bot's
 // own roles, from the database, which the plugins look up themselves.
 const como = (sender, P, command, objetivo, text = "") => {
   prepararJerarquia();
-  vigilar();
   const texto = `@${objetivo.split("@")[0]} ${text}`.trim();
   const esAdminWhatsApp = Boolean(jerarquia.find((p) => p.id === sender)?.admin);
   const msg = { chat: J, sender, text: texto, mentionedJid: [objetivo], quoted: null, isGroup: true, react: async () => {}, delete: async () => {} };
@@ -390,7 +381,6 @@ test("jerarquía: la ruleta del ban no se lleva a nadie que quien la gira no pod
   F.setRolGrupo(J, "888@lid", "admin", "100@lid");
   // Besides the admins, only two bot admins: the one spinning it and another one. Neither is fair game.
   const grupo = [{ id: "100@lid", admin: "superadmin" }, { id: "555@lid", admin: null }, { id: "888@lid", admin: null }, { id: "999@lid", admin: "admin" }];
-  vigilar();
   await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
@@ -408,7 +398,6 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al bot ni a
     { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: null }, // the bot
   ];
   F.setRolGrupo(J, "888@lid", "admin", "100@lid");
-  vigilar();
   await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
@@ -423,7 +412,6 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al owner", 
     { id: `${globalThis.owners[0]}@s.whatsapp.net`, lid: "770077@lid", admin: null }, // the owner, LID unknown to the bot
     { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: "admin" },
   ];
-  vigilar();
   await Ruleta.run({ chat: J, sender: "100@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: true });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);

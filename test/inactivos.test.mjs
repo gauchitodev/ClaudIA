@@ -405,7 +405,9 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
 // It asked WhatsApp's map one person at a time, each with CONSULTA_MS of its own: with WhatsApp slow, every .inactivos
 // and .k inactivos waited that long times the people the database didn't know. All of them go in one question each
 // way, within one CONSULTA_MS, and a question left unanswered doesn't take the other's answer with it.
-test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de espera", async () => {
+// With its own time limit: if the code stopped putting one on the question WhatsApp doesn't answer, this would wait
+// for it, and hang until npm test's 120 s instead of failing.
+test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de espera", { timeout: 10_000 }, async () => {
   const chat = "inactivos-48@g.us";
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
   for (const n of [1, 2, 3, 4]) F.setRolGrupo(chat, `880${n}@lid`, "mod", "105@lid"); // mods with no number on record
@@ -853,14 +855,16 @@ test("quien cambió de número no queda como callado en un grupo que lo lista po
   F.syncUserInfo({ chat, sender: L, senderJid: VIEJO, pushName: "Carla" });
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
   const participants = [{ id: NUEVO, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
-  I.anotarPresencia({ chat, isGroup: true, sender: L, senderJid: NUEVO, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 });
+  // As handle-message hands over a late one, ahead of syncUserInfo.
+  I.anotarPresencia({ chat, isGroup: true, sender: L, senderJid: NUEVO, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 }, { antesDelNumero: true });
   assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), [], "con el mensaje atrasado");
   F.syncUserInfo({ chat, sender: L, senderJid: NUEVO, pushName: "Carla" });
   assert.deepEqual([F.jidDeLid(L), F.lidDeNumero(NUEVO), F.lidDeNumero(VIEJO)], [NUEVO, L, null]);
 });
 
-// The prize for coming back goes once in PREMIO_CADA_DIAS under any of the person's ids, and to their LID: a return
-// that came with the LID and the next one with only the number were paid twice, to two balances.
+// The prize for coming back goes once in PREMIO_CADA_DIAS under any of the person's ids: a return that came with the
+// LID and the next one with only the number were paid twice, to two balances. To whoever wrote as the message names
+// them, which is where .saldo reads it.
 test("el premio por volver va una vez cada 30 días aunque un regreso llegue con la LID y el otro con el número", async () => {
   const chat = "inactivos-58@g.us";
   const [L, N] = ["300000000000558@lid", "59899000558@s.whatsapp.net"];
@@ -873,10 +877,27 @@ test("el premio por volver va una vez cada 30 días aunque un regreso llegue con
   F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
   await I.registrarPresencia(globalThis.client, { chat, sender: N, senderJid: N }); // back again, with only the number
   assert.deepEqual([F.getSaldoCoins(chat, L), F.getSaldoCoins(chat, N)], [10, 0]);
-  // Someone whose only return came with the number: paid to their LID, where the rest of their coins are.
+  // In a group whose messages come with only the number, the person's coins are under it, and .saldo reads it: paid to
+  // the LID, the prize never showed up there. And with a recycled number the bot hadn't seen with its new LID yet, it
+  // went to whoever had it before.
   const [L2, N2] = ["300000000000559@lid", "59899000559@s.whatsapp.net"];
   F.initDataDB({ chat, sender: L2, senderJid: N2, pushName: "Dani" });
   F.marcarAvisoInactivo(chat, [L2, N2], Date.now() - DIA);
   await I.registrarPresencia(globalThis.client, { chat, sender: N2, senderJid: N2 });
-  assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [10, 0]);
+  assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [0, 10]);
+});
+
+// A whole copy of the group that comes through groups.update: Baileys emits one from groupFetchAllParticipating
+// (Socket/groups.js), and its event buffer may hold it back for up to 30 s (Utils/event-buffer.js). It isn't known when
+// it was asked for: noted as of when it arrived, a copy from before a closing the bot had noted ended that closing, and
+// the days it stayed closed counted as silence.
+test("una copia del grupo que llega por groups.update no termina un cierre", () => {
+  const chat = "inactivos-59@g.us";
+  const ahora = Date.now();
+  const participants = [{ id: "101@lid", admin: null }, { id: "999@lid", admin: "admin" }];
+  F.anotarCierreGrupo(chat, true, ahora - 20_000); // the closing's notice
+  CG.vaciar(); // the cache empty, as after reconnecting
+  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: chat, subject: "Grupo", announce: false, participants }), "la copia se guarda");
+  assert.deepEqual(F.cierresGrupo(chat).map((c) => c.hasta), [null], "y el grupo sigue cerrado");
+  CG.invalidar(globalThis.client, chat);
 });

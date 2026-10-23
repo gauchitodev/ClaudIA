@@ -1,4 +1,4 @@
-import { recordar, textoMemoria, borrar, limpiar } from "../lib/memoria-grupo.js";
+import { recordar, textoMemoria, borrar, limpiar, leible } from "../lib/memoria-grupo.js";
 import { memoriaDe, olvidarDe } from "../lib/memoria-persona.js";
 import { conNombres } from "../lib/menciones.js";
 
@@ -17,8 +17,10 @@ plugin.run = async (m, { client, text, args, command, isAdmin, isOwner }) => {
   }
   const accion = (args[0] || "").toLowerCase();
   if (accion === "yo" || accion === "mia" || accion === "mía") {
+    // As the group's notes are shown (leible): what she noted while chatting may hold the digits of a LID she was told
+    // about, which sendText turned into a mention of that person.
     const memoria = memoriaDe(m.sender, m.chat);
-    return client.sendText(m.chat, memoria ? `🧠 Lo que sé de vos en este grupo: ${memoria.split(" | ").join(" · ")}\nPara que me lo olvide: .memoria olvidame` : "🧠 No tengo nada anotado de vos en este grupo.", m);
+    return client.sendText(m.chat, memoria ? `🧠 Lo que sé de vos en este grupo: ${leible(memoria.split(" | ").join(" · "))}\nPara que me lo olvide: .memoria olvidame` : "🧠 No tengo nada anotado de vos en este grupo.", m);
   }
   if (accion === "olvidame") {
     return client.sendText(m.chat, olvidarDe(m.sender, m.chat) ? "🧠 Listo, me olvidé de lo que sabía de vos en este grupo." : "🧠 No tenía nada anotado de vos en este grupo.", m);

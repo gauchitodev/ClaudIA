@@ -328,13 +328,62 @@ test(".ln con una mención o una cita y un número en el motivo anota a la perso
   assert.deepEqual(anotados(), ["111@lid"], "sin nadie mencionado ni citado, también");
 });
 
-// An old reason in the group: the listed person's own LID goes, a longer number that holds their digits stays, and
-// someone the bot doesn't know is "@alguien", as a reason given now names them: the digits of their LID were in sight.
+// An old reason in the group: the listed person's own LID goes, a longer number that holds their digits isn't cut into
+// (it goes whole, as anybody else's number), and someone the bot doesn't know is "@alguien", as a reason given now
+// names them: the digits of their LID were in sight.
 test(".vln en el grupo: un motivo viejo sin la LID de la persona ni la de un desconocido", async () => {
   F.initDataDB({ chat: G, sender: "300000000000578@lid", senderJid: "59899578578@s.whatsapp.net", pushName: "Dani" });
   F.addToBlacklist("59899578578@s.whatsapp.net", "@300000000000578 molesta, como el 598995785789 y el 159899578578, y lo vio @300000000000777", "59899100100@s.whatsapp.net", G, "300000000000578@lid");
   await correr("vln", "");
-  assert.match(ultimo(), /📝 Razón: molesta, como el 598995785789 y el 159899578578, y lo vio @alguien\n/);
+  assert.match(ultimo(), /📝 Razón: molesta, como el \(número oculto\) y el \(número oculto\), y lo vio @alguien\n/);
+});
+
+// Anybody else's number doesn't show in the group either, with its "+" or as a long run of digits: the whole group
+// reads .vln, and an entry of the all-groups list was written by the owner in private, where they still see it whole.
+// An e-mail address isn't a mention ("pepe@12345.com" was "pepe@alguien.com"), and neither is an "@" before fewer than
+// five digits.
+test(".vln en el grupo no muestra números de otros, y deja los mails y lo que no es una mención", async () => {
+  F.addToBlacklist("59899579579@s.whatsapp.net", "le vendió a +59899777777 y a +598 99 777 778, la cuenta 300000000000779, escribe desde pepe@12345.com, entradas a @2000 y $ 50000, +1000 de recargo", "59899100100@s.whatsapp.net", "*");
+  await correr("vln", "");
+  assert.match(ultimo(), /📝 Razón: le vendió a \(número oculto\) y a \(número oculto\), la cuenta \(número oculto\), escribe desde pepe@12345\.com, entradas a @2000 y \$ 50000, \+1000 de recargo\n/);
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  assert.match(ultimo(), /📝 Razón: le vendió a \+59899777777 y a \+598 99 777 778, la cuenta 300000000000779, /);
+});
+
+// Spaced out or with dashes, the reason may start with digits too: "+598 99 666 666 2 veces me estafó" listed
+// 598996666662, and "+59899666 666", taken as typed all together, 59899666. The cut that is someone the bot knows wins;
+// with none, the only one that makes a whole number; with more than one, it asks.
+test(".ln por número con espacios: el corte que es alguien conocido, el único número entero, o pregunta", async () => {
+  const anotado = () => F.getBlacklist(G).map((e) => [e.jid, e.reason]);
+  const conocido = [...participants, { id: "666@lid", admin: null, phoneNumber: "59899666666@s.whatsapp.net" }];
+  await correr("ln", "+598 99 666 666 2 veces me estafó", {}, { participants: conocido });
+  assert.deepEqual(anotado(), [["59899666666@s.whatsapp.net", "2 veces me estafó"]]);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["666@lid"], accion: "remove" }]);
+  db.exec("DELETE FROM lista_negra");
+  for (const texto of ["+598 99 666 666 2 veces me estafó", "+598 99666666 3 veces", "+598-99-666-666 4 veces"]) {
+    await correr("ln", texto);
+    assert.deepEqual(anotado(), [], texto);
+    assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+59899666666 o \+59899666666\d\. Mandalo todo junto, sin espacios, y el motivo después\.$/, texto);
+  }
+  await correr("ln2", "+598 99 666 666 2");
+  assert.match(ultimo(), /^No sé dónde termina el número: .*\. Mandalo todo junto, sin espacios\.$/);
+  await correr("ln", "+59899666 666 spam");
+  assert.deepEqual(anotado(), [["59899666666@s.whatsapp.net", "spam"]], "ocho dígitos juntos no son un número entero");
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "+59899666666 - me estafó");
+  assert.deepEqual(anotado(), [["59899666666@s.whatsapp.net", "me estafó"]], "sin el guion");
+  db.exec("DELETE FROM lista_negra");
+  // Two cuts that are two people in the group: as unclear as none.
+  const dos = [...conocido, { id: "667@lid", admin: null, phoneNumber: "598996666662@s.whatsapp.net" }];
+  await correr("ln", "+598 99 666 666 2 veces me estafó", {}, { participants: dos });
+  assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+59899666666 o \+598996666662\./);
+  // Past 15 digits no cut is a number: the options end there, and a long run of spaced digits doesn't hold the bot.
+  await correr("ln", "+598 99 666 667 1 2 3 4 5 6 7");
+  assert.match(ultimo(), /puede ser \+59899666667, \+598996666671, \+5989966666712, \+59899666667123 o \+598996666671234\./);
+  const antes = performance.now();
+  await correr("ln", `+5 ${"1 ".repeat(30000)}`);
+  assert.ok(performance.now() - antes < 300, `tardó ${Math.round(performance.now() - antes)} ms`);
+  assert.deepEqual(anotado(), []);
 });
 
 // ---------- all-groups list, from the owner's private chat ----------

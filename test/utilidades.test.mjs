@@ -250,7 +250,7 @@ test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con
   assert.ok(bloque.length > 100, "no se encontró el handler de messages.upsert: el escaneo no está andando");
   assert.match(bloque, /const llegada = Date\.now\(\);[\s\S]*m\._llegada = llegada;/, "main.js dejó de marcar cuándo llegó la tanda");
   const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
-  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return anotarPresencia\(m\);/, "handle-message dejó de filtrar por el atraso de llegada");
+  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return anotarPresencia\(m, \{ antesDelNumero: true \}\);/, "handle-message dejó de filtrar por el atraso de llegada");
 });
 
 test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo", async () => {
@@ -804,32 +804,36 @@ test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde
 });
 
 // If the connection dropped right as "📣 Lo mando a…" went out, the notice ended there: no group got it, and nobody
-// told the owner.
+// told the owner. Whatever it was rejected with: the socket's close code, as Baileys rejects with it, nothing at all
+// (reading .message off a null threw inside the catch, and no group got it either), or an error with no message, which
+// left the log empty.
 test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega igual", async () => {
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
   const [clientReal, errorReal] = [globalThis.client, console.error];
-  const enviados = [];
-  const errores = [];
-  const client = {
-    groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {} }),
-    sendText: async (chat, t) => {
-      if (t.startsWith("📣")) return Promise.reject(1006); // the socket's close code, as Baileys rejects with it
-      enviados.push([chat, t]);
-    },
-  };
-  globalThis.client = client;
-  _dep.esperar = async () => {};
-  console.error = (...partes) => errores.push(partes.join(" "));
-  try {
-    await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
-  } finally {
-    _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+  for (const [rechazo, log] of [[1006, "1006"], [null, "null"], [new Error(""), "Error"], [new Error("Connection Closed"), "Connection Closed"]]) {
+    const enviados = [];
+    const errores = [];
+    const client = {
+      groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {} }),
+      sendText: async (chat, t) => {
+        if (t.startsWith("📣")) return Promise.reject(rechazo);
+        enviados.push([chat, t]);
+      },
+    };
+    globalThis.client = client;
+    _dep.esperar = async () => {};
+    console.error = (...partes) => errores.push(partes.map(String).join(" ")); // as it prints them: null is "null"
+    try {
+      await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+    } finally {
+      _dep.esperar = esperarReal;
+      [globalThis.client, console.error] = [clientReal, errorReal];
+    }
+    assert.deepEqual(enviados, [["a@g.us", "Hola"], ["b@g.us", "Hola"], [DUENO, "✅ Mensaje enviado a 2 grupo(s)."]], log);
+    assert.deepEqual(errores, [`[avisar-todos] no salió el aviso de que arranca: ${log}`], "el log dice con qué se rechazó");
   }
-  assert.deepEqual(enviados, [["a@g.us", "Hola"], ["b@g.us", "Hola"], [DUENO, "✅ Mensaje enviado a 2 grupo(s)."]]);
-  assert.deepEqual(errores, ["[avisar-todos] no salió el aviso de que arranca: 1006"], "el log dice el código, no undefined");
 });
 
 // With two owners, the one who cuts it hears it from the cancel, and the one who started it, at the end. And cut while

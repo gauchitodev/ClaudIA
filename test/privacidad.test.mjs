@@ -16,8 +16,10 @@ const fetchReal = globalThis.fetch;
 const logReal = console.log;
 const tipeoReal = {};
 let RITMO;
-// The pattern sendText turns into mentions (parseMention in lib/wa-socket.js).
-const menciones = (texto) => [...String(texto).matchAll(/@([0-9]{5,16}|0)/g)].length;
+// How many mentions sendText would make of a text: the bot's own parseMention (lib/wa-socket.js), on a socket that goes
+// nowhere (before). A copy of its pattern here let the two drift apart: with parseMention taking four digits,
+// sinMenciones left "@1234" in sight and no test failed.
+let menciones;
 
 const ANA = "555@lid";
 const FAMILIA = "familia@g.us";
@@ -36,6 +38,15 @@ before(async () => {
     const texto = typeof respuestaIA === "string" ? respuestaIA : JSON.stringify(respuestaIA);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: texto }] } }] }) };
   };
+  const WS = await import("../lib/wa-socket.js");
+  const crearReal = WS._dep.crearSocket;
+  WS._dep.crearSocket = () => ({ ...clienteFalso(), user: { id: "59800000001:5@s.whatsapp.net", lid: "200000000000001@lid" }, ev: { emit() {}, on() {} }, groupFetchAllParticipating: async () => ({}) });
+  try {
+    const socket = WS.makeWASocket({});
+    menciones = (texto) => socket.parseMention(String(texto)).length;
+  } finally {
+    WS._dep.crearSocket = crearReal;
+  }
   MP = await import("../lib/memoria-persona.js");
   M = await import("../lib/menciones.js");
   CC = await import("../lib/contexto-chat.js");
@@ -117,6 +128,12 @@ test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo
     return ultimoEnviado().msg.text;
   };
   assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .memoria olvidame");
+  // What she noted while chatting may hold the digits of a LID she was told about: sendText tagged that person. Whoever
+  // the bot knows goes by name, as in .memoria.
+  conBeto();
+  MP.anotarDe(ANA, SUYO, "le debe una ronda a @300000000000096 y a @300000000000003");
+  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto · le debe una ronda a 300000000000096 y a @Beto\nPara que me lo olvide: .memoria olvidame");
+  assert.equal(menciones(ultimoEnviado().msg.text), 0);
   assert.equal(await pedir("olvidame"), "🧠 Listo, me olvidé de lo que sabía de vos en este grupo.");
   assert.equal(MP.memoriaDe(ANA, SUYO), "");
   assert.equal(await pedir("yo"), "🧠 No tengo nada anotado de vos en este grupo.");
@@ -476,16 +493,19 @@ test("sinMenciones y conNombres no traban el bot con muchas @", () => {
 });
 
 // Only what sendText would take as a mention loses its "@": every "@" before a digit went, and "pepe@163.com" or
-// "@50cent" changed in what Claudia said. And none is left, whatever the "@" and the digits: random texts of them, with a
-// fixed seed.
+// "@50cent" changed in what Claudia said. Random texts of "@", every digit and a bit more, with a fixed seed: none is
+// left, and one that had none comes out as it went in. Looking only at the first, the "@" before a 2, a 4 or an 8 could
+// go too, and "4@300 pesos" was a post at 4300 again.
 test("sinMenciones no toca lo que no es una mención, y no deja ninguna", () => {
   for (const texto of ["escribime a pepe@163.com", "info@123seguro.com", "seguilo: @50cent", "la cuenta @9gag", "Vendo medias 3@500 pesos", "2@1500 c/u", "nos vemos 10@12"]) assert.equal(M.sinMenciones(texto), texto);
   let semilla = 12345;
   const azar = () => (semilla = (semilla * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const letras = ["@", "@", "@", "0", "1", "3", "0", "5", "9", "a", " "];
-  for (let k = 0; k < 20000; k++) {
+  const letras = ["@", "@", "@", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", " "];
+  for (let k = 0; k < 3000; k++) {
     const texto = Array.from({ length: 1 + Math.floor(azar() * 32) }, () => letras[Math.floor(azar() * letras.length)]).join("");
-    assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
+    const limpio = M.sinMenciones(texto);
+    assert.equal(menciones(limpio), 0, texto);
+    if (!menciones(texto)) assert.equal(limpio, texto, `no tenía menciones: ${texto}`);
   }
 });
 

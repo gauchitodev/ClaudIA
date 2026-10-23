@@ -49,10 +49,10 @@ export async function handleMessage(nMsg) {
     // A message that reached the bot more than 60 seconds after it was sent is dropped (the bot was offline, or the
     // connection stalled). Measured at arrival, not now: waiting behind the rest of its batch doesn't make it stale.
     // It's still a sign of life for .inactivos (anotarPresencia), like the two cuts below.
-    if (atrasoDeLlegada(m) > 60) return anotarPresencia(m);
+    if (atrasoDeLlegada(m) > 60) return anotarPresencia(m, { antesDelNumero: true });
 
     // Keeps the bot from answering command messages from while it was offline.
-    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m);
+    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m, { antesDelNumero: true });
 
     // Someone who's neither a LID nor a number (Meta AI writes as …@bot) has no row to keep it under: by "" getUser
     // found someone else's, one without a number, and every answer of Meta AI went to their message count. A group
