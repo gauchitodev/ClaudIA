@@ -406,3 +406,27 @@ test("esOwner: el número del owner es de quien lo usa ahora", async () => {
     globalThis.owners = owners;
   }
 });
+
+// An old row keyed by the number next to the one with the LID, which is the one read and written by number: listed,
+// .listaadv showed warnings no one could take off, .listabaneados a ban that no longer applied, and .conteo the same
+// person twice. A number with no LID row keeps its own.
+test("los listados de todas las filas dejan afuera la fila vieja de un número que ya tiene la de la LID", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("listados-fila-vieja");
+  const [N, L, SOLO] = ["59899000444@s.whatsapp.net", "300000000000444@lid", "59899000445@s.whatsapp.net"];
+  F.initDataDB({ chat: G, sender: N, senderJid: N, pushName: "Carla" }); // the old row
+  db.prepare("UPDATE users SET inGroup = ?, banned = 1 WHERE lid = ?").run(JSON.stringify({ [G]: { warn: 2, messageCount: 40 } }), N);
+  F.initDataDB({ chat: G, sender: L, senderJid: N, pushName: "Carla" });
+  F.getUser(L, G);
+  F.updateUserInGroup(L, G, { warn: 1, messageCount: 7 });
+  F.initDataDB({ chat: G, sender: SOLO, senderJid: SOLO, pushName: "Dani" });
+  db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run(JSON.stringify({ [G]: { messageCount: 3 } }), SOLO);
+  assert.deepEqual(F.getAllUsers().map((u) => u.lid).sort(), [L, SOLO].sort());
+  assert.deepEqual(F.advertidos(G).map((a) => [a.lid, a.warn]), [[L, 1]]);
+  const enviados = [];
+  const client = { user: { lid: "bot@lid", jid: "bot@s.whatsapp.net" }, chats: {}, sendText: async (chat, text) => enviados.push(text) };
+  await (await import("../plugins/grupo-message-count.js")).default.run({ chat: G, isGroup: true }, { client });
+  assert.match(enviados.at(-1), /\n\n1\. @300000000000444 - \*7\* mensajes\n2\. @59899000445 - \*3\* mensajes\n$/);
+  await (await import("../plugins/lista-banuser.js")).default.run({ chat: G }, { client, isOwner: true });
+  assert.match(enviados.at(-1), /Total : 0 Usuarios/);
+});

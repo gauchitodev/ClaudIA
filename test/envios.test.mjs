@@ -34,11 +34,23 @@ function clienteEnvuelto({ falla = null } = {}) {
 }
 const hoy = () => A.claveDia();
 const contados = (chat) => Object.fromEntries(F.enviosBotPorTipo(chat, [hoy()]).map((r) => [r.tipo, r.total]));
+// Several turns asked for at once, with the clock still while they're asked for: each one takes its turn from Date.now,
+// and under load (the whole suite at once) the asking itself took 20 ms or more, so a turn that shouldn't fit did.
+function aLaVez(pedir) {
+  const ahoraReal = Date.now;
+  const quieto = ahoraReal();
+  Date.now = () => quieto;
+  try {
+    return pedir();
+  } finally {
+    Date.now = ahoraReal;
+  }
+}
 
 // ---------- the queue ----------
 
 test("ritmo: dos mensajes al mismo chat se separan, y otro chat no espera", async () => {
-  const esperas = await Promise.all([R.esperarTurno("fila1@g.us"), R.esperarTurno("fila1@g.us"), R.esperarTurno("otro1@g.us")]);
+  const esperas = await Promise.all(aLaVez(() => [R.esperarTurno("fila1@g.us"), R.esperarTurno("fila1@g.us"), R.esperarTurno("otro1@g.us")]));
   assert.equal(esperas[0], 0);
   assert.ok(esperas[1] >= 35, `el segundo espera su turno (esperó ${esperas[1]} ms)`);
   assert.equal(esperas[2], 0, "otro chat no espera al primero");
@@ -72,7 +84,7 @@ test("ritmo: una cola larga sale tarde pero espaciada, sin ráfaga", async (t) =
 test("ritmo: las reacciones tienen su propia fila y se descartan si el turno queda lejos", async () => {
   const chat = "fila2@g.us";
   // A burst of five with a 100 ms limit: turns at 0, 40 and 80 ms fit; the next ones would wait too long.
-  const esperas = await Promise.all([1, 2, 3, 4, 5].map(() => R.esperarTurno(chat, { fila: "reacciones", descartarSiPasa: 100 })));
+  const esperas = await Promise.all(aLaVez(() => [1, 2, 3, 4, 5].map(() => R.esperarTurno(chat, { fila: "reacciones", descartarSiPasa: 100 }))));
   assert.deepEqual(
     esperas.map((e) => e === null),
     [false, false, false, true, true],
@@ -107,12 +119,14 @@ test("envíos: los mensajes esperan su turno, los borrados no, y otro chat no es
   const { client, salidas } = clienteEnvuelto();
   const G1 = "cola1@g.us";
   const antes = Date.now();
-  await Promise.all([
-    client.sendMessage(G1, { text: "uno" }),
-    client.sendMessage(G1, { text: "dos" }),
-    client.sendMessage(G1, { delete: { id: "SPAM" } }),
-    client.sendMessage("cola2@g.us", { text: "en otro grupo" }),
-  ]);
+  await Promise.all(
+    aLaVez(() => [
+      client.sendMessage(G1, { text: "uno" }),
+      client.sendMessage(G1, { text: "dos" }),
+      client.sendMessage(G1, { delete: { id: "SPAM" } }),
+      client.sendMessage("cola2@g.us", { text: "en otro grupo" }),
+    ]),
+  );
   const cuando = (pred) => salidas.find(pred).cuando;
   const posicion = (pred) => salidas.findIndex(pred);
   // "dos" goes out MIN_ENTRE_MENSAJES_MS (40 here) after its turn was asked for, measured from before asking: measured
@@ -135,8 +149,7 @@ test("envíos: una ráfaga de reacciones se espacia, las tardías no salen y los
   try {
     const antes = E.reaccionesDescartadas();
     // Ten wrong answers in a busy trivia, and the bot's "¡correcto!" in the middle of them.
-    const reacciones = Array.from({ length: 10 }, (_, i) => client.sendMessage(G1, { react: { text: "❌", key: { id: `R${i}` } } }));
-    const correcto = client.sendMessage(G1, { text: "¡correcto!" });
+    const [reacciones, correcto] = aLaVez(() => [Array.from({ length: 10 }, (_, i) => client.sendMessage(G1, { react: { text: "❌", key: { id: `R${i}` } } })), client.sendMessage(G1, { text: "¡correcto!" })]);
     const resultados = await Promise.all(reacciones);
     await correcto;
 
@@ -300,16 +313,25 @@ test(".enviados en un grupo: días, horas pico y tipos de lo que mandó ahí", a
   assert.match(vacio.texto, /No tengo envíos contados de los últimos 7 días en este grupo/);
 });
 
+// In a week of its own: the general count adds up every chat, and what the other tests sow in theirs went into it, or
+// not, depending on which ran first.
 test(".enviados general: todos juntos, con los grupos que más la hacen hablar", async () => {
-  // The group from the test above is in this same week too: it's the one that talked the most.
+  const OTRA = new Date(2031, 2, 15, 15, 30);
+  const sembrarEn = (chat, atras, hora, tipo, n) => {
+    for (let i = 0; i < n; i++) F.sumarEnvioBot(chat, A.claveDia(new Date(OTRA.getTime() - atras * 24 * 3600e3)), hora, tipo);
+  };
   globalThis.client.chats["panel@g.us"] = { subject: "Panel" };
   globalThis.client.chats["casino@g.us"] = { subject: "Casino de los pibes" };
   globalThis.client.chats["ventas@g.us"] = { subject: "Compraventa Pocitos" };
-  sembrar("casino@g.us", 0, 22, "texto", 60);
-  sembrar("ventas@g.us", 0, 10, "texto", 25);
-  sembrar("privado", 0, 9, "texto", 15);
+  sembrarEn("panel@g.us", 0, 21, "texto", 30);
+  sembrarEn("panel@g.us", 0, 21, "reaccion", 10);
+  sembrarEn("panel@g.us", 0, 13, "multimedia", 5);
+  sembrarEn("panel@g.us", 1, 22, "texto", 20);
+  sembrarEn("casino@g.us", 0, 22, "texto", 60);
+  sembrarEn("ventas@g.us", 0, 10, "texto", 25);
+  sembrarEn("privado", 0, 9, "texto", 15);
 
-  const { texto } = await E.textoEnviados(globalThis.client, { ahora: AHORA });
+  const { texto } = await E.textoEnviados(globalThis.client, { ahora: OTRA });
   assert.match(texto, /🤖 \*LO QUE MANDÉ\*\n/);
   assert.match(texto, /Hoy: \*145\* mensajes/, "todos los chats juntos");
   assert.match(
@@ -317,8 +339,10 @@ test(".enviados general: todos juntos, con los grupos que más la hacen hablar",
     /\*Dónde\*\nPanel: 65 · 39%\nCasino de los pibes: 60 · 36%\nCompraventa Pocitos: 25 · 15%\nprivados: 15 · 9%/,
     "por nombre, de más a menos, con su parte del total; los privados, todos juntos",
   );
-  // The burst test above dropped seven reactions in this same process.
-  assert.match(texto, /Reacciones que la cola no mandó desde que arranqué: 7/);
+  // The ones the queue dropped in this same process, whatever other tests did.
+  const sinMandar = E.reaccionesDescartadas();
+  if (sinMandar) assert.match(texto, new RegExp(`\nReacciones que la cola no mandó desde que arranqué: ${sinMandar}$`));
+  else assert.doesNotMatch(texto, /Reacciones que la cola/);
 });
 
 test(".enviados: en un grupo muestra ese grupo; con todo, o por privado, el general", async () => {

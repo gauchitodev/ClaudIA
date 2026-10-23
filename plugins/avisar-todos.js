@@ -102,7 +102,7 @@ plugin.run = async (m, { client, text, isOwner }) => {
       const empieza = `📣 Lo mando a ${jids.length} grupo(s), de a uno y espaciado: tarda unos ${duracion(Math.max(0, jids.length - 1) * promedio)}.${salteados ? ` Salteo ${salteados} con .banchat.` : ""} Para cortarlo: .avisartodos cancelar.`;
       // If this one doesn't go out (the connection dropped right then), the groups get the notice all the same: it used
       // to end here, without reaching any of them, and nobody told the owner.
-      if (await conectado(signal)) await socket().sendText(m.chat, empieza, m).catch((e) => console.error("[avisar-todos] no salió el aviso de que arranca:", e.message));
+      if (await conectado(signal)) await socket().sendText(m.chat, empieza, m).catch((e) => console.error("[avisar-todos] no salió el aviso de que arranca:", e?.message ?? e));
     }
 
     for (const [i, jid] of jids.entries()) {

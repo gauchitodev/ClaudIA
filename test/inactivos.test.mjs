@@ -420,22 +420,23 @@ test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de 
   // One at a time, as Baileys' own do it (Signal/lid-mapping.js).
   mapa.getLIDForPN = async (pn) => (await mapa.getLIDsForPNs([pn]))?.[0]?.lid || null;
   mapa.getPNForLID = async (lid) => (await mapa.getPNsForLIDs([lid]))?.[0]?.pn || null;
-  const [ownersReales, consultaReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS];
+  const [ownersReales, consultaReal, esperarReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar];
   globalThis.owners = [...ownersReales, ...nuevos];
   globalThis.client.signalRepository = { lidMapping: mapa };
-  I.INACTIVOS.CONSULTA_MS = 200;
-  const empezo = Date.now();
+  I.INACTIVOS.CONSULTA_MS = 100;
+  // The time limit, without the clock: it goes by once what's already answered is in. Measured, it failed under load.
+  const topes = [];
+  I._dep.esperar = (ms, valor) => (topes.push(ms), new Promise((r) => setImmediate(() => r(valor))));
   try {
     await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
   } finally {
     delete globalThis.client.signalRepository;
-    [globalThis.owners, I.INACTIVOS.CONSULTA_MS] = [ownersReales, consultaReal];
+    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar] = [ownersReales, consultaReal, esperarReal];
   }
-  const tardo = Date.now() - empezo;
   assert.deepEqual(ultimoEnviado().msg.mentions, ["7709@lid"], "los owners, aunque la otra pregunta no tuvo respuesta");
   assert.deepEqual(preguntas.map(([lado]) => lado).sort(), ["lid", "pn"], "una pregunta para cada lado");
   assert.ok(nuevos.every((n) => preguntas.find(([lado]) => lado === "pn")[1].includes(`${n}@s.whatsapp.net`)));
-  assert.ok(tardo < 600, `esperó ${tardo} ms: de a uno eran 200 por cada mod`);
+  assert.deepEqual(topes, [100], "un solo tope para las dos");
 });
 
 test("en un grupo cerrado, donde solo escriben los admins, no etiqueta ni saca a nadie", async () => {
@@ -856,4 +857,26 @@ test("quien cambió de número no queda como callado en un grupo que lo lista po
   assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), [], "con el mensaje atrasado");
   F.syncUserInfo({ chat, sender: L, senderJid: NUEVO, pushName: "Carla" });
   assert.deepEqual([F.jidDeLid(L), F.lidDeNumero(NUEVO), F.lidDeNumero(VIEJO)], [NUEVO, L, null]);
+});
+
+// The prize for coming back goes once in PREMIO_CADA_DIAS under any of the person's ids, and to their LID: a return
+// that came with the LID and the next one with only the number were paid twice, to two balances.
+test("el premio por volver va una vez cada 30 días aunque un regreso llegue con la LID y el otro con el número", async () => {
+  const chat = "inactivos-58@g.us";
+  const [L, N] = ["300000000000558@lid", "59899000558@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: L, senderJid: N, pushName: "Carla" });
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 60 * DIA);
+  F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
+  await I.registrarPresencia(globalThis.client, { chat, sender: L, senderJid: N });
+  db.prepare("UPDATE presencia_grupo SET ultimo_mensaje = ? WHERE chat = ?").run(Date.now() - 17 * DIA, chat); // silent since
+  db.prepare("UPDATE urucoins_log SET fecha = ? WHERE chat = ?").run(Date.now() - 16 * DIA, chat); // paid 16 days ago
+  F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
+  await I.registrarPresencia(globalThis.client, { chat, sender: N, senderJid: N }); // back again, with only the number
+  assert.deepEqual([F.getSaldoCoins(chat, L), F.getSaldoCoins(chat, N)], [10, 0]);
+  // Someone whose only return came with the number: paid to their LID, where the rest of their coins are.
+  const [L2, N2] = ["300000000000559@lid", "59899000559@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: L2, senderJid: N2, pushName: "Dani" });
+  F.marcarAvisoInactivo(chat, [L2, N2], Date.now() - DIA);
+  await I.registrarPresencia(globalThis.client, { chat, sender: N2, senderJid: N2 });
+  assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [10, 0]);
 });

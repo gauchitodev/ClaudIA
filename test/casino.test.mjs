@@ -67,12 +67,16 @@ test("tragamonedas: cinco líneas, diagonal de diamantes y esperanza", () => {
   C._rng.randomInt = randomInt;
   let gastado = 0;
   let ganado = 0;
-  for (let k = 0; k < 1500; k++) {
-    cargar("z", 1e6);
-    C.jugarTragamonedas(G, "z", 50);
-    gastado += 50;
-    ganado += saldo("z") - 1e6 + 50;
-  }
+  // In one transaction: some twelve thousand writes, each one waiting for the disk on its own, took seconds on a PC and
+  // could take the whole time limit on the tablet's flash memory.
+  db.transaction(() => {
+    for (let k = 0; k < 1500; k++) {
+      cargar("z", 1e6);
+      C.jugarTragamonedas(G, "z", 50);
+      gastado += 50;
+      ganado += saldo("z") - 1e6 + 50;
+    }
+  })();
   const ev = ganado / gastado;
   assert.ok(ev > 0.6 && ev < 1.3, `esperanza ${ev.toFixed(3)} (con 1500 tiradas es solo una prueba de cordura; la fina está en el historial de desarrollo)`);
 });

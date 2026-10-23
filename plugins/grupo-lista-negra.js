@@ -92,8 +92,11 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   // The reason goes with any other mention as a name, by number too: the whole group reads it (.vln), and the digits of
   // a LID were left in it.
   if (phoneMatches && phoneMatches.length > 0) {
-    who = `${phoneMatches[0].replace(/[^\d]/g, "")}@s.whatsapp.net`;
-    reason = conNombres(text.replace(phoneMatches[0], ""), m.mentionedJid).trim();
+    // Typed all together, the number ends where its digits do: "+59899666666 2 veces me estafó" took the 2 for one
+    // more, and listed someone else. Spaced out ("+598 99 666 666"), it takes every group.
+    const tipeado = phoneMatches[0].match(/^\+\d{8,}/)?.[0] || phoneMatches[0];
+    who = `${tipeado.replace(/[^\d]/g, "")}@s.whatsapp.net`;
+    reason = conNombres(text.replace(tipeado, ""), m.mentionedJid).trim();
   } else {
     who = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : null;
     // Without the mention of who goes on the list, by its digits (it comes as a LID or, in a group listed by number, as
@@ -185,14 +188,15 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 export default plugin;
 
 // A reason as the group reads it (.vln there): without the listed person's own number or LID, which one from before the
-// reasons left them out still has ("@59899555555 estafa"), and with the LIDs the bot knows as names.
+// reasons left them out still has ("@59899555555 estafa"), with the LIDs the bot knows as names, and anyone else as
+// "@alguien", which is how a reason given now names them: the digits of their LID were left in sight.
 function razonParaElGrupo(entrada) {
   let razon = String(entrada.reason || "");
   for (const id of [entrada.jid, entrada.lid]) {
     const digitos = String(id || "").split("@")[0];
     if (/^\d{5,}$/.test(digitos)) razon = razon.replace(new RegExp(`(?<!\\d)[@+]?${digitos}(?!\\d)`, "g"), "");
   }
-  return conNombres(razon).replace(/\s+/g, " ").trim();
+  return conNombres(razon).replace(/@\d{5,}/g, "@alguien").replace(/\s+/g, " ").trim();
 }
 
 // What the all-groups sweep tells the owner: where the person was removed from, and where it's up to them.

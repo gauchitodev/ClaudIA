@@ -84,31 +84,41 @@ test("lo que Claudia aprende de alguien queda en ese grupo: nada del privado ni 
 
 // The AI gets a mark where the mention goes, not the digits of the person's id (their LID, or their phone number); the
 // bot puts the mention in, and whatever "@<digits>" the AI adds tags nobody.
+// In groups of its own, with what it knows of Ana in one of them: it used to go by what the first test of this file
+// taught Claudia, and in another order, with that forgotten (.memoria olvidame), it failed.
 test("el saludo de cumpleaños usa solo lo de ese grupo, y la IA no ve los dígitos del id", async () => {
+  const [OTROS, SUYO] = ["cumple-otros@g.us", "cumple-suyo@g.us"];
+  F.getUser(ANA, SUYO);
+  F.updateUserInGroup(ANA, SUYO, { memoria: "tiene un perro que se llama Toto" });
   Cumple.CUMPLE.HORA_SALUDO = 0;
   const hoy = new Date();
   hoy.setHours(10, 0, 0, 0);
   respuestaIA = "@MENCION ¡Feliz cumple! Te saluda @59899000002";
-  F.setCumple(AMIGOS, ANA, hoy.getDate(), hoy.getMonth() + 1);
+  F.setCumple(OTROS, ANA, hoy.getDate(), hoy.getMonth() + 1);
   await Cumple.chequearCumpleanos(hoy);
-  assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. /, "en Amigos no sabe nada de Ana");
+  assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. /, "en otro grupo no sabe nada de Ana");
   assert.doesNotMatch(prompts.at(-1), /555/, "ni los dígitos de su id");
   assert.match(prompts.at(-1), /con el texto exacto "@MENCION"/);
   assert.deepEqual(ultimoEnviado().msg, { text: "@555 ¡Feliz cumple! Te saluda 59899000002", mentions: [ANA] });
-  F.borrarCumple(AMIGOS, ANA);
-  F.setCumple(FAMILIA, ANA, hoy.getDate(), hoy.getMonth() + 1);
+  F.borrarCumple(OTROS, ANA);
+  F.setCumple(SUYO, ANA, hoy.getDate(), hoy.getMonth() + 1);
   await Cumple.chequearCumpleanos(hoy);
   assert.match(prompts.at(-1), /charlas anteriores en este grupo: tiene un perro que se llama Toto/);
+  F.borrarCumple(SUYO, ANA);
 });
 
+// A group of its own as well: it erases what it knows, and other tests read it.
 test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo borra", async () => {
+  const SUYO = "memoria-yo@g.us";
+  F.getUser(ANA, SUYO);
+  F.updateUserInGroup(ANA, SUYO, { memoria: "tiene un perro que se llama Toto" });
   const pedir = async (accion) => {
-    await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true }, { client: globalThis.client, text: accion, args: [accion], command: "memoria", isAdmin: false, isOwner: false });
+    await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: globalThis.client, text: accion, args: [accion], command: "memoria", isAdmin: false, isOwner: false });
     return ultimoEnviado().msg.text;
   };
   assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .memoria olvidame");
   assert.equal(await pedir("olvidame"), "🧠 Listo, me olvidé de lo que sabía de vos en este grupo.");
-  assert.equal(MP.memoriaDe(ANA, FAMILIA), "");
+  assert.equal(MP.memoriaDe(ANA, SUYO), "");
   assert.equal(await pedir("yo"), "🧠 No tengo nada anotado de vos en este grupo.");
 });
 
@@ -475,9 +485,10 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
 // .recordá answers with the note: a LID typed by hand that the bot doesn't know (no name to put instead), or digits split
 // by another "@", went back to the group as they came, and sendText made them a mention. .memoria already read them
 // right.
+// In a group of its own: the note it leaves went into the prompt of the next test about Familia.
 test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {
   const texto = "que @300000000000096 debe una ronda, y @3000@00000000091 también";
-  await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true, mentionedJid: [] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
+  await Memoria.run({ chat: "recorda-eco@g.us", sender: ANA, isGroup: true, mentionedJid: [] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
   assert.match(ultimoEnviado().msg.text, /^🧠 Anotado \(#\d+\): 300000000000096 debe una ronda, y 300000000000091 también$/);
   assert.equal(menciones(ultimoEnviado().msg.text), 0);
 });

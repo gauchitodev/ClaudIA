@@ -401,6 +401,30 @@ test("batería baja: con 15 % justo, la pausa sigue", async () => {
   await B.leerBateria(); // it answers: no pause left behind for the next test
 });
 
+// "Recent" is ENTRE_LECTURAS_MS: a reading exactly that old still holds the pause, and one a moment older doesn't.
+test("batería baja: la pausa vale con una lectura de hasta 15 minutos, y no más vieja", async () => {
+  let llamadas = 0;
+  let ahora = 5_000_000_000;
+  B._dep.ahora = () => ahora;
+  B._dep.ejecutar = async () => {
+    llamadas++;
+    throw Object.assign(new Error("termux-battery-status no contestó en 8 s"), { code: "ETIMEDOUT" });
+  };
+  B._dep.leer = async (ruta) => {
+    throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
+  };
+  globalThis.bateriaLecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora };
+  await B.chequearBateriaBaja(); // the timeout: the pause starts
+  ahora += 15 * 60 * 1000;
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 1, "con la lectura de hace 15 minutos justos, la pausa sigue");
+  ahora += 1;
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 2, "un poco más vieja, vuelve a preguntar");
+  B._dep.ejecutar = async () => ({ stdout: JSON.stringify({ percentage: 50, status: "DISCHARGING" }) });
+  await B.leerBateria(); // it answers: no pause left behind for the next test
+});
+
 // Going past 15 % makes both records ready again: the low battery's and the weak charger's.
 test("batería baja: pasado el 15 %, el aviso del cargador que no da abasto vuelve a estar listo", async () => {
   globalThis.bateriaBajaAvisada.clear();

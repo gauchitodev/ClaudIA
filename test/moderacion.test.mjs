@@ -11,10 +11,6 @@ before(async () => {
   ({ F } = await prepararBase("moderacion"));
   globalThis.txt = strings;
   globalThis.client.user.lid = "999@lid";
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
-    expulsiones.push({ chat, ids, accion });
-    return ids.map((jid) => ({ status: statusExpulsion, jid }));
-  };
   Kick = (await import("../plugins/grupo-kick.js")).default;
   Silenciar = (await import("../plugins/grupo-silenciar.js")).default;
   Ban = (await import("../plugins/owner-banuser.js")).default;
@@ -23,10 +19,15 @@ before(async () => {
   F.initDataDB({ chat: G, sender: "333@lid", senderJid: "" }); // someone whose number isn't known
 });
 
+// Put back before each test: some swap it for their own, and in another order .kick got one that always says yes.
 beforeEach(() => {
   expulsiones = [];
   statusExpulsion = "200";
   globalThis.enviados = [];
+  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+    expulsiones.push({ chat, ids, accion });
+    return ids.map((jid) => ({ status: statusExpulsion, jid }));
+  };
 });
 
 // The group lists by LID; 111's number is known, 222's isn't.

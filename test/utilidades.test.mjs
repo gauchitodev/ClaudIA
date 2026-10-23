@@ -811,16 +811,17 @@ test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega i
   const esperarReal = _dep.esperar;
   const [clientReal, errorReal] = [globalThis.client, console.error];
   const enviados = [];
+  const errores = [];
   const client = {
     groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {} }),
     sendText: async (chat, t) => {
-      if (t.startsWith("📣")) throw new Error("Connection Closed");
+      if (t.startsWith("📣")) return Promise.reject(1006); // the socket's close code, as Baileys rejects with it
       enviados.push([chat, t]);
     },
   };
   globalThis.client = client;
   _dep.esperar = async () => {};
-  console.error = () => {};
+  console.error = (...partes) => errores.push(partes.join(" "));
   try {
     await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
   } finally {
@@ -828,6 +829,7 @@ test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega i
     [globalThis.client, console.error] = [clientReal, errorReal];
   }
   assert.deepEqual(enviados, [["a@g.us", "Hola"], ["b@g.us", "Hola"], [DUENO, "✅ Mensaje enviado a 2 grupo(s)."]]);
+  assert.deepEqual(errores, ["[avisar-todos] no salió el aviso de que arranca: 1006"], "el log dice el código, no undefined");
 });
 
 // With two owners, the one who cuts it hears it from the cancel, and the one who started it, at the end. And cut while

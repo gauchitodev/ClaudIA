@@ -14,21 +14,23 @@ before(async () => {
   globalThis.txt = strings;
   globalThis.client.decodeJid = (j) => j;
   globalThis.client.user.lid = "999000@lid";
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
-    expulsiones.push({ chat, ids, accion });
-    return ids.map((jid) => ({ status: statusExpulsion, jid }));
-  };
   LN = await import("../lib/lista-negra.js");
   B = await import("../lib/bienvenida.js");
   P = (await import("../plugins/grupo-lista-negra.js")).default;
   Manejador = (await import("../plugins/_manejador-lista-negra.js")).default;
 });
 
+// Put back before each test: the sweep's test swaps it for its own, and in another order a rejected removal came out
+// accepted.
 beforeEach(() => {
   expulsiones = [];
   statusExpulsion = "200";
   globalThis.enviados = [];
   db.exec("DELETE FROM lista_negra");
+  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+    expulsiones.push({ chat, ids, accion });
+    return ids.map((jid) => ({ status: statusExpulsion, jid }));
+  };
 });
 
 // The group lists everyone by LID. 111 is the only one whose number WhatsApp sent; 222 joined and never wrote.
@@ -295,6 +297,25 @@ test(".ln por número también nombra a los otros mencionados, y .vln no muestra
   assert.doesNotMatch(ultimo(), /5989|@3000/, "ni su número ni la LID del otro");
   await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.match(ultimo(), /📝 Razón: @59899577577 estafa, lo vio @300000000000005\n/);
+});
+
+// Typed all together, the number ends where its digits do: ".ln +59899666666 2 veces me estafó" listed 598996666662,
+// someone else, with "veces me estafó". Spaced out, the number is every group of digits.
+test(".ln por número no se come los dígitos que siguen", async () => {
+  await correr("ln", "+59899666666 2 veces me estafó");
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.reason]), [["59899666666@s.whatsapp.net", "2 veces me estafó"]]);
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "+598 99 666 667 spam");
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.reason]), [["59899666667@s.whatsapp.net", "spam"]]);
+});
+
+// An old reason in the group: the listed person's own LID goes, a longer number that holds their digits stays, and
+// someone the bot doesn't know is "@alguien", as a reason given now names them: the digits of their LID were in sight.
+test(".vln en el grupo: un motivo viejo sin la LID de la persona ni la de un desconocido", async () => {
+  F.initDataDB({ chat: G, sender: "300000000000578@lid", senderJid: "59899578578@s.whatsapp.net", pushName: "Dani" });
+  F.addToBlacklist("59899578578@s.whatsapp.net", "@300000000000578 molesta, como el 598995785789 y el 159899578578, y lo vio @300000000000777", "59899100100@s.whatsapp.net", G, "300000000000578@lid");
+  await correr("vln", "");
+  assert.match(ultimo(), /📝 Razón: molesta, como el 598995785789 y el 159899578578, y lo vio @alguien\n/);
 });
 
 // ---------- all-groups list, from the owner's private chat ----------

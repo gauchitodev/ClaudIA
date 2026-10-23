@@ -583,3 +583,20 @@ test("compraventa: quien publicó se reconoce por cualquiera de sus dos identida
   for (let i = F.contarPublicacionesActivas(chat, LID); i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, LID, "vendo", `cosa ${i} $ 100`);
   assert.match(C.cambiarEstado(chat, numero, PN, false, "sigue").error, /no se puede reactivar: ya tenés 10 publicaciones activas/);
 });
+
+// Each person hears of a post once, by either identity: the suggestions named someone by their LID, and their alert,
+// kept under the number, named them again; and two alerts of theirs, one under each, named them twice.
+test("compraventa: a cada uno lo nombra una sola vez, aunque tenga cosas bajo la LID y bajo el número", () => {
+  const chat = "compraventa-alerta@g.us";
+  const [L, N] = ["668@lid", "59899000668@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: L, senderJid: N, pushName: "Persona668" });
+  F.initDataDB({ chat, sender: "669@lid", senderJid: "", pushName: "Persona669" });
+  assert.ok(C.publicar(chat, L, "compro", "bici rodado 26 en Pocitos").ok);
+  assert.ok(C.gestionarAlerta(chat, N, ["bici"]).ok); // from a message that came with only the number
+  const bici = C.publicar(chat, "669@lid", "vendo", "bici rodado 26, $ 4.000, Pocitos");
+  assert.deepEqual([bici.sugerencias?.mentions, bici.avisos], [[L], null]);
+  assert.ok(C.gestionarAlerta(chat, L, ["heladera"]).ok);
+  assert.ok(C.gestionarAlerta(chat, N, ["heladera"]).ok);
+  const avisados = C.publicar(chat, "669@lid", "vendo", "heladera chica, $ 9.000, Malvín").avisos?.mentions || [];
+  assert.ok(avisados.length === 1 && [L, N].includes(avisados[0]), JSON.stringify(avisados));
+});

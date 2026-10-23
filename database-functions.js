@@ -907,9 +907,12 @@ export function getTotalUsers() {
   return row?.total || 0;
 }
 
-// every user in the users table
+// every user in the users table, once: an old row keyed by the number (from before WhatsApp used LIDs, or from a
+// message that came without the LID) is left out when its number has a row with a LID, since nothing reads it or writes
+// it any more (FILA_DEL_NUMERO). Listed, it showed warnings no one could take off, a ban that no longer applied, and
+// the same person twice in .conteo.
 export function getAllUsers() {
-  const rows = db.prepare(`SELECT * FROM users`).all();
+  const rows = db.prepare(`SELECT * FROM users WHERE lid LIKE '%@lid' OR jid = '' OR NOT EXISTS (SELECT 1 FROM users v WHERE v.jid = users.jid AND v.lid LIKE '%@lid')`).all();
 
   // Parse the JSON for each user
   for (const row of rows) {
