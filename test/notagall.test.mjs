@@ -113,6 +113,28 @@ test("con dos filas para la misma persona, decide la del LID", () => {
   assert.equal(MG.noRecibeLlamados(D, ["nadie@lid"]), false);
 });
 
+// An old row keyed by the number (from before LIDs, or from a message that came without the LID) next to the LID's:
+// .notagall and .sitagall write to the LID's, the one getUser reads, and .tagall went by what the old one said. In a
+// group listed by number without the LID, whoever had opted out back then heard "Ya recibís los llamados" and still
+// wasn't tagged.
+test("con una fila vieja por número, .tagall hace lo que dicen .notagall y .sitagall", async () => {
+  const V = "fila-vieja@g.us";
+  const N = numero(8);
+  F.initDataDB({ chat: V, sender: N, senderJid: N, pushName: "Ocho" }); // the old row, keyed by the number
+  db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run(JSON.stringify({ [V]: { sinTagall: true } }), N); // opted out, then
+  F.initDataDB({ chat: V, sender: "8@lid", senderJid: N, pushName: "Ocho" });
+  const porNumero = [{ id: N, admin: null }, { id: numero(9), admin: null }];
+  const lleva = () => MG.mencionesParaTodos(V, porNumero, { client: clienteFalso() }).ids.includes(N);
+  const pedirEn = (sender, command) => NoTag.run({ chat: V, sender, senderJid: N, isGroup: true }, { client: clienteFalso(), command });
+  assert.equal(lleva(), true, "la fila que vale, la de la LID, no dice nada");
+  await pedirEn(N, "notagall"); // from a message that came with only the number
+  assert.match(ultimoEnviado().msg.text, /^🔕 Listo/);
+  assert.equal(lleva(), false);
+  await pedirEn("8@lid", "sitagall");
+  assert.match(ultimoEnviado().msg.text, /^🔔 Listo/);
+  assert.equal(lleva(), true);
+});
+
 // The whole group in one query, whatever its size. Each member used to be looked up on their own, up to three lookups
 // each and two of them by number, and a .tagall in a group of a thousand held the whole bot for half a second.
 test("una sola consulta para todo el grupo, no una por persona", () => {

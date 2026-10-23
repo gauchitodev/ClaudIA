@@ -381,3 +381,28 @@ test("por número se lee y se escribe una sola fila: la de la LID, y si el núme
   F.initDataDB({ chat: G, sender: solo, senderJid: solo, pushName: "Uno" }); // a message with only the number
   assert.deepEqual(db.prepare("SELECT lid FROM users WHERE jid = ?").all(solo), [{ lid: "300000000000556@lid" }]);
 });
+
+// The owner is set by number. Whoever had that number before, and wrote where the bot is, kept it on their row and was
+// taken for the owner; and the owner who changed numbers, with the new one in config, wasn't, by their LID.
+test("esOwner: el número del owner es de quien lo usa ahora", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("owner-numero");
+  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const [ANTES, DUENO] = ["300000000000771@lid", "300000000000772@lid"];
+  const escribe = (sender, senderJid) => {
+    const m = { chat: G, sender, senderJid, pushName: "x", isGroup: true };
+    F.initDataDB(m);
+    F.syncUserInfo(m);
+  };
+  escribe(ANTES, OWNER); // the number was someone else's
+  escribe(DUENO, OWNER); // the owner's now
+  assert.deepEqual([F.esOwner(ANTES), F.esOwner(DUENO)], [false, true]);
+  const owners = globalThis.owners;
+  globalThis.owners = ["59899333444"];
+  try {
+    escribe(DUENO, "59899333444@s.whatsapp.net");
+    assert.equal(F.esOwner(DUENO), true, "con el número nuevo en config");
+  } finally {
+    globalThis.owners = owners;
+  }
+});

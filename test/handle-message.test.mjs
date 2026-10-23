@@ -471,3 +471,42 @@ test("el aviso de que el grupo se cerró o se abrió cuenta para .inactivos, aun
   await I.avisarInactivos(client, { chat: nuevo, sender: ANA, isGroup: true }, participants, { ahora });
   assert.equal(globalThis.enviados.at(-1).msg.text, "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 16 días, y el tiempo que estuvo cerrado no cuenta. Probá en 4 días.");
 });
+
+// A recycled number: N was A's, A moved to N2, and N is B's now. The number a message brings along with the LID is the
+// one in use, and it stops being anyone else's: A's row kept N, so "the row of N" was A's whenever A wrote last, and a
+// message from B that came with only the number was deleted for A's silence, and gave A B's name.
+test("con un número reciclado, lo de cada uno queda con cada uno", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const grupo = "120363000000000027@g.us";
+  const [A, B] = ["300000000000031@lid", "300000000000032@lid"];
+  const [N, N2] = ["59899000731@s.whatsapp.net", "59899000732@s.whatsapp.net"];
+  client.groupMetadata = async (id) => ({ id, subject: "Grupo", participants: [{ id: A, admin: null }, { id: B, admin: null }, { id: BOT, admin: "admin" }] });
+  let n = 0;
+  const llegaDe = async (participant, participantAlt, pushName) => {
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: `ABCDEF9997${++n}`, participant, ...(participantAlt ? { participantAlt } : {}) }, message: { conversation: "hola" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName, _upsertType: "notify", _llegada: Date.now() });
+    await esperar(5); // each one stamped apart (FILA_DEL_NUMERO goes by the last one)
+  };
+  await llegaDe(A, N, "Ana");
+  await llegaDe(B, N, "Beto"); // N is B's now
+  await llegaDe(A, N2, "Ana"); // A, from the new number
+  assert.deepEqual([F.jidDeLid(A), F.jidDeLid(B), F.lidDeNumero(N), F.lidDeNumero(N2)], [N2, N, B, A]);
+  F.getUser(A, grupo);
+  F.updateUserInGroup(A, grupo, { mute: true });
+  globalThis.enviados = [];
+  await llegaDe(N, null, "Beto"); // B, a message that came with only the number
+  assert.ok(!globalThis.enviados.some((e) => e.msg?.delete), "el silencio de A no le borra el mensaje a B");
+  assert.deepEqual([F.getUser(A).pushName, F.getUser(N).lid], ["Ana", B]);
+});
+
+// Meta AI writes in a group as …@bot, neither a LID nor a number: m.sender comes out empty, and by "" getUser found
+// someone with no number on record. Every answer went to that person's message count.
+test("un mensaje de Meta AI no se le cuenta a nadie", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const grupo = "120363000000000028@g.us";
+  for (const id of ["ABCDEF999751", "ABCDEF999752"]) await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: "867051314767696@bot" }, message: { conversation: "Soy Meta AI, ¿en qué te ayudo?" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Meta AI", _upsertType: "notify", _llegada: Date.now() });
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE inGroup LIKE ?").get(`%${grupo}%`).n, 0, "nadie tiene mensajes en el grupo");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE lid = ''").get().n, 0, "ni una fila de nadie");
+  assert.equal(F.getUser(""), null);
+});

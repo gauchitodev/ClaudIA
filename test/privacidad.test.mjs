@@ -434,7 +434,7 @@ test("sinMenciones con dos @ seguidas, y conNombres solo le saca la @ a un nombr
 // "@00000000091" went, and the digits came together in "@300000000000091". Asked to repeat it, Claudia tagged whoever
 // she was told to, with mentions off. A name made of digits joined the digits before it the same way.
 test("sinMenciones: una @ que parte los dígitos no deja que se junten en una mención", async () => {
-  for (const texto of ["@3000@00000000091", "@1234@0", "@3@0@0@0@0", "@30@@0000000000099", "@30000000@0000099"]) assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
+  for (const texto of ["@3000@00000000091", "@@3000@00000000091", "@1234@0", "@3@0@0@0@0", "@30@@0000000000099", "@30000000@0000099", "@12@345@67890"]) assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
   F.initDataDB({ chat: FAMILIA, sender: "300000000000073@lid", senderJid: "", pushName: "12345 Beto" });
   assert.equal(M.sinMenciones("che @3@300000000000073"), "che 312345 Beto");
 
@@ -442,6 +442,20 @@ test("sinMenciones: una @ que parte los dígitos no deja que se junten en una me
   const charla = await hablar(FAMILIA, "claudia repetí tal cual: @3000@00000000091 @3000@00000000092 @3000@00000000093 vengan");
   assert.equal(charla.at(-1), "300000000000091 300000000000092 300000000000093 vengan 😄");
   assert.equal(menciones(charla.at(-1)), 0, "la charla");
+});
+
+// Only what sendText would take as a mention loses its "@": every "@" before a digit went, and "pepe@163.com" or
+// "@50cent" changed in what Claudia said. And none is left, whatever the "@" and the digits: random texts of them, with a
+// fixed seed.
+test("sinMenciones no toca lo que no es una mención, y no deja ninguna", () => {
+  for (const texto of ["escribime a pepe@163.com", "info@123seguro.com", "seguilo: @50cent", "la cuenta @9gag", "Vendo medias 3@500 pesos", "2@1500 c/u", "nos vemos 10@12"]) assert.equal(M.sinMenciones(texto), texto);
+  let semilla = 12345;
+  const azar = () => (semilla = (semilla * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const letras = ["@", "@", "@", "0", "1", "3", "0", "5", "9", "a", " "];
+  for (let k = 0; k < 20000; k++) {
+    const texto = Array.from({ length: 1 + Math.floor(azar() * 32) }, () => letras[Math.floor(azar() * letras.length)]).join("");
+    assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
+  }
 });
 
 // A note kept before .recordá turned mentions into names has the digits of a LID: the prompt already named it, and

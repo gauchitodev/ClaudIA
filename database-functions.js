@@ -657,6 +657,9 @@ const FILA_DEL_NUMERO = `ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`;
 // every row with it: a message that came with only the number copied the old row over the one with the LID, and the
 // person lost their warnings, their silence and their .afk in every group.
 export function getUser(userId, chatJid = null) {
+  // Nobody is "": rows without a number have that jid, and by number "" was one of them (a message from Meta AI, which
+  // writes as …@bot, was counted as theirs).
+  if (!userId) return null;
   const row = userId.endsWith("@lid") ? db.prepare(`SELECT * FROM users WHERE lid = ?`).get(userId) : db.prepare(`SELECT * FROM users WHERE jid = ? ${FILA_DEL_NUMERO}`).get(userId);
   if (!row) return null;
 
@@ -728,7 +731,11 @@ export function getBotSettings(botJid) {
   return db.prepare(`SELECT * FROM settings WHERE botJid = ?`).get(botJid) || null;
 }
 
-// Update pushName, jid and timestamp on the user's row.
+// Update pushName, jid and timestamp on the user's row. The number a message brings along with the LID is the one that
+// person uses now: it goes on their row, and off any other LID's, since a number is one person's at a time. It used to
+// be filled in once and kept: whoever changed numbers stayed under the old one, and whoever had a recycled number
+// before kept it, so "the row of the number" (FILA_DEL_NUMERO) could be theirs. Whoever had the owner's number was the
+// owner.
 export function syncUserInfo(m) {
   const lid = m.sender;
   const newJid = m.senderJid;
@@ -738,11 +745,16 @@ export function syncUserInfo(m) {
   if (!lid) return;
 
   const user = getUser(lid);
+  const numero = newJid?.endsWith?.("@s.whatsapp.net") ? newJid : null;
 
   let finalJid = user?.jid;
   const isRegularJid = finalJid?.endsWith?.("@s.whatsapp.net");
 
   if (!finalJid || !isRegularJid) finalJid = newJid;
+  if (numero && lid.endsWith("@lid")) {
+    finalJid = numero;
+    db.prepare(`UPDATE users SET jid = '' WHERE jid = ? AND lid <> ? AND lid LIKE '%@lid'`).run(numero, lid);
+  }
 
   const datos = { jid: finalJid, timestamp };
   // Group notices and some message types come without a pushName: don't overwrite the stored name with null.
@@ -795,8 +807,10 @@ export function updateUserInGroup(userId, chat, data) {
 
 // The rows that hold `clave` in the data of some group (inGroup), oldest first, as stored: a flag few people set, read
 // in one query instead of one getUser per member of a big group (lib/menciones-generales.js, for .notagall).
+// delNumero says whether the row is the one its number stands for (FILA_DEL_NUMERO), the one getUser and updateUser go
+// to by number.
 export function filasConDatoDeGrupo(clave) {
-  return db.prepare(`SELECT lid, jid, inGroup FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
+  return db.prepare(`SELECT lid, jid, inGroup, lid = (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1) AS delNumero FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
 }
 
 // One more message from a person in a group (inGroup[chat].messageCount), counted over the row as it is now: two
@@ -1443,11 +1457,19 @@ export function reiniciarPresencia(chat) {
 }
 
 // A group closed (only the admins write) or opened at `cuando`: it starts a stretch in cierres_grupo, or ends the one
-// going on. Seen twice (the group's notice and the bot's own .g, say), the second changes nothing.
+// going on. Seen twice (the group's notice and the bot's own .g, say), the second changes nothing, and so does a notice
+// from before the last change on record, repeated or out of order: an old opening during a later closing ended that
+// closing as it began, and an old closing after the group opened started one that ran until someone looked. One that
+// came late but fits moves the change back to when it happened: the copy of the group the bot asked for
+// (lib/cache-grupos.js) may have told it first.
 export function anotarCierreGrupo(chat, cerrado, cuando = Date.now()) {
   const enCurso = db.prepare(`SELECT rowid, desde FROM cierres_grupo WHERE chat = ? AND hasta IS NULL`).get(chat);
-  if (cerrado && !enCurso) db.prepare(`INSERT INTO cierres_grupo (chat, desde) VALUES (?, ?)`).run(chat, cuando);
-  if (!cerrado && enCurso) db.prepare(`UPDATE cierres_grupo SET hasta = ? WHERE rowid = ?`).run(Math.max(cuando, enCurso.desde), enCurso.rowid);
+  const ultimo = db.prepare(`SELECT rowid, desde, hasta FROM cierres_grupo WHERE chat = ? AND hasta IS NOT NULL ORDER BY hasta DESC LIMIT 1`).get(chat);
+  const abrio = ultimo?.hasta ?? -Infinity;
+  if (cerrado && !enCurso && cuando >= abrio) db.prepare(`INSERT INTO cierres_grupo (chat, desde) VALUES (?, ?)`).run(chat, cuando);
+  if (cerrado && enCurso && cuando < enCurso.desde && cuando >= abrio) db.prepare(`UPDATE cierres_grupo SET desde = ? WHERE rowid = ?`).run(cuando, enCurso.rowid);
+  if (!cerrado && enCurso && cuando >= enCurso.desde) db.prepare(`UPDATE cierres_grupo SET hasta = ? WHERE rowid = ?`).run(cuando, enCurso.rowid);
+  if (!cerrado && !enCurso && ultimo && cuando >= ultimo.desde && cuando < ultimo.hasta) db.prepare(`UPDATE cierres_grupo SET hasta = ? WHERE rowid = ?`).run(cuando, ultimo.rowid);
 }
 
 // When a group was closed, oldest first: { desde, hasta } in ms, hasta null while it still is.
@@ -1463,16 +1485,18 @@ export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
   marcarInicioPresencia(chat, cuando);
 }
 
-// A message from someone: it's stamped on the first id and lifts the warning from all of them. Returns when they had
-// been warned, or null: who comes back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so
-// two messages at once can't both find the warning). A warning from before their last message doesn't count, and goes
-// all the same: it went out while they were writing, and they had answered it already. The stamp only moves forward: a
-// message that arrives late, with the time it was sent, doesn't take back a newer one.
-export function registrarMensajeGrupo(chat, ids, cuando = Date.now()) {
+// A message from someone: it's stamped on the ids it came with (sellar; the first one, failing that) and lifts the
+// warning from all of them. Returns when they had been warned, or null: who comes back after .inactivos is spared, and
+// paid once (better-sqlite3 runs this whole, so two messages at once can't both find the warning). A warning from
+// before their last message doesn't count, and goes all the same: it went out while they were writing, and they had
+// answered it already. The stamp only moves forward: a message that arrives late, with the time it was sent, doesn't
+// take back a newer one.
+export function registrarMensajeGrupo(chat, ids, cuando = Date.now(), sellar = ids.slice(0, 1)) {
   if (!ids.length) return null;
   const previo = db.prepare(`SELECT MAX(avisado) AS avisado, MAX(ultimo_mensaje) AS ultimo FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids);
   if (previo?.avisado) quitarAvisoInactivo(chat, ids);
-  db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`).run(chat, ids[0], cuando);
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`);
+  for (const id of sellar) st.run(chat, id, cuando);
   marcarInicioPresencia(chat, cuando);
   return previo?.avisado > (previo?.ultimo || 0) ? previo.avisado : null;
 }

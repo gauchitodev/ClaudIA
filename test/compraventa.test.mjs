@@ -544,6 +544,15 @@ test("compraventa: el horario del grupo sin admin avisa una vez, reintenta cada 
   }
 });
 
+// sinMenciones took every "@" before a digit out of a post: "3@500 pesos" was kept as "3500 pesos", and that was its
+// price.
+test("compraventa: una @ antes de un número que no arroba queda en la publicación, y en el precio", () => {
+  const chat = "compraventa-arroba@g.us";
+  F.initDataDB({ chat, sender: "667@lid", senderJid: "", pushName: "Persona667" });
+  const r = C.publicar(chat, "667@lid", "vendo", "Vendo medias 3@500 pesos, escribime a pepe@163.com");
+  assert.deepEqual([F.getPublicacion(chat, r.numero).texto, r.precio], ["Vendo medias 3@500 pesos, escribime a pepe@163.com", "500 pesos"]);
+});
+
 // One message may bring someone's number and the next their LID. Compared as they came, whoever replied to their own
 // photo with .vendo heard "Ese mensaje no es tuyo", couldn't close their own post nor read it once closed, got it
 // suggested back as someone else's, and their own alert went off for it.

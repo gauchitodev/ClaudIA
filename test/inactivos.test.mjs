@@ -745,3 +745,115 @@ test(".k inactivos confirmar dice cuántos ya no estaban, y al que el grupo list
   assert.deepEqual(expulsiones.map((e) => e.ids[0]), ["59899000301@s.whatsapp.net", "302@lid"], "con el id con que lo lista el grupo");
   assert.equal(textoEnviado(), "🧹 Saqué a 2 personas. Una ya no estaba en el grupo.");
 });
+
+// A notice of the group closing or opening that says nothing new changes nothing: the same one again, or one from before
+// the last change on record. An old opening repeated during a later closing ended it as it began, and an old closing
+// repeated after the group opened started one that ran until someone looked. One that came late but fits moves the
+// change back to when it happened: the copy of the group the bot asked for may have told it first.
+test("los avisos de cierre repetidos o fuera de orden no cambian lo que se sabe, y uno atrasado que encaja corrige la hora", () => {
+  const chat = "inactivos-53@g.us";
+  const H = 60 * 60 * 1000;
+  const ahora = Date.now();
+  const aviso = (cerrado, horas) => F.anotarCierreGrupo(chat, cerrado, ahora - horas * H);
+  const tramos = () => F.cierresGrupo(chat).map((c) => [Math.round((ahora - c.desde) / H), c.hasta === null ? null : Math.round((ahora - c.hasta) / H)]);
+  aviso(true, 240);
+  aviso(false, 216);
+  aviso(true, 120);
+  aviso(false, 216); // the old opening, again
+  aviso(true, 240); // and the old closing
+  assert.deepEqual(tramos(), [[240, 216], [120, null]]);
+  aviso(false, 48);
+  aviso(true, 120);
+  aviso(true, 60); // a closing from while it was closed
+  assert.deepEqual(tramos(), [[240, 216], [120, 48]]);
+  aviso(true, 24); // what the copy said when the bot asked
+  aviso(true, 36); // the notice, late
+  aviso(false, 6);
+  aviso(false, 12);
+  aviso(false, 40); // an opening from before this closing
+  assert.deepEqual(tramos(), [[240, 216], [120, 48], [36, 12]]);
+});
+
+// The bot coming into a closed group, or back to one, never got the notice of its closing: it found out when it opened,
+// and every day before then looked like silence. main.js asks for the group's copy right after starting the count over,
+// and every copy says whether it's closed, as of when it was asked for; on reconnecting it gets all of them at once.
+test("si el bot vuelve a un grupo cerrado, el cierre cuenta desde que volvió", async () => {
+  const chat = "inactivos-54@g.us";
+  const ahora = Date.now();
+  const participants = [{ id: "101@lid", admin: null }, { id: "102@lid", admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 40 * DIA);
+  F.registrarMensajeGrupo(chat, ["101@lid", "102@lid"], ahora - 25 * DIA);
+  cerrados.add(chat);
+  // Removed and added back 18 days ago, with the group closed (main.js, group-participants.update).
+  I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]);
+  await CG.metadataDe(globalThis.client, chat, { fresca: true, ahora: ahora - 18 * DIA });
+  F.registrarIngresoGrupo(chat, ["999@lid"], ahora - 18 * DIA);
+  // It opened a minute ago.
+  cerrados.delete(chat);
+  F.anotarCierreGrupo(chat, false, ahora - 60 * 1000);
+  CG.invalidar(globalThis.client, chat);
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.match(textoEnviado(), /^Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 18 días, y el tiempo que estuvo cerrado no cuenta\./);
+
+  const otro = "inactivos-57@g.us";
+  CG.guardarVarios(globalThis.client, { [otro]: { id: otro, subject: "Otro", announce: true, participants } }, ahora - 2 * DIA);
+  assert.deepEqual(F.cierresGrupo(otro).map((c) => [Math.round((ahora - c.desde) / DIA), c.hasta]), [[2, null]], "al reconectar, de todos los grupos");
+});
+
+test("consistencia: cuando el bot entra a un grupo, main.js pide la copia del grupo después de empezar la cuenta de nuevo", () => {
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  const evento = main.slice(main.indexOf('"group-participants.update"'));
+  const [reinicia, pide] = [evento.indexOf("reiniciarSiEsElBot("), evento.indexOf("metadataDe(client, id, { fresca: true })")];
+  assert.ok(reinicia > 0 && pide > reinicia, "la copia pedida antes quedaba borrada con la cuenta");
+});
+
+// The copy of the group may be a few minutes older than the group's notice: closed after the copy was taken, .inactivos
+// tagged people who couldn't answer, and ended the closing right there, as of the moment it looked.
+test("un grupo que se cerró después de la copia que tiene el bot cuenta como cerrado", async () => {
+  const chat = "inactivos-55@g.us";
+  const participants = armarGrupo(chat);
+  await CG.metadataDe(globalThis.client, chat, { fresca: true }); // the copy: open
+  F.anotarCierreGrupo(chat, true, Date.now()); // the notice, right after: closed
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.match(textoEnviado(), /^Este grupo está cerrado/);
+  await kick(chat, participants, "inactivos");
+  assert.match(textoEnviado(), /^El grupo está cerrado/);
+  assert.deepEqual(F.cierresGrupo(chat).map((c) => c.hasta), [null], "y sigue cerrado");
+});
+
+// How long the group was open, against a plain count over whole hours: each hour open or closed, the stretches drawn at
+// random, some overlapping and one possibly going on. Overlapping ones used to count twice.
+test("abiertoHasta dice lo mismo que contar a mano, aunque los tramos se superpongan", () => {
+  let semilla = 4242;
+  const azar = (n) => Math.floor(((semilla = (semilla * 1103515245 + 12345) % 2147483648) / 2147483648) * n);
+  for (let vuelta = 0; vuelta < 300; vuelta++) {
+    const ahora = 100;
+    const cierres = Array.from({ length: azar(6) }, () => {
+      const desde = azar(110);
+      return { desde, hasta: azar(5) === 0 ? null : desde + azar(30) };
+    });
+    const abiertoDesde = I.abiertoHasta(cierres, ahora);
+    for (let desde = 0; desde <= ahora; desde += 1 + azar(7)) {
+      let aMano = 0;
+      for (let t = desde; t < ahora; t++) if (!cierres.some((c) => c.desde <= t && t + 1 <= (c.hasta ?? ahora))) aMano++;
+      assert.equal(abiertoDesde(desde), aMano, JSON.stringify({ cierres, desde }));
+    }
+  }
+});
+
+// Whoever changed numbers: their messages bring the LID and the new number, and the database still had the old one. In
+// a group listed by number without the LID they looked silent, and could be tagged and removed. Each message is stamped
+// on both ids, a late one too (it reaches .inactivos before the bot notes anything), and the new number goes on their row.
+test("quien cambió de número no queda como callado en un grupo que lo lista por el nuevo", () => {
+  const chat = "inactivos-56@g.us";
+  const [L, VIEJO, NUEVO] = ["300000000000441@lid", "59899000441@s.whatsapp.net", "59899000442@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: L, senderJid: VIEJO, pushName: "Carla" });
+  F.syncUserInfo({ chat, sender: L, senderJid: VIEJO, pushName: "Carla" });
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
+  const participants = [{ id: NUEVO, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  I.anotarPresencia({ chat, isGroup: true, sender: L, senderJid: NUEVO, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 });
+  assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), [], "con el mensaje atrasado");
+  F.syncUserInfo({ chat, sender: L, senderJid: NUEVO, pushName: "Carla" });
+  assert.deepEqual([F.jidDeLid(L), F.lidDeNumero(NUEVO), F.lidDeNumero(VIEJO)], [NUEVO, L, null]);
+});

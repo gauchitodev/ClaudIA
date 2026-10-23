@@ -54,6 +54,10 @@ export async function handleMessage(nMsg) {
     // Keeps the bot from answering command messages from while it was offline.
     if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m);
 
+    // Someone who's neither a LID nor a number (Meta AI writes as …@bot) has no row to keep it under: by "" getUser
+    // found someone else's, one without a number, and every answer of Meta AI went to their message count.
+    if (!m.sender) return;
+
     // initialize data if it doesn't exist yet
     initDataDB(m);
     syncUserInfo(m);
