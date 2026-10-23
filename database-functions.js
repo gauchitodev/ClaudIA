@@ -723,6 +723,15 @@ export function jidDeLid(lid) {
   return db.prepare(`SELECT jid FROM users WHERE lid = ?`).get(lid)?.jid || null;
 }
 
+// Just the names someone has, { apodo, pushName }, or null without a row: what naming them takes (lib/menciones.js),
+// once for each "@" of a text, which getUser made a read of all of their data, every group they're in. By number, the
+// row getUser would read.
+export function nombresGuardados(id) {
+  if (!id) return null;
+  const donde = id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA_DEL_NUMERO}`;
+  return db.prepare(`SELECT apodo, pushName FROM users WHERE ${donde}`).get(id) || null;
+}
+
 // Get a chat's data
 export function getChat(jid) {
   return db.prepare(`SELECT * FROM chats WHERE remoteJid = ?`).get(jid) || null;
@@ -792,11 +801,13 @@ function seguirALaPersona(lid, antes, numero) {
 }
 
 // Under the LID, in the entry's key too: the number is someone else's now, or nobody's, and with the entry still under
-// it, listing whoever has it now overwrote the entry (one per group and key). One the person already had under the LID
-// in that group stays, and the one by number goes. Of two roles in one group, the higher one stays.
+// it, listing whoever has it now overwrote the entry (one per group and key). So does an entry of the person's own LID
+// kept under the number, as ".ln @persona" keeps it: only the ones with no LID moved, and listing the number's next
+// owner took the person off the list without a word. One the person already had under the LID in that group stays,
+// and the one by number goes. Of two roles in one group, the higher one stays.
 function atarAlLid(numero, lid) {
-  db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid = '')`).run(lid, lid, numero);
-  db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid = '')`).run(numero);
+  db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(lid, lid, numero, lid);
+  db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(numero, lid);
   db.prepare(
     `INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) SELECT chat, ?, rol, dadoPor, fecha FROM roles_grupo WHERE usuario = ?
      ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
@@ -902,12 +913,21 @@ export function updateSettings(botJid, data) {
 }
 
 // add a person to a group's blacklist ("*" = every group). If they were already on it, the reason is updated, and the
-// LID only if it is known now: a null lid does not overwrite the stored one.
-export function addToBlacklist(jid, reason, addedBy, chat = "*", lid = null) {
-  db.prepare(
-    `INSERT INTO lista_negra (chat, jid, lid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(chat, jid) DO UPDATE SET reason = excluded.reason, lid = COALESCE(excluded.lid, lista_negra.lid)`,
-  ).run(chat, jid, lid || null, reason, Date.now(), addedBy);
+// LID only if it is known now: a null lid does not overwrite the stored one. An entry under the same key with another
+// LID than the person's (quien) is someone else's, whose number this was: it goes under their LID first, since written
+// over, they came off the list without anybody saying so. quien is the LID that tells whose an entry is, which may be
+// one the database knows for the number and the entry doesn't keep (plugins/grupo-lista-negra.js).
+export function addToBlacklist(jid, reason, addedBy, chat = "*", lid = null, quien = lid) {
+  db.transaction(() => {
+    if (quien) {
+      db.prepare(`UPDATE OR IGNORE lista_negra SET jid = lid WHERE chat = ? AND jid = ? AND lid NOT IN ('', ?)`).run(chat, jid, quien);
+      db.prepare(`DELETE FROM lista_negra WHERE chat = ? AND jid = ? AND lid NOT IN ('', ?)`).run(chat, jid, quien); // already under it
+    }
+    db.prepare(
+      `INSERT INTO lista_negra (chat, jid, lid, reason, dateAdded, addedBy) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(chat, jid) DO UPDATE SET reason = excluded.reason, lid = COALESCE(excluded.lid, lista_negra.lid)`,
+    ).run(chat, jid, lid || null, reason, Date.now(), addedBy);
+  })();
 }
 
 // store the LID of someone already on the list, once it turns up later (when they join, when they write).

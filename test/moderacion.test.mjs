@@ -73,6 +73,25 @@ test(".kick por número resuelve a la persona, no a un LID inventado", async () 
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }], "lo encuentra por el número del grupo");
 });
 
+// The person's row may still have the number they left, now someone else's, whom the group may list first: looking for
+// either id in the group's order, ".kick @persona" removed the number's owner now instead of the one mentioned.
+test(".kick saca a quien se mencionó aunque su fila tenga un número que ya es de otro", async () => {
+  const [A, OTRO, X] = ["300000000000801@lid", "300000000000802@lid", "59899000801@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X, "A", 1);
+  const grupo = [{ id: OTRO, admin: null, phoneNumber: X }, { id: A, admin: null, phoneNumber: "59899000809@s.whatsapp.net" }, participants.at(-1)];
+  await correr(Kick, "@300000000000801", "kick", { mentionedJid: [A], rango: { participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo } } });
+  await esperar(1400);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [A], accion: "remove" }]);
+
+  // And the other way around: in a group that lists people by number the mention comes by number, which the database
+  // still has on A, who had it before. Whoever the group lists with it is who has it now.
+  expulsiones = [];
+  const porNumero = [{ id: "59899000809@s.whatsapp.net", lid: A, admin: null }, { id: X, lid: OTRO, admin: null }, { id: "59899000999@s.whatsapp.net", lid: "999@lid", admin: "admin" }];
+  await correr(Kick, "@59899000801", "kick", { mentionedJid: [X], rango: { participants: porNumero, groupMetadata: { owner: "100@lid", participants: porNumero } } });
+  await esperar(1400);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [X], accion: "remove" }]);
+});
+
 test(".kick responde a todos sus alias", async () => {
   for (const alias of ["k", "kick", "rifle", "andate", "morite", "chau"]) {
     assert.ok(Kick.cmd.includes(alias), `falta .${alias} en plugin.cmd`);

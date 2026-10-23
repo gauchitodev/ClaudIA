@@ -218,3 +218,17 @@ test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada po
   assert.ok(F.esOwner(numero));
   assert.ok(!F.esOwner("5555@lid"));
 });
+
+// In a group that lists people by number the mention comes by number, and the LID the database knew for it may be
+// whoever had it before, who hadn't written since: ".moderador @persona" gave them the role, in the group too with
+// their new number, and the one mentioned got nothing. Whoever the group lists with the number is who has it. In a
+// group of its own.
+test("roles: en un grupo por número, el rol va a quien el grupo lista con ese número", async () => {
+  const chat = "roles-703@g.us";
+  const [ANTES, AHORA, X] = ["300000000000703@lid", "300000000000704@lid", "59899000703@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
+  const porNumero = [{ id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899000709@s.whatsapp.net", lid: ANTES, admin: null }, { id: X, lid: AHORA, admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [X] }, { client: globalThis.client, command: "moderador", args: ["@59899000703"], text: "@59899000703", participants: porNumero, isOwner: false, isWaAdmin: true, isAdmin: true });
+  assert.equal(F.rolGrupo(chat, AHORA), "mod");
+  assert.equal(F.rolGrupo(chat, ANTES), null);
+});

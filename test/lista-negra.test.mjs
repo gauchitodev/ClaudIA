@@ -309,23 +309,53 @@ test(".ln por número no se come los dígitos que siguen", async () => {
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.reason]), [["59899666667@s.whatsapp.net", "spam"]]);
 });
 
-// A number further on, after a mention or quoting someone, is part of the reason: ".ln @persona le robó a +598…" listed
-// the number's owner, and removed them, instead of the one mentioned. A number the text starts with is still the one
-// going on the list, and so is one with nobody mentioned or quoted.
-test(".ln con una mención o una cita y un número en el motivo anota a la persona, no al número", async () => {
-  const anotados = () => F.getBlacklist(G).map((e) => e.lid);
+// Who goes on the list is right after the command, the number or the mention, and anything further on is the reason:
+// ".ln @persona le robó a +598…" listed the number's owner and removed them, and then ".ln el +598… le robó a @persona"
+// the one robbed. With nobody right after the command it asks for them there, and replying to someone else's message
+// with someone named further on it asks too: whoever wrote it may be who was meant, or the one named. Replying to the
+// bot's message or one's own, the reply names nobody.
+test(".ln anota a quien va justo después del comando, el número o la mención, y si no pregunta", async () => {
+  const anotados = () => F.getBlacklist(G).map((e) => [e.lid, e.reason]);
   await correr("ln", "@222 le robó la plata a +59899111111", { mentionedJid: ["222@lid"] });
-  assert.deepEqual(F.getBlacklist(G).map((e) => [e.lid, e.reason]), [["222@lid", "le robó la plata a +59899111111"]]);
+  assert.deepEqual(anotados(), [["222@lid", "le robó la plata a +59899111111"]]);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["222@lid"], accion: "remove" }]);
   db.exec("DELETE FROM lista_negra");
-  await correr("ln", "le pasó el número +59899111111", { quoted: { sender: "222@lid" } });
-  assert.deepEqual(anotados(), ["222@lid"], "citándolo, igual");
-  db.exec("DELETE FROM lista_negra");
   await correr("ln", "+59899111111 le robó a @222", { mentionedJid: ["222@lid"] });
-  assert.deepEqual(anotados(), ["111@lid"], "con el número primero, es el número");
+  assert.deepEqual(anotados(), [["111@lid", "le robó a @222"]], "con el número primero, es el número");
   db.exec("DELETE FROM lista_negra");
-  await correr("ln", "estafa, su número es +59899111111");
-  assert.deepEqual(anotados(), ["111@lid"], "sin nadie mencionado ni citado, también");
+  await correr("ln", "spam", { quoted: { sender: "222@lid" } });
+  assert.deepEqual(anotados(), [["222@lid", "spam"]], "respondiendo, quien escribió el mensaje");
+  db.exec("DELETE FROM lista_negra");
+  expulsiones = [];
+
+  const pedirAdelante = "Poné a quién anotar justo después de .ln: .ln @persona motivo o .ln +59899999999 motivo.";
+  for (const [texto, extra] of [
+    ["el +59899111111 le robó a @222", { mentionedJid: ["222@lid"] }],
+    ["estafó con el +59899111111 a @222", { mentionedJid: ["222@lid"] }],
+    ["estafa, su número es +59899111111", {}],
+    ["estafa @222", { mentionedJid: ["222@lid"] }],
+    ["estafador, su número es +59899111111", { quoted: { sender: "999000@lid" } }],
+    ["estafador, su número es +59899111111", { quoted: { sender: "100@lid" } }],
+  ]) {
+    await correr("ln", texto, extra);
+    assert.equal(ultimo(), pedirAdelante, texto);
+  }
+  for (const [texto, extra] of [
+    ["cuidado con +59899111111", { quoted: { sender: "222@lid" } }],
+    ["le robó a @111", { mentionedJid: ["111@lid"], quoted: { sender: "222@lid" } }],
+  ]) {
+    await correr("ln", texto, extra);
+    assert.match(ultimo(), /^No sé a quién anotar: si a quien escribió el mensaje que respondiste o a quien nombrás en el texto\. Poné primero a quién \(\.ln @persona motivo o \.ln \+59899999999 motivo\), o respondé el mensaje sin nombrar a nadie más\.$/, texto);
+  }
+  assert.deepEqual(anotados(), [], "no anotó a nadie");
+  assert.deepEqual(expulsiones, [], "ni sacó a nadie");
+
+  F.addToBlacklist("222@lid", "spam", "100@s.whatsapp.net", G, "222@lid");
+  await correr("ln2", "ya no @222", { mentionedJid: ["222@lid"] });
+  assert.equal(ultimo(), "Poné a quién sacar justo después de .ln2: .ln2 @persona o .ln2 +59899999999.");
+  assert.ok(F.isBlacklisted("222@lid", G), "y no sacó a nadie");
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "estafa +59899111111", command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  assert.equal(ultimo(), "Poné a quién anotar justo después de .ln: .ln +59899999999 motivo.", "por privado no hay a quién mencionar");
 });
 
 // An old reason in the group: the listed person's own LID goes, a longer number that holds their digits isn't cut into
@@ -348,6 +378,17 @@ test(".vln en el grupo no muestra números de otros, y deja los mails y lo que n
   assert.match(ultimo(), /📝 Razón: le vendió a \(número oculto\) y a \(número oculto\), la cuenta \(número oculto\), escribe desde pepe@12345\.com, entradas a @2000 y \$ 50000, \+1000 de recargo\n/);
   await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.match(ultimo(), /📝 Razón: le vendió a \+59899777777 y a \+598 99 777 778, la cuenta 300000000000779, /);
+});
+
+// Leaving out every "@" after a letter for the e-mails left "x@59899123456" and somebody's LID in sight, and a number
+// written as people write them, with a leading 0, parentheses, dots or two separators, or glued to a word, showed
+// whole. An amount with its thousands' dots and a date stay.
+test(".vln en el grupo tapa los números como se escriben, y una @ pegada a una palabra", async () => {
+  const motivos = ["le escribió x@59899123456", "cuenta 3@300000000000779", "foo.@59899123456", "le vendió al 099 123 456", "le vendió al 099-123-456", "le vendió al (099) 123 456", "le vendió al +598 (99) 123 456", "le vendió al +598 - 99 - 123 456", "le vendió al +598.99.123.456", "le vendió al 099.123.456", "le vendió al 2 123 4567", "cel59899123456", "59899123456abc", "escribe desde pepe@12345.com", "le debe 15.000.000", "le debe 1 500 000", "el 23/10/2026 y el 2026-10-23", "+1000 de recargo"];
+  for (const [i, motivo] of motivos.entries()) F.addToBlacklist(`5989800${String(i).padStart(4, "0")}@s.whatsapp.net`, motivo, "59899100100@s.whatsapp.net", G);
+  await correr("vln", "");
+  const razones = [...ultimo().matchAll(/📝 Razón: (.*)\n/g)].map((r) => r[1]).sort(); // added in the same millisecond
+  assert.deepEqual(razones, ["le escribió x@alguien", "cuenta 3@alguien", "foo.@alguien", ...Array(8).fill("le vendió al (número oculto)"), "cel(número oculto)", "(número oculto)abc", "escribe desde pepe@12345.com", "le debe 15.000.000", "le debe 1 500 000", "el 23/10/2026 y el 2026-10-23", "+1000 de recargo"].sort());
 });
 
 // Spaced out or with dashes, the reason may start with digits too: "+598 99 666 666 2 veces me estafó" listed
@@ -467,4 +508,123 @@ test("el aviso de que lo saqué lo nombra, sin su número ni su LID", async () =
   F.addToBlacklist("333@lid", "molesta", "100@s.whatsapp.net", G);
   await Manejador.before(mensaje({ sender: "333@lid", senderJid: "", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
   assert.equal(ultimo(), "*[⚠️] Saqué a alguien: estaba en la lista negra.*\n\n*[❗] Razón:* molesta");
+});
+
+// ---------- a number that moved on ----------
+// A number the database still has on whoever had it before (recycled, or its owner changed numbers) is whoever the
+// group lists with it now. ".ln +número" listed the database's LID: the one meant was removed then and got back in as
+// soon as they came with their own LID, and whoever had had the number stayed listed. From private, with no group to
+// tell, the entry keeps no LID, rather than the database's guess: the number says it.
+test(".ln por número anota a quien el grupo lista con él, no a quien la base recuerda", async () => {
+  const [ANTES, AHORA, X] = ["300000000000901@lid", "300000000000902@lid", "59899000901@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1); // wrote with X, long ago
+  const conAhora = [...participants, { id: AHORA, admin: null, phoneNumber: X }];
+  await correr("ln", "+59899000901 estafa", {}, { participants: conAhora });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]]);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [AHORA], accion: "remove" }]);
+  expulsiones = [];
+  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
+  assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]], "al volver, se lo echa");
+  assert.equal(F.isBlacklisted([ANTES, "59899000909@s.whatsapp.net"], G), null, "y quien lo tuvo antes no quedó anotado");
+
+  // A group that lists people by number brings the LID apart.
+  db.exec("DELETE FROM lista_negra");
+  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: X, lid: AHORA, admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  await correr("ln", "+59899000901 estafa", {}, { participants: porNumero });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]], "en un grupo por número");
+
+  db.exec("DELETE FROM lista_negra");
+  globalThis.client.groupFetchAllParticipating = async () => ({ "e@g.us": { id: "e@g.us", subject: "Grupo E", participants: [{ id: ANTES, admin: null, phoneNumber: "59899000909@s.whatsapp.net" }, { id: AHORA, admin: null, phoneNumber: X }, bot] } });
+  expulsiones = [];
+  await desdeElPrivado("+59899000901 estafa");
+  assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid]), [[X, null]], "por privado, sin la LID de la base");
+  assert.deepEqual(expulsiones, [{ chat: "e@g.us", ids: [AHORA], accion: "remove" }], "y de cada grupo saca a quien tiene el número");
+  expulsiones = [];
+  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
+  assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]]);
+});
+
+// Someone listed by number joins a group by number whose event doesn't bring the LID: removed, and the entry used to
+// record the LID the database knew for the number, a guess that may be whoever had it before. The next time the one
+// listed came with their own LID, they got in.
+test("al entrar sin la LID, la entrada no se queda con la que la base recuerda para el número", async () => {
+  const [ANTES, AHORA, X] = ["300000000000911@lid", "300000000000912@lid", "59899000911@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
+  F.addToBlacklist(X, "estafa", "100@s.whatsapp.net", G);
+  const yo = { id: globalThis.client.user.jid, admin: "admin" };
+  await B.recibirNuevos(globalThis.client, G, [{ id: X, admin: null }], { participants: [{ id: X, admin: null }, yo] });
+  assert.deepEqual(expulsiones.map((e) => e.ids), [[X]]);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, null]]);
+  expulsiones = [];
+  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: [{ id: AHORA, phoneNumber: X, admin: null }, { id: "999000@lid", admin: "admin" }] });
+  assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]], "con su LID también");
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]], "y esa sí la aprende: vino con la persona");
+});
+
+// The person's row may still have the number they left, now someone else's, who the group may list first: looking for
+// either id in the group's order, ".ln @persona" removed the number's owner now instead of the one mentioned.
+test(".ln @persona saca a la persona aunque su fila tenga un número que ya es de otro", async () => {
+  const [A, OTRO, X] = ["300000000000921@lid", "300000000000922@lid", "59899000921@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X, "A", 1);
+  const grupo = [participants[0], { id: OTRO, admin: null, phoneNumber: X }, { id: A, admin: null, phoneNumber: "59899000929@s.whatsapp.net" }, participants.at(-1)];
+  await correr("ln", "@300000000000921 estafa", { mentionedJid: [A] }, { participants: grupo });
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [A], accion: "remove" }]);
+});
+
+// ".ln @persona" keeps the entry under the person's number, with their LID. Once the number was someone else's, listing
+// that one (same group, same key) wrote over it, and the first person came off the list without a word.
+test("anotar a quien tiene ahora un número no le saca la entrada a quien lo tuvo antes", async () => {
+  const [A, NUEVO, X] = ["300000000000931@lid", "300000000000932@lid", "59899000931@s.whatsapp.net"];
+  const escribe = (sender, senderJid) => {
+    const m = { chat: G, sender, senderJid, pushName: "x" };
+    F.initDataDB(m);
+    F.syncUserInfo(m);
+  };
+  const conDos = [...participants, { id: A, admin: null }, { id: NUEVO, admin: null }];
+  escribe(A, X);
+  await correr("ln", "@300000000000931 estafa", { mentionedJid: [A] }, { participants: conDos });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, A]], "bajo su número");
+  escribe(A, "59899000939@s.whatsapp.net"); // A changed numbers
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[A, A]], "deja el número y se lleva la entrada");
+  escribe(NUEVO, X);
+  await correr("ln", "@300000000000932 spam", { mentionedJid: [NUEVO] }, { participants: conDos });
+  assert.ok(F.isBlacklisted([A, "59899000939@s.whatsapp.net"], G), "A sigue anotado");
+  assert.ok(F.isBlacklisted([NUEVO, X], G), "y el dueño nuevo del número también");
+
+  // An entry with someone else's LID that stayed under the number (its LID came with them when they joined, and the
+  // database never had them with it): it goes under that LID, and the new one gets the number.
+  db.exec("DELETE FROM lista_negra");
+  F.addToBlacklist(X, "uno", "100@s.whatsapp.net", G, "300000000000933@lid");
+  F.addToBlacklist(X, "dos", "100@s.whatsapp.net", G, NUEVO);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid, e.reason]).sort(), [["300000000000933@lid", "300000000000933@lid", "uno"], [X, NUEVO, "dos"]]);
+
+  // From private the LID is only the database's (the number's owner now): the new entry doesn't keep it, and it still
+  // tells that the one under the number is someone else's.
+  F.addToBlacklist(X, "tres", "100@s.whatsapp.net", "*", "300000000000933@lid");
+  globalThis.client.groupFetchAllParticipating = async () => ({});
+  await desdeElPrivado("+59899000931 cuatro");
+  assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid, e.reason]).sort(), [["300000000000933@lid", "300000000000933@lid", "tres"], [X, null, "cuatro"]]);
+});
+
+// In private .vln shows each entry by its key: the number, or the LID once its number went to someone else. Typed back
+// it's that entry: by the person's identities, one kept under a number that is someone else's now came out "no estaba",
+// and one under a LID couldn't be named at all, since there's no mentioning anybody there.
+test("por privado, .ln2 saca la entrada como la muestra .vln", async () => {
+  const [A, NUEVO, C, X] = ["300000000000941@lid", "300000000000942@lid", "300000000000943@lid", "59899000941@s.whatsapp.net"];
+  F.initDataDB({ chat: G, sender: NUEVO, senderJid: X, pushName: "Nuevo" });
+  F.syncUserInfo({ chat: G, sender: NUEVO, senderJid: X, pushName: "Nuevo" });
+  F.addToBlacklist(A, "uno", "59899100100@s.whatsapp.net", "*", A);
+  F.addToBlacklist(X, "dos", "59899100100@s.whatsapp.net", "*", C);
+  const enPrivado = (command, text) => P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: globalThis.client, text, command, usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  await enPrivado("vln", "");
+  assert.match(ultimo(), /\d\. @300000000000941 🌐 todos los grupos\n/);
+  assert.match(ultimo(), /\d\. \+59899000941 🌐 todos los grupos\n/);
+  await enPrivado("ln2", "@300000000000941");
+  await enPrivado("ln2", "+59899000941");
+  assert.deepEqual(F.getBlacklist("*"), [], "salieron las dos");
+  globalThis.enviados = [];
+  await enPrivado("ln2", "@300000000000949");
+  assert.equal(ultimo(), "Esa persona no estaba en la lista negra.");
+  await enPrivado("ln2", "saquen a +59899000941");
+  assert.equal(ultimo(), "Poné a quién sacar justo después de .ln2: .ln2 +59899999999, o como lo muestra .vln.");
 });

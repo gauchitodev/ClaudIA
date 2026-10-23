@@ -492,6 +492,46 @@ test("sinMenciones y conNombres no traban el bot con muchas @", () => {
   }
 });
 
+// Each "@<digits>" of a text was a lookup of its own, of all of the person's data (getUser parses every group they're
+// in): a message of one known LID over and over held the bot a second, eight for someone in 300 groups, and one of
+// thousands of different digits another second (plugins/_memoria-corta.js goes through every message). Each one is
+// looked up once, only for the names, and only so many different ones per text: past that they're taken as unknown,
+// without the "@" all the same. Counted in queries, not measured.
+test("sinMenciones y conNombres buscan cada @ una vez, solo los nombres, y hasta un tope", () => {
+  const LID = "300000000000880@lid";
+  F.initDataDB({ chat: FAMILIA, sender: LID, senderJid: "", pushName: "Dani" });
+  const grupos = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`g${i}@g.us`, { messageCount: 1, desde: 1 }]));
+  db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run(JSON.stringify(grupos), LID);
+  const otros = Array.from({ length: 250 }, (_, i) => `${300000000001000 + i}@lid`);
+  for (const [i, lid] of otros.entries()) F.initDataDB({ chat: FAMILIA, sender: lid, senderJid: "", pushName: `P${i}` });
+  const prepare = db.prepare;
+  const parse = JSON.parse;
+  const contar = (f) => {
+    let consultas = 0;
+    let lecturas = 0;
+    db.prepare = function (...args) {
+      consultas++;
+      return prepare.apply(this, args);
+    };
+    JSON.parse = (...args) => (lecturas++, parse(...args));
+    try {
+      return { texto: f(), consultas, lecturas };
+    } finally {
+      delete db.prepare;
+      JSON.parse = parse;
+    }
+  };
+  const repetida = `@${LID.split("@")[0]} `.repeat(3000);
+  assert.deepEqual(contar(() => M.nombreDe(LID)), { texto: "Dani", consultas: 1, lecturas: 0 }, "los rankings y las listas, igual");
+  assert.deepEqual(contar(() => M.sinMenciones(repetida)), { texto: "Dani ".repeat(3000), consultas: 1, lecturas: 0 });
+  assert.deepEqual(contar(() => M.conNombres(repetida, [LID])), { texto: "@Dani ".repeat(3000), consultas: 1, lecturas: 0 });
+  assert.equal(contar(() => M.sinMenciones("@0".repeat(30000))).consultas, 1);
+  const r = contar(() => M.sinMenciones(otros.map((l) => `@${l.split("@")[0]}`).join(" ")));
+  assert.equal(r.consultas, 200);
+  assert.equal(menciones(r.texto), 0);
+  assert.equal(r.texto.split(" ").slice(198, 202).join(" "), "P198 P199 300000000001200 300000000001201", "pasado el tope, sin la @");
+});
+
 // Only what sendText would take as a mention loses its "@": every "@" before a digit went, and "pepe@163.com" or
 // "@50cent" changed in what Claudia said. Random texts of "@", every digit and a bit more, with a fixed seed: none is
 // left, and one that had none comes out as it went in. Looking only at the first, the "@" before a 2, a 4 or an 8 could

@@ -19,7 +19,7 @@ plugin.run = async (m, { client, command, args, text, participants, isOwner, isW
   const rol = command.startsWith("admin") ? "admin" : "mod";
   const quitar = /^(quitar|sacar|borrar|remover)$/i.test(args[0]);
 
-  const lid = lidMencionado(m, text);
+  const lid = lidMencionado(m, text, participants);
 
   // By either identity: a group that lists people by number names them by it, and lists a WhatsApp admin that way too.
   const enGrupo = lid ? buscarEnGrupo(participants, { lid, jid: getUser(lid)?.jid }) : null;
