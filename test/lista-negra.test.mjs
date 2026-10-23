@@ -275,8 +275,26 @@ test("en un grupo por número, el motivo de .ln no guarda el número de la perso
     { id: "59899999000@s.whatsapp.net", lid: "999000@lid", admin: "admin" },
   ];
   F.initDataDB({ chat: G, sender: "555@lid", senderJid: "59899555555@s.whatsapp.net", pushName: "Beto" });
-  await correr("ln", "@59899555555 estafa", { mentionedJid: ["59899555555@s.whatsapp.net"] }, { participants: porNumero });
-  assert.deepEqual(F.getBlacklist(G).map((e) => e.reason), ["estafa"]);
+  F.initDataDB({ chat: G, sender: "300000000000004@lid", senderJid: "", pushName: "Dani" });
+  await correr("ln", "@59899555555 estafa, lo vio @300000000000004", { mentionedJid: ["59899555555@s.whatsapp.net", "300000000000004@lid"] }, { participants: porNumero });
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.reason), ["estafa, lo vio @Dani"], "y otra mención, con su nombre");
+});
+
+// By number, the reason kept the LID of whoever else it mentioned; and one from before the reasons left the listed
+// person out showed their number to the whole group in .vln. The owner, in private, sees it as it was written.
+test(".ln por número también nombra a los otros mencionados, y .vln no muestra el número de un motivo viejo", async () => {
+  F.initDataDB({ chat: G, sender: "300000000000005@lid", senderJid: "", pushName: "Eli" });
+  await correr("ln", "+59899666666 le debe plata a @300000000000005", { mentionedJid: ["300000000000005@lid"] });
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.reason), ["le debe plata a @Eli"]);
+  db.exec("DELETE FROM lista_negra");
+
+  F.initDataDB({ chat: G, sender: "577@lid", senderJid: "59899577577@s.whatsapp.net", pushName: "Gabi" });
+  F.addToBlacklist("59899577577@s.whatsapp.net", "@59899577577 estafa, lo vio @300000000000005", "59899100100@s.whatsapp.net", G, "577@lid");
+  await correr("vln", "");
+  assert.match(ultimo(), /\d\. Gabi\n📝 Razón: estafa, lo vio @Eli\n/);
+  assert.doesNotMatch(ultimo(), /5989|@3000/, "ni su número ni la LID del otro");
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  assert.match(ultimo(), /📝 Razón: @59899577577 estafa, lo vio @300000000000005\n/);
 });
 
 // ---------- all-groups list, from the owner's private chat ----------

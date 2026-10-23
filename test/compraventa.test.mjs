@@ -543,3 +543,34 @@ test("compraventa: el horario del grupo sin admin avisa una vez, reintenta cada 
     await HG.quitarHorarioGrupo(H, { groupSettingUpdate: async () => {} });
   }
 });
+
+// One message may bring someone's number and the next their LID. Compared as they came, whoever replied to their own
+// photo with .vendo heard "Ese mensaje no es tuyo", couldn't close their own post nor read it once closed, got it
+// suggested back as someone else's, and their own alert went off for it.
+test("compraventa: quien publicó se reconoce por cualquiera de sus dos identidades", async () => {
+  const chat = "compraventa-identidad@g.us";
+  const [LID, PN] = ["666@lid", "59899000666@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: LID, senderJid: PN, pushName: "Persona666" });
+  const correrEn = (sender, command, text = "", quoted = null) => Cmd.run({ ...msg(sender, text, quoted), chat }, { client: cliente(), command, args: text.trim() ? text.trim().split(/\s+/) : [], text, isMod: false });
+  const foto = cita(LID, "Vendo tostadora violeta, $ 900, Malvín");
+  await correrEn(PN, "vendo", "", foto); // the reply came with only the number
+  assert.match(ultimo(), /registrada/);
+  assert.doesNotMatch(ultimo(), /Queda a nombre de/, "es suya");
+  const { numero } = F.getPublicacionPorMensaje(chat, foto.id);
+  await correrEn(PN, "vendido", String(numero));
+  assert.equal(ultimo(), `✅ Listo, la #${numero} quedó como concretada. ¡Que la disfrute!`);
+  await correrEn(PN, "catalogo", String(numero));
+  assert.match(ultimo(), /tostadora violeta/, "la ve aunque ya no esté publicada");
+
+  await correrEn(LID, "avisame", "licuadora");
+  await correrEn(LID, "vendo", "licuadora roja, $ 1.200, Pocitos");
+  globalThis.enviados = [];
+  await correrEn(PN, "compro", "licuadora roja");
+  assert.doesNotMatch(ultimo(), /recuerdo que/, "no le sugiere lo suyo");
+  await correrEn(PN, "vendo", "licuadora verde, $ 1.000, Pocitos");
+  assert.ok(!globalThis.enviados.some((e) => /🔔/.test(e.msg?.text || "")), "ni le salta su propia alerta");
+
+  // At the cap of active posts, reactivating one says it's theirs that are too many.
+  for (let i = F.contarPublicacionesActivas(chat, LID); i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, LID, "vendo", `cosa ${i} $ 100`);
+  assert.match(C.cambiarEstado(chat, numero, PN, false, "sigue").error, /no se puede reactivar: ya tenés 10 publicaciones activas/);
+});

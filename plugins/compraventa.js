@@ -1,5 +1,6 @@
 import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarEstado, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
 import { lidDeNumero, getPublicacionPorMensaje } from "../database-functions.js";
+import { mismaPersona } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
@@ -44,12 +45,14 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
 // .vendo / .compro with no text, quoting a message: it posts what the quoted message says, under the name of
 // whoever sent it. This is the photo-with-a-caption case, which is how people actually post in a sales group.
 async function publicarCitando(m, citado, tipo, { client, isMod }) {
-  // m.quoted.sender may arrive as a lid or as a jid, and m.sender is a lid: without normalizing, the photo's owner
-  // couldn't post their own. Same pattern as lib/menciones.js.
+  // m.quoted.sender may arrive as a lid or as a jid, and so may m.sender: the post goes under the LID when it's known
+  // (same pattern as lib/menciones.js), and whose it is goes by either identity (mismaPersona). Normalizing only the
+  // quoted one, the photo's owner still heard it wasn't theirs when their reply came with only the number.
   const crudo = citado.sender;
   const autor = crudo?.endsWith("@lid") ? crudo : lidDeNumero(crudo) || crudo;
   if (!autor) return client.sendText(m.chat, "❌ No pude ver quién mandó ese mensaje.", m);
-  if (autor !== m.sender && !isMod) {
+  const propio = mismaPersona(crudo, [m.sender, m.senderJid]);
+  if (!propio && !isMod) {
     return client.sendText(m.chat, `❌ Ese mensaje no es tuyo: solo quien lo mandó, o un moderador, puede publicarlo. (Sin responder a nada, .${tipo} te muestra el catálogo.)`, m);
   }
 
@@ -66,8 +69,7 @@ async function publicarCitando(m, citado, tipo, { client, isMod }) {
   const r = publicar(m.chat, autor, tipo, limpio, citado.id || null);
   if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
 
-  const deOtro = autor !== m.sender;
-  return anunciarPublicacion(client, m, r, deOtro ? { extra: ` Queda a nombre de @${autor.split("@")[0]}.`, mentions: [autor] } : {});
+  return anunciarPublicacion(client, m, r, propio ? {} : { extra: ` Queda a nombre de @${autor.split("@")[0]}.`, mentions: [autor] });
 }
 
 export default plugin;

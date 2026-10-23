@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node start-process.js",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-timeout=120000 test/*.test.mjs",
     "lint": "eslint ."
   },
   "dependencies": {

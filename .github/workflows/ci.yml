@@ -9,6 +9,8 @@ jobs:
   test:
     name: Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    # A test that hangs instead of failing would hold the job until GitHub's own limit, six hours.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

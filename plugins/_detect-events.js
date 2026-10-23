@@ -1,5 +1,6 @@
-import { lidDeNumero } from "../database-functions.js";
+import { esOwner } from "../database-functions.js";
 import { estaEnListaNegra } from "../lib/lista-negra.js";
+import { idsDeParticipante } from "../lib/identidad.js";
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
@@ -38,13 +39,10 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
   if (!chat.detect) return;
   if (chat.isBanned) return;
 
-  // If the event involves one of the bot's owners, bail out so no alert is posted to the chat.
-  const ownerJids = globalThis.owners.map((owner) => `${owner}@s.whatsapp.net`);
-  for (const ownerJid of ownerJids) {
-    const ownerLid = lidDeNumero(ownerJid);
-    // Strict comparison: with == an owner with no row in the database (undefined) matched a null userLid and silenced everything.
-    if (ownerLid && (m.sender === ownerLid || userLid === ownerLid)) return;
-  }
+  // If the event involves one of the bot's owners, whoever did it or whoever it was done to, bail out so no alert is
+  // posted to the chat. By every identity they may come under (esOwner takes the number or the LID): a group that lists
+  // people by number brings them by it, and comparing with the owner's LID alone posted the owner's promotion.
+  if ([m.sender, m.senderJid, ...idsDeParticipante(parseStub || userLid)].some((id) => esOwner(id))) return;
 
   if (chat.detect && Number(m.messageStubType) === 23) {
     await client.sendText(m.chat, txt.detectEventsResetLink(m.sender), null, { mentions: [m.sender, userLid, ...groupAdmins.map((v) => v.id)].filter(Boolean) });

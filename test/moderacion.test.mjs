@@ -482,3 +482,40 @@ test(".del: con un rol del bot se borra solo hacia abajo; los admins de WhatsApp
   assert.ok(await borrar("999@lid", { fromMe: true }), "los mensajes de Claudia los limpia cualquier moderador");
   assert.ok(await borrar("888@lid", { rango: { isWaAdmin: true } }), "un admin de WhatsApp borra lo que sea");
 });
+
+// The notice of a promotion or a demotion (.detect) leaves the owner alone, whether they did it or it was done to them,
+// under either identity: a group that lists people by number brings them by it, and comparing with the owner's LID
+// alone posted the owner's promotion.
+test(".detect no avisa del promote ni del demote del owner, lo traiga el grupo por número o por LID", async () => {
+  const Det = (await import("../plugins/_detect-events.js")).default;
+  const OWNER = "59899111222@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: "7070@lid", senderJid: OWNER, pushName: "Dueño" });
+  const avisa = async (participante, sender = "105@lid") => {
+    globalThis.enviados = [];
+    await Det.before({ isGroup: true, chat: G, sender, senderJid: "", messageStubType: 29, messageStubParameters: [JSON.stringify(participante)] }, { client: globalThis.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+    return globalThis.enviados.length > 0;
+  };
+  assert.equal(await avisa({ id: OWNER, lid: "7070@lid", admin: null }), false, "en un grupo por número");
+  assert.equal(await avisa({ id: "7070@lid", phoneNumber: OWNER, admin: null }), false, "en un grupo por LID");
+  assert.equal(await avisa({ id: "7070@lid", admin: null }), false, "por LID, sin el número al lado");
+  assert.equal(await avisa({ id: "7171@lid", phoneNumber: OWNER, admin: null }), false, "por un LID que la base no tiene, con el número al lado");
+  assert.equal(await avisa({ id: "59899000444@s.whatsapp.net", admin: null }, OWNER), false, "si lo hizo el owner, en un grupo por número");
+  globalThis.enviados = [];
+  await Det.before({ isGroup: true, chat: G, sender: "7272@lid", senderJid: OWNER, messageStubType: 30, messageStubParameters: [JSON.stringify({ id: "444@lid", admin: null })] }, { client: globalThis.client, participants: [], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+  assert.deepEqual(globalThis.enviados, [], "si lo hizo el owner con un LID que la base no tiene, y el número al lado");
+  assert.equal(await avisa({ id: "444@lid", admin: null }), true, "con cualquier otra persona, avisa");
+});
+
+// Two ids are the same person by an id in common, counting the LID the database knows for a number; never through a
+// number two LIDs share, which is what a recycled number has.
+test("mismaPersona: por la LID que la base sabe del número, pero no a través de un número reciclado", async () => {
+  const { mismaPersona } = await import("../lib/identidad.js");
+  const N = "59899004747@s.whatsapp.net";
+  F.initDataDB({ chat: G, sender: "4747@lid", senderJid: N });
+  assert.ok(mismaPersona("4747@lid", N));
+  assert.ok(mismaPersona(N, ["4747@lid"]));
+  assert.ok(mismaPersona(["otro@lid", N], "4747@lid"));
+  F.initDataDB({ chat: G, sender: "4748@lid", senderJid: N }); // the number, later, of someone else
+  assert.ok(!mismaPersona("4747@lid", "4748@lid"), "dos personas que usaron el mismo número");
+  assert.ok(!mismaPersona(null, [undefined, ""]));
+});

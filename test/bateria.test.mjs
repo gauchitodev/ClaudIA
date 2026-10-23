@@ -353,6 +353,54 @@ test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin 
   assert.equal(llamadas, 7);
 });
 
+// The pause after a timeout holds while the battery was fine at a recent reading. Nothing reads it during the pause,
+// and the last good one grew old there: from 16 %, with the system files unreadable, the 10 % notice came 35 minutes
+// later, at 7 %.
+test("batería baja: la pausa de Termux:API no se fía de una lectura vieja", async () => {
+  let ahora = 3_000_000_000;
+  B._dep.ahora = () => ahora;
+  const real = [16, 14, 13, 11, 10, 9, 8, 7]; // the battery at each check, every 5 minutes
+  let i = 0;
+  B._dep.ejecutar = async () => {
+    if (i === 1) throw Object.assign(new Error("termux-battery-status no contestó en 8 s"), { code: "ETIMEDOUT" }); // once
+    return { stdout: JSON.stringify({ percentage: real[i], status: "DISCHARGING" }) };
+  };
+  B._dep.leer = async (ruta) => {
+    throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
+  };
+  globalThis.bateriaBajaAvisada.clear();
+  globalThis.bateriaLecturaAnterior = null;
+  globalThis.enviados = [];
+  let umbral = null;
+  for (i = 0; i < real.length && !umbral; i++) {
+    umbral = await B.chequearBateriaBaja();
+    if (!umbral) ahora += 5 * 60 * 1000;
+  }
+  assert.equal(umbral, 10);
+  assert.deepEqual(globalThis.enviados.filter((e) => e.chat === OWNER).map((e) => e.msg.text), [DIEZ(9)], "a los 25 minutos, con 9 %");
+});
+
+// 15 % is fine: the pause holds there.
+test("batería baja: con 15 % justo, la pausa sigue", async () => {
+  let llamadas = 0;
+  let ahora = 4_000_000_000;
+  B._dep.ahora = () => ahora;
+  B._dep.ejecutar = async () => {
+    llamadas++;
+    throw Object.assign(new Error("termux-battery-status no contestó en 8 s"), { code: "ETIMEDOUT" });
+  };
+  B._dep.leer = async (ruta) => {
+    throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
+  };
+  globalThis.bateriaLecturaAnterior = { porcentaje: 15, estado: "DISCHARGING", fecha: ahora };
+  await B.chequearBateriaBaja();
+  ahora += 5 * 60 * 1000;
+  await B.chequearBateriaBaja();
+  assert.equal(llamadas, 1, "en la pausa no lo llama");
+  B._dep.ejecutar = async () => ({ stdout: JSON.stringify({ percentage: 15, status: "DISCHARGING" }) });
+  await B.leerBateria(); // it answers: no pause left behind for the next test
+});
+
 // Going past 15 % makes both records ready again: the low battery's and the weak charger's.
 test("batería baja: pasado el 15 %, el aviso del cargador que no da abasto vuelve a estar listo", async () => {
   globalThis.bateriaBajaAvisada.clear();

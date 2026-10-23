@@ -141,23 +141,26 @@ test("economía", () => {
   assert.match(t.texto, /Saldos más altos:\*\n1\. alguien — 70\n2\. alguien — 40/);
 });
 
+// These two in groups of their own: in G, run first, they changed the totals "economía" checks.
 test("economía: los movimientos de los laburos tienen rubro propio", () => {
-  F.moverCoins(G, "laburante@lid", 9, "sueldo_laburo");
-  F.moverCoins(G, "laburante@lid", -20, "cambio_laburo");
-  const rubros = E.resumenEconomia(G, 7).rubros;
+  const chat = "economia-laburos@g.us";
+  F.moverCoins(chat, "laburante@lid", 9, "sueldo_laburo");
+  F.moverCoins(chat, "laburante@lid", -20, "cambio_laburo");
+  const rubros = E.resumenEconomia(chat, 7).rubros;
   const nombres = rubros.map((r) => r.nombre);
   assert.ok(nombres.includes("Sueldos de laburos") && nombres.includes("Cambios de laburo"), nombres.join(", "));
   assert.ok(!nombres.includes("Otros"), "antes caían en Otros");
   assert.equal(rubros.find((r) => r.nombre === "Sueldos de laburos").entradas, 9);
   assert.equal(rubros.find((r) => r.nombre === "Cambios de laburo").salidas, 20);
-  assert.match(E.textoEconomia(G).texto, /• Sueldos de laburos: \+9 \/ −0 \(1 mov\.\)/);
+  assert.match(E.textoEconomia(chat).texto, /• Sueldos de laburos: \+9 \/ −0 \(1 mov\.\)/);
 });
 
 test("economía: el premio por volver después de .inactivos tiene rubro propio", () => {
-  F.ganarCoins(G, "volvio@lid", 10, "regreso_inactivo");
-  const nombres = E.resumenEconomia(G, 7).rubros.map((r) => r.nombre);
+  const chat = "economia-regreso@g.us";
+  F.ganarCoins(chat, "volvio@lid", 10, "regreso_inactivo");
+  const nombres = E.resumenEconomia(chat, 7).rubros.map((r) => r.nombre);
   assert.ok(nombres.includes("Volver después de .inactivos"), nombres.join(", "));
-  assert.match(E.textoEconomia(G).texto, /• Volver después de \.inactivos: \+10 \/ −0 \(1 mov\.\)/);
+  assert.match(E.textoEconomia(chat).texto, /• Volver después de \.inactivos: \+10 \/ −0 \(1 mov\.\)/);
 });
 
 test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarga en curso", () => {
@@ -741,6 +744,63 @@ test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no 
     globalThis.botConectado = true;
   }
   assert.equal(finales.at(-1), "✅ Mensaje enviado a 1 grupo(s).", "esperó a la conexión para avisar");
+});
+
+// What it can't tell whether it got there counts in how it goes and in how far a cut one got; and a group that fails
+// like that on the second go is told about too, though it was going to be tried again.
+test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde llegó y en el segundo intento", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const vencido = () => Object.assign(new Error("Timed Out"), { output: { statusCode: 408 } });
+  const al = [];
+  const client = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" } }),
+    sendText: async (chat, t) => {
+      al.push([chat, t]);
+      if (chat === "a@g.us") throw vencido();
+    },
+  };
+  const alDueno = () => al.filter(([chat]) => chat === DUENO).map(([, t]) => t);
+  globalThis.client = client;
+  _dep.esperar = esperaHastaCortar;
+  console.error = () => {};
+  try {
+    const corre = P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+    await hasta(() => al.some(([chat]) => chat === "a@g.us"));
+    await P.run({ chat: DUENO }, { client, text: "", isOwner: true });
+    assert.equal(alDueno().at(-1), "📣 Ya estoy mandando un aviso: va por 1 de 3 grupo(s). Esperá a que termine o cortalo con .avisartodos cancelar.");
+    await P.run({ chat: DUENO }, { client, text: "cancelar", isOwner: true });
+    assert.equal(alDueno().at(-1), "⏹️ Corté el aviso: llegó a 0 de 3 grupo(s) (no sé si llegó a Amigos).");
+    await corre;
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+
+  // Closed the first time (it surely didn't go out) and failed while going out the second: it may have got there.
+  const finales = [];
+  let intentosA = 0;
+  const otra = {
+    groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" } }),
+    sendText: async (chat, t) => {
+      if (chat === DUENO) finales.push(t);
+      if (chat === "a@g.us" && ++intentosA === 1) throw cerrada();
+      if (chat === "a@g.us") throw vencido();
+    },
+  };
+  globalThis.client = otra;
+  _dep.esperar = async () => {};
+  console.error = () => {};
+  try {
+    await P.run({ chat: DUENO }, { client: otra, text: "Hola", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+  assert.equal(intentosA, 2);
+  assert.equal(finales.at(-1), "✅ Mensaje enviado a 1 grupo(s). No sé si llegó a 1 (falló mientras salía), y no lo repetí para no mandarlo dos veces: Amigos.");
 });
 
 // If the connection dropped right as "📣 Lo mando a…" went out, the notice ended there: no group got it, and nobody

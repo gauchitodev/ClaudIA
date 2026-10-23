@@ -351,23 +351,48 @@ test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async 
 // A message that doesn't get to the hooks is a sign of life for .inactivos all the same: one that came late (the bot
 // was offline, or reconnecting), and one from someone silenced, deleted on arrival. Whoever was warned and wrote within
 // the 3 days stayed warned, and .k inactivos could remove them.
-test("un mensaje atrasado o de alguien silenciado le levanta el aviso de .inactivos", async () => {
+test("un mensaje atrasado, de alguien silenciado o un comando de cuando el bot estaba apagado le levanta el aviso de .inactivos", async () => {
   const client = cliente();
   globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
-  const [CARLA, DANI] = ["300000000000004@lid", "300000000000005@lid"];
-  for (const [quien, nombre] of [[CARLA, "Carla"], [DANI, "Dani"]]) F.initDataDB({ chat: GRUPO, sender: quien, senderJid: "", pushName: nombre });
-  for (const quien of [CARLA, DANI]) F.marcarAvisoInactivo(GRUPO, [quien], Date.now() - 24 * 60 * 60 * 1000);
+  const [CARLA, DANI, FEDE] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
+  for (const [quien, nombre] of [[CARLA, "Carla"], [DANI, "Dani"], [FEDE, "Fede"]]) F.initDataDB({ chat: GRUPO, sender: quien, senderJid: "", pushName: nombre });
+  for (const quien of [CARLA, DANI, FEDE]) F.marcarAvisoInactivo(GRUPO, [quien], Date.now() - 24 * 60 * 60 * 1000);
   F.getUser(CARLA, GRUPO);
   F.updateUserInGroup(CARLA, GRUPO, { mute: true });
+  const enviado = Math.floor(Date.now() / 1000) - 90; // sent while the bot was offline
+  const comando = Math.floor(Date.now() / 1000) - 30;
   try {
     await llega(client, CARLA, "perdón, acá estoy").hecho;
-    const enviado = Math.floor(Date.now() / 1000) - 90; // sent while the bot was offline
     await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id: "ABCDEF999001", participant: DANI }, message: { conversation: "acá estoy" }, messageTimestamp: enviado, pushName: "Dani", _upsertType: "notify", _llegada: Date.now() });
+    // A command from while it was offline comes as "append", and the bot doesn't answer it.
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id: "ABCDEF999002", participant: FEDE }, message: { conversation: ".perfil" }, messageTimestamp: comando, pushName: "Fede", _upsertType: "append", _llegada: Date.now() });
   } finally {
     F.updateUserInGroup(CARLA, GRUPO, { mute: false });
   }
-  assert.deepEqual(F.presenciaDelGrupo(GRUPO).filter((r) => r.avisado).map((r) => r.usuario), []);
+  const filas = new Map(F.presenciaDelGrupo(GRUPO).map((r) => [r.usuario, r]));
+  assert.deepEqual([CARLA, DANI, FEDE].filter((quien) => filas.get(quien)?.avisado), []);
+  assert.deepEqual([filas.get(DANI).ultimo_mensaje, filas.get(FEDE).ultimo_mensaje], [enviado * 1000, comando * 1000], "con la hora en que lo mandaron");
   assert.ok(globalThis.enviados.some((e) => e.msg?.delete), "a Carla le borró el mensaje igual");
+});
+
+// What the moderation deletes reaches no counter, but whoever sent it wrote: someone warned who answered "acá estoy"
+// with a banned link stayed warned, and could be removed. Without the "Volvió": that would quote what was deleted.
+test("lo que borra la moderación le levanta el aviso de .inactivos, sin sumar mensajes", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_all-anti-links.js": carpeta["_all-anti-links.js"], "_messsage-count.js": carpeta["_messsage-count.js"] };
+  const grupo = "120363000000000026@g.us";
+  const GABI = "300000000000010@lid";
+  F.initDataDB({ chat: grupo, sender: GABI, senderJid: "", pushName: "Gabi" });
+  F.marcarAvisoInactivo(grupo, [GABI], Date.now() - 24 * 60 * 60 * 1000);
+  F.updateChat(grupo, { allAntiLinks: 1 });
+  globalThis.enviados = [];
+  const id = "ABCDEF999448";
+  await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: GABI }, message: { conversation: "acá estoy! miren esto www.ejemplo.com.uy" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Gabi", _upsertType: "notify", _llegada: Date.now() });
+  await esperar(20);
+  assert.ok(globalThis.enviados.some((e) => e.msg?.delete?.id === id), "lo borró");
+  assert.deepEqual(F.presenciaDelGrupo(grupo).filter((r) => r.avisado).map((r) => r.usuario), []);
+  assert.equal(F.getUser(GABI).inGroup?.[grupo]?.messageCount || 0, 0, "no cuenta como mensaje");
+  assert.ok(!globalThis.enviados.some((e) => /Volvió/.test(e.msg?.text || "")), "sin «Volvió»");
 });
 
 // A number may have an old row keyed by itself besides the one with the LID. getUser by number found the old one, and

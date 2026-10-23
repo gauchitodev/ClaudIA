@@ -111,6 +111,10 @@ export async function handleMessage(nMsg) {
       }
     };
     for (const plugin of hooks.filter((p) => p.moderacion)) await correrHook(plugin);
+    // Whoever wrote, wrote: what the moderation deleted (a banned link, too many mentions) is a sign of life for
+    // .inactivos all the same, though no counter counts it (anotarPresencia). Someone warned who answered "acá estoy"
+    // with a link stayed warned, and could be removed.
+    if (m.moderado) anotarPresencia(m);
     // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among them).
     // Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and so did
     // whoever the blacklist was about to remove.

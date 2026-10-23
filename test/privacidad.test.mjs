@@ -425,6 +425,9 @@ test("sinMenciones con dos @ seguidas, y conNombres solo le saca la @ a un nombr
   assert.equal(M.conNombres("¿venís @300000000000071?", ["300000000000071@lid"]), "¿venís @2Pac?");
   assert.equal(M.conNombres("che @300000000000072", ["300000000000072@lid"]), "che 0800 Pizza");
   assert.equal(menciones(M.conNombres("che @300000000000072", ["300000000000072@lid"])), 0);
+  // The edges are parseMention's: five digits make a mention, four don't.
+  F.initDataDB({ chat: FAMILIA, sender: "12345@lid", senderJid: "", pushName: "1234 Beto" });
+  assert.equal(M.conNombres("che @12345", ["12345@lid"]), "che @1234 Beto", "una LID de cinco dígitos se nombra, y un nombre de cuatro conserva la @");
 });
 
 // The other way around it was an "@" splitting the digits: "@3000" is too short to tag and stayed, the "@" of
@@ -453,6 +456,16 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
   assert.match(lista, /· @Beto trae el mate/);
   assert.equal(menciones(lista), 0);
   assert.equal(menciones(Mem.borrar(G, ANA, id, false).mensaje), 0);
+});
+
+// .recordá answers with the note: a LID typed by hand that the bot doesn't know (no name to put instead), or digits split
+// by another "@", went back to the group as they came, and sendText made them a mention. .memoria already read them
+// right.
+test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {
+  const texto = "que @300000000000096 debe una ronda, y @3000@00000000091 también";
+  await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true, mentionedJid: [] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
+  assert.match(ultimoEnviado().msg.text, /^🧠 Anotado \(#\d+\): 300000000000096 debe una ronda, y 300000000000091 también$/);
+  assert.equal(menciones(ultimoEnviado().msg.text), 0);
 });
 
 // A message without a name: Claudia calls its author "alguien" in her prompt and in her short memory (which .resumen

@@ -381,12 +381,18 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
   const chat = "inactivos-33@g.us";
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
   F.setRolGrupo(chat, "59899000555@s.whatsapp.net", "mod", "105@lid");
-  const participants = [{ id: "4444@lid", admin: null }, { id: "555@lid", admin: null }, { id: "666@lid", admin: null }];
+  F.setRolGrupo(chat, "556@lid", "mod", "105@lid"); // listed by number, which the map brings with the device
+  const participants = [{ id: "4444@lid", admin: null }, { id: "555@lid", admin: null }, { id: "666@lid", admin: null }, { id: "59899000556@s.whatsapp.net", admin: null }];
   miembros.set(chat, participants);
-  const mapa = { "59899777777@s.whatsapp.net": "4444@lid", "59899000555@s.whatsapp.net": "555@lid" };
+  const mapa = { "59899777777@s.whatsapp.net": "4444@lid", "59899000555@s.whatsapp.net": "555@lid", "556@lid": "59899000556:0@s.whatsapp.net" };
   const ownersReales = globalThis.owners;
   globalThis.owners = [...ownersReales, "59899777777"];
-  globalThis.client.signalRepository = { lidMapping: { getLIDForPN: async (pn) => mapa[pn] || null, getPNForLID: async () => null } };
+  // Like Baileys' (Signal/lid-mapping.js, in node_modules): pairs of { pn, lid } for many at once, and one at a time
+  // through those.
+  const lidMapping = { getLIDsForPNs: async (pns) => pns.filter((pn) => mapa[pn]).map((pn) => ({ pn, lid: mapa[pn] })), getPNsForLIDs: async (lids) => lids.filter((lid) => mapa[lid]).map((lid) => ({ lid, pn: mapa[lid] })) };
+  lidMapping.getLIDForPN = async (pn) => (await lidMapping.getLIDsForPNs([pn]))?.[0]?.lid || null;
+  lidMapping.getPNForLID = async (lid) => (await lidMapping.getPNsForLIDs([lid]))?.[0]?.pn || null;
+  globalThis.client.signalRepository = { lidMapping };
   try {
     await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
   } finally {
@@ -394,6 +400,42 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
     globalThis.owners = ownersReales;
   }
   assert.deepEqual(ultimoEnviado().msg.mentions, ["666@lid"]);
+});
+
+// It asked WhatsApp's map one person at a time, each with CONSULTA_MS of its own: with WhatsApp slow, every .inactivos
+// and .k inactivos waited that long times the people the database didn't know. All of them go in one question each
+// way, within one CONSULTA_MS, and a question left unanswered doesn't take the other's answer with it.
+test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de espera", async () => {
+  const chat = "inactivos-48@g.us";
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
+  for (const n of [1, 2, 3, 4]) F.setRolGrupo(chat, `880${n}@lid`, "mod", "105@lid"); // mods with no number on record
+  const participants = [1, 2, 3, 9].map((n) => ({ id: `770${n}@lid`, admin: null }));
+  miembros.set(chat, participants);
+  const nuevos = ["59899777701", "59899777702", "59899777703"]; // owners who never wrote: no row
+  const preguntas = [];
+  const mapa = {
+    getLIDsForPNs: async (pns) => (preguntas.push(["pn", pns]), pns.map((pn) => ({ pn, lid: `770${pn.split("@")[0].at(-1)}@lid` }))),
+    getPNsForLIDs: (lids) => (preguntas.push(["lid", lids]), new Promise(() => {})), // WhatsApp doesn't answer
+  };
+  // One at a time, as Baileys' own do it (Signal/lid-mapping.js).
+  mapa.getLIDForPN = async (pn) => (await mapa.getLIDsForPNs([pn]))?.[0]?.lid || null;
+  mapa.getPNForLID = async (lid) => (await mapa.getPNsForLIDs([lid]))?.[0]?.pn || null;
+  const [ownersReales, consultaReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS];
+  globalThis.owners = [...ownersReales, ...nuevos];
+  globalThis.client.signalRepository = { lidMapping: mapa };
+  I.INACTIVOS.CONSULTA_MS = 200;
+  const empezo = Date.now();
+  try {
+    await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  } finally {
+    delete globalThis.client.signalRepository;
+    [globalThis.owners, I.INACTIVOS.CONSULTA_MS] = [ownersReales, consultaReal];
+  }
+  const tardo = Date.now() - empezo;
+  assert.deepEqual(ultimoEnviado().msg.mentions, ["7709@lid"], "los owners, aunque la otra pregunta no tuvo respuesta");
+  assert.deepEqual(preguntas.map(([lado]) => lado).sort(), ["lid", "pn"], "una pregunta para cada lado");
+  assert.ok(nuevos.every((n) => preguntas.find(([lado]) => lado === "pn")[1].includes(`${n}@s.whatsapp.net`)));
+  assert.ok(tardo < 600, `esperó ${tardo} ms: de a uno eran 200 por cada mod`);
 });
 
 test("en un grupo cerrado, donde solo escriben los admins, no etiqueta ni saca a nadie", async () => {
@@ -454,14 +496,17 @@ test("el bot no entra en la lista aunque no sea admin del grupo", async () => {
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
 });
 
-test("una segunda confirmación mientras saca no saca de nuevo", async () => {
+// The second confirmation goes once: without the lock it removed 101 again, which ran it again, and the test hung
+// instead of failing. The timeout is for anything else that hangs.
+test("una segunda confirmación mientras saca no saca de nuevo", { timeout: 10000 }, async () => {
   const chat = "inactivos-38@g.us";
   const participants = armarGrupo(chat);
   avisar(chat, "101@lid", "102@lid");
   await kick(chat, participants, "inactivos");
   let segunda = null;
   alExpulsar = async (id) => {
-    if (id !== "101@lid") return;
+    if (id !== "101@lid" || segunda !== null) return;
+    segunda = "";
     await kick(chat, participants, "inactivos confirmar");
     segunda = textoEnviado();
   };
@@ -485,15 +530,16 @@ test("entre una expulsión y la siguiente espera la pausa", async () => {
   avisar(chat, "101@lid", "102@lid", "109@lid");
   await kick(chat, participants, "inactivos");
   const esperas = [];
-  const esperarReal = I._dep.esperar;
+  const [esperarReal, pausaReal] = [I._dep.esperar, I.INACTIVOS.PAUSA_MS];
   I._dep.esperar = async (ms) => esperas.push(ms);
+  I.INACTIVOS.PAUSA_MS = 3000; // the other tests go without it; with 0, waiting 0 passed for the pause
   try {
     await kick(chat, participants, "inactivos confirmar");
   } finally {
-    I._dep.esperar = esperarReal;
+    [I._dep.esperar, I.INACTIVOS.PAUSA_MS] = [esperarReal, pausaReal];
   }
   assert.equal(expulsiones.length, 3);
-  assert.deepEqual(esperas, [I.INACTIVOS.PAUSA_MS, I.INACTIVOS.PAUSA_MS]);
+  assert.deepEqual(esperas, [3000, 3000]);
 });
 
 // What .inactivos needs of each one (afk, messages) is read by SQLite out of inGroup, instead of parsing all of it: a
@@ -631,4 +677,71 @@ test("la LID del bot sigue limpia después de que Baileys la cambia al conectar"
   } finally {
     WebSocketClient.prototype.connect = conectar;
   }
+});
+
+// The preview goes to one admin, in private, and any admin could confirm it: one who hadn't seen who would go removed
+// them. Only the one it was sent to confirms, under either of their ids.
+test(".k inactivos confirmar es del admin que recibió la lista", async () => {
+  const chat = "inactivos-49@g.us";
+  const participants = [...armarGrupo(chat), { id: "112@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  F.initDataDB({ chat, sender: "112@lid", senderJid: "59899000112@s.whatsapp.net", pushName: "Persona112" });
+  avisar(chat, "101@lid", "102@lid");
+  const kickDe = (sender, text) => Kick.run(m(chat, text, sender), { client: globalThis.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true });
+  await kickDe("105@lid", "inactivos"); // the list goes to 105
+  await kickDe("112@lid", "inactivos confirmar");
+  assert.equal(textoEnviado(), "La lista de quiénes saldrían se la mandé a otro admin. Pedí la tuya con .k inactivos (te la mando por privado), y después confirmá.");
+  assert.equal(expulsiones.length, 0);
+  avisar(chat, "109@lid");
+  await kickDe("105@lid", "inactivos"); // a newer one of 105's, with 109
+  await kickDe("59899000105@s.whatsapp.net", "inactivos confirmar"); // 105, from a message that brought only the number
+  assert.deepEqual(expulsiones.map((e) => e.ids[0]).sort(), ["101@lid", "102@lid", "109@lid"]);
+});
+
+// Between the preview and the confirmation, or halfway through, the group went from listing people by number to listing
+// them by LID: the confirmation found nobody from the list, or took whoever was still there for gone. And whoever left
+// meanwhile came out as "🧹 Saqué a 0 personas", without a word on why.
+const admins50 = [{ id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+const porNumero50 = (ns) => ns.map((n) => ({ id: `59899000${n}@s.whatsapp.net`, lid: `${n}@lid`, admin: null })).concat(admins50);
+const porLid50 = (ns) => ns.map((n) => ({ id: `${n}@lid`, phoneNumber: `59899000${n}@s.whatsapp.net`, admin: null })).concat(admins50);
+function avisadosPorNumero(chat, ns) {
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
+  for (const n of ns) F.marcarAvisoInactivo(chat, [`59899000${n}@s.whatsapp.net`, `${n}@lid`], Date.now() - 4 * DIA);
+  miembros.set(chat, porNumero50(ns));
+  return porNumero50(ns);
+}
+
+test(".k inactivos confirmar encuentra a cada uno por cualquiera de sus ids", async () => {
+  const casos = [
+    // Shown while the group listed them by number, with the LID alongside; listed by the LID alone when confirming.
+    { chat: "inactivos-50@g.us", ns: [201, 202], antes: (n) => ({ id: `59899000${n}@s.whatsapp.net`, lid: `${n}@lid` }), despues: (n) => ({ id: `${n}@lid` }) },
+    // Shown by the number alone; listed by LID, with the number alongside, when confirming.
+    { chat: "inactivos-52@g.us", ns: [211, 212], antes: (n) => ({ id: `59899000${n}@s.whatsapp.net` }), despues: (n) => ({ id: `${n}@lid`, phoneNumber: `59899000${n}@s.whatsapp.net` }) },
+  ];
+  for (const { chat, ns, antes, despues } of casos) {
+    expulsiones = [];
+    const lista = (forma) => ns.map((n) => ({ ...forma(n), admin: null })).concat(admins50);
+    avisadosPorNumero(chat, ns);
+    miembros.set(chat, lista(antes));
+    await kick(chat, lista(antes), "inactivos");
+    miembros.set(chat, lista(despues));
+    CG.invalidar(globalThis.client, chat);
+    await kick(chat, lista(despues), "inactivos confirmar");
+    assert.deepEqual(expulsiones.map((e) => e.ids[0]), ns.map((n) => `${n}@lid`), chat);
+    assert.equal(textoEnviado(), "🧹 Saqué a 2 personas.");
+  }
+});
+
+test(".k inactivos confirmar dice cuántos ya no estaban, y al que el grupo lista ahora con otro id lo saca con ese", async () => {
+  const chat = "inactivos-51@g.us";
+  const participants = avisadosPorNumero(chat, [301, 302, 303]);
+  await kick(chat, participants, "inactivos");
+  alExpulsar = async (id) => {
+    if (id !== "59899000301@s.whatsapp.net") return;
+    miembros.set(chat, porLid50([301, 302])); // while the first one goes: the group is listed by LID now, and 303 left
+    await CG.metadataDe(globalThis.client, chat, { fresca: true });
+  };
+  await kick(chat, participants, "inactivos confirmar");
+  assert.deepEqual(expulsiones.map((e) => e.ids[0]), ["59899000301@s.whatsapp.net", "302@lid"], "con el id con que lo lista el grupo");
+  assert.equal(textoEnviado(), "🧹 Saqué a 2 personas. Una ya no estaba en el grupo.");
 });
