@@ -545,12 +545,14 @@ test("compraventa: el horario del grupo sin admin avisa una vez, reintenta cada 
 });
 
 // sinMenciones took every "@" before a digit out of a post: "3@500 pesos" was kept as "3500 pesos", and that was its
-// price.
+// price. One that does tag, "3@50000", goes with a space: taken out, the digits came together, at 350000.
 test("compraventa: una @ antes de un número que no arroba queda en la publicación, y en el precio", () => {
   const chat = "compraventa-arroba@g.us";
   F.initDataDB({ chat, sender: "667@lid", senderJid: "", pushName: "Persona667" });
-  const r = C.publicar(chat, "667@lid", "vendo", "Vendo medias 3@500 pesos, escribime a pepe@163.com");
+  let r = C.publicar(chat, "667@lid", "vendo", "Vendo medias 3@500 pesos, escribime a pepe@163.com");
   assert.deepEqual([F.getPublicacion(chat, r.numero).texto, r.precio], ["Vendo medias 3@500 pesos, escribime a pepe@163.com", "500 pesos"]);
+  r = C.publicar(chat, "667@lid", "vendo", "Vendo medias 3@50000 pesos");
+  assert.deepEqual([F.getPublicacion(chat, r.numero).texto, r.precio], ["Vendo medias 3 50000 pesos", "50000 pesos"]);
 });
 
 // One message may bring someone's number and the next their LID. Compared as they came, whoever replied to their own
@@ -599,4 +601,25 @@ test("compraventa: a cada uno lo nombra una sola vez, aunque tenga cosas bajo la
   assert.ok(C.gestionarAlerta(chat, N, ["heladera"]).ok);
   const avisados = C.publicar(chat, "669@lid", "vendo", "heladera chica, $ 9.000, Malvín").avisos?.mentions || [];
   assert.ok(avisados.length === 1 && [L, N].includes(avisados[0]), JSON.stringify(avisados));
+});
+
+// With a popular word in a big group, each alert was compared with every one already in, looking the number up each
+// time: a hundred alerts held the whole bot for half a second. One lookup per alert at most, counted in queries.
+test("compraventa: muchas alertas por la misma palabra cuestan una consulta cada una", () => {
+  const chat = "compraventa-alertas-muchas@g.us";
+  for (let i = 0; i < 100; i++) F.agregarAlerta(chat, i % 2 ? `6${i}@lid` : `5989900${String(i).padStart(4, "0")}@s.whatsapp.net`, "iphone");
+  const prepare = globalThis.db.prepare;
+  let consultas = 0;
+  globalThis.db.prepare = function (...args) {
+    consultas++;
+    return prepare.apply(this, args);
+  };
+  let r;
+  try {
+    r = C.avisosPara(chat, "1@lid", 1, "vendo iphone 13", "vendo", []);
+  } finally {
+    globalThis.db.prepare = prepare;
+  }
+  assert.equal(r.mentions.length, 100);
+  assert.ok(consultas <= 101, `${consultas} consultas`);
 });

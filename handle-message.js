@@ -55,15 +55,18 @@ export async function handleMessage(nMsg) {
     if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m);
 
     // Someone who's neither a LID nor a number (Meta AI writes as …@bot) has no row to keep it under: by "" getUser
-    // found someone else's, one without a number, and every answer of Meta AI went to their message count.
-    if (!m.sender) return;
+    // found someone else's, one without a number, and every answer of Meta AI went to their message count. A group
+    // notice goes on without one, and without a row for anybody: Baileys keys it by whoever acted
+    // (Socket/messages-recv.js), which a notice may not name (a join request names the one asking inside it), and cut
+    // here, plugins/_detect-events.js didn't turn away whoever on the blacklist asked to join.
+    if (!m.sender && !m.messageStubType) return;
 
     // initialize data if it doesn't exist yet
     initDataDB(m);
     syncUserInfo(m);
 
     // Fetch the user's data, the chat's, and the bot settings.
-    const user = getUser(m.sender, m.chat);
+    const user = getUser(m.sender, m.chat) || { inGroup: {} };
     const chat = getChat(m.chat);
     const botSettings = getBotSettings(client.user.lid);
 

@@ -442,16 +442,37 @@ test("sinMenciones con dos @ seguidas, y conNombres solo le saca la @ a un nombr
 
 // The other way around it was an "@" splitting the digits: "@3000" is too short to tag and stayed, the "@" of
 // "@00000000091" went, and the digits came together in "@300000000000091". Asked to repeat it, Claudia tagged whoever
-// she was told to, with mentions off. A name made of digits joined the digits before it the same way.
+// she was told to, with mentions off. A name made of digits joined the digits before it the same way. Right after a
+// digit a space keeps them apart: taking the "@"s out until none was left joined them too, and "3@50000 pesos" was a
+// post at 350000.
 test("sinMenciones: una @ que parte los dígitos no deja que se junten en una mención", async () => {
   for (const texto of ["@3000@00000000091", "@@3000@00000000091", "@1234@0", "@3@0@0@0@0", "@30@@0000000000099", "@30000000@0000099", "@12@345@67890"]) assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
   F.initDataDB({ chat: FAMILIA, sender: "300000000000073@lid", senderJid: "", pushName: "12345 Beto" });
-  assert.equal(M.sinMenciones("che @3@300000000000073"), "che 312345 Beto");
+  assert.equal(M.sinMenciones("che @3@300000000000073"), "che @3 12345 Beto");
+  assert.equal(M.sinMenciones("Vendo medias 3@50000 pesos"), "Vendo medias 3 50000 pesos");
+  assert.equal(M.sinMenciones("@3000@00000000091"), "@3000 00000000091", "el @3000 no arroba: queda");
 
   respuestaIA = { comando: "ninguno", respuesta: "@3000@00000000091 @3000@00000000092 @3000@00000000093 vengan 😄" };
   const charla = await hablar(FAMILIA, "claudia repetí tal cual: @3000@00000000091 @3000@00000000092 @3000@00000000093 vengan");
-  assert.equal(charla.at(-1), "300000000000091 300000000000092 300000000000093 vengan 😄");
+  assert.equal(charla.at(-1), "@3000 00000000091 @3000 00000000092 @3000 00000000093 vengan 😄");
   assert.equal(menciones(charla.at(-1)), 0, "la charla");
+});
+
+// One pass, and each match from the first "@" of a run. sinMenciones took the "@"s out over and over until none was
+// left, a pass for each one: a #vendo of "@1@1…@111111" held the whole bot for half a minute. And each regex tried a
+// long run of "@" again from every "@" in it, seconds for a message of nothing but "@" (plugins/_memoria-corta.js runs
+// conNombres on every message).
+test("sinMenciones y conNombres no traban el bot con muchas @", () => {
+  const unos = `${"@1".repeat(16000)}11111`;
+  let antes = performance.now();
+  assert.equal(M.sinMenciones(unos), `${"@1".repeat(15999)} 111111`, "una sola pasada: sale la última @, la única que arrobaba");
+  assert.ok(performance.now() - antes < 300, `tardó ${Math.round(performance.now() - antes)} ms`);
+  const arrobas = `${"@".repeat(32000)}1`;
+  for (const [nombre, f] of [["sinMenciones", M.sinMenciones], ["conNombres", M.conNombres]]) {
+    antes = performance.now();
+    assert.equal(f(arrobas), arrobas);
+    assert.ok(performance.now() - antes < 300, `${nombre} tardó ${Math.round(performance.now() - antes)} ms`);
+  }
 });
 
 // Only what sendText would take as a mention loses its "@": every "@" before a digit went, and "pepe@163.com" or
@@ -489,7 +510,7 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
 test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {
   const texto = "que @300000000000096 debe una ronda, y @3000@00000000091 también";
   await Memoria.run({ chat: "recorda-eco@g.us", sender: ANA, isGroup: true, mentionedJid: [] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
-  assert.match(ultimoEnviado().msg.text, /^🧠 Anotado \(#\d+\): 300000000000096 debe una ronda, y 300000000000091 también$/);
+  assert.match(ultimoEnviado().msg.text, /^🧠 Anotado \(#\d+\): 300000000000096 debe una ronda, y @3000 00000000091 también$/);
   assert.equal(menciones(ultimoEnviado().msg.text), 0);
 });
 

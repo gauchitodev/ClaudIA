@@ -407,6 +407,130 @@ test("esOwner: el número del owner es de quien lo usa ahora", async () => {
   }
 });
 
+// What was kept under a number with no LID known follows the person when the number leaves their row: they changed
+// numbers, or theirs went to someone else. The blacklist and the bot roles stayed with the number: whoever changed
+// numbers was no longer kept out nor protected, and whoever got the number next was removed, or protected, instead.
+test("la lista negra y los roles anotados por número siguen a la persona cuando el número cambia", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("sigue-a-la-persona");
+  const H = "otro@g.us";
+  const [A, B, C, D] = ["300000000000781@lid", "300000000000782@lid", "300000000000783@lid", "300000000000784@lid"];
+  const [N, N2, N3] = ["59899000781@s.whatsapp.net", "59899000782@s.whatsapp.net", "59899000783@s.whatsapp.net"];
+  const escribe = (sender, senderJid) => {
+    const m = { chat: G, sender, senderJid, pushName: "x", isGroup: true };
+    F.initDataDB(m);
+    F.syncUserInfo(m);
+  };
+  F.addToBlacklist(N, "estafa", "admin", G); // .ln +598… while the bot didn't know who had it
+  F.setRolGrupo(H, N, "mod", "admin"); // .moderador +598…, the same
+  escribe(A, N);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[N, null]], "mientras el número es de A, nada se mueve");
+  escribe(A, N2); // A changed numbers
+  assert.equal(F.isBlacklisted([A, N2], G)?.reason, "estafa", "a A se la sigue reconociendo");
+  assert.equal(F.rolGrupo(H, A), "mod", "y conserva su rol");
+  escribe(B, N); // N is B's now
+  assert.equal(F.isBlacklisted([B, N], G), null, "B no es A");
+  assert.equal(F.rolGrupo(H, B), null);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[A, A]], "bajo la LID: el número ya no es de A");
+  // Listing B by that number leaves A's entry as it was: under the number, it took it over.
+  F.addToBlacklist(N, "otra cosa", "admin", G, B);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid, e.reason]), [[A, A, "estafa"], [N, B, "otra cosa"]]);
+
+  // The number goes to someone else before its owner writes from a new one: what was kept under it is the owner's.
+  F.addToBlacklist(N3, "spam", "admin", H);
+  F.setRolGrupo(G, N3, "admin", "admin");
+  escribe(C, N3);
+  escribe(D, N3);
+  assert.equal(F.isBlacklisted([D, N3], H), null);
+  assert.equal(F.isBlacklisted(C, H)?.reason, "spam");
+  assert.deepEqual([F.rolGrupo(G, C), F.rolGrupo(G, D)], ["admin", null]);
+
+  // Listed twice in one group, by LID and by number: when the number leaves, the one by number goes, and whoever gets
+  // the number next isn't on the list.
+  const [E, Z, N4, N5] = ["300000000000785@lid", "300000000000786@lid", "59899000784@s.whatsapp.net", "59899000785@s.whatsapp.net"];
+  F.addToBlacklist(E, "por LID", "admin", G, E);
+  F.addToBlacklist(N4, "por número", "admin", G);
+  escribe(E, N4);
+  escribe(E, N5);
+  escribe(Z, N4);
+  assert.deepEqual(F.getBlacklist(G).filter((e) => [E, N4].includes(e.jid)).map((e) => [e.jid, e.reason]), [[E, "por LID"]]);
+  assert.equal(F.isBlacklisted([Z, N4], G), null);
+});
+
+// With two LID rows for one number, from before a number left the other rows, there's no telling whose it was: what was
+// kept under it stays with the number. Of two roles in one group, one by LID and one by number, the higher one stays.
+test("lo anotado por un número que tenían dos filas queda con el número, y de dos roles queda el más alto", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("sigue-a-la-persona-dudas");
+  const [P, Q, R, P2, Q2] = ["300000000000791@lid", "300000000000792@lid", "300000000000793@lid", "300000000000789@lid", "300000000000790@lid"];
+  const [N, N2, N3, M] = ["59899000791@s.whatsapp.net", "59899000792@s.whatsapp.net", "59899000793@s.whatsapp.net", "59899000795@s.whatsapp.net"];
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  fila.run(P, N, "P", 1);
+  fila.run(Q, N, "Q", 2);
+  F.addToBlacklist(N, "estafa", "admin", G);
+  F.syncUserInfo({ sender: R, senderJid: N }); // N came with someone else, and two rows had it
+  fila.run(P2, N3, "P2", 1);
+  fila.run(Q2, N3, "Q2", 2);
+  F.addToBlacklist(N3, "spam", "admin", G);
+  F.syncUserInfo({ sender: P2, senderJid: N2 }); // P2 changed numbers, and Q2's row had the old one too
+  const [U, V, N5] = ["300000000000787@lid", "300000000000788@lid", "59899000787@s.whatsapp.net"];
+  fila.run(U, N5, "U", 5);
+  fila.run(V, N5, "V", 6);
+  F.addToBlacklist(N5, "otra", "admin", G);
+  F.syncUserInfo({ sender: U, senderJid: N5 }); // U writes with the number it had, and V's row had it too
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[N, null], [N3, null], [N5, null]]);
+
+  const roles = db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?)");
+  const [S, T] = ["300000000000794@lid", "300000000000796@lid"];
+  fila.run(S, M, "S", 3);
+  roles.run(G, S, "mod", "a", 1);
+  roles.run(G, M, "admin", "b", 2);
+  roles.run("otro@g.us", S, "admin", "c", 3);
+  roles.run("otro@g.us", M, "mod", "d", 4);
+  F.syncUserInfo({ sender: T, senderJid: M }); // M is T's now
+  assert.deepEqual(db.prepare("SELECT chat, usuario, rol, dadoPor FROM roles_grupo WHERE usuario IN (?, ?, ?) ORDER BY chat").all(S, M, T), [
+    { chat: G, usuario: S, rol: "admin", dadoPor: "b" },
+    { chat: "otro@g.us", usuario: S, rol: "admin", dadoPor: "c" },
+  ]);
+});
+
+// An entry with a LID of its own is that person's: by number it only finds someone who brings no LID to tell them
+// apart. Someone else with that number, a recycled one, was removed.
+test("la lista negra no reconoce por el número a quien trae otra LID", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("lista-negra-otra-lid");
+  const [N, X, Y] = ["59899000797@s.whatsapp.net", "300000000000797@lid", "300000000000798@lid"];
+  F.addToBlacklist(N, "estafa", "admin", G, X);
+  assert.equal(F.isBlacklisted([N, Y], G), null);
+  assert.equal(F.isBlacklisted([Y, N], G), null);
+  assert.equal(F.isBlacklisted(N, G)?.reason, "estafa", "solo con el número no hay cómo distinguirlos");
+  assert.equal(F.isBlacklisted([X, N], G)?.reason, "estafa");
+  F.addToBlacklist("59899000799@s.whatsapp.net", "spam", "admin", G);
+  assert.equal(F.isBlacklisted([Y, "59899000799@s.whatsapp.net"], G)?.reason, "spam", "una entrada sin LID, por el número");
+});
+
+// A LID with a device ("…:12@lid") isn't anybody's row: a notice that came with one took the number off the real row.
+test("una LID con el dispositivo no le saca el número a la fila de la persona", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("lid-con-dispositivo");
+  const [L, N] = ["300000000000801@lid", "59899000801@s.whatsapp.net"];
+  F.initDataDB({ chat: G, sender: L, senderJid: N, pushName: "Ana" });
+  F.syncUserInfo({ sender: L, senderJid: N, pushName: "Ana" });
+  F.syncUserInfo({ sender: "300000000000801:12@lid", senderJid: N });
+  assert.deepEqual(db.prepare("SELECT lid, jid FROM users").all(), [{ lid: L, jid: N }]);
+
+  // A row like that from before, with the number it took: what was kept under the number went to it when the person
+  // wrote again, and they were no longer on the list.
+  const [L2, N2, CON] = ["300000000000802@lid", "59899000802@s.whatsapp.net", "300000000000802:12@lid"];
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  fila.run(CON, N2, "Beto", 1);
+  fila.run(L2, "", "Beto", 2);
+  F.addToBlacklist(N2, "estafa", "admin", G);
+  F.syncUserInfo({ sender: L2, senderJid: N2, pushName: "Beto" });
+  assert.equal(F.isBlacklisted([L2, N2], G)?.reason, "estafa");
+  assert.deepEqual(db.prepare("SELECT lid, jid FROM users WHERE lid LIKE '300000000000802%' ORDER BY rowid").all(), [{ lid: CON, jid: "" }, { lid: L2, jid: N2 }]);
+});
+
 // An old row keyed by the number next to the one with the LID, which is the one read and written by number: listed,
 // .listaadv showed warnings no one could take off, .listabaneados a ban that no longer applied, and .conteo the same
 // person twice. A number with no LID row keeps its own.

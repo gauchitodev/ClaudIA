@@ -510,3 +510,45 @@ test("un mensaje de Meta AI no se le cuenta a nadie", async () => {
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE lid = ''").get().n, 0, "ni una fila de nadie");
   assert.equal(F.getUser(""), null);
 });
+
+// A notice is keyed by whoever acted (Socket/messages-recv.js in Baileys: the notice's participant), and a join request
+// may not name them: the one asking comes inside it. Without a sender handle-message cut it ahead of the hooks, and
+// whoever was on the blacklist wasn't turned away (plugins/_detect-events.js). It leaves no row for anybody.
+test("un pedido para entrar que llega sin autor pasa igual por los hooks, y la lista negra lo rechaza", async () => {
+  const client = cliente();
+  globalThis.plugins = { "_detect-events.js": carpeta["_detect-events.js"] };
+  const grupo = "120363000000000030@g.us";
+  const [PIDE, PN] = ["300000000000051@lid", "59899000751@s.whatsapp.net"];
+  F.addToBlacklist(PN, "estafa", "admin", grupo, PIDE);
+  const rechazados = [];
+  client.groupRequestParticipantsList = async () => [{ jid: PIDE, phone_number: PN }];
+  client.groupRequestParticipantsUpdate = async (chat, ids, accion) => rechazados.push([chat, ids, accion]);
+  const filas = db.prepare("SELECT COUNT(*) AS n FROM users").get().n;
+  const errores = [];
+  const errorReal = console.error;
+  console.error = (...a) => errores.push(a);
+  try {
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: "ABCDEF999901" }, messageStubType: 172, messageStubParameters: [JSON.stringify({ lid: PIDE, pn: PN }), "created", "invite_link"], messageTimestamp: Math.floor(Date.now() / 1000), _upsertType: "append", _llegada: Date.now() });
+  } finally {
+    console.error = errorReal;
+  }
+  assert.deepEqual(rechazados, [[grupo, [PIDE], "reject"]]);
+  assert.deepEqual(errores, [], "y nada se rompe por no tener autor");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users").get().n, filas, "sin fila para nadie");
+});
+
+// A group notice keyed with the device ("…:12@lid"): Baileys takes it out of a message's key (Utils/process-message.js,
+// cleanMessage) but not out of a notice's. With it the person was someone else, with a row of their own that took the
+// number away from the real one: the owner, whose number it was, stopped being the owner.
+test("un aviso del grupo con el dispositivo en la LID es de la misma persona", async () => {
+  const client = cliente();
+  globalThis.plugins = {};
+  const grupo = "120363000000000031@g.us";
+  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const DUENO = "300000000000061@lid";
+  const ahora = () => ({ messageTimestamp: Math.floor(Date.now() / 1000), _llegada: Date.now() });
+  await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: "ABCDEF999911", participant: DUENO, participantAlt: OWNER }, message: { conversation: "hola" }, pushName: "Dueño", _upsertType: "notify", ...ahora() });
+  await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: "ABCDEF999912", participant: "300000000000061:12@lid", participantAlt: "59899111222:12@s.whatsapp.net" }, messageStubType: 21, messageStubParameters: ["Nuevo nombre"], _upsertType: "append", ...ahora() });
+  assert.deepEqual(db.prepare("SELECT lid, jid FROM users WHERE lid LIKE '300000000000061%'").all(), [{ lid: DUENO, jid: OWNER }]);
+  assert.equal(F.esOwner(DUENO), true);
+});

@@ -309,6 +309,25 @@ test(".ln por número no se come los dígitos que siguen", async () => {
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.reason]), [["59899666667@s.whatsapp.net", "spam"]]);
 });
 
+// A number further on, after a mention or quoting someone, is part of the reason: ".ln @persona le robó a +598…" listed
+// the number's owner, and removed them, instead of the one mentioned. A number the text starts with is still the one
+// going on the list, and so is one with nobody mentioned or quoted.
+test(".ln con una mención o una cita y un número en el motivo anota a la persona, no al número", async () => {
+  const anotados = () => F.getBlacklist(G).map((e) => e.lid);
+  await correr("ln", "@222 le robó la plata a +59899111111", { mentionedJid: ["222@lid"] });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.lid, e.reason]), [["222@lid", "le robó la plata a +59899111111"]]);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["222@lid"], accion: "remove" }]);
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "le pasó el número +59899111111", { quoted: { sender: "222@lid" } });
+  assert.deepEqual(anotados(), ["222@lid"], "citándolo, igual");
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "+59899111111 le robó a @222", { mentionedJid: ["222@lid"] });
+  assert.deepEqual(anotados(), ["111@lid"], "con el número primero, es el número");
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "estafa, su número es +59899111111");
+  assert.deepEqual(anotados(), ["111@lid"], "sin nadie mencionado ni citado, también");
+});
+
 // An old reason in the group: the listed person's own LID goes, a longer number that holds their digits stays, and
 // someone the bot doesn't know is "@alguien", as a reason given now names them: the digits of their LID were in sight.
 test(".vln en el grupo: un motivo viejo sin la LID de la persona ni la de un desconocido", async () => {

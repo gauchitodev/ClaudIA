@@ -154,6 +154,19 @@ test("una sola consulta para todo el grupo, no una por persona", () => {
   assert.ok(consultas <= 1, `${consultas} consultas a la base`);
 });
 
+// A row without a number has nothing to look up by it: every LID that came without one has jid '', and the query sorted
+// all of those for each of them, seconds for a .tagall in a big database.
+test("una fila sin número no se compara con las demás sin número", () => {
+  const S = "sin-numero@g.us";
+  for (const n of [1, 2, 3]) {
+    F.initDataDB({ chat: S, sender: `s${n}@lid`, senderJid: "", pushName: `S${n}` });
+    F.updateUserInGroup(`s${n}@lid`, S, { sinTagall: true });
+  }
+  const filas = F.filasConDatoDeGrupo("sinTagall").filter((f) => /^s\d@lid$/.test(f.lid));
+  assert.deepEqual(filas.map((f) => [f.lid, f.delNumero]), [["s1@lid", null], ["s2@lid", null], ["s3@lid", null]]);
+  assert.equal(MG.mencionesParaTodos(S, ["s1", "s2", "s3", "s4"].map((n) => ({ id: `${n}@lid` })), { client: clienteFalso() }).fuera, 3);
+});
+
 // And it says the same as asking about each one: by LID or by number, with the other id alongside or not, and with an
 // old second row keyed by number.
 test("la consulta del grupo dice lo mismo que preguntar por cada uno", () => {

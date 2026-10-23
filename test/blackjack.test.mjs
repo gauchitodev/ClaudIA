@@ -1,4 +1,4 @@
-import { test, before } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, esperar, mazoDe, fijarSaldo } from "./helpers.mjs";
 import { COINS } from "../lib/urucoins.js";
@@ -10,10 +10,17 @@ before(async () => {
   COINS.CASINO_TOPE_DIA = 1e9;
 });
 const saldo = () => F.getSaldoCoins(G, "u");
-const nueva = () => {
-  fijarSaldo(F, G, "u", 100);
+// A hand left open keeps its timer for the decision (60 s, armarTimer in lib/blackjack.js): it goes with the hand, or
+// this file's process stayed up a minute after the last test, waiting for them.
+const sinManos = () => {
+  for (const partida of globalThis.manosBlackjack.values()) clearTimeout(partida.timeout);
   globalThis.manosBlackjack.clear();
 };
+const nueva = () => {
+  fijarSaldo(F, G, "u", 100);
+  sinManos();
+};
+after(sinManos);
 
 test("manos básicas: natural, empates, pasarse, banca que se pasa, doblar", () => {
   nueva();

@@ -637,8 +637,10 @@ export function initDataDB(m) {
   const pushName = m?.pushName || "";
 
   // Make sure the user's default data exists. A message that came with only the number, from someone the database
-  // already knows by it, adds no row keyed by the number: getUser and updateUser by number go to the one there is.
-  if (m.sender.endsWith("@lid") || !lidDeNumero(m.sender)) db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName) VALUES (?, ?, ?)`).run(m.sender, m.senderJid, pushName);
+  // already knows by it, adds no row keyed by the number: getUser and updateUser by number go to the one there is. A
+  // group notice may come without anyone (handle-message lets it through): it has the chat's and the bot's, not a row
+  // "".
+  if (m.sender && (m.sender.endsWith("@lid") || !lidDeNumero(m.sender))) db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName) VALUES (?, ?, ?)`).run(m.sender, m.senderJid, pushName);
 
   // Make sure the chat's default data exists
   db.prepare(`INSERT OR IGNORE INTO chats (remoteJid) VALUES (?)`).run(chatJid);
@@ -742,7 +744,9 @@ export function syncUserInfo(m) {
   const newPush = m.pushName || (m.fromMe ? client.user.name : null);
   const timestamp = Date.now();
 
-  if (!lid) return;
+  // A LID with a device ("…:12@lid") is nobody's row: with the number on it, it took it away from the real one.
+  // lib/wa-socket.js takes the device out of m.sender; this is for whatever else brings one.
+  if (!lid || /:\d+@lid$/.test(lid)) return;
 
   const user = getUser(lid);
   const numero = newJid?.endsWith?.("@s.whatsapp.net") ? newJid : null;
@@ -753,13 +757,44 @@ export function syncUserInfo(m) {
   if (!finalJid || !isRegularJid) finalJid = newJid;
   if (numero && lid.endsWith("@lid")) {
     finalJid = numero;
-    db.prepare(`UPDATE users SET jid = '' WHERE jid = ? AND lid <> ? AND lid LIKE '%@lid'`).run(numero, lid);
+    // New for the row, or for a row initDataDB has just made: it puts the number on it, and only this stamps it.
+    const nuevo = user?.jid !== numero || user?.timestamp == null;
+    db.transaction(() => {
+      if (nuevo) seguirALaPersona(lid, user?.jid, numero);
+      db.prepare(`UPDATE users SET jid = '' WHERE jid = ? AND lid <> ? AND lid LIKE '%@lid'`).run(numero, lid);
+    })();
   }
 
   const datos = { jid: finalJid, timestamp };
   // Group notices and some message types come without a pushName: don't overwrite the stored name with null.
   if (newPush) datos.pushName = newPush;
   updateUser(lid, datos);
+}
+
+// A LID comes with a number its row didn't have: the person changed numbers, or the number was someone else's. What was
+// kept under a number with no LID known, a blacklist entry or a bot role given by number, goes to the LID the number
+// was on: it used to stay with the number, and whoever changed numbers was no longer kept out by the blacklist nor
+// protected by their role, while whoever got the number next got both. Only when a single LID row had the number: with
+// two, there's no telling whose it was, and it stays as it was. A row with a device's LID, from before syncUserInfo
+// left them out, isn't anybody's.
+function seguirALaPersona(lid, antes, numero) {
+  const filasCon = (n) => db.prepare(`SELECT lid FROM users WHERE jid = ? AND lid LIKE '%@lid' AND lid NOT LIKE '%:%'`).all(n).map((f) => f.lid);
+  if (antes !== numero && antes?.endsWith?.("@s.whatsapp.net") && filasCon(antes).length === 1) atarAlLid(antes, lid); // this row's
+  const otros = filasCon(numero).filter((l) => l !== lid);
+  if (otros.length === 1) atarAlLid(numero, otros[0]);
+}
+
+// Under the LID, in the entry's key too: the number is someone else's now, or nobody's, and with the entry still under
+// it, listing whoever has it now overwrote the entry (one per group and key). One the person already had under the LID
+// in that group stays, and the one by number goes. Of two roles in one group, the higher one stays.
+function atarAlLid(numero, lid) {
+  db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid = '')`).run(lid, lid, numero);
+  db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid = '')`).run(numero);
+  db.prepare(
+    `INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) SELECT chat, ?, rol, dadoPor, fecha FROM roles_grupo WHERE usuario = ?
+     ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
+  ).run(lid, numero);
+  db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
 }
 
 // update data in the db
@@ -808,9 +843,10 @@ export function updateUserInGroup(userId, chat, data) {
 // The rows that hold `clave` in the data of some group (inGroup), oldest first, as stored: a flag few people set, read
 // in one query instead of one getUser per member of a big group (lib/menciones-generales.js, for .notagall).
 // delNumero says whether the row is the one its number stands for (FILA_DEL_NUMERO), the one getUser and updateUser go
-// to by number.
+// to by number; for a row with no number, nothing is looked up: every LID that came without one has jid '', and sorting
+// all of them for each row made a .tagall take seconds.
 export function filasConDatoDeGrupo(clave) {
-  return db.prepare(`SELECT lid, jid, inGroup, lid = (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1) AS delNumero FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
+  return db.prepare(`SELECT lid, jid, inGroup, CASE WHEN jid <> '' THEN lid = (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1) END AS delNumero FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
 }
 
 // One more message from a person in a group (inGroup[chat].messageCount), counted over the row as it is now: two
@@ -882,15 +918,16 @@ export function removeFromBlacklist(id, chat = "*") {
 
 // are they on that group's blacklist, or on the all-groups one? Returns the entry (the group's before the global
 // one) or null. Takes one identifier or several (a person's number and LID), and checks both columns.
+// By number only for an entry with no LID of its own, or for someone who brings none: with the two LIDs at hand and
+// different, it's someone else with that number, a recycled one or one the listed person left, who used to be removed.
 export function isBlacklisted(id, chat = "*") {
   const ids = (Array.isArray(id) ? id : [id]).filter(Boolean);
   if (ids.length === 0) return null;
   const marcadores = ids.map(() => "?").join(", ");
+  const porNumero = ids.some((v) => v.endsWith("@lid")) ? `(jid IN (${marcadores}) AND (lid IS NULL OR lid = ''))` : `jid IN (${marcadores})`;
   return (
     db
-      .prepare(
-        `SELECT * FROM lista_negra WHERE (jid IN (${marcadores}) OR lid IN (${marcadores})) AND chat IN (?, '*') ORDER BY CASE WHEN chat = '*' THEN 1 ELSE 0 END LIMIT 1`,
-      )
+      .prepare(`SELECT * FROM lista_negra WHERE (${porNumero} OR lid IN (${marcadores})) AND chat IN (?, '*') ORDER BY CASE WHEN chat = '*' THEN 1 ELSE 0 END LIMIT 1`)
       .get(...ids, ...ids, chat) || null
   );
 }

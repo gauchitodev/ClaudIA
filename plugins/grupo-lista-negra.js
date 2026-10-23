@@ -90,8 +90,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   let who, reason;
   const phoneMatches = text.match(/\+\d[\d\s-]*/g);
   // The reason goes with any other mention as a name, by number too: the whole group reads it (.vln), and the digits of
-  // a LID were left in it.
-  if (phoneMatches && phoneMatches.length > 0) {
+  // a LID were left in it. The number is the one going on the list when the text starts with it, or with nobody
+  // mentioned or quoted: further on, after a mention, it's part of the reason (".ln @persona le pasó el +598…"), and
+  // the number's owner was listed, and removed, instead of the one mentioned.
+  if (phoneMatches?.length > 0 && (/^\s*\+\d/.test(text) || (!m.mentionedJid?.[0] && !m.quoted))) {
     // Typed all together, the number ends where its digits do: "+59899666666 2 veces me estafó" took the 2 for one
     // more, and listed someone else. Spaced out ("+598 99 666 666"), it takes every group.
     const tipeado = phoneMatches[0].match(/^\+\d{8,}/)?.[0] || phoneMatches[0];
