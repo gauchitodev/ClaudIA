@@ -108,6 +108,17 @@ test(".mitimba respondiendo un mensaje del bot muestra la tuya, no la del bot", 
   assert.match(ultimo(), /Ruleta\* — 30 apostados/);
 });
 
+test(".mitimba de quien nunca escribió es la suya, no la tuya, y un nombre tipeado a mano no es nadie", async () => {
+  mov("a@lid", -30, "casino_ruleta");
+  // No row for them: before, this was your own.
+  await correr(MiTimba, "a@lid", "@300000000000099", ["300000000000099@lid"]);
+  assert.equal(ultimo(), "🎰 alguien no apostó nada en este grupo.");
+  await correr(MiTimba, "a@lid", "@B");
+  assert.equal(ultimo(), "🎰 No sé de quién querés ver la timba: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .mitimba.");
+  await correr(MiTimba, "a@lid", "mes");
+  assert.match(ultimo(), /Tu timba este mes/, "sin nombrar a nadie, la tuya");
+});
+
 test(".timba rankea por lo apostado y cuenta las jugadas bien", async () => {
   await correr(Timba, "a@lid");
   assert.match(ultimo(), /nadie apostó nunca/);

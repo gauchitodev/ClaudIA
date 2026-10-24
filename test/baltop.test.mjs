@@ -24,6 +24,60 @@ test(".bal muestra solo tu saldo", async () => {
   assert.equal(ultimoEnviado().msg.text, "🪙 Tenés *0 UruCoins*");
 });
 
+// In a group of its own: .baltop's ranking, further down, counts everyone with coins in G.
+const OTRO = "bal@g.us";
+const pedir = (sender, { text = "", mentionedJid = [], quoted, participants = [] } = {}) =>
+  Bal.run({ chat: OTRO, sender, text, mentionedJid, quoted, isGroup: true }, { client: globalThis.client, text, args: text.split(/\s+/).filter(Boolean), participants, user: {} });
+
+test(".bal @persona muestra el saldo de esa persona, sin arrobarla", async () => {
+  const TERO = "300000000000021@lid";
+  F.initDataDB({ chat: G, sender: TERO, senderJid: "59899000021@s.whatsapp.net", pushName: "Tero" });
+  fijarSaldo(F, OTRO, TERO, 1250);
+  fijarSaldo(F, OTRO, "a@lid", 120);
+  const formas = {
+    "una mención": { text: "@300000000000021", mentionedJid: [TERO] },
+    "una mención por número": { text: "@59899000021", mentionedJid: ["59899000021@s.whatsapp.net"] },
+    "los dígitos tipeados": { text: "@300000000000021" },
+    "el número tipeado": { text: "+598 99 000 021" },
+    "una respuesta a un mensaje suyo": { quoted: { sender: TERO } },
+  };
+  for (const [forma, pedido] of Object.entries(formas)) {
+    await pedir("a@lid", pedido);
+    assert.deepEqual(ultimoEnviado().msg, { text: "🪙 Tero tiene *1250 UruCoins* · puede apostar hasta 250 por jugada" }, forma);
+  }
+
+  const tuyo = "🪙 Tenés *120 UruCoins* · podés apostar hasta 100 por jugada";
+  await pedir("a@lid", { quoted: { sender: globalThis.client.user.lid } });
+  assert.equal(ultimoEnviado().msg.text, tuyo, "respondiendo un resultado del casino, el tuyo: el bot no juega");
+  await pedir("a@lid", { quoted: { sender: globalThis.client.user.jid } });
+  assert.equal(ultimoEnviado().msg.text, tuyo, "también si el bot viene por número");
+  await pedir("a@lid", { text: "@a", mentionedJid: ["a@lid"] });
+  assert.equal(ultimoEnviado().msg.text, tuyo, "nombrándote a vos");
+  // The bot's phone number typed by hand, which nothing on record has: only the group, listing it, says it's the bot.
+  const user = globalThis.client.user;
+  globalThis.client.user = { ...user, lid: "300000000000050@lid", jid: "59899000050@s.whatsapp.net" };
+  try {
+    await pedir("a@lid", { text: "@59899000050", participants: [{ id: "300000000000050@lid", phoneNumber: "59899000050@s.whatsapp.net" }] });
+    assert.equal(ultimoEnviado().msg.text, tuyo, "el número del bot tipeado");
+  } finally {
+    globalThis.client.user = user;
+  }
+
+  // Someone who never wrote has no row and is still not you: before, this was your own balance.
+  await pedir("a@lid", { text: "@300000000000099", mentionedJid: ["300000000000099@lid"] });
+  assert.equal(ultimoEnviado().msg.text, "🪙 alguien tiene *0 UruCoins*");
+  // A number Tero left, whom the group lists now under someone else's LID: that someone, not Tero.
+  await pedir("a@lid", { text: "+598 99 000 021", participants: [{ id: "300000000000077@lid", phoneNumber: "59899000021@s.whatsapp.net" }] });
+  assert.equal(ultimoEnviado().msg.text, "🪙 alguien tiene *0 UruCoins*");
+
+  // A name typed by hand isn't a mention, and a number nobody has isn't anyone: neither is a question about you.
+  const pista = "🪙 No sé de quién querés ver el saldo: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .bal.";
+  for (const text of ["@Tero", "+598 99 999 999"]) {
+    await pedir("a@lid", { text });
+    assert.equal(ultimoEnviado().msg.text, pista, text);
+  }
+});
+
 test(".baltop lista a los más ricos y te ubica si no entrás", async () => {
   await correr(Top, "a@lid", "vacio@g.us");
   assert.match(ultimoEnviado().msg.text, /nadie tiene UruCoins/);
