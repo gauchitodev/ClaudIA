@@ -228,7 +228,8 @@ async function resolverCanal() {
   }
 }
 
-globalThis.db = loadDatabase();
+// database-functions.js keeps the connection, and whatever else needs it imports it from there.
+loadDatabase();
 
 // Temp folder for downloads, stickers and canvas (it's in .gitignore, so a fresh clone won't have it).
 mkdirSync("./tmp", { recursive: true });

@@ -208,13 +208,11 @@ test("envíos: lo que falla no cuenta, y el error le llega a quien mandó", asyn
 
 test("envíos: si contar falla, el mensaje igual se da por mandado", async () => {
   const { client, salidas } = clienteEnvuelto();
-  const baseReal = globalThis.db;
   const errorReal = console.error;
   const errores = [];
-  globalThis.db = {
-    prepare: () => {
-      throw new Error("base caída");
-    },
+  // Broken in place: database-functions.js keeps its own connection, and a fake one on globalThis would go unused.
+  db.prepare = () => {
+    throw new Error("base caída");
   };
   console.error = (...args) => errores.push(args.join(" "));
   try {
@@ -223,7 +221,7 @@ test("envíos: si contar falla, el mensaje igual se da por mandado", async () =>
     assert.equal(salidas.length, 1);
     assert.ok(errores.some((e) => /\[envios\].*base caída/.test(e)), "el conteo falló de verdad, y quedó anotado");
   } finally {
-    globalThis.db = baseReal;
+    delete db.prepare;
     console.error = errorReal;
   }
 });

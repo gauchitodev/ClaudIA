@@ -36,19 +36,17 @@ test("usos: se cuentan por grupo y día, los privados juntos, y el comando en mi
 });
 
 test("usos: contar nunca rompe un comando, aunque la base falle", () => {
-  const baseReal = globalThis.db;
   const errorReal = console.error;
   const errores = [];
-  globalThis.db = {
-    prepare: () => {
-      throw new Error("base caída");
-    },
+  // Broken in place: database-functions.js keeps its own connection, and a fake one on globalThis would go unused.
+  db.prepare = () => {
+    throw new Error("base caída");
   };
   console.error = (...args) => errores.push(args.join(" "));
   try {
     assert.doesNotThrow(() => U.registrarUso(G1, "audio", AHORA));
   } finally {
-    globalThis.db = baseReal;
+    delete db.prepare;
     console.error = errorReal;
   }
   assert.ok(errores.some((e) => /\[usos\].*base caída/.test(e)), "el conteo falló de verdad, y quedó anotado");

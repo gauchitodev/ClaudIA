@@ -1,6 +1,17 @@
 import { existsSync, mkdirSync } from "fs";
 import Database from "better-sqlite3";
 
+// The connection every function here uses, loadDatabase's. It used to be a global main.js set (globalThis.db), and this
+// module only worked once someone had set it; what else needs the connection imports it from here.
+export let db = null;
+
+// loadDatabase's connection becomes everyone's only once it opened all right: one that failed halfway leaves the one
+// there was. Out here because inside loadDatabase, "db" is its own.
+function usarBase(nueva) {
+  db = nueva;
+  return nueva;
+}
+
 // Load the SQLite database
 export function loadDatabase() {
   // Create the "databases" folder if it isn't there.
@@ -631,7 +642,7 @@ export function loadDatabase() {
   const { deDispositivos, repetidos } = soloUnaFilaPorNumero(db);
   if (deDispositivos || repetidos) console.log(`🟢 Migración: cada número quedó en una sola fila (${repetidos} repetida(s), ${deDispositivos} de dispositivos)`);
 
-  return db;
+  return usarBase(db);
 }
 
 // A number is one person's at a time (syncUserInfo takes it off any other row), but rows from before that may still
