@@ -2,13 +2,14 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
 
-let F, A, Bal, Top, Racha;
+let F, A, Bal, Top, Racha, Inv;
 before(async () => {
   ({ F } = await prepararBase("baltop"));
   A = await import("../lib/actividad.js");
   Bal = (await import("../plugins/coins-saldo.js")).default;
   Top = (await import("../plugins/coins-baltop.js")).default;
   Racha = (await import("../plugins/coins-racha.js")).default;
+  Inv = (await import("../plugins/coins-inventario.js")).default;
 });
 const correr = (P, sender, chat = G) => P.run({ chat, sender, isGroup: true }, { client: globalThis.client, user: {} });
 
@@ -26,8 +27,8 @@ test(".bal muestra solo tu saldo", async () => {
 
 // In a group of its own: .baltop's ranking, further down, counts everyone with coins in G.
 const OTRO = "bal@g.us";
-const pedir = (sender, { text = "", mentionedJid = [], quoted, participants = [] } = {}) =>
-  Bal.run({ chat: OTRO, sender, text, mentionedJid, quoted, isGroup: true }, { client: globalThis.client, text, args: text.split(/\s+/).filter(Boolean), participants, user: {} });
+const pedir = (sender, { text = "", mentionedJid = [], quoted, participants = [] } = {}, P = Bal) =>
+  P.run({ chat: OTRO, sender, text, mentionedJid, quoted, isGroup: true }, { client: globalThis.client, text, args: text.split(/\s+/).filter(Boolean), participants, user: {} });
 
 test(".bal @persona muestra el saldo de esa persona, sin arrobarla", async () => {
   const TERO = "300000000000021@lid";
@@ -114,4 +115,42 @@ test(".racha muestra la racha diaria", async () => {
   F.setRacha(G, "r@lid", 3, A.claveDia());
   await correr(Racha, "r@lid");
   assert.match(ultimoEnviado().msg.text, /Racha diaria: 3 días/);
+});
+
+test(".inventario y .racha @persona muestran los de esa persona, sin arrobarla", async () => {
+  const PICA = "300000000000022@lid";
+  F.initDataDB({ chat: OTRO, sender: PICA, senderJid: "59899000022@s.whatsapp.net", pushName: "Picaflor" });
+  F.updateUser(PICA, { apodo: "Pica" });
+  F.agregarItem(OTRO, PICA, "escudo", 2);
+  F.setRacha(OTRO, PICA, 4, A.claveDia(new Date(Date.now() - 24 * 60 * 60 * 1000)));
+  for (const pedido of [{ text: "@300000000000022", mentionedJid: [PICA] }, { quoted: { sender: PICA } }]) {
+    await pedir("a@lid", pedido, Inv);
+    assert.deepEqual(ultimoEnviado().msg, { text: "🎒 *Inventario de Pica*\n\n🛡️ Escudo x2\n🏷️ Apodo: Pica" }, "con su apodo, no el tuyo");
+    await pedir("a@lid", pedido, Racha);
+    assert.deepEqual(ultimoEnviado().msg, { text: "🔥 Racha diaria de Pica: 4 días (hoy todavía no completó) · mejor: 4" });
+  }
+
+  // With nobody named, or replying to the bot, yours.
+  for (const pedido of [{}, { quoted: { sender: globalThis.client.user.lid } }]) {
+    await pedir("a@lid", pedido, Inv);
+    assert.equal(ultimoEnviado().msg.text, "🎒 Tu inventario está vacío. Mirá qué hay en .tienda");
+    await pedir("a@lid", pedido, Racha);
+    assert.match(ultimoEnviado().msg.text, /^🔥 No tenés racha todavía\. Escribí/);
+  }
+
+  // Someone who never wrote is still not you, and a streak that was cut is theirs too.
+  const nadie = { text: "@300000000000099", mentionedJid: ["300000000000099@lid"] };
+  await pedir("a@lid", nadie, Inv);
+  assert.equal(ultimoEnviado().msg.text, "🎒 alguien no tiene nada en el inventario.");
+  await pedir("a@lid", nadie, Racha);
+  assert.equal(ultimoEnviado().msg.text, "🔥 alguien no tiene racha todavía.");
+  F.setRacha(OTRO, PICA, 1, "2000-01-01");
+  await pedir("a@lid", { quoted: { sender: PICA } }, Racha);
+  assert.equal(ultimoEnviado().msg.text, "🔥 Racha diaria de Pica: cortada (su mejor: 4 días)");
+
+  // A name typed by hand isn't a mention.
+  await pedir("a@lid", { text: "@Pica" }, Inv);
+  assert.equal(ultimoEnviado().msg.text, "🎒 No sé de quién querés ver el inventario: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .inventario.");
+  await pedir("a@lid", { text: "@Pica" }, Racha);
+  assert.equal(ultimoEnviado().msg.text, "🔥 No sé de quién querés ver la racha: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .racha.");
 });

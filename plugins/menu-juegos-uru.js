@@ -36,7 +36,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .comprar racha — 24 h ganando el doble (40)
 ▸ .comprar voto doble — tu próxima reacción a una entrada vale por dos (15)
 ▸ .comprar apodo Tito — Claudia te llama así (30)
-▸ .inventario — lo que tenés
+▸ .inventario — lo que tenés · .inventario @alguien — lo de otra persona
 
 🎰 *Casino y lotería*
 ▸ .ruleta 20 rojo — abre la mesa; en 45 s apuestan todos y la bola sale una vez. Rojo, negro, par, impar, 1-18, 19-36 (x2), docenas y columnas (x3), seisena (x6), cuadro (x9), calle (x12), caballo (x18), pleno (x36; el 0 también como verde)
@@ -55,7 +55,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .resolver 7 Nacional — un admin que no apostó carga el resultado (o "anulado" para devolver todo)
 
 🔥 *Actividad*
-▸ Racha diaria: escribí 3 mensajes (de dos palabras o más) en el día y ganás monedas; el premio sube con los días seguidos. Se ve en .racha
+▸ Racha diaria: escribí 3 mensajes (de dos palabras o más) en el día y ganás monedas; el premio sube con los días seguidos. Se ve en .racha, y la de otra persona con .racha @alguien
 ▸ Pregunta del día: a partir del mediodía, respondé al mensaje de Claudia y sumás monedas (un admin la activa con .preguntadeldia)
 ▸ Música: poné un tema con .play en el grupo y cobrás 10 monedas (hasta 5 temas por día)
 ▸ Trivia relámpago: un par de veces por día, en horario sorpresa; el primero que acierta cobra (se activa con .triviarelampago)

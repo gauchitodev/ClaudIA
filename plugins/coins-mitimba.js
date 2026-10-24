@@ -3,7 +3,7 @@
 // The group ranking is .timba; both read the same catalogue in lib/timba.js.
 
 import { textoTimbaPersonal, inicioDeMes } from "../lib/timba.js";
-import { deQuienEs } from "../lib/identidad.js";
+import { deQuienEs, noSeDeQuien } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["mitimba"];
@@ -13,7 +13,7 @@ plugin.onlyGroup = true;
 plugin.run = async (m, { client, args, text, participants }) => {
   const soloMes = /^mes$/i.test(args[0] || "");
   const objetivo = deQuienEs(client, m, text, participants);
-  if (!objetivo) return client.sendText(m.chat, "🎰 No sé de quién querés ver la timba: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .mitimba.", m);
+  if (!objetivo) return client.sendText(m.chat, `🎰 ${noSeDeQuien("la timba", ".mitimba")}`, m);
 
   const r = textoTimbaPersonal(m.chat, objetivo, { desde: soloMes ? inicioDeMes() : 0, esPropio: objetivo === m.sender, soloMes });
   await client.sendText(m.chat, r.texto, m);

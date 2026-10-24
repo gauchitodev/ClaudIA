@@ -74,6 +74,18 @@ test("perfil: dice si alguien se salió de los llamados a todos", () => {
   assert.doesNotMatch(Pf.textoPerfil(G, "333@lid", F.getUser("333@lid"), true).texto, /🔕/);
 });
 
+// The streak line is lib/actividad.js's: someone else's spoke to whoever looked ("tu mejor", "no completaste").
+test("perfil: la racha de otra persona habla de ella, no a quien mira", () => {
+  F.initDataDB(persona(444));
+  F.setRacha(G, "444@lid", 2, A.claveDia(new Date(Date.now() - DIA)));
+  const linea = (esPropio) => Pf.textoPerfil(G, "444@lid", F.getUser("444@lid"), esPropio).texto.split("\n").find((l) => l.startsWith("🔥"));
+  assert.equal(linea(false), "🔥 Racha diaria: 2 días (hoy todavía no completó) · mejor: 2");
+  assert.equal(linea(true), "🔥 Racha diaria: 2 días (hoy todavía no completaste) · mejor: 2");
+  F.setRacha(G, "444@lid", 1, "2000-01-01");
+  assert.equal(linea(false), "🔥 Racha diaria: cortada (su mejor: 2 días)");
+  assert.equal(linea(true), "🔥 Racha diaria: cortada (tu mejor: 2 días)");
+});
+
 test("perfil: el comando resuelve a quién mirar", async () => {
   const cliente = globalThis.client;
   await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "" });

@@ -1,6 +1,6 @@
 import { getSaldoCoins } from "../database-functions.js";
 import { COINS, apuestaMaxima } from "../lib/urucoins.js";
-import { deQuienEs } from "../lib/identidad.js";
+import { deQuienEs, noSeDeQuien } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
 const plugin = {};
@@ -13,7 +13,7 @@ plugin.onlyGroup = true;
 // The ranking is in .baltop, the inventory in .inventario and the daily streak in .racha.
 plugin.run = async (m, { client, text, participants }) => {
   const lid = deQuienEs(client, m, text, participants);
-  if (!lid) return client.sendText(m.chat, "🪙 No sé de quién querés ver el saldo: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .bal.", m);
+  if (!lid) return client.sendText(m.chat, `🪙 ${noSeDeQuien("el saldo", ".bal")}`, m);
 
   const propio = lid === m.sender;
   const saldo = getSaldoCoins(m.chat, lid);
