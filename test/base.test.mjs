@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 
 const G = "grupo@g.us";
@@ -17,6 +18,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   vieja.exec(`CREATE TABLE users (lid TEXT PRIMARY KEY, jid TEXT, pushName TEXT, banned BOOLEAN DEFAULT 0, couple TEXT DEFAULT "", coupleTime INTEGER DEFAULT -1, couplesHistory TEXT DEFAULT "[]", commandAttempts INTEGER DEFAULT 0, inGroup TEXT DEFAULT "{}", lastmining INTEGER DEFAULT 0, married TEXT DEFAULT "", marriedTime INTEGER DEFAULT -1, mute BOOLEAN DEFAULT 0, warn INTEGER DEFAULT 0, timestamp INTEGER)`);
   vieja.exec(`CREATE TABLE chats (remoteJid TEXT PRIMARY KEY, adminMode BOOLEAN DEFAULT 0, adultMode BOOLEAN DEFAULT 0, antiStatus BOOLEAN DEFAULT 0, antiGroups BOOLEAN DEFAULT 1, antiChannels BOOLEAN DEFAULT 1, antiInstagram BOOLEAN DEFAULT 0, antiTiktok BOOLEAN DEFAULT 0, antiTelegram BOOLEAN DEFAULT 0, allAntiLinks BOOLEAN DEFAULT 0, audios BOOLEAN DEFAULT 0, detect BOOLEAN DEFAULT 1, antiDelete BOOLEAN DEFAULT 0, games BOOLEAN DEFAULT 1, isBanned BOOLEAN DEFAULT 0, mentions BOOLEAN DEFAULT 1, reactions BOOLEAN DEFAULT 0, welcome BOOLEAN DEFAULT 0, blacklistMode BOOLEAN DEFAULT 0)`);
   vieja.exec(`CREATE TABLE blacklist (jid TEXT PRIMARY KEY, reason TEXT, dateAdded INTEGER, addedBy TEXT)`);
+  vieja.exec(`CREATE TABLE hashtag_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, chat TEXT NOT NULL, hashtag TEXT NOT NULL, usuario TEXT NOT NULL, contenido TEXT, messageId TEXT, semana TEXT NOT NULL, fecha INTEGER NOT NULL)`);
   vieja.prepare(`INSERT INTO blacklist VALUES (?, ?, ?, ?)`).run("111@s.whatsapp.net", "spam", 1700000000000, "owner@s.whatsapp.net");
   vieja.prepare(`INSERT INTO chats (remoteJid) VALUES (?)`).run(G);
   vieja.close();
@@ -25,7 +27,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   assert.ok(cols("users").includes("memoria") && cols("users").includes("apodo"));
-  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "antiLiveLocation"].every((c) => cols("chats").includes(c)));
+  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "horarioGrupoFalla", "antiLiveLocation"].every((c) => cols("chats").includes(c)));
   assert.equal(db.prepare(`SELECT antiLiveLocation FROM chats WHERE remoteJid = ?`).get(G).antiLiveLocation, 0, "la ubicación en tiempo real, sin borrar al migrar");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
@@ -648,4 +650,34 @@ test("el esquema es el de database-schema.js: ponerAlDia deja una base en memori
   assert.deepEqual(esquema(enMemoria), esquema(db));
   enMemoria.close();
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// A new database is born with every table and column: the migrations are for the files from before them. One that ran
+// on a new database meant a CREATE TABLE without that column (apodo, reacciones and horarioGrupoFalla weren't in
+// theirs), and a table made the first time it was used (laburos) wasn't there until then.
+test("una base nueva nace con todo: loadDatabase sobre una carpeta vacía no migra nada", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-base-nueva-"));
+  process.chdir(dir);
+  const F = await import("../database-functions.js");
+  const lineas = [];
+  const logReal = console.log;
+  console.log = (...args) => lineas.push(args.join(" "));
+  try {
+    globalThis.db = F.loadDatabase();
+  } finally {
+    console.log = logReal;
+  }
+  assert.deepEqual(lineas.filter((l) => /Migración/.test(l)), []);
+  assert.ok(db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'laburos'`).get(), "laburos, desde el arranque");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// The schema is in one place: no other file of the bot's creates or changes a table or an index.
+test("las tablas y los índices se crean solo en database-schema.js", () => {
+  const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const archivos = fs.readdirSync(raiz).filter((f) => f.endsWith(".js") && !["database-schema.js", "eslint.config.js"].includes(f));
+  for (const carpeta of ["lib", "plugins"]) archivos.push(...fs.readdirSync(path.join(raiz, carpeta)).filter((f) => f.endsWith(".js")).map((f) => path.join(carpeta, f)));
+  assert.ok(archivos.length > 100, `se encontraron muy pocos archivos (${archivos.length}): el escaneo no está andando`);
+  const conEsquema = archivos.filter((a) => /\b(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX)|ALTER TABLE)\b/.test(fs.readFileSync(path.join(raiz, a), "utf8")));
+  assert.deepEqual(conEsquema, []);
 });

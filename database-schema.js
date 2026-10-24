@@ -1,7 +1,6 @@
 // The database's tables, and the migrations that bring an older file up to them: what loadDatabase
 // (database-functions.js) does to the file each start, right after opening it. It was a third of that file, and apart
-// from the rest of it: this runs once a start, and the rest there on every message. All the tables but laburos, which
-// lib/laburos.js creates the first time it's used.
+// from the rest of it: this runs once a start, and the rest there on every message.
 export function ponerAlDia(db) {
   // What's erased or written over (a .memoria olvidame, a post taken down, each rewrite of someone's data in a group) is
   // overwritten with zeros right away. SQLite only marks that space as free (its docs: secure_delete), and the text
@@ -27,7 +26,8 @@ export function ponerAlDia(db) {
       mute BOOLEAN DEFAULT 0,
       warn INTEGER DEFAULT 0, -- obsoleta: las advertencias son por grupo y viven en inGroup[chat].warn
       memoria TEXT DEFAULT "",
-      timestamp INTEGER
+      timestamp INTEGER,
+      apodo TEXT DEFAULT ""
     )
   `);
 
@@ -107,6 +107,7 @@ export function ponerAlDia(db) {
       horarioGrupo TEXT DEFAULT "",
       grupoCerradoPorHorario BOOLEAN DEFAULT 0,
       iniciativa BOOLEAN DEFAULT 0,
+      horarioGrupoFalla INTEGER DEFAULT 0,
       antiLiveLocation BOOLEAN DEFAULT 0
     )
   `);
@@ -181,7 +182,8 @@ export function ponerAlDia(db) {
       contenido TEXT,
       messageId TEXT,
       semana TEXT NOT NULL,
-      fecha INTEGER NOT NULL
+      fecha INTEGER NOT NULL,
+      reacciones INTEGER DEFAULT 0
     )
   `);
 
@@ -250,6 +252,19 @@ export function ponerAlDia(db) {
       extra TEXT DEFAULT "",
       fecha INTEGER NOT NULL,
       PRIMARY KEY (chat, usuario, item)
+    )
+  `);
+
+  // Each one's trade in each group (.laburos, lib/laburos.js): it used to be created there, the first time it was used.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS laburos (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      laburo TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      ultimo_cobro TEXT DEFAULT '',
+      cobros INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario)
     )
   `);
 
