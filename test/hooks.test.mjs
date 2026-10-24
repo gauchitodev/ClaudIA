@@ -163,3 +163,37 @@ test("menciones masivas: el mensaje que se borra no lo contesta Claudia", async 
   assert.equal(m.borrado, true);
   assert.equal(consultasIA, antes);
 });
+
+// A live location used to be deleted in every group, without a word, from anyone but the admins: it came with the bot's
+// original code, and no group could turn it off. Now only with .antiubicacion on, saying why, once every so often for
+// each person; never from a mod or someone above, nor with the bot not an admin, which deleting takes; with the
+// anti-delete on, it says so instead, as the anti-links do. A fixed location is never touched.
+test("ubicación en tiempo real: se borra solo con .antiubicacion, y dice por qué", async () => {
+  const ubicacion = (sender, tipo = "liveLocationMessage") => mensaje(sender, "", { mtype: tipo, message: { [tipo]: { degreesLatitude: -34.9, degreesLongitude: -56.16 } } });
+  const avisos = () => globalThis.enviados.map((e) => e.msg?.text || "");
+  let m = ubicacion("701@lid");
+  await correrHooks(m);
+  assert.deepEqual([m.borrado, avisos()], [undefined, []], "apagada, como viene");
+
+  const prendida = { chat: { antiLiveLocation: 1 } };
+  m = ubicacion("701@lid");
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, m.moderado, avisos()], [true, true, ["📍 @701, en este grupo no se comparte la ubicación en tiempo real: la borré."]]);
+  assert.deepEqual(globalThis.enviados[0].msg.mentions, ["701@lid"]);
+  m = ubicacion("701@lid");
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, avisos()], [true, []], "otra enseguida: se borra igual, sin repetir el aviso");
+
+  for (const rango of [{ isMod: true }, { isOwner: true }, { isBotAdmin: false }]) {
+    m = ubicacion("702@lid");
+    await correrHooks(m, { ...prendida, rango });
+    assert.deepEqual([m.borrado, avisos()], [undefined, []], JSON.stringify(rango));
+  }
+  m = ubicacion("703@lid");
+  await correrHooks(m, { chat: { antiLiveLocation: 1, antiDelete: 1 } });
+  assert.equal(m.borrado, undefined);
+  assert.deepEqual(avisos(), ["📍 Se compartió una ubicación en tiempo real, pero está el anti-eliminar prendido y no la borro (.antieliminar off para que la borre)."]);
+  m = ubicacion("704@lid", "locationMessage");
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, avisos()], [undefined, []], "la ubicación fija queda");
+});

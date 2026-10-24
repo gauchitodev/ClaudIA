@@ -96,3 +96,20 @@ test("config: on y off fijan el interruptor, sin nada lo invierte, y otra palabr
   assert.equal(F.getChat(G).casino, 0, "una palabra que no es on ni off no toca nada");
   assert.match(ultimo(), /Usá \.casino on o \.casino off/);
 });
+
+// .antiubicacion, with or without the accent, turns the deletion of live locations on and off for the group; it comes
+// off, and .config says how it is.
+test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la muestra", async () => {
+  const chat = "antiubicacion@g.us";
+  F.initDataDB({ chat, sender: "111@lid", senderJid: "111@s.whatsapp.net" });
+  assert.equal(F.getChat(chat).antiLiveLocation, 0);
+  const config = (command, args) => Config.run({ ...msg, chat }, { client: globalThis.client, command, args, isOwner: false, isAdmin: true, chat: F.getChat(chat), botSettings: {} });
+  await config("antiubicacion", ["on"]);
+  assert.match(ultimo(), /Opción: `antiubicacion`\n• Estado: Activado/);
+  assert.equal(F.getChat(chat).antiLiveLocation, 1);
+  await config("antiubicación", ["off"]);
+  assert.equal(F.getChat(chat).antiLiveLocation, 0);
+  const VerConfig = (await import("../plugins/grupo-config.js")).default;
+  await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  assert.match(ultimo(), /\n❌ Anti ubicación en tiempo real \(\.antiubicacion\)\n/);
+});

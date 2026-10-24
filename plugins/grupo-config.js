@@ -7,7 +7,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa } = chat;
   const roles = rolesGrupo(m.chat);
   const admins = roles.filter((r) => r.rol === "admin").map((r) => `@${r.usuario.split("@")[0]}`);
   const mods = roles.filter((r) => r.rol === "mod").map((r) => `@${r.usuario.split("@")[0]}`);
@@ -29,6 +29,7 @@ ${allAntiLinks ? "✅" : "❌"} Anti cualquier link
 ${antiInstagram ? "✅" : "❌"} Anti links Instagram
 ${antiTiktok ? "✅" : "❌"} Anti links TikTok
 ${antiTelegram ? "✅" : "❌"} Anti links Telegram
+${antiLiveLocation ? "✅" : "❌"} Anti ubicación en tiempo real (.antiubicacion)
 ${games ? "✅" : "❌"} Uso de juegos
 ${casino ? "✅" : "❌"} Casino y apuestas (.casino)
 🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
