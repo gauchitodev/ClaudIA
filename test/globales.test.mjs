@@ -77,7 +77,8 @@ test("un global nuevo en globalThis no pasa el lint si no está en la lista; los
 test("la lista de globales no tiene ninguno que el código ya no use", async () => {
   const { EN_GLOBALTHIS } = await import("../eslint.config.js");
   assert.ok(EN_GLOBALTHIS, "la lista está en eslint.config.js");
-  const archivos = ["main.js", "start-process.js", "handle-message.js", "load-functions.js", "database-functions.js", "globals.js"].map((f) => path.join(RAIZ, f));
+  // The code at the root (database-schema.js and the rest), lib/ and plugins/.
+  const archivos = fs.readdirSync(RAIZ).filter((f) => f.endsWith(".js") && f !== "eslint.config.js").map((f) => path.join(RAIZ, f));
   for (const carpeta of ["lib", "plugins"]) archivos.push(...fs.readdirSync(path.join(RAIZ, carpeta)).filter((f) => f.endsWith(".js")).map((f) => path.join(RAIZ, carpeta, f)));
   const codigo = archivos.map((a) => fs.readFileSync(a, "utf8").split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n")).join("\n");
   const usados = new Set([...codigo.matchAll(/\bglobalThis\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));

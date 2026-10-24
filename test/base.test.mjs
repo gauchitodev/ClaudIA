@@ -625,3 +625,27 @@ test("al arrancar, cada número queda en una sola fila: la que lee getUser", asy
   F.syncUserInfo({ sender: L, senderJid: "59899000808@s.whatsapp.net" });
   assert.equal(F.getUser(Y), null);
 });
+
+// The schema and its migrations are database-schema.js's: loadDatabase opens the file, brings it up to date with
+// ponerAlDia, and leaves each number on a single row. A table or an index loadDatabase created on its own wouldn't be
+// on a connection ponerAlDia brought up to date by itself, like this one in memory.
+test("el esquema es el de database-schema.js: ponerAlDia deja una base en memoria igual a la del archivo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-esquema-"));
+  process.chdir(dir);
+  const F = await import("../database-functions.js");
+  const { ponerAlDia } = await import("../database-schema.js");
+  const enMemoria = new Database(":memory:");
+  const logReal = console.log;
+  console.log = () => {};
+  try {
+    globalThis.db = F.loadDatabase();
+    ponerAlDia(enMemoria);
+  } finally {
+    console.log = logReal;
+  }
+  const esquema = (base) => base.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name`).all();
+  assert.ok(esquema(db).length > 40, `el esquema entero, no unas pocas tablas (${esquema(db).length})`);
+  assert.deepEqual(esquema(enMemoria), esquema(db));
+  enMemoria.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
