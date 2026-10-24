@@ -404,7 +404,7 @@ test(".ln por número con espacios: el corte que es alguien conocido, el único 
   for (const texto of ["+598 99 666 666 2 veces me estafó", "+598 99666666 3 veces", "+598-99-666-666 4 veces"]) {
     await correr("ln", texto);
     assert.deepEqual(anotado(), [], texto);
-    assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+59899666666 o \+59899666666\d\. Mandalo todo junto, sin espacios, y el motivo después\.$/, texto);
+    assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+59899666666 o \+59899666666\d\. Mandalo todo junto, sin espacios, y el motivo después, que no empiece con un número\.$/, texto);
   }
   await correr("ln2", "+598 99 666 666 2");
   assert.match(ultimo(), /^No sé dónde termina el número: .*\. Mandalo todo junto, sin espacios\.$/);
@@ -425,6 +425,51 @@ test(".ln por número con espacios: el corte que es alguien conocido, el único 
   await correr("ln", `+5 ${"1 ".repeat(30000)}`);
   assert.ok(performance.now() - antes < 300, `tardó ${Math.round(performance.now() - antes)} ms`);
   assert.deepEqual(anotado(), []);
+});
+
+// Eight or nine digits typed together and a reason that starts with a digit: the digit went with the number (".ln
+// +50012345 2 veces" listed 500123452), and asked about, typing it all together again didn't help. A cut someone has
+// may be the number and the reason's digits when a shorter cut is a whole number too: ".ln +43 664 123456 7 veces"
+// listed and removed whoever had 436641234567. A comma or a long dash after the number stayed at the reason's start.
+test(".ln por número: ocho dígitos y un motivo con dígitos, un conocido que puede ser número y motivo, y la puntuación", async () => {
+  const anotado = () => F.getBlacklist(G).map((e) => [e.jid, e.reason]);
+  for (const texto of ["+50012345 2 veces", "+500 12345 2 veces"]) {
+    await correr("ln", texto);
+    assert.equal(ultimo(), "No sé dónde termina el número: puede ser +50012345 o +500123452. Mandalo todo junto, sin espacios, y el motivo después, que no empiece con un número.", texto);
+  }
+  await correr("ln", "+50012345 estafa");
+  assert.deepEqual(anotado(), [["50012345@s.whatsapp.net", "estafa"]], "con un solo corte posible, ese");
+  db.exec("DELETE FROM lista_negra");
+  const conLargo = [...participants, { id: "333@lid", admin: null, phoneNumber: "436641234567@s.whatsapp.net" }];
+  await correr("ln", "+43 664 123456 7 veces", {}, { participants: conLargo });
+  assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+43664123456 o \+436641234567\./);
+  assert.deepEqual([anotado(), expulsiones], [[], []]);
+  // Someone the bot knows by the number: in the database, from having written, or in a group that lists people by
+  // number.
+  F.initDataDB({ chat: G, sender: "300000000000951@lid", senderJid: "59899666951@s.whatsapp.net", pushName: "Beto" });
+  await correr("ln", "+598 99 666 951 2 veces");
+  assert.deepEqual(anotado(), [["59899666951@s.whatsapp.net", "2 veces"]], "conocido por la base");
+  db.exec("DELETE FROM lista_negra");
+  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899666952@s.whatsapp.net", lid: "300000000000952@lid", admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  await correr("ln", "+598 99 666 952 3 veces", {}, { participants: porNumero });
+  assert.deepEqual(anotado(), [["59899666952@s.whatsapp.net", "3 veces"]], "conocido en un grupo por número");
+  db.exec("DELETE FROM lista_negra");
+  db.prepare("INSERT INTO users (lid, jid, pushName) VALUES (?, ?, ?)").run("59899@s.whatsapp.net", "59899@s.whatsapp.net", "x"); // too short a number
+  await correr("ln", "+598 99 666 951 2 veces");
+  assert.deepEqual(anotado(), [["59899666951@s.whatsapp.net", "2 veces"]], "una fila con un número demasiado corto no cuenta");
+  db.exec("DELETE FROM lista_negra");
+  const dosConocidos = [...participants, { id: "953@lid", admin: null, phoneNumber: "50012345@s.whatsapp.net" }, { id: "954@lid", admin: null, phoneNumber: "50012345678@s.whatsapp.net" }];
+  await correr("ln", "+500 12345 678 spam", {}, { participants: dosConocidos });
+  assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+50012345 o \+50012345678\./, "dos conocidos");
+  await correr("ln", "+683 1234 5 veces");
+  assert.match(ultimo(), /^No sé dónde termina el número: puede ser \+6831234 o \+68312345\./, "siete dígitos ya pueden ser un número");
+  await correr("ln", "+598 99 5 spam");
+  assert.deepEqual(anotado(), [["598995@s.whatsapp.net", "spam"]], "sin ningún corte que pueda ser un número, todos");
+  for (const texto of ["+59899666666, estafa", "+59899666666: estafa", "+59899666666 – estafa", "+59899666666 — estafa"]) {
+    db.exec("DELETE FROM lista_negra");
+    await correr("ln", texto);
+    assert.deepEqual(anotado(), [["59899666666@s.whatsapp.net", "estafa"]], texto);
+  }
 });
 
 // ---------- all-groups list, from the owner's private chat ----------

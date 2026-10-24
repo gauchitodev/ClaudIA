@@ -36,6 +36,11 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
     }
   }
 
+  // The rest says who did it ("Acción hecha por: @…"). A notice that doesn't name them, keyed by a participant it
+  // doesn't bring (Baileys, Socket/messages-recv.js) or by an account m.sender can't name (@hosted), came out as
+  // "Acción hecha por: @", with nobody after the "@". Those used to be cut before the hooks; of them, only the join
+  // request above has to get here.
+  if (!m.sender) return;
   if (!chat.detect) return;
   if (chat.isBanned) return;
 

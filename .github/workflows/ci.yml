@@ -24,5 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       # 30 s a test instead of npm test's 120, which are for the tablet: at 120 s each, a broken fake that hung a
-      # handful of tests ran out the 15 minutes, and GitHub cut the job without saying which ones.
-      - run: npm run test:ci
+      # handful of tests ran out the 15 minutes, and GitHub cut the job without saying which ones. And 10 minutes for
+      # the whole run: a test file that leaves something going (a timer, an interval) keeps node --test waiting for it
+      # forever, past --test-timeout, which is per test. Stopped by timeout, it says which file it was waiting for.
+      - run: timeout 600 npm run test:ci

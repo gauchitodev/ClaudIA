@@ -100,11 +100,14 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   const forma = m.isGroup ? `${usedPrefix}${command} @persona${motivo} o ${usedPrefix}${command} +59899999999${motivo}` : `${usedPrefix}${command} +59899999999${motivo}${command === "ln2" ? `, o como lo muestra ${usedPrefix}vln` : ""}`;
   if (/^\+\d/.test(inicio)) {
     const numero = numeroTipeado(inicio.match(/^\+\d[\d\s-]*/)[0], participants);
-    if (numero.dudas) return client.sendText(m.chat, `No sé dónde termina el número: puede ser ${alternativas(numero.dudas.map((d) => `+${d}`))}. Mandalo todo junto, sin espacios${command === "ln" ? ", y el motivo después" : ""}.`, m);
+    // What makes it unclear may be a reason that starts with a digit, the number typed all together ("+50012345 2
+    // veces"): typing it all together again didn't help.
+    if (numero.dudas) return client.sendText(m.chat, `No sé dónde termina el número: puede ser ${alternativas(numero.dudas.map((d) => `+${d}`))}. Mandalo todo junto, sin espacios${command === "ln" ? ", y el motivo después, que no empiece con un número" : ""}.`, m);
     who = `${numero.digitos}@s.whatsapp.net`;
     tecleado = numero.digitos;
-    // The number goes with the spaces or dashes after it: "+59899666666 - me estafó" left "- me estafó" as the reason.
-    reason = conNombres(inicio.slice(numero.tipeado.length).replace(/^[\s-]+/, ""), m.mentionedJid).trim();
+    // The number goes with the spaces, dashes or commas after it: "+59899666666 - me estafó" left "- me estafó" as the
+    // reason, and ", estafa" or "— estafa" were left too.
+    reason = conNombres(inicio.slice(numero.tipeado.length).replace(/^[\s,.:;–—-]+/, ""), m.mentionedJid).trim();
   } else if (mencion) {
     who = mencion;
     // Without the mention's digits (a LID or, in a group listed by number, the number): they were left in it.
@@ -254,10 +257,13 @@ function numerosOcultos(texto) {
 // Where a number typed after .ln ends: the reason may start with digits too. Typed all together, ten digits or more, it
 // ends where they do: "+59899666666 2 veces me estafó" listed 598996666662. Spaced out or with dashes, any group may be
 // the reason's first word ("+598 99 666 666 2 veces me estafó" listed 598996666662 too, and "+59899666 666" became
-// 59899666 when it was taken as typed all together): the cut that is someone the bot knows wins, in the group or in the
-// database, and with none, the only one that makes a whole number with its country's code, 10 to 15 digits. With more
-// than one it asks, rather than listing someone else. Past 15 digits no cut is a number, and it stops: a long run of
-// spaced digits was otherwise copied once for each of them. Returns { tipeado, digitos } or { dudas }.
+// 59899666 when it was taken as typed all together). The cut that is someone the bot knows wins, in the group or in the
+// database, unless a shorter one makes a whole number too: the longer one may be the number and the reason's digits,
+// someone else's by chance ("+43 664 123456 7 veces" listed whoever had 436641234567). With nobody known, the only cut
+// that makes a whole number with its country's code, 10 to 15 digits, and with no cut that long, the only one of 7 or
+// more, as long as the shortest numbers are with theirs: "+50012345 2 veces" listed 500123452. With more than one it
+// asks, rather than listing someone else. Past 15 digits no cut is a number, and it stops: a long run of spaced digits
+// was otherwise copied once for each of them. Returns { tipeado, digitos } or { dudas }.
 function numeroTipeado(texto, participants) {
   const cortes = [];
   for (const grupo of texto.matchAll(/\d+/g)) {
@@ -270,10 +276,14 @@ function numeroTipeado(texto, participants) {
   if (cortes[0].digitos.length >= 10) return cortes[0];
   const conocidos = cortes.filter(({ digitos }) => {
     const jid = `${digitos}@s.whatsapp.net`;
-    return (participants || []).some((p) => p?.phoneNumber === jid || p?.id === jid) || getUser(jid);
+    return digitos.length >= 7 && ((participants || []).some((p) => p?.phoneNumber === jid || p?.id === jid) || getUser(jid));
   });
-  const posibles = conocidos.length ? conocidos : cortes.filter(({ digitos }) => digitos.length >= 10);
-  if (posibles.length > 1) return { dudas: posibles.map(({ digitos }) => digitos) };
+  const enteros = cortes.filter(({ digitos }) => digitos.length >= 10);
+  const dudas = (opciones) => ({ dudas: opciones.map(({ digitos }) => digitos) });
+  if (conocidos.length > 1) return dudas(conocidos);
+  if (conocidos.length === 1 && !enteros.some(({ digitos }) => digitos.length < conocidos[0].digitos.length)) return conocidos[0];
+  const posibles = enteros.length ? enteros : cortes.filter(({ digitos }) => digitos.length >= 7);
+  if (posibles.length > 1) return dudas(posibles);
   return posibles[0] || cortes.at(-1);
 }
 

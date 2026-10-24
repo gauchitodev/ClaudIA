@@ -627,7 +627,23 @@ export function loadDatabase() {
     console.log(`🟢 Migración: advertencias de ${conAdvertencias.length} usuario(s) pasadas al formato por grupo`);
   }
 
+  const { deDispositivos, repetidos } = soloUnaFilaPorNumero(db);
+  if (deDispositivos || repetidos) console.log(`🟢 Migración: cada número quedó en una sola fila (${repetidos} repetida(s), ${deDispositivos} de dispositivos)`);
+
   return db;
+}
+
+// A number is one person's at a time (syncUserInfo takes it off any other row), but rows from before that may still
+// share one, and getUser by number reads the one FILA_DEL_NUMERO puts first anyway. With two, what was kept under the
+// number (a blacklist entry, a role) stayed with it only while both had it: once one left, the other was the only one,
+// and took it all when its turn came (seguirALaPersona). A row with a device's LID ("…:12@lid", left by the group
+// notices of before lib/wa-socket.js took the device out) is nobody's, and kept a number too: once the person's own row
+// left it, that one was the number's row. The number stays only on the row reads by number go to. loadDatabase runs
+// this on every start, on the database it opens; past the first one there's nothing to change.
+export function soloUnaFilaPorNumero(base) {
+  const deDispositivos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%:%@lid' AND jid <> ''`).run().changes;
+  const repetidos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%@lid' AND jid LIKE '%@s.whatsapp.net' AND lid <> (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1)`).run().changes;
+  return { deDispositivos, repetidos };
 }
 
 // Called on every message

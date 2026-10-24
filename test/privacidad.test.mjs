@@ -535,18 +535,53 @@ test("sinMenciones y conNombres buscan cada @ una vez, solo los nombres, y hasta
 // Only what sendText would take as a mention loses its "@": every "@" before a digit went, and "pepe@163.com" or
 // "@50cent" changed in what Claudia said. Random texts of "@", every digit and a bit more, with a fixed seed: none is
 // left, and one that had none comes out as it went in. Looking only at the first, the "@" before a 2, a 4 or an 8 could
-// go too, and "4@300 pesos" was a post at 4300 again.
+// go too, and "4@300 pesos" was a post at 4300 again. And each mention comes out as a reading of its own of what
+// parseMention takes says (esperado), with people the bot knows among the pieces, some named with digits and "@":
+// without it, what a mention became wasn't looked at, only that none was left.
 test("sinMenciones no toca lo que no es una mención, y no deja ninguna", () => {
   for (const texto of ["escribime a pepe@163.com", "info@123seguro.com", "seguilo: @50cent", "la cuenta @9gag", "Vendo medias 3@500 pesos", "2@1500 c/u", "nos vemos 10@12"]) assert.equal(M.sinMenciones(texto), texto);
+  const conocidos = [["300000000000871@lid", "12345 Beto"], ["300000000000872@lid", "Carla@"], ["300000000000873@lid", "0 cero"], ["300000000000874@lid", "@99999 x"], ["300000000000875@lid", "@@"]];
+  for (const [lid, nombre] of conocidos) F.initDataDB({ chat: FAMILIA, sender: lid, senderJid: "", pushName: nombre });
+  // Each match of parseMention takes the run of "@" before it, with a space when a digit comes before the run, and
+  // leaves the name of whoever the bot knows, or the digits. The matches are checked against parseMention's own.
+  const esperado = (t) => {
+    let out = "";
+    let desde = 0;
+    const tomadas = [...t.matchAll(/@([0-9]{5,16}|0)/g)];
+    assert.equal(tomadas.length, menciones(t), `las mismas que parseMention: ${t}`);
+    for (const tomada of tomadas) {
+      let inicio = tomada.index;
+      while (inicio > desde && t[inicio - 1] === "@") inicio--;
+      const digitos = tomada[1];
+      const queda = F.getUser(`${digitos}@lid`) ? M.nombreDe(`${digitos}@lid`) : digitos;
+      out += t.slice(desde, inicio) + (inicio > 0 && /[0-9]/.test(t[inicio - 1]) ? " " : "") + queda;
+      desde = tomada.index + tomada[0].length;
+    }
+    return out + t.slice(desde);
+  };
   let semilla = 12345;
   const azar = () => (semilla = (semilla * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const letras = ["@", "@", "@", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", " "];
+  const letras = ["@", "@", "@", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", " ", ".", "-", "é", "😄", "@0", ...conocidos.map(([lid]) => lid.split("@")[0])];
   for (let k = 0; k < 3000; k++) {
-    const texto = Array.from({ length: 1 + Math.floor(azar() * 32) }, () => letras[Math.floor(azar() * letras.length)]).join("");
+    const texto = Array.from({ length: 1 + Math.floor(azar() * 24) }, () => letras[Math.floor(azar() * letras.length)]).join("");
     const limpio = M.sinMenciones(texto);
     assert.equal(menciones(limpio), 0, texto);
     if (!menciones(texto)) assert.equal(limpio, texto, `no tenía menciones: ${texto}`);
+    assert.equal(limpio, esperado(texto), texto);
   }
+});
+
+// A name that ends in "@", put in place of a LID with more digits after it, came together with them: "Dani@" and
+// "300000000000096" were a mention again. Only with a LID of 16 digits, the most parseMention takes, which may not
+// exist; the name is whatever the person typed.
+test("un nombre que termina en @ no arma una mención con los dígitos que siguen", () => {
+  F.initDataDB({ chat: FAMILIA, sender: "1234567890123456@lid", senderJid: "", pushName: "Dani@" });
+  F.initDataDB({ chat: FAMILIA, sender: "1234567890123457@lid", senderJid: "", pushName: "Eli@ " });
+  for (const texto of ["hola @1234567890123456300000000000096", "hola @12345678901234560", "hola @1234567890123457300000000000096"]) {
+    assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
+    assert.equal(menciones(M.sinMenciones(M.conNombres(texto))), 0, `y como lo muestra .memoria: ${texto}`);
+  }
+  assert.equal(M.nombreDe("1234567890123456@lid"), "Dani");
 });
 
 // A note kept before .recordá turned mentions into names has the digits of a LID: the prompt already named it, and

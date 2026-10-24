@@ -592,3 +592,35 @@ test("los listados de todas las filas dejan afuera la fila vieja de un número q
   await (await import("../plugins/lista-banuser.js")).default.run({ chat: G }, { client, isOwner: true });
   assert.match(enviados.at(-1), /Total : 0 Usuarios/);
 });
+
+// From before a number was one person's at a time, two LID rows may share one, and a row with a device's LID may keep
+// one. What was kept under the number went to whichever of the two had it last, which needn't be the one getUser reads
+// by it, and the device's row became the number's once the person's own left it. On each start the number stays only
+// on the row getUser reads.
+test("al arrancar, cada número queda en una sola fila: la que lee getUser", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("una-fila-por-numero");
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  const [P, Q, X] = ["300000000000801@lid", "300000000000802@lid", "59899000801@s.whatsapp.net"];
+  fila.run(P, X, "P", 1);
+  fila.run(Q, X, "Q", 2); // the most recent: getUser(X) reads it
+  const [L, D, Y] = ["300000000000803@lid", "300000000000803:12@lid", "59899000803@s.whatsapp.net"];
+  fila.run(L, Y, "L", 10);
+  fila.run(D, Y, "disp", 5);
+  // A device's row left as the only one with the number: its person's row had left it already.
+  const [L2, D2, Z, W] = ["300000000000804@lid", "300000000000804:3@lid", "59899000804@s.whatsapp.net", "59899000807@s.whatsapp.net"];
+  fila.run(L2, W, "L2", 10);
+  fila.run(D2, Z, "disp2", 5);
+  F.addToBlacklist(X, "estafa", "admin", G);
+  assert.deepEqual([F.getUser(X).lid, F.getUser(Z).lid], [Q, D2]);
+  globalThis.db = F.loadDatabase(); // the bot starting again
+  assert.deepEqual(db.prepare("SELECT lid, jid FROM users ORDER BY rowid").all().map((u) => [u.lid, u.jid]), [[P, ""], [Q, X], [L, Y], [D, ""], [L2, W], [D2, ""]]);
+  assert.equal(F.getUser(Z), null, "nadie queda como el de ese número");
+  assert.deepEqual(F.soloUnaFilaPorNumero(db), { deDispositivos: 0, repetidos: 0 }, "la vez siguiente no hay nada que cambiar");
+  // Q leaving the number takes what was kept under it: by the number, getUser read Q.
+  F.syncUserInfo({ sender: Q, senderJid: "59899000809@s.whatsapp.net" });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[Q, Q]]);
+  // And with L off its number, nobody is left as Y's: the device's row was.
+  F.syncUserInfo({ sender: L, senderJid: "59899000808@s.whatsapp.net" });
+  assert.equal(F.getUser(Y), null);
+});

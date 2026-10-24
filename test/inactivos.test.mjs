@@ -407,7 +407,7 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
 // way, within one CONSULTA_MS, and a question left unanswered doesn't take the other's answer with it.
 // With its own time limit: if the code stopped putting one on the question WhatsApp doesn't answer, this would wait
 // for it, and hang until npm test's 120 s instead of failing.
-test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de espera", { timeout: 10_000 }, async () => {
+test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de espera", { timeout: 10_000 }, async (t) => {
   const chat = "inactivos-48@g.us";
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
   for (const n of [1, 2, 3, 4]) F.setRolGrupo(chat, `880${n}@lid`, "mod", "105@lid"); // mods with no number on record
@@ -423,18 +423,19 @@ test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de 
   mapa.getLIDForPN = async (pn) => (await mapa.getLIDsForPNs([pn]))?.[0]?.lid || null;
   mapa.getPNForLID = async (lid) => (await mapa.getPNsForLIDs([lid]))?.[0]?.pn || null;
   const [ownersReales, consultaReal, esperarReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar];
+  // Put back by t.after, which runs also when the test runs out of its time: a finally after the hang never came, and
+  // the next test ran with all of this still in place.
+  t.after(() => {
+    delete globalThis.client.signalRepository;
+    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar] = [ownersReales, consultaReal, esperarReal];
+  });
   globalThis.owners = [...ownersReales, ...nuevos];
   globalThis.client.signalRepository = { lidMapping: mapa };
   I.INACTIVOS.CONSULTA_MS = 100;
   // The time limit, without the clock: it goes by once what's already answered is in. Measured, it failed under load.
   const topes = [];
   I._dep.esperar = (ms, valor) => (topes.push(ms), new Promise((r) => setImmediate(() => r(valor))));
-  try {
-    await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
-  } finally {
-    delete globalThis.client.signalRepository;
-    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar] = [ownersReales, consultaReal, esperarReal];
-  }
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions, ["7709@lid"], "los owners, aunque la otra pregunta no tuvo respuesta");
   assert.deepEqual(preguntas.map(([lado]) => lado).sort(), ["lid", "pn"], "una pregunta para cada lado");
   assert.ok(nuevos.every((n) => preguntas.find(([lado]) => lado === "pn")[1].includes(`${n}@s.whatsapp.net`)));
@@ -900,4 +901,25 @@ test("una copia del grupo que llega por groups.update no termina un cierre", () 
   assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: chat, subject: "Grupo", announce: false, participants }), "la copia se guarda");
   assert.deepEqual(F.cierresGrupo(chat).map((c) => c.hasta), [null], "y el grupo sigue cerrado");
   CG.invalidar(globalThis.client, chat);
+});
+
+// A closing nothing else told the bot of (its notice lost while it was off, and found on reconnecting through the copy
+// Baileys' refresh brings) wasn't noted from that copy, and the days it stayed closed counted as silence. It's noted as
+// of as long before the copy came as it may have been asked for: then a copy from before an opening the bot had noted
+// can't start a closing either.
+test("una copia cerrada que llega por groups.update anota el cierre, desde lo antes que pudo pedirse", () => {
+  assert.ok(CG.CACHE_GRUPOS.RETENIDA_MAX_MS >= 60_000 + 30_000, "lo que Baileys da a una consulta, más lo que retiene los eventos");
+  const participants = [{ id: "101@lid", admin: null }, { id: "999@lid", admin: "admin" }];
+  const [chat, otro] = ["inactivos-60@g.us", "inactivos-61@g.us"];
+  const antes = Date.now();
+  CG.vaciar();
+  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: chat, subject: "Grupo", announce: true, participants }));
+  const [cierre] = F.cierresGrupo(chat);
+  assert.equal(cierre?.hasta, null, "queda cerrado");
+  assert.ok(Math.abs(cierre.desde - (antes - CG.CACHE_GRUPOS.RETENIDA_MAX_MS)) < 5000, `desde hace ${Math.round((antes - cierre.desde) / 1000)} s`);
+  F.anotarCierreGrupo(otro, true, antes - 3_600_000);
+  F.anotarCierreGrupo(otro, false, antes - 20_000); // the opening's notice
+  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: otro, subject: "Grupo", announce: true, participants }));
+  assert.deepEqual(F.cierresGrupo(otro).map((c) => c.hasta === null), [false], "una copia de antes de que abriera no lo cierra de nuevo");
+  CG.vaciar();
 });

@@ -836,6 +836,43 @@ test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega i
   }
 });
 
+// Each group's log said nothing for an error with no message, as the first notice's did. A group's name is whatever its
+// admins typed, and one with an "@" and digits ("Ventas @59899…") tagged that person in the owner's summary, sendText
+// turning it into a mention. And the list of groups, already paid for, goes into the cache as of when it was asked,
+// noting which are closed: left to groups.update it was taken as asked for long before.
+test(".avisartodos: el log de cada grupo, los nombres sin menciones y la lista de grupos en la caché", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  const DUENO = "59899111222@s.whatsapp.net";
+  const [VENTAS, OTRO] = ["avisar-ventas@g.us", "avisar-otro@g.us"];
+  const esperarReal = _dep.esperar;
+  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const enviados = [];
+  const errores = [];
+  const client = {
+    chats: {},
+    groupFetchAllParticipating: async () => ({ [VENTAS]: { id: VENTAS, subject: "Ventas @59899123456", announce: true, participants: [] }, [OTRO]: { id: OTRO, subject: "Otro", announce: false, participants: [] } }),
+    sendText: async (chat, t) => {
+      if (chat === VENTAS) return Promise.reject(new Error(""));
+      enviados.push([chat, t]);
+    },
+  };
+  globalThis.client = client;
+  _dep.esperar = async () => {};
+  console.error = (...partes) => errores.push(partes.map(String).join(" "));
+  const antes = Date.now();
+  try {
+    await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    [globalThis.client, console.error] = [clientReal, errorReal];
+  }
+  assert.ok(errores.includes(`[avisar-todos] falló en ${VENTAS}: Error`), JSON.stringify(errores));
+  assert.equal(enviados.at(-1)[1], "✅ Mensaje enviado a 1 grupo(s). No sé si llegó a 1 (falló mientras salía), y no lo repetí para no mandarlo dos veces: Ventas 59899123456.");
+  const [cierre] = F.cierresGrupo(VENTAS);
+  assert.ok(cierre?.hasta === null && cierre.desde >= antes, "el cerrado queda anotado desde que se pidió la lista");
+  assert.deepEqual(F.cierresGrupo(OTRO), []);
+});
+
 // With two owners, the one who cuts it hears it from the cancel, and the one who started it, at the end. And cut while
 // the list of groups was coming, it doesn't go to any.
 test(".avisartodos: cortado desde otro chat, les avisa a los dos; cortado antes de arrancar, no sale", async () => {

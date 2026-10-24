@@ -514,6 +514,18 @@ test(".detect no avisa del promote ni del demote del owner, lo traiga el grupo p
   assert.equal(await avisa({ id: "444@lid", admin: null }), true, "con cualquier otra persona, avisa");
 });
 
+// A notice that doesn't name who acted (Baileys keys it by a participant it may not bring, or by an account m.sender
+// can't name, @hosted) came out as "Acción hecha por: @", with nobody after the "@": those used to be cut before the
+// hooks.
+test(".detect no avisa de un cambio cuando no sabe quién lo hizo", async () => {
+  const Det = (await import("../plugins/_detect-events.js")).default;
+  for (const [tipo, parametros] of [[23, ["CodigoNuevo"]], [29, [JSON.stringify({ id: "444@lid", admin: "admin" })]], [30, [JSON.stringify({ id: "444@lid", admin: null })]]]) {
+    globalThis.enviados = [];
+    await Det.before({ isGroup: true, chat: G, sender: "", senderJid: "", messageStubType: tipo, messageStubParameters: parametros }, { client: globalThis.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+    assert.deepEqual(globalThis.enviados, [], `tipo ${tipo}`);
+  }
+});
+
 // Two ids are the same person by an id in common, counting the LID the database knows for a number; never through a
 // number two LIDs share, which is what a recycled number has.
 test("mismaPersona: por la LID que la base sabe del número, pero no a través de un número reciclado", async () => {

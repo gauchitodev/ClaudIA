@@ -1,6 +1,8 @@
 import { setTimeout as esperar } from "node:timers/promises";
 import { getChat } from "../database-functions.js";
 import { duracion } from "../lib/tiempo.js";
+import { sinMenciones } from "../lib/menciones.js";
+import { guardarVarios } from "../lib/cache-grupos.js";
 
 // The same text to every group, spaced out and at an uneven pace: a burst of identical messages to many chats is what
 // WhatsApp's spam filter looks for, and the number was already blocked once for volume. It used to go every 1.5 s, and
@@ -16,8 +18,10 @@ export const _dep = { esperar, azar: Math.random };
 // and a second one sent meanwhile went out alongside it. In globalThis, so a reload of this file doesn't lose track of it.
 if (globalThis.avisoATodos === undefined) globalThis.avisoATodos = null;
 
-// Groups by their names: the owner used to hear only how many it didn't reach.
-const nombresDe = (aviso, jids) => jids.map((jid) => aviso.nombres.get(jid) || jid).join(", ");
+// Groups by their names: the owner used to hear only how many it didn't reach. A name is whatever the group's admins
+// typed, and sendText turns an "@" with digits in it into a mention: "Ventas @59899…" tagged that person where the
+// owner ran the command.
+const nombresDe = (aviso, jids) => jids.map((jid) => sinMenciones(aviso.nombres.get(jid) || jid)).join(", ");
 function comoVa(aviso) {
   if (!aviso.total) return "recién arranca";
   const n = aviso.fallidos.length;
@@ -82,7 +86,7 @@ plugin.run = async (m, { client, text, isOwner }) => {
       aviso.enviados++;
       return "ok";
     } catch (e) {
-      console.error(`[avisar-todos] falló en ${jid}:`, e?.message ?? e);
+      console.error(`[avisar-todos] falló en ${jid}:`, e?.message || e); // an error with no message logged nothing
       const noSalio = typeof e === "number" || e?.output?.statusCode === 428 || e?.message === "Connection Closed" || (e?.isBoom && typeof e.data === "number");
       return noSalio ? "reintentar" : "dudoso";
     } finally {
@@ -90,7 +94,11 @@ plugin.run = async (m, { client, text, isOwner }) => {
     }
   };
   try {
+    const pedida = Date.now();
     const grupos = await client.groupFetchAllParticipating();
+    // The query is already paid for: it may as well fill the cache, and note which groups are closed as of when it was
+    // asked. Left to groups.update, which Baileys emits with it, the copies are taken as asked for long before.
+    guardarVarios(client, grupos, pedida);
     const todos = Object.keys(grupos);
     const jids = todos.filter((jid) => !getChat(jid)?.isBanned);
     for (const jid of jids) if (grupos[jid]?.subject) aviso.nombres.set(jid, grupos[jid].subject);
