@@ -92,6 +92,90 @@ test(".kick saca a quien se mencionó aunque su fila tenga un número que ya es 
   assert.deepEqual(expulsiones, [{ chat: G, ids: [X], accion: "remove" }]);
 });
 
+// Named only by a typed number the group doesn't pair with a LID, while the database still has it on whoever had it
+// before: every command that does something to a person acted on them, and ".rd" deleted their data. WhatsApp is asked
+// who has the number (lib/identidad.js, destinatarioActual), and that one is acted on; the group's own pairing, a
+// mention by LID, a quoted message or the digits of a LID the bot knows need no question. Without an answer in time,
+// the guess of before.
+test("los comandos que le hacen algo a alguien nombrado por un número le preguntan a WhatsApp quién lo tiene", { timeout: 30_000 }, async (t) => {
+  const I = await import("../lib/identidad.js");
+  const [VIEJO, NUEVO, X] = ["300000000000881@lid", "300000000000882@lid", "59899000881@s.whatsapp.net"];
+  let consultas = 0;
+  let responde = async () => ({ list: [{ id: X, lid: NUEVO }], sideList: [] });
+  globalThis.client.executeUSyncQuery = () => (consultas++, responde());
+  const consultaReal = I.IDENTIDAD?.CONSULTA_MS;
+  t.after(() => {
+    delete globalThis.client.executeUSyncQuery;
+    if (I.IDENTIDAD) I.IDENTIDAD.CONSULTA_MS = consultaReal;
+  });
+  const grupo = [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }, { id: "999@lid", admin: "admin" }];
+  const filas = ({ conNuevo = true } = {}) => {
+    db.exec(`DELETE FROM users WHERE lid IN ('${VIEJO}', '${NUEVO}')`);
+    db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1); // wrote with X long ago
+    if (conNuevo) db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(NUEVO, "", "Nuevo", 2); // never with a number
+    for (const id of [VIEJO, NUEVO]) if (F.getUser(id, G)) F.updateUserInGroup(id, G, { warn: 1 });
+  };
+  const correrA = async (P, command, text, extra = {}) => {
+    expulsiones = [];
+    globalThis.enviados = [];
+    await P.run(m(text, extra), { client: globalThis.client, text, args: text.split(" "), command, usedPrefix: ".", participants: extra.participants || grupo, groupMetadata: { owner: "100@lid", participants: extra.participants || grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  };
+  const datos = (id) => F.getUser(id, G);
+  const [Warn, Unwarn, Promote, Demote, Rd] = await Promise.all(["grupo-advertir", "grupo-advertir-delete", "grupo-promote", "grupo-demote", "owner-restaurar-usuario"].map(async (p) => (await import(`../plugins/${p}.js`)).default));
+
+  filas();
+  await correrA(Kick, "kick", "+59899000881");
+  await esperar(1400);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick");
+  // Typed with an "@", the group's creator being who had the number: it's not them who is removed, nor who's spared.
+  expulsiones = [];
+  await Kick.run(m("@59899000881"), { client: globalThis.client, text: "@59899000881", command: "kick", usedPrefix: ".", participants: grupo, groupMetadata: { owner: VIEJO, participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  await esperar(1400);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick @número, con el creador del grupo como dueño anterior");
+  for (const [P, command, cambio] of [[Promote, "promote", "promote"], [Demote, "demote", "demote"]]) {
+    await correrA(P, command, "+59899000881");
+    assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: cambio }], `.${command}`);
+  }
+  filas();
+  await correrA(Warn, "advertir", "+59899000881 spam");
+  assert.deepEqual([F.advertenciasDe(NUEVO, G), F.advertenciasDe(VIEJO, G)], [2, 1], ".advertir");
+  await correrA(Unwarn, "delwarn", "+59899000881");
+  await correrA(Unwarn, "delwarn", "+59899000881");
+  assert.deepEqual([F.advertenciasDe(NUEVO, G), F.advertenciasDe(VIEJO, G)], [0, 1], ".delwarn");
+  await correrA(Silenciar, "mute", "+59899000881");
+  assert.deepEqual([datos(NUEVO).inGroup[G].mute, datos(VIEJO).inGroup[G].mute], [true, false], ".mute");
+  // A mention by number the group doesn't pair with a LID, too.
+  await correrA(Silenciar, "unmute", "@59899000881", { mentionedJid: [X] });
+  assert.equal(datos(NUEVO).inGroup[G].mute, false, ".unmute con una mención por número");
+  await correrA(Ban, "banuser", "+59899000881");
+  assert.deepEqual([datos(NUEVO).banned, datos(VIEJO).banned], [1, 0], ".banuser");
+  await correrA(Rd, "rd", "+59899000881");
+  assert.deepEqual([datos(NUEVO), Boolean(datos(VIEJO))], [null, true], ".rd borra los datos del dueño del número, no los del que lo tuvo");
+  // Whoever has the number now never wrote: nothing is written on the one who had it.
+  filas({ conNuevo: false });
+  await correrA(Warn, "advertir", "+59899000881 spam");
+  assert.match(ultimo(), /^No tengo registro de esa persona todavía/);
+  assert.equal(F.advertenciasDe(VIEJO, G), 1);
+
+  // No question for what already says who it is.
+  filas();
+  consultas = 0;
+  const conNumero = [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null, phoneNumber: X }, { id: "999@lid", admin: "admin" }];
+  await correrA(Silenciar, "unmute", "+59899000881", { participants: conNumero });
+  await correrA(Silenciar, "unmute", "@300000000000882", { mentionedJid: [NUEVO] });
+  await correrA(Silenciar, "unmute", "@300000000000882");
+  await correrA(Silenciar, "unmute", "", { quoted: { sender: NUEVO } });
+  await correrA(Silenciar, "unmute", "+59899000881", { quoted: { sender: VIEJO } }); // the quote wins over the number
+  await correrA(Silenciar, "unmute", "@12345"); // too short to be a number
+  assert.equal(consultas, 0);
+
+  // WhatsApp not answering in time: the database's guess, as before.
+  I.IDENTIDAD.CONSULTA_MS = 20;
+  responde = () => new Promise(() => {});
+  await correrA(Silenciar, "mute", "+59899000881");
+  assert.equal(datos(VIEJO).inGroup[G].mute, true);
+});
+
 test(".kick responde a todos sus alias", async () => {
   for (const alias of ["k", "kick", "rifle", "andate", "morite", "chau"]) {
     assert.ok(Kick.cmd.includes(alias), `falta .${alias} en plugin.cmd`);

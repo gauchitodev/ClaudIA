@@ -1,6 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
-import { buscarEnGrupo } from "../lib/identidad.js";
+import { buscarEnGrupo, lidMencionadoActual } from "../lib/identidad.js";
 import { darRol, quitarRol, textoRoles } from "../lib/roles.js";
 
 const plugin = {};
@@ -19,7 +18,7 @@ plugin.run = async (m, { client, command, args, text, participants, isOwner, isW
   const rol = command.startsWith("admin") ? "admin" : "mod";
   const quitar = /^(quitar|sacar|borrar|remover)$/i.test(args[0]);
 
-  const lid = lidMencionado(m, text, participants);
+  const lid = await lidMencionadoActual(client, m, text, participants);
 
   // By either identity: a group that lists people by number names them by it, and lists a WhatsApp admin that way too.
   const enGrupo = lid ? buscarEnGrupo(participants, { lid, jid: getUser(lid)?.jid }) : null;

@@ -1,5 +1,5 @@
 import { esOwner } from "../database-functions.js";
-import { destinatario, expulsar } from "../lib/identidad.js";
+import { destinatarioActual, expulsar } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { sacarInactivos } from "../lib/inactivos.js";
 import { setTimeout as esperar } from "node:timers/promises";
@@ -22,7 +22,7 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
 
     // The identity is resolved before removing: the old parsing built "<digits>@lid" from whatever was typed, and
     // with a phone number that is a LID which doesn't exist.
-    const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
+    const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
     if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
     if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);

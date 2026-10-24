@@ -1,5 +1,5 @@
 import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
-import { destinatario } from "../lib/identidad.js";
+import { destinatarioActual } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
 // Removes one of this group's warnings.
@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwner, isWaAdmin }) => {
-  const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
+  const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   if (lid === client.user.lid || jid === client.user.jid) return m.react("❌");

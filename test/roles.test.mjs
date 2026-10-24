@@ -232,3 +232,18 @@ test("roles: en un grupo por número, el rol va a quien el grupo lista con ese n
   assert.equal(F.rolGrupo(chat, AHORA), "mod");
   assert.equal(F.rolGrupo(chat, ANTES), null);
 });
+
+// ".moderador @598…" typed by hand, in a group that lists people by LID without their numbers, while the database still
+// has the number on whoever had it before: they got the role. WhatsApp is asked who has the number. In a group of its
+// own.
+test("roles: con un número tipeado que el grupo no empareja con una LID, el rol va a quien WhatsApp dice que lo tiene", async (t) => {
+  const chat = "roles-705@g.us";
+  const [ANTES, AHORA, X] = ["300000000000705@lid", "300000000000706@lid", "59899000705@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
+  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: AHORA }], sideList: [] });
+  t.after(() => delete globalThis.client.executeUSyncQuery);
+  const sinNumeros = [{ id: "100@lid", admin: "superadmin" }, { id: ANTES, admin: null }, { id: AHORA, admin: null }, { id: "999000@lid", admin: "admin" }];
+  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [] }, { client: globalThis.client, command: "moderador", args: ["@59899000705"], text: "@59899000705", participants: sinNumeros, isOwner: false, isWaAdmin: true, isAdmin: true });
+  assert.equal(F.rolGrupo(chat, AHORA), "mod");
+  assert.equal(F.rolGrupo(chat, ANTES), null);
+});

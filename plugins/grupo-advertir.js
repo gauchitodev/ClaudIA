@@ -1,5 +1,5 @@
 import { esOwner, advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
-import { destinatario, expulsar } from "../lib/identidad.js";
+import { destinatarioActual, expulsar } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
 // Moderation warnings, counted per group: on the third one they're kicked from here. Another group's don't count.
@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwner, isWaAdmin }) => {
-  const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
+  const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   // The reason is whatever is left once the mentions are stripped. The old parsing used a regex with \s that kept

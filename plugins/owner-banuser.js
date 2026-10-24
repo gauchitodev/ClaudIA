@@ -1,5 +1,5 @@
 import { updateUser, esOwner } from "../database-functions.js";
-import { destinatario } from "../lib/identidad.js";
+import { destinatarioActual } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["banuser", "unbanuser"];
@@ -8,7 +8,7 @@ plugin.onlyOwner = true;
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   // The mention may arrive as a LID or as a number: it's resolved to an id that exists before writing, because an
   // UPDATE against a row that isn't there used to pass as good.
-  const { quien, lid, jid, mencionado } = destinatario(m, text, participants);
+  const { quien, lid, jid, mencionado } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
