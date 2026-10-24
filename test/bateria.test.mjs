@@ -72,19 +72,18 @@ async function conPath(carpeta, hacer) {
     process.env.PATH = real;
   }
 }
-// Gone, or a zombie on its way out (dead, waiting for whoever adopted it to collect it). It can be collected between
-// the two looks, and then /proc no longer has it either.
+// Alive only while /proc shows it so. A zombie (Z, dead and waiting for whoever adopted it to collect it) is on its way
+// out, and so is one being collected: it still answers kill(pid, 0), and /proc reads it as X or fails with ESRCH, not
+// ENOENT. Those two were taken for alive: seen as a zombie and asked again right away, the helper "stayed hanging", and
+// the test failed now and then under load.
 function vivo(pid) {
+  let estado;
   try {
-    process.kill(pid, 0);
+    estado = fs.readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1]?.[0];
   } catch {
     return false;
   }
-  try {
-    return fs.readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1]?.[0] !== "Z";
-  } catch (e) {
-    return e.code !== "ENOENT";
-  }
+  return Boolean(estado) && !"ZX".includes(estado);
 }
 
 test("batería: corre termux-battery-status y lee lo que contesta; sin el comando, falla enseguida", async () => {

@@ -1,6 +1,6 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner, getUser } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
-import { identidadesDe, buscarEnGrupo, expulsar } from "../lib/identidad.js";
+import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { nombreDe, conNombres, lidEnElGrupo } from "../lib/menciones.js";
 
@@ -140,11 +140,17 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 
   if (!who) return client.sendText(m.chat, txt.defaultWhoBlackList(usedPrefix, command), m);
 
+  // A typed number may be someone else's now than the one the database has it on, a number recycled or left for
+  // another: unless the group lists who has it, WhatsApp says, and that is who it is. With only the database's guess,
+  // in a group that doesn't list numbers or from private, the previous owner was removed, and an entry kept without a
+  // LID went to them as soon as the number's owner now wrote (seguirALaPersona).
+  const lidActual = tecleado && who.endsWith("@s.whatsapp.net") && !lidEnElGrupo(m.isGroup ? participants : null, who) ? await lidSegunWhatsApp(client, who) : null;
+
   // The person's two identities: the number, which is what gets recorded, and the LID, which is what the group lists
   // them under and what WhatsApp removes them by. Both come from the database and from the group's participants.
   // Someone who never wrote may have no known number: then they're recorded by LID, which is still enough to
   // recognize and remove them. A LID only the database knows for the number isn't kept (lidDeLaBase, lib/identidad.js).
-  const { jid, lid: whoLid, participante, lidDeLaBase } = identidadesDe(who, m.isGroup ? participants : null);
+  const { jid, lid: whoLid, participante, lidDeLaBase } = identidadesDe(lidActual ? [who, lidActual] : who, m.isGroup ? participants : null);
   who = jid || whoLid || who;
   const lidQueQueda = lidDeLaBase ? null : whoLid;
 

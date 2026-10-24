@@ -673,3 +673,57 @@ test("por privado, .ln2 saca la entrada como la muestra .vln", async () => {
   await enPrivado("ln2", "saquen a +59899000941");
   assert.equal(ultimo(), "Poné a quién sacar justo después de .ln2: .ln2 +59899999999, o como lo muestra .vln.");
 });
+
+// In a group that doesn't list numbers, or from private, the database's LID for a typed number was all the bot had, and
+// it may be whoever had the number before: they were removed, and an entry kept without a LID went to them as soon as
+// the number's owner now wrote (seguirALaPersona). WhatsApp is asked who has it (USync's LID query), only when the
+// group doesn't say, and that one is listed, removed and kept on the entry. With no answer in time it goes on as
+// before.
+test(".ln por número le pregunta a WhatsApp quién lo tiene, si el grupo no lo dice", { timeout: 10_000 }, async (t) => {
+  const I = await import("../lib/identidad.js");
+  const [VIEJO, NUEVO, X] = ["300000000000961@lid", "300000000000962@lid", "59899000961@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const consultas = [];
+  let responde = async () => ({ list: [{ id: X, lid: "300000000000962:3@lid" }], sideList: [] }); // with a device, even
+  globalThis.client.executeUSyncQuery = (consulta) => (consultas.push(consulta), responde());
+  const consultaReal = I.IDENTIDAD?.CONSULTA_MS;
+  t.after(() => {
+    delete globalThis.client.executeUSyncQuery;
+    if (I.IDENTIDAD) I.IDENTIDAD.CONSULTA_MS = consultaReal;
+  });
+  const sinNumeros = [participants[0], { id: VIEJO, admin: null }, { id: NUEVO, admin: null }, participants.at(-1)];
+  await correr("ln", "+59899000961 estafa", {}, { participants: sinNumeros });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, NUEVO]]);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }]);
+  // The question Baileys itself asks for a number it has no LID for (pnFromLIDUSync, Socket/socket.js).
+  const [consulta] = consultas;
+  assert.deepEqual([consultas.length, consulta.protocols.map((p) => p.name), consulta.users.map((u) => u.id), consulta.context], [1, ["lid"], [X], "background"]);
+
+  // From private the entry keeps it too, and the number's owner writing doesn't hand it to whoever had it before.
+  db.exec("DELETE FROM lista_negra");
+  globalThis.client.groupFetchAllParticipating = async () => ({});
+  await desdeElPrivado("+59899000961 estafa");
+  assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid]), [[X, NUEVO]]);
+  const m = { chat: G, isGroup: true, sender: NUEVO, senderJid: X, pushName: "Nuevo", delete: async () => {}, react: async () => {} };
+  F.initDataDB(m);
+  F.syncUserInfo(m);
+  assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid]), [[X, NUEVO]], "sigue siendo de quien tiene el número");
+
+  // A group that lists who has the number needs no question.
+  db.exec("DELETE FROM lista_negra");
+  consultas.length = 0;
+  await correr("ln", "+59899111111 spam");
+  assert.equal(consultas.length, 0);
+
+  // With WhatsApp not answering in time, failing or not saying, the database's guess, as before, and not kept.
+  I.IDENTIDAD.CONSULTA_MS = 20;
+  for (const sinRespuesta of [() => new Promise(() => {}), async () => Promise.reject(new Error("timed out")), async () => ({ list: [{ id: X }] }), async () => ({ list: [{ id: X, lid: X }] })]) {
+    db.exec("DELETE FROM lista_negra");
+    responde = sinRespuesta;
+    expulsiones = [];
+    await correr("ln", "+59899000961 estafa", {}, { participants: sinNumeros });
+    assert.deepEqual([F.getBlacklist(G).map((e) => [e.jid, e.lid]), expulsiones.map((e) => e.ids)], [[[X, null]], [[NUEVO]]]);
+  }
+  assert.equal(await I.lidSegunWhatsApp({ executeUSyncQuery: async () => ({ list: [{ id: X, lid: X }] }) }, X), null, "un número no es una LID");
+  assert.equal(await I.lidSegunWhatsApp({}, X), null, "sin cómo preguntar");
+});
