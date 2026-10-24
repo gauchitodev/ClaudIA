@@ -184,7 +184,7 @@ test("envíos: lo que borra el bot sale de la memoria corta de Claudia; si el bo
   const { client } = clienteEnvuelto({ falla: (jid, contenido) => contenido.delete?.id === "B2" });
   await client.sendMessage(B, { delete: { remoteJid: B, fromMe: false, id: "B1", participant: "555@lid" } });
   await assert.rejects(() => client.sendMessage(B, { delete: { remoteJid: B, fromMe: false, id: "B2", participant: "555@lid" } }));
-  assert.deepEqual(globalThis.contextoChat.get(B).map((x) => x.texto), ["dos"]);
+  assert.deepEqual(CC.contextoChat.get(B).map((x) => x.texto), ["dos"]);
 });
 
 test("envíos: cuenta por chat, hora y tipo, y los privados van todos juntos", async () => {

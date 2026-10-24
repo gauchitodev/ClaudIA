@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { ESLint } from "eslint";
 import { prepararBase, G } from "./helpers.mjs";
 
@@ -85,4 +86,24 @@ test("la lista de globales no tiene ninguno que el código ya no use", async () 
   const listados = Object.values(EN_GLOBALTHIS).flat();
   assert.deepEqual(listados.filter((n) => !usados.has(n)), []);
   assert.equal(new Set(listados).size, listados.length, "sin repetidos");
+});
+
+// Each lib/ module keeps its own state, and loading all of them leaves on globalThis only autoIaCooldown, which
+// plugins/_auto-ia.js shares, and modeloActivo, the process's (lib/ia.js). The lint sees globalThis.name written out,
+// not a name in brackets or built at run time. In a process of its own: here, half of lib/ is loaded already.
+test("cargar lib/ no deja su estado en globalThis", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-globales-lib-"));
+  try {
+    const codigo = `
+      const antes = new Set(Object.keys(globalThis));
+      for (const f of ${JSON.stringify(fs.readdirSync(path.join(RAIZ, "lib")).filter((f) => f.endsWith(".js")).map((f) => new URL(`../lib/${f}`, import.meta.url).href))}) await import(f);
+      console.log(JSON.stringify(Object.keys(globalThis).filter((k) => !antes.has(k)).sort()));
+      process.exit(0);
+    `;
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", codigo], { cwd: dir, encoding: "utf8", timeout: 60_000, env: { ...process.env, TMPDIR: dir } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout.trim().split("\n").at(-1)), ["autoIaCooldown", "modeloActivo"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

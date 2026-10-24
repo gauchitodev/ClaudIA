@@ -58,7 +58,7 @@ test("rechazo, vencimiento y validaciones", async () => {
   fijarSaldo(F, G, "b", 3);
   D.desafiar(G, "a", "b", 20, "dado", null);
   assert.match(D.aceptar(G, "b").error, /No te alcanza/);
-  assert.ok(globalThis.duelos.size === 1, "el desafío sigue en pie");
+  assert.ok(D.duelos.size === 1, "el desafío sigue en pie");
   assert.match(D.rechazar(G, "b").texto, /no aceptó el duelo/);
   assert.equal(saldo("a"), 100);
   assert.match(D.aceptar(G, "b").error, /ningún desafío/);
@@ -74,7 +74,7 @@ test("rechazo, vencimiento y validaciones", async () => {
   assert.match(D.desafiar(G, "a", "c", 20, "dado", null).error, /Ya tenés un desafío pendiente/);
   assert.match(D.desafiar(G, "c", "b", 20, "dado", null).error, /ya tiene un desafío pendiente/);
   await esperar(150);
-  assert.ok(vencido && /venció sin respuesta/.test(vencido.texto) && saldo("a") === 100 && globalThis.duelos.size === 0);
+  assert.ok(vencido && /venció sin respuesta/.test(vencido.texto) && saldo("a") === 100 && D.duelos.size === 0);
 });
 
 test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", () => {
@@ -92,27 +92,27 @@ test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", (
   cola.push(0, 20, 99); // a: a punch that lands, 20 damage, no crit
   r = D.accionPelea(G, "a", "golpe");
   assert.match(r.texto, /@a lanza un golpe y conecta: −20/);
-  assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 80);
+  assert.equal(D.peleas.get(`${G}|b`).jugadores.b.hp, 80);
   r = D.accionPelea(G, "b", "cubrirse");
   assert.match(r.texto, /@b se cubre/);
   cola.push(0, 34, 99); // a: a kick landing for 34, but b was guarding -> 17
   r = D.accionPelea(G, "a", "patada");
   assert.match(r.texto, /conecta: −17 \(a medias, @b estaba cubierto\)/);
-  assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 63);
+  assert.equal(D.peleas.get(`${G}|b`).jugadores.b.hp, 63);
   cola.push(25); // b heals +25
   r = D.accionPelea(G, "b", "curar");
   assert.match(r.texto, /@b se cura \+25/);
-  assert.equal(globalThis.peleas.get(`${G}|b`).jugadores.b.hp, 88);
+  assert.equal(D.peleas.get(`${G}|b`).jugadores.b.hp, 88);
   assert.match(r.texto, /\.curar \(2\)/.test(r.texto) ? /\.curar \(2\)/ : /Turno de @a/);
   D.accionPelea(G, "a", "cubrirse");
   cola.push(99, 10, 10); // b: a punch that misses (99 >= 85), the counter lands (10 < 40) for 10
   r = D.accionPelea(G, "b", "golpe");
   assert.ok(/@b lanza un golpe\.\.\. y falla/.test(r.texto) && /@a contraataca desde la guardia: −10/.test(r.texto));
-  assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.b.hp, 78);
+  assert.equal(D.peleas.get(`${G}|a`).jugadores.b.hp, 78);
   cola.push(0, 20, 0); // a: a critical punch 20 -> 30
   r = D.accionPelea(G, "a", "golpe");
   assert.match(r.texto, /−30 ✨ crítico/);
-  assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.b.hp, 48);
+  assert.equal(D.peleas.get(`${G}|a`).jugadores.b.hp, 48);
   // b runs out of heals on the second use, and a finishes it
   cola.push(20);
   D.accionPelea(G, "b", "curar");
@@ -120,7 +120,7 @@ test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", (
   assert.match(D.accionPelea(G, "b", "curar").error, /Ya usaste tus curas/);
   cola.push(0, 34, 0); // b: a critical kick 51 against a guarding a -> 26
   D.accionPelea(G, "b", "patada");
-  assert.equal(globalThis.peleas.get(`${G}|a`).jugadores.a.hp, 74);
+  assert.equal(D.peleas.get(`${G}|a`).jugadores.a.hp, 74);
   for (const _ of [1, 2, 3]) {
     cola.push(0, 34, 0); // a: a critical kick 51 on b (68 -> 17 -> 0)
     r = D.accionPelea(G, "a", "patada");
@@ -131,7 +131,7 @@ test("pelea por turnos: golpe, patada, cubrirse, curar, contraataque y final", (
   assert.ok(r.terminada && /@b cae/.test(r.texto) && /@a gana la pelea y se lleva \*40 UruCoins\*/.test(r.texto));
   assert.equal(saldo("a"), 120);
   assert.equal(saldo("b"), 80);
-  assert.equal(globalThis.peleas.size, 0);
+  assert.equal(D.peleas.size, 0);
   assert.match(D.accionPelea(G, "a", "golpe").error, /No estás en ninguna pelea/);
 });
 
@@ -182,9 +182,9 @@ test("pelea: nadie está en dos peleas a la vez", () => {
     assert.equal(saldo("x"), 90, "al rechazarlo, x recupera lo del desafío; le queda lo de la pelea con z");
   } finally {
     // Always: a failing assertion would otherwise leave 5-minute timers holding the test process open.
-    for (const d of globalThis.duelos.values()) clearTimeout(d.timeout);
-    globalThis.duelos.clear();
-    for (const p of new Set(globalThis.peleas.values())) clearTimeout(p.timeout);
-    globalThis.peleas.clear();
+    for (const d of D.duelos.values()) clearTimeout(d.timeout);
+    D.duelos.clear();
+    for (const p of new Set(D.peleas.values())) clearTimeout(p.timeout);
+    D.peleas.clear();
   }
 });

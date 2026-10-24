@@ -129,8 +129,8 @@ test("batería: tras un timeout de Termux:API, el chequeo lo deja tranquilo un r
   B._dep.leer = async (ruta) => {
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaLecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora }; // the battery is fine
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora }; // the battery is fine
   assert.equal(await B.chequearBateriaBaja(), null);
   assert.equal(llamadas, 1);
   ahora += 5 * 60 * 1000;
@@ -200,7 +200,7 @@ const DIEZ = (p) => `🤖 🔋 Me queda ${p} % de batería y no estoy cargando. 
 const CINCO = (p) => `🤖 🪫 Me queda ${p} % de batería y no estoy cargando: me puedo apagar en cualquier momento. ¡Enchufame ya!`;
 
 test("batería baja: avisa al owner por debajo del 10 % y del 5 %, una vez cada uno por descarga", async () => {
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   assert.deepEqual(await chequear(12), { umbral: null, textos: [] });
   assert.deepEqual(await chequear(10), { umbral: null, textos: [] }, "con el 10 % justo, todavía no");
   assert.deepEqual(await chequear(9), { umbral: 10, textos: [DIEZ(9)] });
@@ -224,12 +224,12 @@ test("batería baja: avisa al owner por debajo del 10 % y del 5 %, una vez cada 
 // A loose cable plugs and unplugs by itself: charging used to make the notices ready again, and the same one came every
 // 10 minutes. And plugged in without charging, the notice says so instead of asking to be plugged in.
 test("batería baja: con un cable flojo avisa una vez, y si está enchufada sin cargar, lo dice", async () => {
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   const avisos = [];
   for (let i = 0; i < 6; i++) avisos.push(...(await chequear(9, i % 2 ? "CHARGING" : "DISCHARGING")).textos);
   assert.deepEqual(avisos, [DIEZ(9)]);
 
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   assert.deepEqual((await chequear(9, "NOT_CHARGING")).textos, ["🤖 🔌 Me queda 9 % de batería: estoy enchufada, pero no carga. Revisá el cargador o el cable antes de que me apague."]);
   assert.deepEqual((await chequear(4, "Not charging")).textos, ["🤖 🪫 Me queda 4 % de batería y no carga, aunque estoy enchufada: me puedo apagar en cualquier momento. ¡Revisá el cargador ya!"], "con el estado de los archivos del sistema también");
 });
@@ -237,9 +237,9 @@ test("batería baja: con un cable flojo avisa una vez, y si está enchufada sin 
 // A weak charger, or the tablet using more than it gets: it says "charging" and goes down all the same, and the device
 // dies just as if it were unplugged. Lower than at the check before, while charging, the owner hears it.
 test("batería baja: cargando pero bajando, avisa que el cargador no da abasto", async () => {
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaNoAlcanzaAvisada?.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.noAlcanzaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   assert.deepEqual(await chequear(11, "CHARGING"), { umbral: null, textos: [] });
   assert.deepEqual(await chequear(10, "CHARGING"), { umbral: null, textos: [] }, "con el 10 % justo, todavía no");
   assert.deepEqual(await chequear(9, "CHARGING"), { umbral: 10, textos: ["🤖 🔌 Me queda 9 % de batería y sigue bajando, aunque estoy cargando: el cargador no da abasto. Probá con otro antes de que me apague."] });
@@ -247,9 +247,9 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
   assert.deepEqual(await chequear(4, "CHARGING"), { umbral: 5, textos: ["🤖 🪫 Me queda 4 % de batería y sigue bajando, aunque estoy cargando: me puedo apagar en cualquier momento. ¡Cambiá el cargador ya!"] });
 
   // Without a connection right then, it's told on the next check, though the percentage stayed put.
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaNoAlcanzaAvisada?.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.noAlcanzaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   await chequear(10, "CHARGING");
   globalThis.botConectado = false;
   try {
@@ -260,9 +260,9 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
   assert.equal((await chequear(9, "CHARGING")).umbral, 10, "al volver la conexión");
 
   // Going up while charging, the charger keeps up: nothing to tell.
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaNoAlcanzaAvisada?.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.noAlcanzaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   assert.deepEqual(await chequear(6, "CHARGING"), { umbral: null, textos: [] });
   assert.deepEqual(await chequear(7, "CHARGING"), { umbral: null, textos: [] });
   // Against a reading from too long ago it can't tell: it may have been unplugged in between.
@@ -275,15 +275,15 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
 // good charger just plugged in. And after an "Enchufame", a weak charger plugged in is still told about: the two
 // notices used to share the record of what was told, and it stayed quiet down to 5 %.
 test("batería baja: no culpa al cargador por lo que bajó desenchufada, y avisa del débil después del Enchufame", async () => {
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaNoAlcanzaAvisada?.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.noAlcanzaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   await chequear(10, "DISCHARGING");
   assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] }, "bajó antes de que la enchufaran");
   assert.deepEqual(await chequear(10, "CHARGING"), { umbral: null, textos: [] });
 
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   assert.deepEqual(await chequear(9, "DISCHARGING"), { umbral: 10, textos: [DIEZ(9)] });
   assert.deepEqual(await chequear(8, "CHARGING"), { umbral: null, textos: [] }, "recién enchufada");
   assert.deepEqual(await chequear(7, "CHARGING"), { umbral: 10, textos: ["🤖 🔌 Me queda 7 % de batería y sigue bajando, aunque estoy cargando: el cargador no da abasto. Probá con otro antes de que me apague."] });
@@ -291,11 +291,11 @@ test("batería baja: no culpa al cargador por lo que bajó desenchufada, y avisa
 });
 
 test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, en la vuelta siguiente; sin batería que leer, nada", async () => {
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   assert.deepEqual(await chequear(4), { umbral: 5, textos: [CINCO(4)] });
   assert.deepEqual(await chequear(3), { umbral: null, textos: [] }, "ni el del 10 % después");
 
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   globalThis.botConectado = false;
   try {
     assert.deepEqual(await chequear(8), { umbral: null, textos: [] });
@@ -304,7 +304,7 @@ test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, 
   }
   assert.deepEqual(await chequear(8), { umbral: 10, textos: [DIEZ(8)] }, "al volver la conexión");
 
-  globalThis.bateriaBajaAvisada.clear();
+  B.entreChequeos.bajaAvisada.clear();
   simular();
   assert.equal(await B.chequearBateriaBaja(), null);
 });
@@ -330,8 +330,8 @@ test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin 
     ahora += 5 * 60 * 1000;
     return B.chequearBateriaBaja();
   };
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   globalThis.enviados = [];
   assert.equal(await cadaCinco({ percentage: 12, status: "DISCHARGING" }), null);
   assert.equal(await cadaCinco(null), null);
@@ -345,7 +345,7 @@ test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin 
   assert.equal(llamadas, 5, "con la batería bien, la pausa sigue");
 
   // With no reading yet, the first check after a restart: nothing says the battery is fine, so no pause either.
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.lecturaAnterior = null;
   ahora += B.TERMUX_API.PAUSA_MS; // the pause from before is over
   await cadaCinco(null);
   assert.equal(await cadaCinco({ percentage: 4, status: "DISCHARGING" }), 5, "cinco minutos después lo prueba, y avisa");
@@ -367,8 +367,8 @@ test("batería baja: la pausa de Termux:API no se fía de una lectura vieja", as
   B._dep.leer = async (ruta) => {
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   globalThis.enviados = [];
   let umbral = null;
   for (i = 0; i < real.length && !umbral; i++) {
@@ -391,7 +391,7 @@ test("batería baja: con 15 % justo, la pausa sigue", async () => {
   B._dep.leer = async (ruta) => {
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
-  globalThis.bateriaLecturaAnterior = { porcentaje: 15, estado: "DISCHARGING", fecha: ahora };
+  B.entreChequeos.lecturaAnterior = { porcentaje: 15, estado: "DISCHARGING", fecha: ahora };
   await B.chequearBateriaBaja();
   ahora += 5 * 60 * 1000;
   await B.chequearBateriaBaja();
@@ -412,7 +412,7 @@ test("batería baja: la pausa vale con una lectura de hasta 15 minutos, y no má
   B._dep.leer = async (ruta) => {
     throw Object.assign(new Error(`EACCES: permission denied, open '${ruta}'`), { code: "EACCES" });
   };
-  globalThis.bateriaLecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora };
+  B.entreChequeos.lecturaAnterior = { porcentaje: 50, estado: "DISCHARGING", fecha: ahora };
   await B.chequearBateriaBaja(); // the timeout: the pause starts
   ahora += 15 * 60 * 1000;
   await B.chequearBateriaBaja();
@@ -426,9 +426,9 @@ test("batería baja: la pausa vale con una lectura de hasta 15 minutos, y no má
 
 // Going past 15 % makes both records ready again: the low battery's and the weak charger's.
 test("batería baja: pasado el 15 %, el aviso del cargador que no da abasto vuelve a estar listo", async () => {
-  globalThis.bateriaBajaAvisada.clear();
-  globalThis.bateriaNoAlcanzaAvisada?.clear();
-  globalThis.bateriaLecturaAnterior = null;
+  B.entreChequeos.bajaAvisada.clear();
+  B.entreChequeos.noAlcanzaAvisada.clear();
+  B.entreChequeos.lecturaAnterior = null;
   await chequear(10, "CHARGING");
   assert.equal((await chequear(9, "CHARGING")).umbral, 10);
   await chequear(16, "CHARGING");

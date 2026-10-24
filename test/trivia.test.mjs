@@ -251,30 +251,30 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
     assert.equal(pedidos.length, 1);
     assert.equal(await deLaIa("otro-grupo@g.us"), true, "otro grupo tiene lo suyo");
 
-    globalThis.triviaConIa.get(C).ultima -= Tr.TRIVIA.IA_CADA_MS; // a minute went by
+    Tr.triviaConIa.get(C).ultima -= Tr.TRIVIA.IA_CADA_MS; // a minute went by
     assert.equal(await deLaIa(C), true);
-    assert.equal(globalThis.triviaConIa.get(C).usadas, 2);
+    assert.equal(Tr.triviaConIa.get(C).usadas, 2);
 
     // The day's AI questions are used up: the bank until tomorrow.
-    globalThis.triviaConIa.set(C, { dia: new Date().toDateString(), usadas: Tr.TRIVIA.IA_POR_DIA, ultima: 0 });
+    Tr.triviaConIa.set(C, { dia: new Date().toDateString(), usadas: Tr.TRIVIA.IA_POR_DIA, ultima: 0 });
     pedidos.length = 0;
     assert.equal(await deLaIa(C), false);
     assert.equal(pedidos.length, 0);
-    globalThis.triviaConIa.get(C).dia = "ayer";
+    Tr.triviaConIa.get(C).dia = "ayer";
     assert.equal(await deLaIa(C), true);
-    assert.equal(globalThis.triviaConIa.get(C).usadas, 1, "al otro día arranca de nuevo");
+    assert.equal(Tr.triviaConIa.get(C).usadas, 1, "al otro día arranca de nuevo");
 
     // With every Gemini model paused, not the backups either: straight to the bank, without a wait.
-    globalThis.triviaConIa.delete(C);
-    for (const modelo of Gem.MODELOS) globalThis.geminiEnPausa.set(modelo, { hasta: Date.now() + 60 * 1000, seguidos: 1 });
+    Tr.triviaConIa.delete(C);
+    for (const modelo of Gem.MODELOS) Gem.geminiEnPausa.set(modelo, { hasta: Date.now() + 60 * 1000, seguidos: 1 });
     pedidos.length = 0;
     assert.equal(await deLaIa(C), false);
     assert.equal(pedidos.length, 0);
-    assert.equal(globalThis.triviaConIa.has(C), false, "no gastó el turno de la IA");
+    assert.equal(Tr.triviaConIa.has(C), false, "no gastó el turno de la IA");
   } finally {
     globalThis.fetch = fetchReal;
     console.log = logReal;
     globalThis.geminiApiKey = "";
-    globalThis.geminiEnPausa.clear();
+    Gem.geminiEnPausa.clear();
   }
 });

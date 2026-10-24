@@ -45,7 +45,7 @@ after(() => {
   console.error = errorReal;
 });
 beforeEach(() => {
-  globalThis.geminiEnPausa.clear();
+  G.geminiEnPausa.clear();
   pedidos.length = 0;
   cuerpos.length = 0;
   respuestas = {};
@@ -54,7 +54,7 @@ beforeEach(() => {
 const todosCon = (status) => Object.fromEntries(G.MODELOS.map((m) => [m, status]));
 // As if the 429s had kept coming for hours: every model paused that long.
 const alargarPausas = (ms) => {
-  for (const m of G.MODELOS) globalThis.geminiEnPausa.set(m, { hasta: Date.now() + ms, seguidos: 8 });
+  for (const m of G.MODELOS) G.geminiEnPausa.set(m, { hasta: Date.now() + ms, seguidos: 8 });
 };
 
 test("un 429 frena ese modelo un minuto, no cuatro horas, y una respuesta lo libera", async () => {
@@ -62,7 +62,7 @@ test("un 429 frena ese modelo un minuto, no cuatro horas, y una respuesta lo lib
   respuestas = { [A]: 429 };
   const antes = Date.now();
   assert.equal((await G.preguntarGemini("hola")).texto, `soy ${B}`);
-  const pausa = globalThis.geminiEnPausa.get(A);
+  const pausa = G.geminiEnPausa.get(A);
   assert.ok(pausa.hasta - antes >= MIN && pausa.hasta - antes < MIN + 5000, `un minuto, no ${pausa.hasta - antes} ms`);
 
   pedidos.length = 0;
@@ -73,31 +73,31 @@ test("un 429 frena ese modelo un minuto, no cuatro horas, y una respuesta lo lib
   respuestas = {};
   pedidos.length = 0;
   assert.equal((await G.preguntarGemini("hola")).texto, `soy ${A}`);
-  assert.equal(globalThis.geminiEnPausa.has(A), false, "contestó: la próxima pausa vuelve a ser de un minuto");
+  assert.equal(G.geminiEnPausa.has(A), false, "contestó: la próxima pausa vuelve a ser de un minuto");
 });
 
 test("cada 429 seguido duplica la pausa, hasta 4 horas; los del mismo tirón no cuentan, y uno de horas después arranca de nuevo", () => {
   const T = Date.UTC(2031, 0, 15, 12);
   G.pausarModelo("x", T);
   G.pausarModelo("x", T + 5000); // another request of the same burst, sent before the pause
-  assert.equal(globalThis.geminiEnPausa.get("x").hasta, T + MIN);
+  assert.equal(G.geminiEnPausa.get("x").hasta, T + MIN);
   const esperas = [];
   let t = T + MIN;
   for (let i = 0; i < 10; i++) {
     G.pausarModelo("x", t);
-    const { hasta } = globalThis.geminiEnPausa.get("x");
+    const { hasta } = G.geminiEnPausa.get("x");
     esperas.push((hasta - t) / MIN);
     t = hasta;
   }
   assert.deepEqual(esperas, [2, 4, 8, 16, 32, 64, 128, 240, 240, 240]);
   G.pausarModelo("x", t + 5 * HORA); // nobody asked it since the last pause ended: a new burst
-  assert.equal(globalThis.geminiEnPausa.get("x").hasta, t + 5 * HORA + MIN);
+  assert.equal(G.geminiEnPausa.get("x").hasta, t + 5 * HORA + MIN);
 });
 
 test("un 429 de una búsqueda no le saca el modelo a la charla", async () => {
   respuestas = { [G.MODELOS[0]]: 429 };
   await G.preguntarGemini("¿es verdad?", { buscarEnWeb: true });
-  assert.equal(globalThis.geminiEnPausa.size, 0);
+  assert.equal(G.geminiEnPausa.size, 0);
 });
 
 test("«por hoy» y el aviso al owner, solo cuando todos llevan una hora o más frenados", async () => {
@@ -167,7 +167,7 @@ test("una respuesta bloqueada, vacía o cortada pasa al modelo siguiente sin vol
   const r = await G.preguntarGemini("hola");
   assert.deepEqual([r.ok, r.sinCuota, r.porHoy], [false, false, false], "no es la cuota: «probá en un rato»");
   assert.equal(pedidos.length, 3, "un pedido por modelo, no seis");
-  assert.equal(globalThis.geminiEnPausa.size, 0, "y ninguno queda en pausa");
+  assert.equal(G.geminiEnPausa.size, 0, "y ninguno queda en pausa");
 });
 
 test("un JSON cortado o roto pasa al modelo siguiente; sin schema, un texto suelto es una respuesta", async () => {

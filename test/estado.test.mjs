@@ -27,15 +27,15 @@ test(".estado muestra lo que guarda client.chats al lado de la memoria", async (
 });
 
 test(".estado dice qué modelo de Gemini está en pausa por cuota y cuánto le falta", async () => {
-  const { MODELOS } = await import("../lib/gemini.js");
+  const { MODELOS, geminiEnPausa } = await import("../lib/gemini.js");
   const client = globalThis.client;
   client.groupFetchAllParticipating = async () => ({});
-  globalThis.geminiEnPausa.set(MODELOS[0], { hasta: Date.now() + 90 * 1000, seguidos: 2 });
+  geminiEnPausa.set(MODELOS[0], { hasta: Date.now() + 90 * 1000, seguidos: 2 });
   try {
     await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
     assert.match(ultimoEnviado().msg.text, new RegExp(`\\n🧠 IA: .+ · en pausa por cuota: ${MODELOS[0].replaceAll(".", "\\.")} \\(vuelve en 1 min\\)\\n`));
   } finally {
-    globalThis.geminiEnPausa.clear();
+    geminiEnPausa.clear();
   }
 });
 
@@ -45,4 +45,20 @@ test(".estado dice con qué zona horaria anda el bot", async () => {
   await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
   const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
   assert.match(ultimoEnviado().msg.text.split("\n")[0], new RegExp(` · Node v[\\d.]+ · ${zona.replaceAll("/", "\\/").replaceAll("+", "\\+")}$`));
+});
+
+// The queue is lib/cola-descargas.js's, and .estado reads it from there.
+test(".estado dice cuántas descargas hay en curso y en cola", async () => {
+  const { colaDescargas } = await import("../lib/cola-descargas.js");
+  const client = globalThis.client;
+  client.groupFetchAllParticipating = async () => ({});
+  colaDescargas.procesando = true;
+  colaDescargas.tareas.push(async () => {}, async () => {});
+  try {
+    await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+    assert.match(ultimoEnviado().msg.text, /1 en curso, 2 en cola/);
+  } finally {
+    colaDescargas.procesando = false;
+    colaDescargas.tareas.length = 0;
+  }
 });

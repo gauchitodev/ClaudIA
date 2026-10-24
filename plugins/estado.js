@@ -6,6 +6,7 @@ import { duracion, textoFecha } from "../lib/tiempo.js";
 import { modelosEnPausa } from "../lib/gemini.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
+import { colaDescargas } from "../lib/cola-descargas.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
@@ -20,8 +21,7 @@ plugin.run = async (m, { client }) => {
   const enPausa = modelosEnPausa(ahora).map((p) => `${p.modelo} (vuelve en ${duracion(p.faltaMs)})`);
   const ia = `${globalThis.modeloActivo || "todavía no respondió ninguno"}${enPausa.length ? ` · en pausa por cuota: ${enPausa.join(", ")}` : ""}`;
 
-  const cola = globalThis.colaDescargas || { tareas: [], procesando: false };
-  const descargas = `${cola.procesando ? "1 en curso" : "ninguna en curso"}, ${cola.tareas.length} en cola`;
+  const descargas = `${colaDescargas.procesando ? "1 en curso" : "ninguna en curso"}, ${colaDescargas.tareas.length} en cola`;
 
   const nombres = { recordatorio: "recordatorios", reintento_descarga: "reintentos de descarga", cerrar_mercado: "cierres de mercado", anular_mercado: "anulaciones de mercado" };
   const pendientes = contarPendientesPorTipo().map((p) => `${p.total} ${nombres[p.tipo] || p.tipo}`).join(", ") || "ninguno";

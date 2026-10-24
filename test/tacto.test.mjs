@@ -6,12 +6,16 @@ import { prepararBase } from "./helpers.mjs";
 // whether she may write or only react, and how much. They're pure functions over a snapshot of the chat, built here by
 // hand at a fixed hour.
 
-let I, T, J;
+let I, T, J, Tr, D, Casino, Carrera;
 before(async () => {
   await prepararBase("tacto");
   I = await import("../lib/iniciativa.js");
   T = await import("../lib/tacto.js");
   J = await import("../lib/mensajes-de-juego.js");
+  Tr = await import("../lib/trivia.js");
+  D = await import("../lib/duelos.js");
+  Casino = await import("../lib/casino.js");
+  Carrera = await import("../lib/carrera.js");
 });
 
 const MIN = 60 * 1000;
@@ -96,13 +100,19 @@ test("tacto: con un juego abierto no mira", () => {
   assert.equal(T.hayJuegoAbierto(C1, AHORA + 4 * MIN), false, "pasados cinco minutos ya no");
 
   const C2 = "juego2@g.us";
-  globalThis.rondasTrivia = globalThis.rondasTrivia || new Map();
-  globalThis.rondasTrivia.set(C2, { tipo: "trivia" });
+  Tr.rondasTrivia.set(C2, { tipo: "trivia" });
   assert.equal(T.hayJuegoAbierto(C2, AHORA), true, "una trivia abierta");
-  globalThis.rondasTrivia.delete(C2);
-  globalThis.peleas = new Map([[`${C2}|111@lid`, {}]]);
+  Tr.rondasTrivia.delete(C2);
+  D.peleas.set(`${C2}|111@lid`, {});
   assert.equal(T.hayJuegoAbierto(C2, AHORA), true, "una pelea por turnos");
-  globalThis.peleas.clear();
+  D.peleas.clear();
+  Casino.mesasRuleta.set(C2, {});
+  assert.equal(T.hayJuegoAbierto(C2, AHORA), true, "la mesa de la ruleta");
+  Casino.mesasRuleta.delete(C2);
+  Carrera.carreras.set(C2, {});
+  assert.equal(T.hayJuegoAbierto(C2, AHORA), true, "una carrera");
+  Carrera.carreras.delete(C2);
+  assert.equal(T.hayJuegoAbierto(C2, AHORA), false, "con todo cerrado, nada");
 
   assert.equal(T.puedeMirar(situacion({ juegoAbierto: true })).motivo, "hay un juego abierto");
 });

@@ -155,7 +155,7 @@ test("el filtro por mes deja afuera lo viejo", async () => {
 // the log. This one plays a real hand: if blackjack went back to a single reason for the opening bet and the double,
 // or the shield stopped naming its game, it shows up here.
 test("de punta a punta: una mano doblada y perdida con escudo aparece como una sola mano", async () => {
-  globalThis.manosBlackjack?.clear();
+  B.manosBlackjack.clear();
   fijarSaldo(F, G, "a@lid", 100);
   F.borrarItem(G, "a@lid", "escudo");
   F.agregarItem(G, "a@lid", "escudo", 1);

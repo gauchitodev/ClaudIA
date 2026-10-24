@@ -11,8 +11,8 @@ before(async () => {
 });
 const saldo = () => F.getSaldoCoins(G, "u");
 const nueva = (n = 100) => {
-  for (const p of globalThis.partidasMines.values()) clearTimeout(p.timeout);
-  globalThis.partidasMines.clear();
+  for (const p of X.partidasMines.values()) clearTimeout(p.timeout);
+  X.partidasMines.clear();
   fijarSaldo(F, G, "u", n);
 };
 // mines on the tiles the list names, in order

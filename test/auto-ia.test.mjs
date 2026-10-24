@@ -7,7 +7,7 @@ import strings from "../lib/strings.js";
 // the dispatcher's checks. So the hook has to apply the same rule the command has: .tagall for moderators, .llamar
 // only for admins. Gemini is swapped for a canned classification.
 
-let F, AutoIA, MemoriaCorta, Llamar, Tagall, RITMO;
+let F, AutoIA, MemoriaCorta, Llamar, Tagall, RITMO, contextoChat, geminiEnPausa;
 let clasificacion; // what "Gemini" answers
 let consultasIA = 0; // how many times Claudia asked the AI
 const fetchReal = globalThis.fetch;
@@ -30,6 +30,8 @@ before(async () => {
   MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   Llamar = (await import("../plugins/grupo-llamar.js")).default;
   Tagall = (await import("../plugins/grupo-tagall.js")).default;
+  ({ contextoChat } = await import("../lib/contexto-chat.js"));
+  ({ geminiEnPausa } = await import("../lib/gemini.js"));
   globalThis.plugins = { "grupo-llamar.js": Llamar, "grupo-tagall.js": Tagall };
 });
 after(() => {
@@ -92,7 +94,7 @@ test("pedido a Claudia: lo que contesta cuenta como charla para la iniciativa", 
   assert.equal(filas.length, antes + 1);
   assert.deepEqual([filas.at(-1).tipo, filas.at(-1).texto], ["charla", "¡Hola, Ana!"]);
   assert.match(filas.at(-1).mensajeId, /^MSG\d+$/, "con el id de lo que mandó");
-  assert.equal(globalThis.contextoChat.get(C).at(-1).id, filas.at(-1).mensajeId, "y su memoria corta lo tiene");
+  assert.equal(contextoChat.get(C).at(-1).id, filas.at(-1).mensajeId, "y su memoria corta lo tiene");
 });
 
 test("memoria corta: guarda quién dijo qué con su id, no toma las reacciones como mensajes y olvida lo borrado", async () => {
@@ -102,14 +104,14 @@ test("memoria corta: guarda quién dijo qué con su id, no toma las reacciones c
   const correr = (m) => MemoriaCorta.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
 
   await correr({ text: "hola a todos", key: { id: "M1", participant: "555@lid" } });
-  const entrada = globalThis.contextoChat.get(B).at(-1);
+  const entrada = contextoChat.get(B).at(-1);
   assert.deepEqual([entrada.texto, entrada.id, entrada.usuario, entrada.participant], ["hola a todos", "M1", "555@lid", "555@lid"]);
 
   await correr({ text: "😂", mtype: "reactionMessage", key: { id: "R1" } });
-  assert.equal(globalThis.contextoChat.get(B).length, 1, "una reacción no es algo que alguien dijo");
+  assert.equal(contextoChat.get(B).length, 1, "una reacción no es algo que alguien dijo");
 
   await correr({ text: "", message: { protocolMessage: { type: 0, key: { id: "M1" } } } });
-  assert.equal(globalThis.contextoChat.get(B).length, 0, "lo que alguien borró se olvida");
+  assert.equal(contextoChat.get(B).length, 0, "lo que alguien borró se olvida");
 });
 
 // The memory is written by its own hook, right after the moderation (plugins/_memoria-corta.js). An edit used to leave
@@ -120,7 +122,7 @@ test("memoria corta: lo editado queda como lo dejó quien lo escribió, y lo bor
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const base = { chat: B, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
   const correr = (m) => MemoriaCorta.before({ ...base, ...m }, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { charla: 0 }, ...MODERADOR });
-  const textos = () => globalThis.contextoChat.get(B).map((e) => e.texto);
+  const textos = () => contextoChat.get(B).map((e) => e.texto);
   const edicion = (id, editedMessage) => ({ protocolMessage: { type: 14, key: { id }, editedMessage } });
 
   await correr({ text: "mi número nuevo es 099 123 456", key: { id: "E1", participant: "555@lid" } });
@@ -148,7 +150,7 @@ test("memoria corta: una edición vale aunque llegue con la otra identidad de qu
   const B = "edicion-pn@g.us";
   const [LID, PN] = ["300000000000055@lid", "59899000055@s.whatsapp.net"];
   const correr = (m) => MemoriaCorta.before({ chat: B, isGroup: true, pushName: "Ana", mentionedJid: [], quoted: null, ...m }, { user: {} });
-  const textos = () => globalThis.contextoChat.get(B).map((e) => e.texto);
+  const textos = () => contextoChat.get(B).map((e) => e.texto);
   const edicion = (id, conversation) => ({ protocolMessage: { type: 14, key: { id }, editedMessage: { conversation } } });
 
   // The message with the LID alongside, and the edit without it.
@@ -174,14 +176,14 @@ test("lo que borra un anti-link no le llega a Claudia: ni lo contesta ni lo guar
   const probar = async (archivo, opciones, texto) => {
     const Hook = (await import(`../plugins/${archivo}`)).default;
     globalThis.autoIaCooldown.delete(L);
-    globalThis.contextoChat.delete(L);
+    contextoChat.delete(L);
     const borrados = [];
     const client = { ...clienteFalso(), sendPresenceUpdate: async () => {}, groupInviteCode: async () => "OTRO", groupParticipantsUpdate: async () => {} };
     const m = { chat: L, isGroup: true, sender: "777@lid", pushName: "Spam", text: texto, mentionedJid: [], quoted: null, key: { id: "SPAM", participant: "777@lid" }, delete: async () => borrados.push("SPAM") };
     const ctx = { client, participants, isAdmin: false, isMod: false, isBotAdmin: true, isOwner: false, user: {}, chat: opciones };
     const antes = consultasIA;
     for (const hook of [Hook, MemoriaCorta, AutoIA]) await hook.before(m, ctx); // in handle-message's order
-    return { borrado: borrados.length > 0, consultas: consultasIA - antes, guardado: globalThis.contextoChat.get(L)?.length || 0 };
+    return { borrado: borrados.length > 0, consultas: consultasIA - antes, guardado: contextoChat.get(L)?.length || 0 };
   };
   for (const [archivo, opciones, texto] of [
     ["_all-anti-links.js", { allAntiLinks: 1 }, "claudia mirá esto https://spam.com"],
@@ -265,13 +267,13 @@ test("pedido a Claudia sin IA: en un tirón, que pruebe en un rato; «por hoy» 
     let { textos } = await pedir("claudia contame algo", MODERADOR);
     assert.deepEqual(textos, ["Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅"]);
 
-    for (const pausa of globalThis.geminiEnPausa.values()) pausa.hasta = Date.now() + 2 * 60 * 60 * 1000; // hours of 429s
+    for (const pausa of geminiEnPausa.values()) pausa.hasta = Date.now() + 2 * 60 * 60 * 1000; // hours of 429s
     globalThis.autoIaAvisoFalla.clear();
     ({ textos } = await pedir("claudia contame algo", MODERADOR));
     assert.deepEqual(textos, ["🤖 Se quedó sin cuota la IA (Gemini y los respaldos). Hasta que se renueve, Claudia no responde charlas.", "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅"]);
   } finally {
     globalThis.fetch = fetchAntes;
-    globalThis.geminiEnPausa.clear();
+    geminiEnPausa.clear();
   }
 });
 

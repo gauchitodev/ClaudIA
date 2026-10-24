@@ -110,7 +110,7 @@ test("avisos al owner: van al primer owner con número, aunque el primero esté 
 
 test("memoria corta y memoria del grupo", () => {
   for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
-  assert.equal(globalThis.contextoChat.get("c").length, 200);
+  assert.equal(CC.contextoChat.get("c").length, 200);
   assert.equal(CC.textoContexto("c", false).split("\n").length, 14);
   assert.match(Mem.recordar(G, "u", "que Fulano siempre llega tarde").mensaje, /Anotado \(#1\): Fulano siempre llega tarde/);
   assert.match(Mem.recordar(G, "u", "x").error, /¿Qué tengo que recordar/);

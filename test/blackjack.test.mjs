@@ -13,8 +13,8 @@ const saldo = () => F.getSaldoCoins(G, "u");
 // A hand left open keeps its timer for the decision (60 s, armarTimer in lib/blackjack.js): it goes with the hand, or
 // this file's process stayed up a minute after the last test, waiting for them.
 const sinManos = () => {
-  for (const partida of globalThis.manosBlackjack.values()) clearTimeout(partida.timeout);
-  globalThis.manosBlackjack.clear();
+  for (const partida of B.manosBlackjack.values()) clearTimeout(partida.timeout);
+  B.manosBlackjack.clear();
 };
 const nueva = () => {
   fijarSaldo(F, G, "u", 100);
@@ -172,7 +172,7 @@ test("una mano por persona, límites y tiempo agotado", async () => {
   B.repartir(G, "u", 20, (v) => (vencida = v), mazoDe("8♠", "8♦", "9♦", "7♣", "5♥", "K♣", "2♠"));
   B.dividir(G, "u");
   await esperar(150);
-  assert.ok(vencida && /se te pasó el tiempo/.test(vencida.mensaje) && globalThis.manosBlackjack.size === 0);
+  assert.ok(vencida && /se te pasó el tiempo/.test(vencida.mensaje) && B.manosBlackjack.size === 0);
   B.BLACKJACK.SEGUNDOS_DECISION = 60;
 });
 

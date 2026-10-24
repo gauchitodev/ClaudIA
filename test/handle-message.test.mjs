@@ -15,7 +15,7 @@ const GRUPO = "120363000000000001@g.us";
 const BOT = "200000000000001@lid";
 const ANA = "300000000000002@lid";
 const BETO = "300000000000003@lid";
-let F, handleMessage, RITMO, esperarTurno;
+let F, handleMessage, RITMO, esperarTurno, contextoChat;
 const carpeta = {}; // file name -> plugin, every plugin in the folder
 const prompts = []; // what Claudia asked the AI
 const fetchReal = globalThis.fetch;
@@ -37,6 +37,7 @@ before(async () => {
   };
   (await import("../lib/wa-socket.js")).serialize(); // what turns Baileys' message into the bot's m
   ({ handleMessage } = await import("../handle-message.js"));
+  ({ contextoChat } = await import("../lib/contexto-chat.js"));
   for (const archivo of fs.readdirSync(path.join(RAIZ, "plugins")).filter((f) => f.endsWith(".js")).sort()) {
     carpeta[archivo] = (await import(`../plugins/${archivo}`)).default;
   }
@@ -132,16 +133,16 @@ test("lo que borra la moderación no llega a los juegos ni a los contadores, y u
     assert.deepEqual([acerto(), cuenta() - antes, oyeron], [true, 1, ["c"]], "sin el link, sí");
 
     // Beto said something; then he's put on the blacklist, and he deletes it.
-    globalThis.contextoChat.delete(GRUPO);
+    contextoChat.delete(GRUPO);
     const dicho = llega(client, BETO, "algo que después borro");
     await dicho.hecho;
-    assert.deepEqual(globalThis.contextoChat.get(GRUPO)?.map((e) => e.texto), ["algo que después borro"]);
+    assert.deepEqual(contextoChat.get(GRUPO)?.map((e) => e.texto), ["algo que después borro"]);
     F.addToBlacklist("59899000033@s.whatsapp.net", "estafa", "owner", GRUPO, BETO);
     globalThis.enviados = [];
     const borrado = `ABCDEF${String(++numero).padStart(6, "0")}`;
     await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id: borrado, participant: BETO }, message: { protocolMessage: { type: 0, key: { remoteJid: GRUPO, fromMe: false, id: dicho.id, participant: BETO } } }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Beto", _upsertType: "notify", _llegada: Date.now() });
     assert.ok(globalThis.enviados.some((e) => e.msg?.delete?.id === borrado), "la lista negra lo tomó como suyo");
-    assert.deepEqual(globalThis.contextoChat.get(GRUPO)?.map((e) => e.texto), [], "y lo que borró ya no está en la memoria");
+    assert.deepEqual(contextoChat.get(GRUPO)?.map((e) => e.texto), [], "y lo que borró ya no está en la memoria");
   } finally {
     console.error = errorReal;
     Tr.cerrarRonda(GRUPO);
@@ -194,7 +195,7 @@ test("el saludo y los chistes no le contestan a lo que borra la moderación", as
 // memory or answer from it, found by their marks, and the marketplace's.
 test("memoria corta: cada mensaje entra cuando llega, aunque los hooks de antes manden algo", async () => {
   globalThis.plugins = Object.fromEntries(Object.entries(carpeta).filter(([archivo, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal || archivo === "_compraventa.js")));
-  globalThis.contextoChat.delete(GRUPO);
+  contextoChat.delete(GRUPO);
   const client = cliente({ turnos: true });
   await client.sendText(GRUPO, "(algo que Claudia acaba de mandar)"); // so the next send in this chat waits its turn
   const venta = llega(client, ANA, "#vendo bici rodado 26, $ 4.000, Pocitos");
@@ -204,8 +205,8 @@ test("memoria corta: cada mensaje entra cuando llega, aunque los hooks de antes 
   const contexto = prompts.at(-1).match(/Últimos mensajes del grupo[^\n]*\n([\s\S]*?)\n\n/)?.[1];
   assert.equal(contexto, "- Ana: #vendo bici rodado 26, $ 4.000, Pocitos", "Claudia contesta sabiendo de la venta, y la pregunta va aparte");
   assert.deepEqual(
-    globalThis.contextoChat.get(GRUPO).map((x) => [x.nombre, x.id]),
-    [["Ana", venta.id], ["Beto", pregunta.id], ["Claudia", globalThis.contextoChat.get(GRUPO).at(-1).id]],
+    contextoChat.get(GRUPO).map((x) => [x.nombre, x.id]),
+    [["Ana", venta.id], ["Beto", pregunta.id], ["Claudia", contextoChat.get(GRUPO).at(-1).id]],
     "en el orden en que llegaron",
   );
 });

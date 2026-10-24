@@ -23,15 +23,6 @@ export const EN_GLOBALTHIS = {
     ...["autoIaAvisoFalla", "autoIaCooldown", "avisoATodos", "blGroupListCache", "esperaIa", "listaNegraMostrada"],
     ...["resumenCooldown", "vistazoAdminCooldown"],
   ],
-  // A lib/ module's own state. A variable of the module would do, though lib/tacto.js reads the games' without
-  // importing them; each one leaves the list when its module moves it.
-  estadoDeLib: [
-    ...["avisoJuegosCerrados", "bateriaBajaAvisada", "bateriaLecturaAnterior", "bateriaNoAlcanzaAvisada", "carreras"],
-    ...["clarosCache", "colaDescargas", "contextoChat", "contextoChatRecorte", "decisionesVistazo", "duelos"],
-    ...["fallosDescarga", "fuentesPorChat", "geminiEnPausa", "horarioGrupoReintento", "ingresosGrupo"],
-    ...["manosBlackjack", "mesasRuleta", "partidasMines", "peleas", "rafagasVistazo", "rondasTrivia", "triviaConIa"],
-    ...["ultimaRafaga", "ultimoAvisoOwner", "vistazosEnCurso", "vistazosIniciados"],
-  ],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 

@@ -14,7 +14,7 @@ import { prepararBase, clienteFalso } from "./helpers.mjs";
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const G = "hooks@g.us";
 const BOT = "200000000000001@lid";
-let F, L, Tr, hooks;
+let F, L, Tr, hooks, contextoChat;
 let consultasIA = 0; // how many times Claudia asked the AI
 const fetchReal = globalThis.fetch;
 const logReal = console.log;
@@ -33,6 +33,7 @@ before(async () => {
   };
   L = await import("../load-functions.js");
   Tr = await import("../lib/trivia.js");
+  ({ contextoChat } = await import("../lib/contexto-chat.js"));
   // The hooks these tests are about, inserted in the folder's order, as loadPlugins does.
   hooks = {};
   for (const nombre of ["_all-anti-links", "_anti-link-plus", "_auto-ia", "_chatbot-events", "_compraventa", "_hashtags", "_manejador-lista-negra", "_memoria-corta", "_trivia"]) {
@@ -135,7 +136,7 @@ test("lista negra: a quien saca no le contesta Claudia, ni le publica el #vendo"
   assert.deepEqual(client.acciones, ["remove 777@lid"]);
   assert.equal(consultasIA, antes, "Claudia no le contestó");
   assert.equal(F.publicacionesActivas(G).length, 0, "la publicación no quedó");
-  assert.equal(globalThis.contextoChat.get(G)?.some((e) => e.usuario === "777@lid") ?? false, false, "ni quedó en la memoria de Claudia");
+  assert.equal(contextoChat.get(G)?.some((e) => e.usuario === "777@lid") ?? false, false, "ni quedó en la memoria de Claudia");
 });
 
 test("anti-link: lo que borra no lo publica la compraventa, no cuenta como hashtag y Claudia no lo contesta", async () => {

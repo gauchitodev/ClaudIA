@@ -35,8 +35,8 @@ after(() => {
   console.error = errorReal;
 });
 beforeEach(() => {
-  globalThis.contextoChat.delete(C);
-  globalThis.contextoChatRecorte.delete(C);
+  CC.contextoChat.delete(C);
+  CC.contextoChatRecorte.delete(C);
   globalThis.resumenCooldown.delete(C);
   falla = false;
   pedidos = [];
@@ -88,7 +88,7 @@ test("una edición vuelve a mirar si el mensaje es un comando", async () => {
   const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   const base = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [] };
   await MemoriaCorta.before({ ...base, text: "hola gente", key: { id: "ED1", participant: "555@lid" } }, { user: {} });
-  const entrada = () => globalThis.contextoChat.get(C).find((e) => e.id === "ED1");
+  const entrada = () => CC.contextoChat.get(C).find((e) => e.id === "ED1");
   assert.equal(CC.fueComando(entrada()), false);
   await MemoriaCorta.before({ ...base, text: "", message: { protocolMessage: { type: 14, key: { id: "ED1" }, editedMessage: { conversation: ".menu" } } }, key: { id: "ED2", participant: "555@lid" } }, { user: {} });
   assert.equal(CC.fueComando(entrada()), true);
@@ -150,12 +150,12 @@ test("a quien recién entró le resume solo lo de desde que entró", async () =>
     assert.doesNotMatch(pedidos[0], /antes/);
     assert.match(pedidos[0], /Beto: después 1/);
 
-    globalThis.contextoChat.delete(C);
+    CC.contextoChat.delete(C);
     globalThis.resumenCooldown.delete(C);
     antes();
     assert.equal(await pedir(["6"]), "Desde que entraste casi no hubo mensajes, y de lo de antes no te cuento 🤐");
   } finally {
-    globalThis.ingresosGrupo.clear();
+    CC.ingresosGrupo.clear();
   }
   const fs = await import("fs");
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");

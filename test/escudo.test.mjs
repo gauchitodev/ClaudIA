@@ -76,7 +76,7 @@ test("escudo: carrera", async () => {
 });
 
 test("escudo: blackjack devuelve la mano perdida, incluida la doblada", () => {
-  globalThis.manosBlackjack.clear();
+  B.manosBlackjack.clear();
   conEscudo("u");
   B.repartir(G, "u", 20, null, mazoDe("10♠", "6♥", "10♦", "7♣"));
   let r = B.plantarse(G, "u"); // 16 contra 17
@@ -91,7 +91,7 @@ test("escudo: blackjack devuelve la mano perdida, incluida la doblada", () => {
 
   // With a split hand the shield covers what was lost on both, which is what the item promises ("te devuelve lo
   // apostado"): it used to cover only the first. The cap of 25 still rules.
-  globalThis.manosBlackjack.clear();
+  B.manosBlackjack.clear();
   fijarSaldo(F, G, "u", 100);
   conEscudo("u");
   B.repartir(G, "u", 20, null, mazoDe("8♠", "8♥", "10♦", "9♣", "3♠", "2♥"));

@@ -6,7 +6,7 @@ import strings from "../lib/strings.js";
 // Claudia's initiative: the glances (lib/vistazos.js), the feedback (lib/iniciativa.js), the hook and the commands.
 // Gemini is swapped for canned decisions; the typing wait, the pause between reactions and the dice are pinned.
 
-let F, I, V, C, E, RITMO, Hook, Iniciativa, OwnerVistazo;
+let F, I, V, C, E, RITMO, Hook, Iniciativa, OwnerVistazo, geminiEnPausa;
 const decisiones = []; // what "Gemini" answers, in order: an object (sent as JSON), a raw string, 429, or a function returning one
 const cuerpos = []; // every request sent to "Gemini"
 let consultas = 0;
@@ -38,6 +38,7 @@ before(async () => {
   Hook = (await import("../plugins/_iniciativa.js")).default;
   Iniciativa = (await import("../plugins/iniciativa.js")).default;
   OwnerVistazo = (await import("../plugins/owner-vistazo.js")).default;
+  ({ geminiEnPausa } = await import("../lib/gemini.js"));
   V._dep.esperar = async () => {};
   V._dep.random = () => 0.5;
 });
@@ -213,7 +214,7 @@ test("vistazo: si la IA falla o devuelve cualquier cosa, no hace nada y no da na
   decisiones.push(429, 429, 429); // the three Gemini models out of quota
   client = cliente(chat);
   informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
-  globalThis.geminiEnPausa.clear();
+  geminiEnPausa.clear();
   assert.equal(informe.error, "sin cuota");
   assert.equal(client.salidas.length, 0);
   assert.equal(F.estadoIniciativa(chat).ultimoVistazo, leido);
@@ -301,9 +302,9 @@ test("ticker: lanza el vistazo que toca, re-sortea el vencido y no pisa uno en c
   assert.ok(F.estadoIniciativa(chat).proximoVistazo > AHORA);
 
   F.guardarEstadoIniciativa(chat, { proximoVistazo: AHORA - MIN });
-  globalThis.vistazosEnCurso.add(chat);
+  V.vistazosEnCurso.add(chat);
   lanzados = V.tickVistazos(client, AHORA);
-  globalThis.vistazosEnCurso.delete(chat);
+  V.vistazosEnCurso.delete(chat);
   assert.equal(lanzados.length, 0);
 });
 
@@ -483,4 +484,19 @@ test("comandos: .vistazo es para admins, con un vistazo cada tanto; el owner no 
   await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: true });
   assert.equal(client.salidas.length, antes + 1);
   assert.equal(client.salidas.at(-1).jid, m.senderJid);
+});
+
+// The glances' timer starts once, however many times iniciarVistazos is called (lib/tareas-programadas.js calls it at
+// startup): a second one would glance twice as often.
+test("vistazos: el timer arranca una sola vez", () => {
+  const intervaloReal = globalThis.setInterval;
+  let arrancados = 0;
+  globalThis.setInterval = () => (arrancados++, { unref() {} });
+  try {
+    V.iniciarVistazos();
+    V.iniciarVistazos();
+  } finally {
+    globalThis.setInterval = intervaloReal;
+  }
+  assert.equal(arrancados, 1);
 });

@@ -7,7 +7,7 @@ import strings from "../lib/strings.js";
 // while naming her. And when asked whether something is true she can look it up (a second query, with Google Search),
 // answering without links unless the sources are asked for. Gemini is swapped for a fake that records each request.
 
-let AutoIA, A, RITMO;
+let AutoIA, A, RITMO, contextoChat, fuentesPorChat, geminiEnPausa;
 let clasificacion; // what the classifying query answers
 let busqueda; // what the search query answers: { texto, fuentes } or null to fail
 let pedidos = []; // the bodies Gemini got
@@ -38,6 +38,9 @@ before(async () => {
   };
   AutoIA = (await import("../plugins/_auto-ia.js")).default;
   A = await import("../lib/audios.js");
+  ({ contextoChat } = await import("../lib/contexto-chat.js"));
+  ({ fuentesPorChat } = await import("../lib/fuentes.js"));
+  ({ geminiEnPausa } = await import("../lib/gemini.js"));
   globalThis.plugins = {};
 });
 after(() => {
@@ -69,7 +72,7 @@ test("nota de voz respondiéndole: la escucha, contesta y la deja en el hilo con
   assert.equal(pedidos.length, 1);
   assert.deepEqual(audioDe(pedidos[0]), { mime_type: "audio/ogg", data: AUDIO.toString("base64") });
   assert.match(textoDe(pedidos[0]), /te responde con un audio a este mensaje tuyo: "¿Cómo andan\?"/);
-  const hilo = globalThis.contextoChat.get(C);
+  const hilo = contextoChat.get(C);
   assert.ok(hilo.some((x) => x.texto === "🎤 (audio) cuenta que se le rompió el auto" && x.nombre === "Ana"));
 });
 
@@ -119,7 +122,7 @@ test("un tema que mandó ella con .play: ya sabe cuál es y no lo baja", async (
 });
 
 test("¿es verdad?: busca, contesta sin links, y los pasa solo cuando se los piden", async () => {
-  globalThis.fuentesPorChat.delete(C);
+  fuentesPorChat.delete(C);
   clasificacion = { comando: "ninguno", respuesta: "Ni idea, dejame ver", buscar: "suba del boleto en Montevideo" };
   busqueda = { texto: "Es verdad, sube a 60 pesos desde el lunes [1].", fuentes: [{ titulo: "montevideo.com.uy", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc" }] };
   const textos = await mandar({ text: "claudia es verdad que sube el boleto?" });
@@ -138,7 +141,7 @@ test("¿es verdad?: busca, contesta sin links, y los pasa solo cuando se los pid
 });
 
 test("si la búsqueda falla queda la primera respuesta; un bolazo del grupo no se busca", async () => {
-  globalThis.fuentesPorChat.delete(C);
+  fuentesPorChat.delete(C);
   clasificacion = { comando: "ninguno", respuesta: "Mmm, no sé si creerte", buscar: "algo raro" };
   busqueda = null;
   assert.deepEqual(await mandar({ text: "claudia es verdad esto?" }), ["Mmm, no sé si creerte"]);
@@ -200,6 +203,6 @@ test("si Gemini no contesta, el respaldo sabe que el audio no lo escuchó", asyn
   } finally {
     globalThis.fetch = fetchAntes;
     globalThis.groqApiKey = "";
-    globalThis.geminiEnPausa.clear();
+    geminiEnPausa.clear();
   }
 });

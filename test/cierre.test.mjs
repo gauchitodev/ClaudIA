@@ -43,7 +43,8 @@ test("cierre: devuelve lo que está en juego en cada juego, una sola vez", () =>
   assert.deepEqual(r, { apuestas: 8, monedas: 210 });
   for (const u of gente.filter((u) => u !== "bjseguro")) assert.equal(saldo(u), 100, `${u} recupera todo`);
   assert.equal(saldo("bjseguro"), 90, "la mano vuelve, el seguro ya se había perdido");
-  for (const mapa of ["mesasRuleta", "carreras", "manosBlackjack", "partidasMines", "duelos", "peleas"]) assert.equal(globalThis[mapa].size, 0, `${mapa} quedó vacío`);
+  const mapas = { mesasRuleta: Casino.mesasRuleta, carreras: Carrera.carreras, manosBlackjack: BJ.manosBlackjack, partidasMines: Mines.partidasMines, duelos: D.duelos, peleas: D.peleas };
+  for (const [nombre, mapa] of Object.entries(mapas)) assert.equal(mapa.size, 0, `${nombre} quedó vacío`);
 
   assert.deepEqual(Cierre.devolverLoQueEstaEnJuego(), { apuestas: 0, monedas: 0 }, "una segunda vez no devuelve de nuevo");
   assert.equal(saldo("ruleta"), 100);

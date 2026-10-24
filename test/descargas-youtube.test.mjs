@@ -8,7 +8,7 @@ import strings from "../lib/strings.js";
 // didn't give it back when nothing came out; and when the "here you go" after a song failed, the next candidate was
 // downloaded, sent and paid for again.
 
-let F, D, COINS;
+let F, D, COINS, colaDescargas;
 const YO = "yo@lid";
 let resultados = []; // what the YouTube search finds: [{ title, id, thumbnail? }]
 let bajadaFalla = false;
@@ -24,6 +24,7 @@ before(async () => {
   F.initDataDB({ chat: G, sender: YO, senderJid: "", pushName: "Yo" });
   D = await import("../plugins/dl-youtube.js");
   ({ COINS } = await import("../lib/urucoins.js"));
+  ({ colaDescargas } = await import("../lib/cola-descargas.js"));
   // Searches answer a JSON line per result (nothing on SoundCloud); a download creates the file it was asked for
   // with -o, or fails the way YouTube does.
   D._dep.ejecutar = async (bin, args) => {
@@ -48,7 +49,7 @@ beforeEach(() => {
 
 // The download runs in the global queue, after the command answers.
 async function terminarCola() {
-  for (let i = 0; i < 200 && (globalThis.colaDescargas.procesando || globalThis.colaDescargas.tareas.length); i++) await esperar(5);
+  for (let i = 0; i < 200 && (colaDescargas.procesando || colaDescargas.tareas.length); i++) await esperar(5);
 }
 async function pedir(command, { enEspera = true } = {}) {
   const m = { chat: G, sender: YO, isGroup: true, react: () => {} };

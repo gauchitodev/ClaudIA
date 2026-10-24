@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { _dep, parsearViento, parsearClaros, parsearNubes, leerClaros, msHastaLectura, buscarEstacion, textoClaro, textoEstacion, textoListaClaros } from "../lib/claros.js";
+import { _dep, clarosCache, parsearViento, parsearClaros, parsearNubes, leerClaros, msHastaLectura, buscarEstacion, textoClaro, textoEstacion, textoListaClaros } from "../lib/claros.js";
 import { TIEMPO_PRESENTE, describirTiempoPresente } from "../lib/tiempo-presente.js";
 
 // a real excerpt from Inumet's page (2026-09-06), with a gust and a windless station added for testing
@@ -42,7 +42,7 @@ test("claros: caché de una hora, lectura forzada con freno de un minuto y horar
     pedidos++;
     return HTML;
   };
-  globalThis.clarosCache = { datos: null, leido: 0 };
+  Object.assign(clarosCache, { datos: null, leido: 0 });
   let r = await leerClaros({ ahora: T0 });
   assert.equal(r.deCache, false);
   r = await leerClaros({ ahora: T0 + 30 * 60000 });
@@ -64,7 +64,7 @@ test("claros: caché de una hora, lectura forzada con freno de un minuto y horar
 
 test("claros: búsqueda por ciudad, alias e ICAO, y los textos con la fuente", async () => {
   _dep.pedir = async () => HTML;
-  globalThis.clarosCache = { datos: null, leido: 0 };
+  Object.assign(clarosCache, { datos: null, leido: 0 });
   const { datos } = await leerClaros({ ahora: T0 });
   assert.equal(buscarEstacion(datos, "salto"), null);
   assert.equal(buscarEstacion(datos, "Carrasco").ciudad, "Carrasco");
@@ -90,7 +90,7 @@ test("claros: búsqueda por ciudad, alias e ICAO, y los textos con la fuente", a
     throw new Error("Inumet respondió 503");
   };
   assert.match(await textoClaro("carrasco", T0 + 2 * 3600000), /Claro Inumet · Carrasco[\s\S]*⚠️ Inumet no respondió \(Inumet respondió 503\); te muestro la última lectura\./);
-  globalThis.clarosCache = { datos: null, leido: 0 };
+  Object.assign(clarosCache, { datos: null, leido: 0 });
   assert.match(await textoClaro("", T0), /^No pude leer los claros de Inumet ahora \(Inumet respondió 503\)/);
 });
 

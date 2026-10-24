@@ -378,7 +378,7 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
   client.user = { ...client.user, lid: YO };
   globalThis.client.user.lid = YO;
   respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
-  globalThis.contextoChat.delete(AMIGOS);
+  CC.contextoChat.delete(AMIGOS);
   const habla = async (extra) => {
     globalThis.autoIaCooldown.delete(AMIGOS);
     const m = { chat: AMIGOS, isGroup: true, sender: ANA, pushName: "Ana", quoted: null, ...extra };
@@ -391,7 +391,7 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
     const prompt = await habla({ text: "@200000000000001 decile a @300000000000003 y a @300000000000096 que vengan", mentionedJid: [YO, BETO, NADIE], key: { id: "NOMBRES1" } });
     assert.match(prompt, /Mensaje de Ana: "@Claudia decile a @Beto y a @alguien que vengan"/);
     assert.doesNotMatch(prompt, /300000000000|200000000000001/);
-    assert.deepEqual(globalThis.contextoChat.get(AMIGOS).filter((e) => !e.esBot).map((e) => e.texto), ["@Claudia decile a @Beto y a @alguien que vengan"], "y así queda en su memoria");
+    assert.deepEqual(CC.contextoChat.get(AMIGOS).filter((e) => !e.esBot).map((e) => e.texto), ["@Claudia decile a @Beto y a @alguien que vengan"], "y así queda en su memoria");
 
     const respuesta = await habla({ text: "jaja sí, ¿y @300000000000003?", mentionedJid: [BETO], key: { id: "NOMBRES2" }, quoted: { fromMe: true, id: "DECLAUDIA1", text: "¡Bien ahí @300000000000096!", contextInfo: { mentionedJid: [NADIE] } } });
     assert.match(respuesta, /responde a este mensaje tuyo: "¡Bien ahí @alguien!"\n\nSu mensaje: "jaja sí, ¿y @Beto\?"/);
@@ -616,7 +616,7 @@ test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   F.initDataDB({ chat: AMIGOS, sender: SIN_NOMBRE, senderJid: "", pushName: null });
   const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   globalThis.autoIaCooldown.delete(AMIGOS);
-  globalThis.contextoChat.delete(AMIGOS);
+  CC.contextoChat.delete(AMIGOS);
   respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
   const m = { chat: AMIGOS, isGroup: true, sender: SIN_NOMBRE, text: "claudia, ¿qué onda?", mentionedJid: [], quoted: null, key: { id: "SINNOMBRE1" } };
   const user = F.getUser(SIN_NOMBRE);
@@ -624,7 +624,7 @@ test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   await AutoIA.before(m, { client: { ...clienteFalso(), sendPresenceUpdate: async () => {} }, participants: [], isAdmin: false, isMod: false, isOwner: false, user, chat: F.getChat(AMIGOS) });
   assert.match(prompts.at(-1), /Mensaje de alguien: "claudia, ¿qué onda\?"/);
   assert.doesNotMatch(prompts.at(-1), /300000000000097/);
-  assert.deepEqual(globalThis.contextoChat.get(AMIGOS).filter((e) => e.usuario === SIN_NOMBRE).map((e) => e.nombre), ["alguien"]);
+  assert.deepEqual(CC.contextoChat.get(AMIGOS).filter((e) => e.usuario === SIN_NOMBRE).map((e) => e.nombre), ["alguien"]);
 });
 
 // What the AI answers carries what she was going to remember of the person and what a voice note said, and the log
