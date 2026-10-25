@@ -240,6 +240,14 @@ test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   assert.match(ultimo(), /⭐ Tus calificaciones \(1, promedio 5,0 de 5/);
 });
 
+// In a group that lists people by number, a quoted message comes with its author's number: the post goes under the LID
+// the database knows for it, as everything else of theirs.
+test("compraventa: publicar respondiendo un mensaje que trae el número de su autor lo deja bajo su LID", async () => {
+  F.initDataDB({ chat: G, sender: "778@lid", senderJid: "59899000778@s.whatsapp.net", pushName: "Vende" });
+  await correr("778@lid", "vendo", "", { quoted: cita("59899000778@s.whatsapp.net", "bici rodado 26, $ 4.000") });
+  assert.deepEqual([F.publicacionesDe(G, "778@lid").length, F.publicacionesDe(G, "59899000778@s.whatsapp.net").length], [1, 0]);
+});
+
 test("compraventa: publicar respondiendo a un mensaje", async () => {
   // The case that started all this: a photo with the description in its caption, and its owner posts it by replying.
   const foto = cita("444@lid", "ropero de pino, $ 3.000, Malvín");

@@ -1,6 +1,8 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { ESLint } from "eslint";
 import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
@@ -255,7 +257,7 @@ test("a quién nombra un mensaje es solo de lib/identidad.js", () => {
 test("lib/identidad.js no importa nada del bot más que la base", () => {
   const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
   const deDonde = [...fuente.matchAll(/\bfrom\s+"([^"]+)"|\bimport\s*\(\s*"([^"]+)"/g)].map(([, a, b]) => a || b);
-  assert.deepEqual(deDonde.filter((de) => de.startsWith(".")), ["../database-functions.js"]);
+  assert.deepEqual([...new Set(deDonde.filter((de) => de.startsWith(".")))], ["../database-functions.js"]);
 });
 
 // ---------- whom a command names: who has the number now, and no number made up ----------
@@ -455,6 +457,84 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
     }
     n++;
   }
+});
+
+test("idsDe: de un número, también la LID de la base; de una LID, su número solo si se pide", () => {
+  const { X, LID } = filaVieja(160);
+  assert.deepEqual(I.idsDe(X), [X, LID]);
+  assert.deepEqual(I.idsDe([LID, null, ""]), [LID]);
+  assert.deepEqual(I.idsDe(LID, { conSuNumero: true }), [LID, X]);
+});
+
+// .setpareja @a @b by the owner, in a group that lists people by number: each number is whoever the group lists with
+// it, as for any command that names someone.
+test("dosPersonas con el grupo: un número es de quien el grupo lista con él", async () => {
+  const Par = await import("../lib/parejas.js");
+  const [a, b] = [numeroReciclado(161), numeroReciclado(162)];
+  const participants = [...a.porNumero, ...b.porNumero];
+  assert.deepEqual(Par.dosPersonas(mensaje({ mentionedJid: [a.X, b.X] }), `@${digitos(a.X)} @${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO]);
+  assert.deepEqual(Par.dosPersonas(mensaje({}), `@${digitos(a.X)} @${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO], "tipeados con @");
+  assert.deepEqual(Par.dosPersonas(mensaje({}), `+${digitos(a.X)} +${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO], "tipeados con +");
+});
+
+test(".setpareja y .setmarry le pasan el grupo: forman y casan a quienes tienen los números ahora", async () => {
+  const Par = await import("../lib/parejas.js");
+  const plugin = async (archivo) => (await import(`../plugins/${archivo}.js`)).default;
+  const [a, b] = [numeroReciclado(165), numeroReciclado(166)];
+  const participants = [...a.porNumero, ...b.porNumero];
+  const m = mensaje({ sender: unaLid(167), mentionedJid: [a.X, b.X] });
+  const texto = `@${digitos(a.X)} @${digitos(b.X)}`;
+  await (await plugin("pareja-set-pareja")).run(m, { client: cliente(), text: texto, participants });
+  assert.equal(Par.parejaDe(a.NUEVO)?.pareja, b.NUEVO, ".setpareja");
+  await (await plugin("pareja-set-marry")).run(m, { client: cliente(), text: texto, participants });
+  assert.ok(Par.parejaDe(a.NUEVO)?.casadosDesde > 0, ".setmarry");
+});
+
+// The saint is the second owner in config.toml: by the LID the group lists their number with, the same way the person
+// named is read. By the database alone, a saint with no row there wasn't one.
+test("el santo de .gay2 es quien el grupo lista con el número del segundo owner", async (t) => {
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+  });
+  const [S, SANTO] = [unNumero(163), unaLid(163)];
+  globalThis.owners = ["59899111222", digitos(S)];
+  globalThis.enviados = [];
+  const Juegos = (await import("../plugins/fun-calcular-juegos.js")).default;
+  await Juegos.run(mensaje({ sender: unaLid(164), mentionedJid: [S] }), { client: cliente(), command: "gay2", text: `@${digitos(S)}`, participants: [{ id: S, lid: SANTO, admin: null }] });
+  assert.match(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, /es un santo/);
+});
+
+// ---------- the boundary: only lib/identidad.js asks the database who is who ----------
+
+// Whichever way the import is written: by name, the whole module, handed on, or through import(), which the lint can't
+// read and so is stopped whole. lib/identidad.js asks; the tests look into the database freely; and the rest of the
+// database is open to everyone.
+test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el lint", async () => {
+  const eslint = new ESLint({ cwd: fileURLToPath(new URL("..", import.meta.url)) });
+  const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
+  const pedidos = [
+    ['import { lidDeNumero } from "../database-functions.js";\nlidDeNumero("x");\n', "no-restricted-imports"],
+    ['import { getUser, esOwner as owner } from "../database-functions.js";\nowner(getUser("x"));\n', "no-restricted-imports"],
+    ['import * as F from "../database-functions.js";\nF.getUser("x");\n', "no-restricted-imports"],
+    ['export { jidDeLid } from "../database-functions.js";\n', "no-restricted-imports"],
+    ['export * from "./database-functions.js";\n', "no-restricted-imports"],
+    ['export const base = () => import("../database-functions.js");\n', "no-restricted-syntax"],
+  ];
+  for (const [codigo, regla] of pedidos) {
+    for (const archivo of ["plugins/x.js", "lib/x.js", "x.js"]) assert.deepEqual(await reglas(codigo, archivo), [regla], `${archivo}: ${codigo.split("\n")[0]}`);
+    assert.deepEqual(await reglas(codigo, "test/x.test.mjs"), [], `en un test: ${codigo.split("\n")[0]}`);
+  }
+  assert.deepEqual(await reglas('import { lidDeNumero, jidDeLid } from "../database-functions.js";\nlidDeNumero(jidDeLid("x"));\n', "lib/identidad.js"), []);
+  assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\ngetUser("x");\n', "plugins/x.js"), [], "lo demás de la base, sí");
+});
+
+// A name on the list that database-functions.js no longer exports stops nothing: renamed, the function would be open to
+// every file again.
+test("cada nombre de SOLO_IDENTIDAD sigue exportado por database-functions.js", async () => {
+  const { SOLO_IDENTIDAD } = await import("../eslint.config.js");
+  assert.ok(SOLO_IDENTIDAD.length > 0);
+  for (const nombre of SOLO_IDENTIDAD) assert.equal(typeof F[nombre], "function", nombre);
 });
 
 // ---------- whom it protects and whom it acts on: the bot, the owners, and the id the group gives ----------

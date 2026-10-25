@@ -1,5 +1,4 @@
-import { lidDeNumero } from "../database-functions.js";
-import { lidMencionado, esElBot } from "../lib/identidad.js";
+import { lidMencionado, esElBot, lidDe } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
@@ -10,10 +9,11 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
   // With nobody mentioned, the game is about whoever wrote it.
   const who = lidMencionado(m, text, participants) || m.sender;
   if (command !== "love" && esElBot(who, client)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
-  // The "saint" is the second configured owner; their @lid is resolved through the database because mentions arrive as @lid.
+  // The "saint" is the second configured owner; their @lid is resolved, by the group and failing that the database,
+  // because mentions arrive as @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
   const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
-  const santoLid = santoJid ? lidDeNumero(santoJid) : null;
+  const santoLid = santoJid ? lidDe(santoJid, participants, { oElMismo: false }) : null;
   if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, `0% @${who.split("@")[0]} es un santo 😇`, m, { mentions: [who] });
 
   const porcentaje = Math.floor(Math.random() * 101);

@@ -5,8 +5,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Waiting on WhatsApp with a cap of CONSULTA_MS (lidSegunWhatsApp in lib/identidad.js, protegidosDe in
-// lib/inactivos.js): the cap keeps the process going while it lasts, and once there's an answer it doesn't hold it up.
+// Waiting on WhatsApp with a cap of CONSULTA_MS (lidSegunWhatsApp and conElMapaDeWhatsApp in lib/identidad.js, the
+// second through protegidosDe in lib/inactivos.js): the cap keeps the process going while it lasts, and once there's an
+// answer it doesn't hold it up.
 // Each case runs in a process of its own with nothing else going, so only the wait can keep it alive: in the test
 // runner's own process, Node 24 and later keep a pending test going themselves, and a cap that didn't only failed on
 // Node 22. A process with nothing left to do and an await still pending ends with code 13.

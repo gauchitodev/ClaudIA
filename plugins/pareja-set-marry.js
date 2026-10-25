@@ -6,8 +6,8 @@ const plugin = {};
 plugin.cmd = ["setmarry"];
 plugin.onlyOwner = true;
 
-plugin.run = async (m, { client, text }) => {
-  const personas = dosPersonas(m, text);
+plugin.run = async (m, { client, text, participants }) => {
+  const personas = dosPersonas(m, text, participants);
   if (!personas) return client.sendText(m.chat, AVISO_DOS_PERSONAS, m);
   const tiempo = tiempoIndicado(text);
   if (tiempo === null) return client.sendText(m.chat, "Formato de tiempo incorrecto. Asegúrate de usar días, horas o minutos válidos.", m);

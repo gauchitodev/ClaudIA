@@ -26,6 +26,12 @@ export const EN_GLOBALTHIS = {
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 
+// What only lib/identidad.js asks the database: who is who (a number's LID, a LID's number, the owners). The rest of
+// the bot asks lib/identidad.js, so the same question gets the same answer everywhere: answered here and there, a
+// number that changed hands got a different one in each place. The tests look into the database freely.
+export const SOLO_IDENTIDAD = ["lidDeNumero", "jidDeLid", "idsDeOwners", "esOwner"];
+const PREGUNTALE_A_IDENTIDAD = "Who is who is lib/identidad.js's to ask the database (SOLO_IDENTIDAD, eslint.config.js): ask lib/identidad.js instead (lidDe, idsDe, esOwnerDe, idsDeOwners).";
+
 export default defineConfig([
   // Folders the bot generates while running (no source code in them).
   { ignores: ["database/", "tmp/", "botSession*/"] },
@@ -74,7 +80,21 @@ export default defineConfig([
           selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
           message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module; a global that has to be, goes on the list.",
         },
+        // Here and not in a block of its own: a second no-restricted-syntax for the same files would replace this one.
+        {
+          selector: "ImportExpression[source.value=/(^|\\/)database-functions\\.js$/]",
+          message: "database-functions.js goes in a static import: through import() the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
+        },
       ],
+    },
+  },
+
+  // Who is who goes to the database only from lib/identidad.js, whichever way the import is written: by name, the whole
+  // module (import * as), or handed on (export … from).
+  {
+    ignores: ["test/**", "lib/identidad.js"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ regex: "(^|/)database-functions\\.js$", importNames: SOLO_IDENTIDAD, message: PREGUNTALE_A_IDENTIDAD }] }],
     },
   },
 

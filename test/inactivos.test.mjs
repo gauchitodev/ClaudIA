@@ -360,6 +360,33 @@ test("un aviso guardado bajo la LID y el número se levanta entero: el regreso s
   assert.equal(F.getSaldoCoins(chat, "101@lid"), 10);
 });
 
+// A warning kept under the number alone, from a group that listed people by number, lifted by a message that brings
+// only the LID: by the number the database knows for that LID. Otherwise it stayed, and .k inactivos took them for
+// silent though they wrote.
+test("un aviso guardado solo bajo el número lo levanta un mensaje que trae solo la LID", async () => {
+  const chat = "inactivos-aviso-por-numero@g.us";
+  armarGrupo(chat);
+  F.marcarAvisoInactivo(chat, ["59899000101@s.whatsapp.net"], Date.now() - DIA);
+  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "" });
+  assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === "59899000101@s.whatsapp.net")?.avisado ?? null, null);
+});
+
+// A moderator's number that another LID has a newer row with: the group lists the number alone, and it may be the
+// moderator. Protected, as the roles are read by both identities: without the number of the moderator's LID, the newer
+// row took them for someone else, and .inactivos tagged them.
+test("un moderador listado por un número que otra LID también tiene no entra en .inactivos", async () => {
+  const chat = "inactivos-mod-por-numero@g.us";
+  const [MOD, OTRA, X] = ["300000000000781@lid", "300000000000782@lid", "59899000781@s.whatsapp.net"];
+  F.initDataDB({ chat, sender: MOD, senderJid: X, pushName: "Mod" });
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Otra', ?)").run(OTRA, X, Date.now() + 60_000);
+  F.setRolGrupo(chat, MOD, "mod", "105@lid");
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
+  const participants = [{ id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  assert.ok(!(ultimoEnviado()?.msg?.mentions || []).includes(X), textoEnviado());
+});
+
 // With ".inactivos 1" a moderator could warn the same people every other day, and coming back paid each time.
 test("el premio por volver va una vez cada 30 días, y .inactivos pide 7 días como mínimo", async () => {
   const chat = "inactivos-32@g.us";
@@ -423,19 +450,21 @@ test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de 
   // One at a time, as Baileys' own do it (Signal/lid-mapping.js).
   mapa.getLIDForPN = async (pn) => (await mapa.getLIDsForPNs([pn]))?.[0]?.lid || null;
   mapa.getPNForLID = async (lid) => (await mapa.getPNsForLIDs([lid]))?.[0]?.pn || null;
-  const [ownersReales, consultaReal, esperarReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar];
+  const ID = await import("../lib/identidad.js");
+  const [ownersReales, consultaReal, esperarReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar];
   // Put back by t.after, which runs also when the test runs out of its time: a finally after the hang never came, and
   // the next test ran with all of this still in place.
   t.after(() => {
     delete globalThis.client.signalRepository;
-    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, I._dep.esperar] = [ownersReales, consultaReal, esperarReal];
+    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar] = [ownersReales, consultaReal, esperarReal];
   });
   globalThis.owners = [...ownersReales, ...nuevos];
   globalThis.client.signalRepository = { lidMapping: mapa };
   I.INACTIVOS.CONSULTA_MS = 100;
   // The time limit, without the clock: it goes by once what's already answered is in. Measured, it failed under load.
+  // The wait is lib/identidad.js's, which asks the map (conElMapaDeWhatsApp), for as long as .inactivos says.
   const topes = [];
-  I._dep.esperar = (ms, valor) => (topes.push(ms), new Promise((r) => setImmediate(() => r(valor))));
+  ID._dep.esperar = (ms, valor) => (topes.push(ms), new Promise((r) => setImmediate(() => r(valor))));
   await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions, ["7709@lid"], "los owners, aunque la otra pregunta no tuvo respuesta");
   assert.deepEqual(preguntas.map(([lado]) => lado).sort(), ["lid", "pn"], "una pregunta para cada lado");
