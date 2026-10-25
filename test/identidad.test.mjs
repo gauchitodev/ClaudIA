@@ -257,33 +257,29 @@ test("lib/identidad.js no importa nada del bot más que la base", () => {
   assert.deepEqual(deDonde.filter((de) => de.startsWith(".")), ["../database-functions.js"]);
 });
 
-// ---------- wrong today: todo until the tanda that fixes each one ----------
+// ---------- whom a command names: who has the number now, and no number made up ----------
 
-const I3A = { todo: "se arregla en la tanda I3a" };
-const I3B = { todo: "se arregla en la tanda I3b" };
-const I3C = { todo: "se arregla en la tanda I3c" };
-
-test("un @número tipeado que el grupo empareja es de quien lo tiene ahora, no de la fila vieja (.mute)", I3A, async () => {
+test("un @número tipeado que el grupo empareja es de quien lo tiene ahora, no de la fila vieja (.mute)", async () => {
   const { X, VIEJO, NUEVO, porLid } = numeroReciclado(20);
   const texto = `@${digitos(X)}`;
   await P.silenciar.run(mensaje({ sender: unaLid(21), text: texto }), { client: cliente(), text: texto, usedPrefix: ".", command: "mute", participants: porLid, isOwner: true, isWaAdmin: true });
   assert.deepEqual([F.getUser(NUEVO).inGroup[G]?.mute, F.getUser(VIEJO).inGroup[G]?.mute], [true, undefined]);
 });
 
-test("una mención por LID de alguien sin fila no inventa un número con los dígitos de la LID", I3A, () => {
+test("una mención por LID de alguien sin fila no inventa un número con los dígitos de la LID", () => {
   const L = unaLid(22);
   const m = mensaje({ sender: unaLid(23), mentionedJid: [L] });
   assert.equal(I.destinatario(m, `@${digitos(L)}`, [{ id: L, phoneNumber: unNumero(22) }]).jid, unNumero(22), "el del grupo");
   assert.equal(I.destinatario(m, `@${digitos(L)}`, [{ id: L }]).jid, null, "ninguno");
 });
 
-test(".id de alguien sin fila no muestra los dígitos de su LID como número", I3A, async () => {
+test(".id de alguien sin fila no muestra los dígitos de su LID como número", async () => {
   const L = unaLid(24);
   await P.id.run(mensaje({ sender: unaLid(25), mentionedJid: [L] }), { client: cliente(), text: `@${digitos(L)}`, usedPrefix: ".", command: "id", participants: [{ id: L }], isOwner: true });
   assert.doesNotMatch(ultimoEnviado().msg.text, new RegExp(`\\+${digitos(L)}`));
 });
 
-test(".bloquear a alguien sin fila no bloquea un número que no existe", I3A, async (t) => {
+test(".bloquear a alguien sin fila no bloquea un número que no existe", async (t) => {
   const L = unaLid(26);
   const bloqueos = [];
   cliente().updateBlockStatus = async (jid, accion) => bloqueos.push([jid, accion]);
@@ -292,7 +288,7 @@ test(".bloquear a alguien sin fila no bloquea un número que no existe", I3A, as
   assert.deepEqual(bloqueos, []);
 });
 
-test(".addowner de alguien sin fila no escribe los dígitos de su LID en config.toml", I3A, async (t) => {
+test(".addowner de alguien sin fila no escribe los dígitos de su LID en config.toml", async (t) => {
   const L = unaLid(28);
   const antes = globalThis.owners;
   t.after(() => {
@@ -303,17 +299,18 @@ test(".addowner de alguien sin fila no escribe los dígitos de su LID en config.
   assert.doesNotMatch(fs.readFileSync("config.toml", "utf8"), new RegExp(digitos(L)));
 });
 
-test("lidsMencionados con el grupo: una mención por número es de quien el grupo lista con él", I3A, () => {
+test("lidsMencionados con el grupo: un número, mencionado o tipeado, es de quien el grupo lista con él", () => {
   const { X, NUEVO, porNumero } = numeroReciclado(30);
   assert.deepEqual(M.lidsMencionados(mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumero), [NUEVO]);
+  assert.deepEqual(M.lidsMencionados(mensaje({}), `@${digitos(X)}`, porNumero), [NUEVO], "tipeado");
 });
 
-test("estaEnGrupo: quien tuvo el número no está en el grupo por él, si el grupo lo lista con otra LID", I3A, () => {
+test("estaEnGrupo: quien tuvo el número no está en el grupo por él, si el grupo lo lista con otra LID", () => {
   const { VIEJO, porNumero } = numeroReciclado(31);
   assert.equal(I.estaEnGrupo(porNumero)(VIEJO), false);
 });
 
-test(".kick respondiendo un mensaje de quien ya se fue no saca al que tiene ahora su número", I3A, async (t) => {
+test(".kick respondiendo un mensaje de quien ya se fue no saca al que tiene ahora su número", async (t) => {
   const { X, VIEJO, porNumero } = numeroReciclado(32);
   const sacados = [];
   cliente().groupParticipantsUpdate = async (chat, ids) => (sacados.push(...ids), ids.map(() => ({ status: "200" })));
@@ -323,6 +320,62 @@ test(".kick respondiendo un mensaje de quien ya se fue no saca al que tiene ahor
   await P.kick.run(m, { client: cliente(), participants: [...porNumero, { id: MOD, admin: "admin" }], text: "", groupMetadata: { owner: unaLid(34) }, usedPrefix: ".", command: "kick", isOwner: true, isWaAdmin: true, isAdmin: true });
   assert.ok(!sacados.includes(X), `sacó a ${sacados.join(", ")}`);
 });
+
+// By the number, only someone the group doesn't list with another LID: VIEJO is in none of these groups, though VIEJO's
+// row still has the number NUEVO has now. A group that brings no LID can't tell them apart.
+test("buscarEnGrupo: por el número, nunca a quien el grupo lista con otra LID", () => {
+  const { X, VIEJO, NUEVO, porLid, porNumero, porNumeroSinLid, sinParear } = numeroReciclado(80);
+  for (const grupo of [porLid, porNumero, sinParear]) assert.equal(I.buscarEnGrupo(grupo, { lid: VIEJO, jid: X }), null, JSON.stringify(grupo));
+  assert.equal(I.buscarEnGrupo(porNumeroSinLid, { lid: VIEJO, jid: X }), porNumeroSinLid[0], "sin la LID no se sabe");
+  assert.equal(I.buscarEnGrupo(porNumero, { lid: NUEVO.replace("@lid", ":12@lid"), jid: X }), porNumero[0], "la LID de un dispositivo es la suya");
+  assert.equal(I.buscarEnGrupo(porLid, { lid: X, jid: X }), porLid[0], "lo que no es una LID no dice nada");
+});
+
+// Typed digits, with the group at hand: whoever it lists with that number now comes before the database's guess. Digits
+// the group lists as a LID are that LID, though the database has a row with a number of the same digits.
+test("lidDeDigitos con el grupo: quien tiene el número ahora, y la LID que el grupo lista", () => {
+  const { X, VIEJO, NUEVO, porLid, porNumero, porNumeroSinLid } = numeroReciclado(81);
+  for (const grupo of [porLid, porNumero]) assert.equal(I.lidDeDigitos(digitos(X), grupo), NUEVO, JSON.stringify(grupo));
+  assert.equal(I.lidDeDigitos(digitos(X), porNumeroSinLid), VIEJO, "si el grupo no trae la LID, la de la base");
+  const comoLid = `${digitos(X)}@lid`;
+  assert.equal(I.lidDeDigitos(digitos(X), [{ id: comoLid }]), comoLid);
+  assert.equal(I.lidDeDigitos(digitos(unNumero(82)), []), `${digitos(unNumero(82))}@lid`, "de nadie, se toma como LID");
+});
+
+// The number form is only for typed digits nothing is known of. A mentioned or quoted LID is real, and typed digits of a
+// LID the bot knows or the group lists are that LID: none of them makes up a number.
+test("destinatario no inventa un número para una LID mencionada, citada o tipeada", () => {
+  const L = unaLid(83);
+  assert.equal(I.destinatario(mensaje({ mentionedJid: [L] }), `@${digitos(L)}`, []).jid, null, "mencionada, de alguien que el grupo no lista");
+  assert.equal(I.destinatario(mensaje({ quoted: { sender: L } }), "", []).jid, null, "citada");
+  assert.equal(I.destinatario(mensaje({}), `@${digitos(L)}`, [{ id: L }]).jid, null, "tipeada, y el grupo la lista");
+  const { X, LID } = filaVieja(84);
+  assert.equal(I.destinatario(mensaje({}), `@${digitos(LID)}`, []).jid, X, "tipeada, de alguien con fila: su número");
+});
+
+// And typed digits nothing is known of may be the number of someone who never wrote, listed by number alone.
+test("un @número tipeado de alguien que nunca escribió es ese número, si el grupo lo lista así", () => {
+  const X = unNumero(88);
+  const { participante, objetivo } = I.destinatario(mensaje({}), `@${digitos(X)}`, [{ id: X, admin: null }]);
+  assert.deepEqual([participante?.id, objetivo], [X, X]);
+});
+
+// Digits the group lists as a LID are that LID: asked about as a number, WhatsApp only kept the command waiting.
+test(".kick @<dígitos de una LID que el grupo lista> no le pregunta a WhatsApp", async (t) => {
+  const consultas = usyncFalso(t, {});
+  const sacados = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (sacados.push(...ids), ids.map(() => ({ status: "200" })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const [L, MOD] = [unaLid(85), unaLid(86)];
+  const texto = `@${digitos(L)}`;
+  await P.kick.run(mensaje({ sender: MOD, text: texto }), { client: cliente(), participants: [{ id: L, admin: null }, { id: MOD, admin: "admin" }], text: texto, groupMetadata: { owner: unaLid(87) }, usedPrefix: ".", command: "kick", isOwner: true, isWaAdmin: true, isAdmin: true });
+  assert.deepEqual([consultas.length, sacados], [0, [L]]);
+});
+
+// ---------- wrong today: todo until the tanda that fixes each one ----------
+
+const I3B = { todo: "se arregla en la tanda I3b" };
+const I3C = { todo: "se arregla en la tanda I3c" };
 
 test(".regalar @número le llega a quien tiene ahora el número", I3B, async () => {
   const { X, VIEJO, NUEVO, porNumero } = numeroReciclado(40);
