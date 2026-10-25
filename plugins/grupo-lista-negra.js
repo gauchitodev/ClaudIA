@@ -1,8 +1,8 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUser } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
-import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe } from "../lib/identidad.js";
+import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe, lidEnElGrupo } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
-import { nombreDe, conNombres, lidEnElGrupo } from "../lib/menciones.js";
+import { nombreDe, conNombres } from "../lib/menciones.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
 // in anyway, they're removed). Each group's admins manage it; admins and the bot's owners can't be put on it. The

@@ -1,6 +1,6 @@
 import { desafiar, aceptar, rechazar, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
 import { COINS } from "../lib/urucoins.js";
-import { lidMencionado } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
@@ -14,7 +14,7 @@ const ACCIONES = new Set(["golpe", "patada", "cubrirse", "curar"]);
 // .duelo @someone 20 [dado|carta|pelea] or .pelea @someone 20 challenges · .acepto / .rechazo is how the challenged
 // answers · in a fight, whoever's turn it is uses .golpe, .patada, .cubrirse or .curar · .duelo with nothing lists
 // what's pending
-plugin.run = async (m, { client, args, text, command, chat }) => {
+plugin.run = async (m, { client, args, text, command, chat, participants }) => {
   const avisar = (msg) => client.sendMessage(m.chat, { text: msg.texto, mentions: msg.mentions || [] });
 
   let r;
@@ -33,7 +33,7 @@ plugin.run = async (m, { client, args, text, command, chat }) => {
         m,
       );
     }
-    const retado = lidMencionado(m, text); // the old regex swallowed the amount that came after the mention
+    const retado = lidMencionado(m, text, participants); // the old regex swallowed the amount that came after the mention
     const cantidad = parseInt(args.find((a) => /^\d+$/.test(a)), 10);
     const tipo = command === "pelea" ? "pelea" : args.find((a) => /^(dado|dados|carta|cartas|pelea|peleas|piñas|pinas)$/i.test(a)) || "dado";
     r = desafiar(m.chat, m.sender, retado, cantidad, tipo, avisar);

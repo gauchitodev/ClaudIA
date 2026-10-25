@@ -1,15 +1,14 @@
 import { lidDeNumero } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
-import { esElBot } from "../lib/identidad.js";
+import { lidMencionado, esElBot } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, command, text, chat }) => {
+plugin.run = async (m, { client, command, text, chat, participants }) => {
   // With nobody mentioned, the game is about whoever wrote it.
-  const who = lidMencionado(m, text) || m.sender;
+  const who = lidMencionado(m, text, participants) || m.sender;
   if (command !== "love" && esElBot(who, client)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // The "saint" is the second configured owner; their @lid is resolved through the database because mentions arrive as @lid.
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";

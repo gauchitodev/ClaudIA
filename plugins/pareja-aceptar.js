@@ -1,5 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 import { aceptarPareja } from "../lib/parejas.js";
 
 // .aceptar @x: accepts x's couple request.
@@ -8,8 +8,8 @@ plugin.cmd = ["aceptar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  const who = lidMencionado(m, text);
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  const who = lidMencionado(m, text, participants);
   if (!who || !getUser(who)) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
   if (who === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, who), m);
   if (who === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);

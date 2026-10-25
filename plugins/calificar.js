@@ -1,6 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
-import { estaEnGrupo } from "../lib/identidad.js";
+import { lidMencionado, estaEnGrupo } from "../lib/identidad.js";
 import { calificar, textoReputacion, textoCalificaciones, borrarCalificacion, editarCalificacion } from "../lib/reputacion.js";
 
 const plugin = {};
@@ -12,7 +11,7 @@ plugin.onlyGroup = true;
 // (deleting and editing: admins of the group it was made in, the owner, and deleting also whoever made it)
 plugin.run = async (m, { client, command, args, text, isAdmin, isOwner, participants }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.ok === false ? `❌ ${r.error}` : r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
-  const lid = lidMencionado(m, text);
+  const lid = lidMencionado(m, text, participants);
 
   if (command === "calificaciones") {
     const sub = (args[0] || "").toLowerCase();

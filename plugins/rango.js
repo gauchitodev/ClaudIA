@@ -1,5 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 import { textoRango, textoRangos } from "../lib/rangos.js";
 
 const plugin = {};
@@ -7,10 +7,10 @@ plugin.cmd = ["rango", "rangos"];
 plugin.onlyGroup = true;
 
 // .rango → your rank and what's left to the next · .rango @person → someone else's · .rangos → the ladder
-plugin.run = async (m, { client, command, text }) => {
+plugin.run = async (m, { client, command, text, participants }) => {
   if (command === "rangos") return client.sendText(m.chat, textoRangos(), m);
 
-  const lid = lidMencionado(m, text) || m.sender;
+  const lid = lidMencionado(m, text, participants) || m.sender;
 
   const user = getUser(lid);
   if (!user) return client.sendText(m.chat, "No tengo datos de esa persona todavía. Cuando escriba algo en el grupo, la conozco.", m);

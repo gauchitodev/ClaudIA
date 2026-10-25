@@ -1,5 +1,6 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado, nombreDe } from "../lib/menciones.js";
+import { nombreDe } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 import { parejaDe, exParejasDe } from "../lib/parejas.js";
 
 // .ex [@x]: someone's exes (or yours) and their current partner. Only whoever it's about is tagged: the rest go by name,
@@ -9,8 +10,8 @@ plugin.cmd = ["ex", "miex", "exs"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  const who = lidMencionado(m, text) || m.sender;
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  const who = lidMencionado(m, text, participants) || m.sender;
   if (!getUser(who)) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
 
   const exs = exParejasDe(who);

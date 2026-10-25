@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
+import { numeroReciclado, digitos } from "./identidad-escenarios.mjs";
 import strings from "../lib/strings.js";
 
 // Asking Claudia in plain words ("claudia, llamá a @111") runs .llamar or .tagall straight from the _auto-ia hook, past
@@ -304,8 +305,9 @@ test("pedido a Claudia: una nota de .recordá no le hace mencionar a todos si el
 // ---------- mentioning her, the doors while she thinks, and what she announces ----------
 
 const BOT = "200000000000001@lid"; // Claudia's LID in these tests: digits, like a real one
-// A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks, and bot changes her ids.
-async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {} } = {}) {
+// A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks, bot changes her ids, and
+// participantes is the group's list.
+async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {}, participantes = participants } = {}) {
   globalThis.autoIaCooldown.delete(grupo);
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   client.user = { ...client.user, lid: BOT, ...bot };
@@ -319,7 +321,7 @@ async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPe
   }
   const antes = consultasIA;
   try {
-    await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat, ...rango });
+    await AutoIA.before(m, { client, participants: participantes, isBotAdmin: true, isOwner: false, user: {}, chat, ...rango });
   } finally {
     globalThis.fetch = fetchAntes;
   }
@@ -400,6 +402,16 @@ test("pedido a Claudia: «@Claudia llamalo» en un grupo por número llama a qui
   const r = await hablarle({ text: "@59800000001 llamalo", mentionedJid: [NUMERO], quoted: { sender: "59899000111@s.whatsapp.net", fromMe: false, text: "¿dónde están?" } }, { rango: ADMIN, bot: { jid: NUMERO } });
   await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
   assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", "@59899000111"]);
+});
+
+// A number that changed hands, in a group that lists people by number: the mention comes by number, and she calls whoever
+// the group lists with it now, not whoever the database still has it on.
+test("pedido a Claudia: «llamá a @número» llama a quien tiene el número ahora", async () => {
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  const { X, NUEVO, porNumero } = numeroReciclado(1);
+  const r = await hablarle({ text: `claudia llamá a @${digitos(X)}`, mentionedJid: [X] }, { rango: ADMIN, participantes: [...porNumero, { id: "555@lid", admin: "admin" }] });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" }); // the other nine mentions aren't needed
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(NUEVO)}`]);
 });
 
 test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como mucho una vez cada media hora", async () => {

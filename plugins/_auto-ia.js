@@ -4,8 +4,8 @@ import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
-import { sinMenciones, lidsMencionados, conNombres } from "../lib/menciones.js";
-import { esElBot } from "../lib/identidad.js";
+import { sinMenciones, conNombres } from "../lib/menciones.js";
+import { esElBot, lidsMencionados } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
@@ -36,12 +36,13 @@ const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cm
 // whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times. Her
 // mention leaves the text by her number as well as her LID: a group listed by number mentions her by the number, which
 // stayed as a typed "@number" and beat the quoted message's author, and with no row of hers in the database it was taken
-// for someone else's, so she called herself.
-function aQuienLlamar(m, client) {
+// for someone else's, so she called herself. Someone named by number is whoever the group lists with it now, not whoever
+// the database still has it on.
+function aQuienLlamar(m, client, participants) {
   const suyos = [client.user?.lid, client.user?.jid].map((id) => id?.split("@")[0].split(":")[0]).filter(Boolean);
   const texto = suyos.reduce((t, digitos) => t.replace(new RegExp(`@${digitos}(?!\\d)`, "g"), ""), String(m.text || ""));
   const mencionados = (m.mentionedJid || []).filter((j) => !esElBot(j, client));
-  return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto).filter((id) => !esElBot(id, client));
+  return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto, participants).filter((id) => !esElBot(id, client));
 }
 
 // A tagall or a llamar the AI picks only goes ahead if the message itself asks for mentions ("arrobá a todos",
@@ -391,7 +392,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
           return;
         }
       }
-      if (comando === "llamar" && !aQuienLlamar(m, client).length) {
+      if (comando === "llamar" && !aQuienLlamar(m, client, participants).length) {
         await decir("¿A quién llamo? Arrobalo en el mensaje.", m);
         return;
       }
@@ -407,7 +408,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     } else if (comando === "llamar") {
       // .llamar gets only the people to call as the message's mentions: never Claudia herself.
       const pl = buscarPlugin("llamar");
-      if (pl) await pl.run(Object.create(m, { mentionedJid: { value: aQuienLlamar(m, client) } }), { client, text: m.text, command: "llamar" });
+      if (pl) await pl.run(Object.create(m, { mentionedJid: { value: aQuienLlamar(m, client, participants) } }), { client, text: m.text, command: "llamar", participants });
     }
   } catch (e) {
     console.error("[auto-ia] ERROR:", e);

@@ -182,7 +182,7 @@ test("roles: con una fila vieja por número, el rol se ve, se cambia y se saca i
   F.initDataDB({ chat: G, sender: "701@lid", senderJid: N, pushName: "Persona 701" });
   F.setRolGrupo(G, "701@lid", "mod", "100@lid");
   assert.equal(F.rolGrupo(G, N), "mod");
-  const { lidMencionado } = await import("../lib/menciones.js");
+  const { lidMencionado } = await import("../lib/identidad.js");
   const objetivo = lidMencionado({ mentionedJid: [N] }, "");
   assert.equal(objetivo, "701@lid", "la mención por número llega a la LID");
   const admin = { lid: "100@lid", esAdminWhatsApp: true, isAdmin: true, esOwner: false };

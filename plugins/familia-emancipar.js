@@ -1,5 +1,6 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado, nombreDe } from "../lib/menciones.js";
+import { nombreDe } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 import { emanciparse, desheredar } from "../lib/familia.js";
 
 // .emancipar: you leave your family. .desheredar @child: a parent removes a child. In both cases, if they bore the
@@ -9,9 +10,9 @@ plugin.cmd = ["emancipar", "emanciparse", "emanciparme", "desheredar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (command === "desheredar") {
-    const who = lidMencionado(m, text);
+    const who = lidMencionado(m, text, participants);
     if (!who || !getUser(who)) return client.sendText(m.chat, `¿A quién? Uso: ${usedPrefix}${command} @hijo`, m);
     const r = desheredar(m.sender, who);
     if (!r.ok) return client.sendText(m.chat, `${nombreDe(who)} no es hijo tuyo.`, m);

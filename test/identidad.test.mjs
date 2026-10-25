@@ -71,17 +71,17 @@ test("identidadesDe: por LID, por número con el grupo, y por número con la bas
 
 test("lidEnElGrupo: por la id o por el phoneNumber, y nada si el grupo no lo empareja", () => {
   const { X, NUEVO, porLid, porNumero, porNumeroSinLid } = numeroReciclado(7);
-  assert.equal(M.lidEnElGrupo(porLid, X), NUEVO);
-  assert.equal(M.lidEnElGrupo(porNumero, X), NUEVO);
-  assert.equal(M.lidEnElGrupo(porNumeroSinLid, X), null);
-  assert.equal(M.lidEnElGrupo(null, X), null);
+  assert.equal(I.lidEnElGrupo(porLid, X), NUEVO);
+  assert.equal(I.lidEnElGrupo(porNumero, X), NUEVO);
+  assert.equal(I.lidEnElGrupo(porNumeroSinLid, X), null);
+  assert.equal(I.lidEnElGrupo(null, X), null);
 });
 
 test("lidDeDigitos: una LID conocida, un número conocido, o se toma como LID", () => {
   const { X, LID } = filaVieja(8);
-  assert.equal(M.lidDeDigitos(digitos(LID)), LID);
-  assert.equal(M.lidDeDigitos(digitos(X)), LID, "el número, a la fila de la LID y no a la vieja");
-  assert.equal(M.lidDeDigitos("123456789"), "123456789@lid");
+  assert.equal(I.lidDeDigitos(digitos(LID)), LID);
+  assert.equal(I.lidDeDigitos(digitos(X)), LID, "el número, a la fila de la LID y no a la vieja");
+  assert.equal(I.lidDeDigitos("123456789"), "123456789@lid");
 });
 
 test("deQuienEs: nombrar al bot es preguntar por uno mismo, y un @ que no es mención no es nadie", () => {
@@ -242,10 +242,11 @@ test("lista negra: al entrar, el número que trae el aviso alcanza aunque la lis
   assert.deepEqual(sacados, [L]);
 });
 
-test("a quién nombra un mensaje es de lib/identidad.js, y lib/menciones.js lo pasa mientras los plugins lo pidan ahí", () => {
+// Only there: lib/menciones.js handed them on while the plugins asked it for them, and none does now.
+test("a quién nombra un mensaje es solo de lib/identidad.js", () => {
   for (const nombre of ["lidDeDigitos", "lidEnElGrupo", "lidMencionado", "lidsMencionados"]) {
     assert.equal(typeof I[nombre], "function", nombre);
-    assert.equal(M[nombre], I[nombre], nombre);
+    assert.equal(M[nombre], undefined, nombre);
   }
 });
 
@@ -301,8 +302,8 @@ test(".addowner de alguien sin fila no escribe los dígitos de su LID en config.
 
 test("lidsMencionados con el grupo: un número, mencionado o tipeado, es de quien el grupo lista con él", () => {
   const { X, NUEVO, porNumero } = numeroReciclado(30);
-  assert.deepEqual(M.lidsMencionados(mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumero), [NUEVO]);
-  assert.deepEqual(M.lidsMencionados(mensaje({}), `@${digitos(X)}`, porNumero), [NUEVO], "tipeado");
+  assert.deepEqual(I.lidsMencionados(mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumero), [NUEVO]);
+  assert.deepEqual(I.lidsMencionados(mensaje({}), `@${digitos(X)}`, porNumero), [NUEVO], "tipeado");
 });
 
 test("estaEnGrupo: quien tuvo el número no está en el grupo por él, si el grupo lo lista con otra LID", () => {
@@ -372,12 +373,7 @@ test(".kick @<dígitos de una LID que el grupo lista> no le pregunta a WhatsApp"
   assert.deepEqual([consultas.length, sacados], [0, [L]]);
 });
 
-// ---------- wrong today: todo until the tanda that fixes each one ----------
-
-const I3B = { todo: "se arregla en la tanda I3b" };
-const I3C = { todo: "se arregla en la tanda I3c" };
-
-test(".regalar @número le llega a quien tiene ahora el número", I3B, async () => {
+test(".regalar @número le llega a quien tiene ahora el número", async () => {
   const { X, VIEJO, NUEVO, porNumero } = numeroReciclado(40);
   const A = unaLid(41);
   fijarSaldo(F, G, A, 100);
@@ -386,7 +382,7 @@ test(".regalar @número le llega a quien tiene ahora el número", I3B, async () 
   assert.deepEqual([F.getSaldoCoins(G, NUEVO), F.getSaldoCoins(G, VIEJO)], [20, 0]);
 });
 
-test(".llamar @número arroba a quien tiene ahora el número", I3B, async () => {
+test(".llamar @número arroba a quien tiene ahora el número", async () => {
   const { X, NUEVO, porNumero } = numeroReciclado(42);
   const C = "llamar@g.us";
   globalThis.enviados = [];
@@ -395,6 +391,75 @@ test(".llamar @número arroba a quien tiene ahora el número", I3B, async () => 
   await P.llamar.run(mensaje({ chat: C, sender: unaLid(43) }), { client: cliente(), text: "", command: "cancelar" });
   assert.equal(globalThis.enviados[0]?.msg.text, `@${digitos(NUEVO)}`);
 });
+
+// The commands that name someone with lidMencionado, and .parentesco with lidsMencionados: in a group that lists people
+// by LID, with the number typed by hand, and in one that lists them by number, where the mention comes by number. Whoever
+// the group lists with the number now, never whoever the database still has it on, and tagged by LID. Each one runs with
+// a sender of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
+const COMANDOS_QUE_NOMBRAN = [
+  // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
+  ["fun-besar", "besar"],
+  ["pareja-elegir", "pareja"],
+  ["pareja-aceptar", "aceptar"],
+  ["pareja-rechazar", "rechazar"],
+  ["pareja-exs", "ex"],
+  ["coins-regalar", "regalar", " 20", "saldo"],
+  ["coins-economia", "ajustar", " 50", null, { isOwner: true }],
+  ["perfil", "perfil"],
+  ["coins-duelo", "duelo", " 20", "saldo"],
+  ["fun-calcular-juegos", "love"],
+  ["familia-adoptar", "adoptar", "", "casamiento"],
+  ["calificar", "calificar", " 5 buena gente"],
+  ["familia-familia", "familia"],
+  ["familia-emancipar", "desheredar"],
+  ["rango", "rango"],
+  ["familia-parentesco", "parentesco"],
+];
+test("los comandos que nombran a alguien van a quien tiene el número ahora, y lo arroban por su LID", async (t) => {
+  const Par = await import("../lib/parejas.js");
+  const D = await import("../lib/duelos.js");
+  t.after(() => {
+    for (const d of D.duelos.values()) clearTimeout(d.timeout);
+    D.duelos.clear();
+  });
+  const preparar = {
+    saldo: (A) => fijarSaldo(F, G, A, 1000),
+    casamiento: (A, B) => {
+      fijarSaldo(F, G, A, 1000);
+      F.initDataDB({ chat: G, sender: B, senderJid: "", pushName: "Cónyuge" });
+      Par.fijarPareja(A, B);
+      Par.fijarCasamiento(A, B);
+    },
+  };
+  let n = 100;
+  for (const forma of ["porLid", "porNumero"]) {
+    const escenario = numeroReciclado(n);
+    const { X, VIEJO, NUEVO } = escenario;
+    const [deVIEJO, deNUEVO] = [`VIEJO-${n}`, `NUEVO-${n}`]; // names that no other text has
+    F.updateUser(VIEJO, { pushName: deVIEJO });
+    F.updateUser(NUEVO, { pushName: deNUEVO });
+    for (const [archivo, command, resto = "", necesita = null, extra = {}] of COMANDOS_QUE_NOMBRAN) {
+      const [A, B] = [unaLid(++n, 1), unaLid(n, 2)];
+      F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
+      if (necesita) preparar[necesita](A, B);
+      const texto = `@${digitos(X)}${resto}`;
+      const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: forma === "porNumero" ? [X] : [] });
+      globalThis.enviados = [];
+      const plugin = (await import(`../plugins/${archivo}.js`)).default;
+      await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: escenario[forma], chat: {}, ...extra });
+      const enviados = globalThis.enviados.map((e) => e.msg).filter((msg) => msg?.text);
+      const nombra = (id, nombre) => enviados.some((msg) => msg.text.includes(`@${digitos(id)}`) || msg.text.includes(nombre) || msg.mentions?.includes(id));
+      const caso = `${forma}, .${command}: ${enviados.map((msg) => msg.text).join(" | ")}`;
+      assert.ok(nombra(NUEVO, deNUEVO) && !nombra(VIEJO, deVIEJO), caso);
+      assert.ok(!enviados.some((msg) => msg.mentions?.includes(X) || msg.text.includes(`@${digitos(X)}`)), `arrobó por el número: ${caso}`);
+    }
+    n++;
+  }
+});
+
+// ---------- wrong today: todo until the tanda that fixes each one ----------
+
+const I3C = { todo: "se arregla en la tanda I3c" };
 
 test(".besar al bot nombrado por su número: la respuesta de siempre para el bot", I3C, async () => {
   globalThis.enviados = [];

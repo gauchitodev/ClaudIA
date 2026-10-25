@@ -1,5 +1,6 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado, nombreDe } from "../lib/menciones.js";
+import { nombreDe } from "../lib/menciones.js";
+import { lidMencionado } from "../lib/identidad.js";
 import { pedirAdopcion, FAMILIA } from "../lib/familia.js";
 
 // .adoptar @x: a married couple adopts someone. It stays pending until x answers with .si or .no.
@@ -8,8 +9,8 @@ plugin.cmd = ["adoptar"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, text, usedPrefix, command }) => {
-  const who = lidMencionado(m, text);
+plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
+  const who = lidMencionado(m, text, participants);
   if (!who || !getUser(who)) return client.sendText(m.chat, `¿A quién? Uso: ${usedPrefix}${command} @persona (o respondé a un mensaje suyo). Hay que estar casado; la otra persona acepta con .si.`, m);
   if (who === client.user.lid) return client.sendText(m.chat, "A mí no me adopta nadie: yo los adopté a todos ustedes 😌", m);
 

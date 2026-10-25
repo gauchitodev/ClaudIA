@@ -46,7 +46,7 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
 // whoever sent it. This is the photo-with-a-caption case, which is how people actually post in a sales group.
 async function publicarCitando(m, citado, tipo, { client, isMod }) {
   // m.quoted.sender may arrive as a lid or as a jid, and so may m.sender: the post goes under the LID when it's known
-  // (same pattern as lib/menciones.js), and whose it is goes by either identity (mismaPersona). Normalizing only the
+  // (as lidDe in lib/identidad.js does), and whose it is goes by either identity (mismaPersona). Normalizing only the
   // quoted one, the photo's owner still heard it wasn't theirs when their reply came with only the number.
   const crudo = citado.sender;
   const autor = crudo?.endsWith("@lid") ? crudo : lidDeNumero(crudo) || crudo;
