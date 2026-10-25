@@ -1,5 +1,5 @@
-import { updateUserInGroup, esOwner } from "../database-functions.js";
-import { destinatarioActual } from "../lib/identidad.js";
+import { updateUserInGroup } from "../database-functions.js";
+import { destinatarioActual, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
 // The aliases that LIFT the mute. The rest of plugin.cmd applies it. They come from a single list so a new alias
@@ -16,10 +16,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   // Like the rest of the moderation: the identity is resolved before writing, and the mute belongs to this group.
   const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-  if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
+  if (esElBot([lid, jid], client)) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   // leave the bot's owners alone
-  if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
+  if (esOwnerDe([mencionado, lid, jid])) return m.react("❌");
   if (!quien) return client.sendText(m.chat, "No existen datos del usuario, puede que aun no haya enviado mensajes", m);
 
   const silenciar = !QUITAN_SILENCIO.includes(command);

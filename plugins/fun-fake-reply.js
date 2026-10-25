@@ -1,5 +1,4 @@
-import { esOwner } from "../database-functions.js";
-import { destinatario } from "../lib/identidad.js";
+import { destinatario, esOwnerDe } from "../lib/identidad.js";
 
 // The bot sends a message quoting something the person never wrote, and in WhatsApp that fake quote looks exactly
 // like a real one: it puts words in someone else's mouth. So it's for moderators, like .say, and not for anyone.
@@ -16,7 +15,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!mencionado) return client.sendText(m.chat, `Uso incorrecto.\nEjemplo:\n${usedPrefix}${command} *textoDelBot* @usuario *textoFake*`, m);
 
   // leave the bot's owners alone
-  if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
+  if (esOwnerDe([mencionado, lid, jid])) return m.react("❌");
 
   // The text is split on the "@number" exactly as written, which may not be the id the person resolved to: splitting
   // on the resolved one would cut the message in the wrong place.

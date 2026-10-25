@@ -43,6 +43,16 @@ test("a un mensaje de Claudia: para la iniciativa es una respuesta, quien reacci
   assert.equal(F.intervencionesDesde(G, 0).find((i) => i.mensajeId === "CL1").reaccionada, 1);
 });
 
+// Baileys sets fromMe on the key when the reacted message is hers; if the key comes without it, her ids are enough, by
+// her LID or by the number a group lists her by.
+test("a un mensaje de Claudia sin fromMe: la reconoce por su LID o por su número, y no cobra", () => {
+  const C = "claudia-sin-fromme@g.us";
+  contar(reaccion(BOT, "444@lid", { chat: C }));
+  contar(reaccion(BOT_JID, "444@lid", { chat: C }));
+  assert.equal(F.getSaldoCoins(C, BOT) + F.getSaldoCoins(C, BOT_JID), 0, "Claudia no cobra");
+  assert.ok(F.getSaldoCoins(C, "444@lid") > 0, "quien reaccionó, sí");
+});
+
 test("la misma reacción cuenta una vez; las de Claudia, las propias y las de un privado, ninguna", () => {
   const antes = F.getSaldoCoins(G, "111@lid");
   const r = reaccion("111@lid", "444@lid");

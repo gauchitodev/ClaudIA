@@ -1,6 +1,6 @@
-import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, esOwner, getUser } from "../database-functions.js";
+import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUser } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
-import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp } from "../lib/identidad.js";
+import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { nombreDe, conNombres, lidEnElGrupo } from "../lib/menciones.js";
 
@@ -118,7 +118,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     // Someone named further on, and nobody right after the command. Replying to someone else's message, whoever wrote
     // it may be who was meant, or the one named: it asks, rather than guess and remove the wrong one.
     const accion = command === "ln" ? "anotar" : "sacar";
-    const deOtro = m.quoted?.sender && ![m.sender, m.senderJid, client.user.lid, client.user.jid].includes(m.quoted.sender);
+    const deOtro = m.quoted?.sender && ![m.sender, m.senderJid].includes(m.quoted.sender) && !esElBot(m.quoted.sender, client);
     if (deOtro) return client.sendText(m.chat, `No sé a quién ${accion}: si a quien escribió el mensaje que respondiste o a quien nombrás en el texto. Poné primero a quién (${forma}), o respondé el mensaje sin nombrar a nadie más.`, m);
     return client.sendText(m.chat, `Poné a quién ${accion} justo después de ${usedPrefix}${command}: ${forma}.`, m);
   } else {
@@ -154,12 +154,12 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   who = jid || whoLid || who;
   const lidQueQueda = lidDeLaBase ? null : whoLid;
 
-  if (who === client.user.jid || (whoLid && whoLid === client.user.lid)) return m.react("❌");
+  if (esElBot([who, whoLid], client)) return m.react("❌");
   if (who === m.senderJid || (whoLid && whoLid === m.sender)) return m.react("❌");
   if (command === "ln" && !reason) return client.sendText(m.chat, txt.blistRejectNullReason, m);
 
   // leave the bot's owners alone
-  if (esOwner(who) || (whoLid && esOwner(whoLid))) return m.react("❌");
+  if (esOwnerDe([who, whoLid])) return m.react("❌");
 
   // group admins don't go on the blacklist: you'd have to strip their admin first
   if (command === "ln" && m.isGroup && participante?.admin) {

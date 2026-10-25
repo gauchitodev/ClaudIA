@@ -1,4 +1,4 @@
-import { esOwner } from "../database-functions.js";
+import { esOwnerDe } from "../lib/identidad.js";
 import { parejaDe, terminarPareja } from "../lib/parejas.js";
 
 // .terminar: ends the relationship; each of them lands on the other's list of exes.
@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client }) => {
   // narcissistic owners who don't allow anyone to break up with them.
   const actual = parejaDe(m.sender);
-  if (actual && esOwner(actual.pareja)) return client.sendText(m.chat, "Con un owner no se termina, mi amor 😌", m);
+  if (actual && esOwnerDe(actual.pareja)) return client.sendText(m.chat, "Con un owner no se termina, mi amor 😌", m);
 
   const r = terminarPareja(m.sender);
   if (!r.ok) {

@@ -1,5 +1,4 @@
-import { esOwner } from "../database-functions.js";
-import { destinatarioActual, expulsar } from "../lib/identidad.js";
+import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { sacarInactivos } from "../lib/inactivos.js";
 import { setTimeout as esperar } from "node:timers/promises";
@@ -25,8 +24,8 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
     if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-    if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
-    if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
+    if (esElBot([lid, jid], client)) return client.sendText(m.chat, `No me quiero ir 😔😭`, m);
+    if (esOwnerDe([mencionado, lid, jid])) return client.sendText(m.chat, `A los dueños del bot no los saco.`, m);
 
     const groupAdmins = participants.filter((p) => p.admin);
     const owner = groupMetadata.owner || groupAdmins.find((p) => p.admin === "superadmin")?.id || `${m.chat.split("-")[0]}@lid`;

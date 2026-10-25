@@ -1,5 +1,5 @@
-import { esOwner, advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
-import { destinatarioActual, expulsar } from "../lib/identidad.js";
+import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
+import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
 // Moderation warnings, counted per group: on the third one they're kicked from here. Another group's don't count.
@@ -18,8 +18,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   const razon = text.replace(/@\d{3,}/g, "").trim();
   if (!razon) return client.sendText(m.chat, txt.advertirNoRazon, m);
 
-  if (lid === client.user.lid || jid === client.user.jid) return m.react("❌");
-  if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return m.react("❌");
+  if (esElBot([lid, jid], client)) return m.react("❌");
+  if (esOwnerDe([mencionado, lid, jid])) return m.react("❌");
   // The third warning removes them, so warning follows the same rule as .kick: only from strictly above.
   const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
   if (impedimento) return client.sendText(m.chat, `No lo puedo advertir: ${impedimento}`, m);

@@ -1,5 +1,4 @@
-import { esOwner } from "../database-functions.js";
-import { destinatarioActual, cambiarParticipante } from "../lib/identidad.js";
+import { destinatarioActual, cambiarParticipante, esElBot, esOwnerDe } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["d", "demote"];
@@ -12,8 +11,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (!isWaAdmin && !isOwner) return client.sendText(m.chat, "Sacar admin de WhatsApp es cosa de los admins de WhatsApp: los admins del bot no pueden.", m);
   const { objetivo, mencionado, lid, jid, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
-  if (lid === client.user.lid || jid === client.user.jid) return client.sendText(m.chat, "Si me sacás el admin dejo de funcionar, así que no 😌", m);
-  if (esOwner(mencionado) || (lid && esOwner(lid)) || (jid && esOwner(jid))) return client.sendText(m.chat, "A los dueños del bot no les toco el admin.", m);
+  if (esElBot([lid, jid], client)) return client.sendText(m.chat, "Si me sacás el admin dejo de funcionar, así que no 😌", m);
+  if (esOwnerDe([mencionado, lid, jid])) return client.sendText(m.chat, "A los dueños del bot no les toco el admin.", m);
 
   const { ok, status } = await cambiarParticipante(client, m.chat, participante?.id || objetivo, "demote");
   if (!ok) return client.sendText(m.chat, `No pude sacarle el admin (error ${status}).`, m);

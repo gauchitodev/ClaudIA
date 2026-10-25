@@ -1,13 +1,13 @@
 import { smsg } from "./lib/wa-socket.js";
 import { elegirAlAzar } from "./lib/azar.js";
-import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, esOwner, isCommandBlacklisted } from "./database-functions.js";
+import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
-import { buscarEnGrupo } from "./lib/identidad.js";
+import { buscarEnGrupo, esOwnerDe } from "./lib/identidad.js";
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 
 // Keeps the last time each group was greeted
@@ -85,9 +85,9 @@ export async function handleMessage(nMsg) {
     // by it, and the message may bring their LID.
     const userSender = (m.isGroup ? buscarEnGrupo(participants, { lid: m.sender, jid: m.senderJid || user?.jid }) : {}) || {};
     const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: client.user.lid, jid: client.user.jid }) : {}) || {};
-    // esOwner takes @lid or @s.whatsapp.net (it resolves the owner's lid through the database), so the owner is
-    // recognized even when the message only carries their LID.
-    const isOwner = m.fromMe || esOwner(m.senderJid) || esOwner(m.sender);
+    // By either identity (the LID through the owner's rows), so the owner is recognized even when the message only
+    // carries their LID.
+    const isOwner = m.fromMe || esOwnerDe([m.senderJid, m.sender]);
     const isRAdmin = userSender?.admin === "superadmin" || false;
     const isWaAdmin = isRAdmin || userSender?.admin === "admin" || false;
     // Per-group bot roles (.adminbot / .moderador): the bot admin counts as admin and the moderator only as mod.

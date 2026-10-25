@@ -10,7 +10,7 @@ import { updateUser } from "../database-functions.js";
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { gastarCoins, getSaldoCoins, ganarCoins, movimientosHoy } from "../database-functions.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
-import { esParticipante } from "../lib/identidad.js";
+import { esParticipante, esElBot } from "../lib/identidad.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
@@ -82,7 +82,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetada
   if (adelante > 0) {
     // The joke: in a group, the song is "in the cola" of someone picked at random (not the bot, not whoever asked).
     // Both by either identity: a group may list people (and the bot) by number.
-    const candidatos = m.isGroup ? (groupMetadata?.participants ?? []).filter((v) => !esParticipante(v, { lid: client.user.lid, jid: client.user.jid }) && !esParticipante(v, { lid: m.sender, jid: m.senderJid })).map((v) => v.id) : [];
+    const candidatos = m.isGroup ? (groupMetadata?.participants ?? []).filter((v) => !esElBot(v, client) && !esParticipante(v, { lid: m.sender, jid: m.senderJid })).map((v) => v.id) : [];
     if (candidatos.length > 0) {
       const victima = elegirAlAzar(candidatos);
       const aviso = `⏳ Tu ${tipoPedido === "audio" ? "canción" : "descarga"} está en la cola de @${victima.split("@")[0]} 🍑\nHay ${adelante} antes que la tuya, ya te la mando bo.`;

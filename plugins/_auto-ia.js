@@ -5,6 +5,7 @@ import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { sinMenciones, lidsMencionados, conNombres } from "../lib/menciones.js";
+import { esElBot } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
@@ -31,9 +32,6 @@ const AVISO_FALLA_MS = 30 * 60 * 1000;
 
 const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
 
-// Whether an id (a mention, the quoted message's author) is Claudia herself.
-const esClaudia = (client, id) => Boolean(id) && (id === client.user?.lid || id === client.user?.jid);
-
 // Who a "llamar" is for: the people mentioned, or failing that the author of the quoted message, but never Claudia,
 // whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times. Her
 // mention leaves the text by her number as well as her LID: a group listed by number mentions her by the number, which
@@ -42,8 +40,8 @@ const esClaudia = (client, id) => Boolean(id) && (id === client.user?.lid || id 
 function aQuienLlamar(m, client) {
   const suyos = [client.user?.lid, client.user?.jid].map((id) => id?.split("@")[0].split(":")[0]).filter(Boolean);
   const texto = suyos.reduce((t, digitos) => t.replace(new RegExp(`@${digitos}(?!\\d)`, "g"), ""), String(m.text || ""));
-  const mencionados = (m.mentionedJid || []).filter((j) => !esClaudia(client, j));
-  return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto).filter((id) => !esClaudia(client, id));
+  const mencionados = (m.mentionedJid || []).filter((j) => !esElBot(j, client));
+  return lidsMencionados({ mentionedJid: mencionados, quoted: m.quoted }, texto).filter((id) => !esElBot(id, client));
 }
 
 // A tagall or a llamar the AI picks only goes ahead if the message itself asks for mentions ("arrobá a todos",
@@ -145,7 +143,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // Mentioned with "@", anywhere in the message. "@Claudia ..." at the start used to be a command of .ia, which
     // answered without the group's context; in the middle of the message it didn't count at all.
-    const laMencionan = (m.mentionedJid || []).some((j) => esClaudia(client, j));
+    const laMencionan = (m.mentionedJid || []).some((j) => esElBot(j, client));
 
     // she answers if she's named OR if someone replies to a message of hers. A voice note never names her, so she only
     // hears the ones that answer her: the rest of the group's audios are none of her business.

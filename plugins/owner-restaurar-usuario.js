@@ -1,5 +1,5 @@
-import { deleteUser, esOwner } from "../database-functions.js";
-import { destinatarioActual } from "../lib/identidad.js";
+import { deleteUser } from "../database-functions.js";
+import { destinatarioActual, esOwnerDe } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["rd", "resetuser", "userreset", "restaurarusuario"];
@@ -14,7 +14,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!aBorrar) return client.sendText(m.chat, "No tengo registro de esa persona.", m);
 
   // leave the bot's owners alone, unless they're resetting themselves
-  if ((esOwner(mencionado) || esOwner(aBorrar) || (jid && esOwner(jid))) && m.sender !== aBorrar) return m.react("❌");
+  if (esOwnerDe([mencionado, aBorrar, jid]) && m.sender !== aBorrar) return m.react("❌");
 
   deleteUser(aBorrar);
   client.sendText(m.chat, txt.rdSuccess(aBorrar), m);

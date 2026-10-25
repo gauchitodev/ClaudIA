@@ -164,6 +164,99 @@ test("los escenarios: el bot en un grupo, de las tres formas", () => {
   assert.ok([b.porLid, b.porNumero, b.porNumeroSinLid].every((p) => I.esParticipante(p, { jid })));
 });
 
+// ---------- one function per question, answering what each caller asked by hand ----------
+
+test("esElBot responde lo mismo que las comparaciones que reemplaza", () => {
+  const { lid, jid } = cliente().user;
+  const otros = [unaLid(60), unNumero(60), "", null, undefined];
+  const b = botEnGrupo();
+  // An id: id === lid || id === jid (deQuienEs, nombreDe, .roles, _auto-ia, reactions to Claudia).
+  for (const id of [lid, jid, ...otros]) assert.equal(I.esElBot(id), Boolean(id) && (id === lid || id === jid), String(id));
+  // A participant: esParticipante(p, { lid, jid }) (.tagall, .inactivos, the ban roulette, the song queue).
+  for (const p of [b.porLid, b.porNumero, b.porNumeroSinLid, { id: unaLid(61) }, { id: unNumero(61), lid: unaLid(61) }, null]) {
+    assert.equal(I.esElBot(p), I.esParticipante(p, { lid, jid }), JSON.stringify(p));
+  }
+  // A person's two ids: lid === bot's LID || jid === bot's number (.kick, .advertir, .mute, .demote, .ban, .ln).
+  for (const [l, j] of [[lid, null], [null, jid], [lid, jid], [unaLid(62), unNumero(62)], [null, null]]) assert.equal(I.esElBot([l, j]), l === lid || j === jid, `${l} ${j}`);
+  assert.equal(I.esElBot(lid, { user: { lid: unaLid(63) } }), false, "con otro cliente, el suyo");
+});
+
+test("esOwnerDe es esOwner por cada id, venga una o varias", (t) => {
+  const o = owner(t, 64, { comoEnConfig: `+598 99 ${digitos(unNumero(64)).slice(5, 8)} ${digitos(unNumero(64)).slice(8)}` });
+  for (const ids of [o.X, o.LID, unaLid(65), null, [null, o.LID], [unaLid(65), unNumero(65)], [], [o.X, null]]) {
+    const lista = Array.isArray(ids) ? ids : [ids];
+    assert.equal(I.esOwnerDe(ids), lista.some((id) => F.esOwner(id)), JSON.stringify(ids));
+  }
+});
+
+test("lidDe: la LID tal cual; un número, a quien el grupo lista con él, y si no a la de la base", () => {
+  const { X, VIEJO, NUEVO, porNumero } = numeroReciclado(66);
+  assert.equal(I.lidDe(NUEVO), NUEVO);
+  assert.equal(I.lidDe(X, porNumero), NUEVO);
+  assert.equal(I.lidDe(X), VIEJO, "sin el grupo, la de la base");
+  assert.equal(I.lidDe(unNumero(67)), unNumero(67), "con ninguna, el número mismo");
+  assert.equal(I.lidDe(unNumero(67), null, { oElMismo: false }), null);
+  assert.equal(I.lidDe(null), null);
+});
+
+test("idsDelGrupo: las ids que trae un participante, sin preguntarle a la base", () => {
+  const { X, NUEVO } = numeroReciclado(68);
+  assert.deepEqual(I.idsDelGrupo({ id: X, lid: NUEVO, admin: null }), [X, NUEVO]);
+  assert.deepEqual(I.idsDelGrupo({ id: NUEVO, phoneNumber: X }), [NUEVO, X]);
+  assert.deepEqual(I.idsDelGrupo(X), [X]);
+  assert.deepEqual(I.idsDelGrupo(null), []);
+  assert.deepEqual(I.idsDeParticipante({ id: X }), [X, unaLid(68, 1)], "idsDeParticipante le suma la LID de la base");
+});
+
+test("un @ con tres dígitos o más ya es una mención tipeada, y lidsMencionados pasa los números a su LID", () => {
+  assert.equal(I.lidMencionado(mensaje({}), "@123"), "123@lid");
+  assert.equal(I.lidMencionado(mensaje({}), "@12"), null);
+  const { X, LID } = filaVieja(69);
+  assert.deepEqual(I.lidsMencionados(mensaje({ mentionedJid: [X] }), `@${digitos(X)}`), [LID]);
+});
+
+// The moderation commands check both of the bot's ids: in a group that lists it by number alone, with no row that ties
+// that number to its LID, the number is all there is to recognize it by.
+test(".kick al bot nombrado por su número, en un grupo que lo lista así, no lo saca", async (t) => {
+  const sacados = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (sacados.push(...ids), ids.map(() => ({ status: "200" })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const MOD = unaLid(70);
+  const m = mensaje({ sender: MOD, mentionedJid: [cliente().user.jid] });
+  await P.kick.run(m, { client: cliente(), participants: [botEnGrupo().porNumeroSinLid, { id: MOD, admin: "admin" }], text: "@bot", groupMetadata: { owner: unaLid(71) }, usedPrefix: ".", command: "kick", isOwner: true, isWaAdmin: true, isAdmin: true });
+  assert.equal(ultimoEnviado().msg.text, "No me quiero ir 😔😭");
+  assert.deepEqual(sacados, []);
+});
+
+// Someone who joins comes with the ids the event brings, and the group's metadata may not list them yet: an entry kept
+// by number has to match the event's phoneNumber.
+test("lista negra: al entrar, el número que trae el aviso alcanza aunque la lista del grupo venga atrasada", async (t) => {
+  const C = "ln-atrasada@g.us";
+  const [L, X] = [unaLid(72), unNumero(72)];
+  F.addToBlacklist(X, "estafa", unaLid(73), C);
+  const sacados = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (sacados.push(...ids), ids.map(() => ({ status: "200" })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const LN = await import("../lib/lista-negra.js");
+  await LN.expulsarDeListaNegra(cliente(), C, [{ id: L, phoneNumber: X }], []);
+  assert.deepEqual(sacados, [L]);
+});
+
+test("a quién nombra un mensaje es de lib/identidad.js, y lib/menciones.js lo pasa mientras los plugins lo pidan ahí", () => {
+  for (const nombre of ["lidDeDigitos", "lidEnElGrupo", "lidMencionado", "lidsMencionados"]) {
+    assert.equal(typeof I[nombre], "function", nombre);
+    assert.equal(M[nombre], I[nombre], nombre);
+  }
+});
+
+// One way only: lib/menciones.js and the rest import lib/identidad.js, which imports nothing of the bot's but the
+// database. When it imported lib/menciones.js, whatever both needed had to live there, where it didn't belong.
+test("lib/identidad.js no importa nada del bot más que la base", () => {
+  const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
+  const deDonde = [...fuente.matchAll(/\bfrom\s+"([^"]+)"|\bimport\s*\(\s*"([^"]+)"/g)].map(([, a, b]) => a || b);
+  assert.deepEqual(deDonde.filter((de) => de.startsWith(".")), ["../database-functions.js"]);
+});
+
 // ---------- wrong today: todo until the tanda that fixes each one ----------
 
 const I3A = { todo: "se arregla en la tanda I3a" };

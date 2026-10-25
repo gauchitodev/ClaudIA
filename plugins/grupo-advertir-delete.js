@@ -1,5 +1,5 @@
 import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
-import { destinatarioActual } from "../lib/identidad.js";
+import { destinatarioActual, esElBot } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
 // Removes one of this group's warnings.
@@ -13,7 +13,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  if (lid === client.user.lid || jid === client.user.jid) return m.react("❌");
+  if (esElBot([lid, jid], client)) return m.react("❌");
   // Taking a warning away undoes a sanction, so it follows .adv's rule: only from strictly above. A moderator used to
   // clear their own warnings, or another moderator's that an admin had given.
   if (!isOwner && [lid, jid, quien].some((id) => id && (id === m.sender || id === m.senderJid))) {
