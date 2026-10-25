@@ -39,7 +39,7 @@ export function loadDatabase() {
 // this on every start, on the database it opens; past the first one there's nothing to change.
 export function soloUnaFilaPorNumero(base) {
   const deDispositivos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%:%@lid' AND jid <> ''`).run().changes;
-  const repetidos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%@lid' AND jid LIKE '%@s.whatsapp.net' AND lid <> (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1)`).run().changes;
+  const repetidos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%@lid' AND jid LIKE '%@s.whatsapp.net' AND lid <> ${LID_DE_SU_NUMERO}`).run().changes;
   return { deDispositivos, repetidos };
 }
 
@@ -66,6 +66,30 @@ export function initDataDB(m) {
 // stamps each message). A number may also have an old row keyed by itself, from before WhatsApp used LIDs or a message
 // that came without the LID; a recycled number has two people's LIDs, and the last one to write is the one using it.
 const FILA_DEL_NUMERO = `ORDER BY lid LIKE '%@lid' DESC, timestamp DESC`;
+// In a query over users, the LID of the row the current row's number stands for.
+const LID_DE_SU_NUMERO = `(SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1)`;
+// Where the row of an id is, for a query with the id as its parameter: by LID, that row; by number, the one the number
+// stands for.
+const dondeLaFilaDe = (id) => (id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA_DEL_NUMERO}`);
+// What looks like one of these and isn't, left as it is: getAllUsers keeps every row with a LID (two people with one
+// number are two people to list), and syncUserInfo takes the number off every other LID row, not off all but the one
+// FILA_DEL_NUMERO puts first. Nor are the three ways a device's row is told apart one and the same: lid LIKE '%:%@lid'
+// (any colon before the end), lid NOT LIKE '%:%' (no colon anywhere) and /:\d+@lid$/ (a colon and digits at the end).
+
+// A users row as the rest of the bot reads it: inGroup and couplesHistory parsed, or empty if they aren't valid JSON.
+function conDatosLeidos(row) {
+  try {
+    row.inGroup = JSON.parse(row.inGroup || "{}");
+  } catch {
+    row.inGroup = {};
+  }
+  try {
+    row.couplesHistory = JSON.parse(row.couplesHistory || "[]");
+  } catch {
+    row.couplesHistory = [];
+  }
+  return row;
+}
 
 // Get a user's data: by LID, that row; by number, the one the number stands for (FILA_DEL_NUMERO), which is also the
 // one updateUser writes to. getUser by number used to find the old row keyed by the number, and updateUser wrote to
@@ -75,21 +99,9 @@ export function getUser(userId, chatJid = null) {
   // Nobody is "": rows without a number have that jid, and by number "" was one of them (a message from Meta AI, which
   // writes as …@bot, was counted as theirs).
   if (!userId) return null;
-  const row = userId.endsWith("@lid") ? db.prepare(`SELECT * FROM users WHERE lid = ?`).get(userId) : db.prepare(`SELECT * FROM users WHERE jid = ? ${FILA_DEL_NUMERO}`).get(userId);
-  if (!row) return null;
-
-  // Parse the JSON
-  try {
-    row.inGroup = JSON.parse(row.inGroup || "{}");
-  } catch {
-    row.inGroup = {};
-  }
-
-  try {
-    row.couplesHistory = JSON.parse(row.couplesHistory || "[]");
-  } catch {
-    row.couplesHistory = [];
-  }
+  const fila = db.prepare(`SELECT * FROM users WHERE ${dondeLaFilaDe(userId)}`).get(userId);
+  if (!fila) return null;
+  const row = conDatosLeidos(fila);
 
   // Initialize inGroup[m.chat] if needed
   if (chatJid) {
@@ -123,8 +135,7 @@ export function lidDeNumero(jid) {
 // time. A row whose inGroup isn't valid JSON counts as having nothing there, as getUser takes it. By number, the row
 // getUser would read.
 export function enGrupoDe(id, chat) {
-  const donde = id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA_DEL_NUMERO}`;
-  const sql = `SELECT CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS afk, CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS mensajes FROM users WHERE ${donde}`;
+  const sql = `SELECT CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS afk, CASE WHEN json_valid(inGroup) THEN json_extract(inGroup, ?) END AS mensajes FROM users WHERE ${dondeLaFilaDe(id)}`;
   const fila = db.prepare(sql).get(`$."${chat}".afk`, `$."${chat}".messageCount`, id);
   return fila ? { afk: fila.afk ?? -1, messageCount: fila.mensajes || 0 } : null;
 }
@@ -141,8 +152,7 @@ export function jidDeLid(lid) {
 // row getUser would read.
 export function nombresGuardados(id) {
   if (!id) return null;
-  const donde = id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA_DEL_NUMERO}`;
-  return db.prepare(`SELECT apodo, pushName FROM users WHERE ${donde}`).get(id) || null;
+  return db.prepare(`SELECT apodo, pushName FROM users WHERE ${dondeLaFilaDe(id)}`).get(id) || null;
 }
 
 // Get a chat's data
@@ -277,7 +287,7 @@ export function updateUserInGroup(userId, chat, data) {
 // to by number; for a row with no number, nothing is looked up: every LID that came without one has jid '', and sorting
 // all of them for each row made a .tagall take seconds.
 export function filasConDatoDeGrupo(clave) {
-  return db.prepare(`SELECT lid, jid, inGroup, CASE WHEN jid <> '' THEN lid = (SELECT v.lid FROM users v WHERE v.jid = users.jid ${FILA_DEL_NUMERO} LIMIT 1) END AS delNumero FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
+  return db.prepare(`SELECT lid, jid, inGroup, CASE WHEN jid <> '' THEN lid = ${LID_DE_SU_NUMERO} END AS delNumero FROM users WHERE inGroup LIKE ? ORDER BY rowid`).all(`%"${clave}"%`);
 }
 
 // One more message from a person in a group (inGroup[chat].messageCount), counted over the row as it is now: two
@@ -391,22 +401,7 @@ export function getTotalUsers() {
 export function getAllUsers() {
   const rows = db.prepare(`SELECT * FROM users WHERE lid LIKE '%@lid' OR jid = '' OR NOT EXISTS (SELECT 1 FROM users v WHERE v.jid = users.jid AND v.lid LIKE '%@lid')`).all();
 
-  // Parse the JSON for each user
-  for (const row of rows) {
-    try {
-      row.inGroup = JSON.parse(row.inGroup || "{}");
-    } catch {
-      row.inGroup = {};
-    }
-
-    try {
-      row.couplesHistory = JSON.parse(row.couplesHistory || "[]");
-    } catch {
-      row.couplesHistory = [];
-    }
-  }
-
-  return rows;
+  return rows.map(conDatosLeidos);
 }
 
 // delete a user entirely from the users table
@@ -507,14 +502,14 @@ export function obtenerRankingMensual(chat, mes) {
   return { masVotado, masActivo };
 }
 
+// The owners' numbers as ids, from config.toml as it writes them: with "+" and spaces, they're just the digits.
+const numerosDeOwners = () => (globalThis.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
+
 // Does this identifier (lid or jid) belong to a bot owner? Owners are configured by phone number, but in groups
 // participants arrive as @lid, so the owner's lid is resolved through the users table.
 export function esOwner(id) {
   if (!id || typeof id !== "string") return false;
-  for (const numero of globalThis.owners || []) {
-    const limpio = String(numero).replace(/[^0-9]/g, "");
-    if (!limpio) continue;
-    const jid = `${limpio}@s.whatsapp.net`;
+  for (const jid of numerosDeOwners()) {
     if (id === jid) return true;
     // Any row with the owner's number and this id: the owner may have several (an old one keyed by the number, from
     // before WhatsApp used LIDs, and the one with the LID), and taking just the first one stopped recognizing the LID.
@@ -527,10 +522,7 @@ export function esOwner(id) {
 // of every row with them, as esOwner looks one up.
 export function idsDeOwners() {
   const ids = new Set();
-  for (const numero of globalThis.owners || []) {
-    const limpio = String(numero).replace(/[^0-9]/g, "");
-    if (!limpio) continue;
-    const jid = `${limpio}@s.whatsapp.net`;
+  for (const jid of numerosDeOwners()) {
     ids.add(jid);
     for (const fila of db.prepare(`SELECT lid FROM users WHERE jid = ?`).all(jid)) ids.add(fila.lid);
   }
@@ -1252,7 +1244,7 @@ export function podarIntervenciones(antesDe) {
 // all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot saying
 // it was gone, and giving it again would add a second one.
 function idsDeRol(usuario) {
-  const otro = usuario.endsWith("@lid") ? db.prepare(`SELECT jid FROM users WHERE lid = ?`).get(usuario)?.jid : lidDeNumero(usuario);
+  const otro = usuario.endsWith("@lid") ? jidDeLid(usuario) : lidDeNumero(usuario);
   return [...new Set([usuario, otro].filter(Boolean))];
 }
 const enIds = (ids) => `usuario IN (${ids.map(() => "?").join(", ")})`;

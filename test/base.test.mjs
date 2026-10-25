@@ -385,6 +385,17 @@ test("por número se lee y se escribe una sola fila: la de la LID, y si el núme
   assert.deepEqual(db.prepare("SELECT lid FROM users WHERE jid = ?").all(solo), [{ lid: "300000000000556@lid" }]);
 });
 
+// A row whose inGroup isn't valid JSON is read as having nothing there, not as an error that takes the command down: by
+// getUser and by getAllUsers (the listings, .conteo) alike.
+test("una fila con inGroup roto se lee vacía, por getUser y por getAllUsers", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("fila-rota");
+  const L = "300000000000557@lid";
+  db.prepare("INSERT INTO users (lid, jid, pushName, inGroup) VALUES (?, '', 'Rota', '{roto')").run(L);
+  assert.deepEqual(F.getUser(L).inGroup, {});
+  assert.deepEqual(F.getAllUsers().find((u) => u.lid === L).inGroup, {});
+});
+
 // The owner is set by number. Whoever had that number before, and wrote where the bot is, kept it on their row and was
 // taken for the owner; and the owner who changed numbers, with the new one in config, wasn't, by their LID.
 test("esOwner: el número del owner es de quien lo usa ahora", async () => {
