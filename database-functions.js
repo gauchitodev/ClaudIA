@@ -404,9 +404,17 @@ export function getAllUsers() {
   return rows.map(conDatosLeidos);
 }
 
-// delete a user entirely from the users table
+// Delete someone's row (.rd), and with it the old one keyed by their number, from before LIDs, when no other LID row
+// has that number: left behind, it was the number's row again, and whatever came with only the number read its
+// warnings, its silence and its ban of back then, and the listings showed it. With another LID on the number, the old
+// row may be theirs, and it stays.
 export function deleteUser(lid) {
-  return db.prepare(`DELETE FROM users WHERE lid = ?`).run(lid);
+  const numero = jidDeLid(lid);
+  return db.transaction(() => {
+    const borrada = db.prepare(`DELETE FROM users WHERE lid = ?`).run(lid);
+    if (numero?.endsWith("@s.whatsapp.net") && !db.prepare(`SELECT 1 FROM users WHERE jid = ? AND lid LIKE '%@lid'`).get(numero)) db.prepare(`DELETE FROM users WHERE lid = ?`).run(numero);
+    return borrada;
+  })();
 }
 
 // add a blocked command to a chat's blacklist

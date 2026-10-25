@@ -741,3 +741,23 @@ test("al irse quien tiene ahora un número, las ventas del que lo tuvo antes sig
   const estado = (usuario) => db.prepare(`SELECT estado FROM publicaciones WHERE chat = ? AND usuario = ?`).get(C, usuario)?.estado;
   assert.deepEqual([estado(VIEJO), estado(NUEVO)], ["activa", "cerrada"]);
 });
+
+// ---------- what the database keeps of someone ----------
+
+// .rd resets someone: their row, and the old one keyed by their number, from before LIDs. Left behind, it was the
+// number's row again, with its warnings, its silence and its ban of back then, and it showed in the listings. With
+// another LID on the number, the old row may be theirs, and it stays.
+test(".rd borra también la fila vieja del número, si ninguna otra LID lo tiene", async () => {
+  const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
+  const rd = (L) => Rd.run(mensaje({ sender: unaLid(170), mentionedJid: [L] }), { client: cliente(), text: `@${digitos(L)}`, usedPrefix: ".", command: "rd", participants: [] });
+  const a = filaVieja(171);
+  db.prepare("UPDATE users SET banned = 1 WHERE lid = ?").run(a.X);
+  await rd(a.LID);
+  assert.deepEqual([F.getUser(a.LID), F.getUser(a.X)], [null, null]);
+  assert.ok(!F.getAllUsers().some((u) => [a.LID, a.X].includes(u.lid)), "ni en las listas");
+  const b = filaVieja(172);
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Otra', 3)").run(unaLid(172, 2), b.X);
+  await rd(b.LID);
+  assert.ok(db.prepare("SELECT 1 FROM users WHERE lid = ?").get(b.X), "con otra LID en el número, la fila vieja sigue");
+});
+
