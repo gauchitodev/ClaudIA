@@ -1,6 +1,6 @@
 import { getUser } from "../database-functions.js";
 import { elegirAlAzar } from "../lib/azar.js";
-import { lidMencionado } from "../lib/identidad.js";
+import { lidMencionado, esElBot } from "../lib/identidad.js";
 import { pedirPareja } from "../lib/parejas.js";
 
 // .pareja @x: asks x to be your partner. It stays pending until x answers with .aceptar or .rechazar.
@@ -13,7 +13,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const who = lidMencionado(m, text, participants);
   if (!who || !getUser(who)) return client.sendText(m.chat, txt.parejaDefaultWho(usedPrefix, command), m);
   if (who === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);
-  if (who === client.user.lid) return client.sendText(m.chat, txt.parejaWhoBot, m);
+  if (esElBot(who, client)) return client.sendText(m.chat, txt.parejaWhoBot, m);
 
   const numero = who.split("@")[0];
   const r = pedirPareja(m.sender, who, m.chat);

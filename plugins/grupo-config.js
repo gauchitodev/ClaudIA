@@ -1,4 +1,4 @@
-import { rolesGrupo } from "../database-functions.js";
+import { rolesPorPersona } from "../lib/roles.js";
 
 const plugin = {};
 plugin.cmd = ["config"];
@@ -8,9 +8,11 @@ plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
   const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa } = chat;
-  const roles = rolesGrupo(m.chat);
-  const admins = roles.filter((r) => r.rol === "admin").map((r) => `@${r.usuario.split("@")[0]}`);
-  const mods = roles.filter((r) => r.rol === "mod").map((r) => `@${r.usuario.split("@")[0]}`);
+  // Once per person, as .roles: someone with a role under each of their ids came out twice.
+  const roles = rolesPorPersona(m.chat);
+  const conRol = (rol) => [...roles].filter(([, r]) => r === rol).map(([id]) => `@${id.split("@")[0]}`);
+  const admins = conRol("admin");
+  const mods = conRol("mod");
 
   const text = `
 [⚙️] 𝙲𝙾𝙽𝙵𝙸𝙶 𝙳𝙴 𝙶𝚁𝚄𝙿𝙾 [⚙️]
@@ -51,7 +53,7 @@ ${ascensos ? "✅" : "❌"} Avisos de ascenso de rango (.ascensos)
 🛡️ Admins del bot: ${admins.join(", ") || "nadie"} (.adminbot)
 🧹 Moderadores: ${mods.join(", ") || "nadie"} (.moderador)`.trim();
 
-  await client.sendText(m.chat, text, m, { mentions: roles.map((r) => r.usuario) });
+  await client.sendText(m.chat, text, m, { mentions: [...roles.keys()] });
 };
 
 export default plugin;

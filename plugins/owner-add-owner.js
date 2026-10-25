@@ -47,9 +47,13 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
 
   // the real owners, without empty "" entries
   const currentOwners = (config.owners || []).filter((o) => o && o.trim() !== "");
+  // By their digits: config.toml may have an owner with "+" and spaces, as esOwner reads them, and written that way
+  // they were added again as someone new, and couldn't be removed.
+  const digitos = (o) => String(o).replace(/[^0-9]/g, "");
+  const yaEsOwner = currentOwners.some((o) => digitos(o) === who);
 
   if (command === "addowner" || command === "aowner") {
-    if (currentOwners.includes(who)) {
+    if (yaEsOwner) {
       return client.sendText(m.chat, `El número *${who}* ya es owner.`, m);
     }
 
@@ -64,7 +68,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   }
 
   if (command === "removeowner" || command === "rowner") {
-    if (!currentOwners.includes(who)) {
+    if (!yaEsOwner) {
       return client.sendText(m.chat, `❌ El número *${who}* no es owner.`, m);
     }
 
@@ -74,7 +78,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     }
 
     // remove the given owner
-    const owners = currentOwners.filter((o) => o !== who);
+    const owners = currentOwners.filter((o) => digitos(o) !== who);
     const nuevo = conOwners(configContent, owners);
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: sacalo a mano.", m);
     guardarConfig(nuevo);

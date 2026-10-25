@@ -1,5 +1,6 @@
 import { nombreDeGrupo } from "../lib/cache-grupos.js";
 import { esVistaUnica } from "../lib/vista-unica.js";
+import { esElBot } from "../lib/identidad.js";
 const { downloadContentFromMessage } = await import(baileys);
 
 const plugin = (m) => m;
@@ -11,7 +12,7 @@ plugin.before = async (m, { client, chat, isWaAdmin }) => {
       // send one with any id) could bring out a message from another group.
       const msg = client.serializeM(client.loadMessage(m.message.protocolMessage.key.id, m.chat));
       if (!msg) return;
-      if (msg.key.fromMe || msg.key.participant === client.user.lid) return;
+      if (msg.key.fromMe || esElBot(msg.key.participant, client)) return;
       // Deleted by its author, or by a WhatsApp admin of the group, who can delete anyone's. Anybody else's deletion is
       // forged, and re-posting it showed someone deleting what they never deleted.
       if (msg.sender !== m.sender && !isWaAdmin) return;

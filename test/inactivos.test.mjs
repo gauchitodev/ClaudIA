@@ -4,6 +4,7 @@ import fs from "fs";
 import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
+import { numeroReciclado, unNumero } from "./identidad-escenarios.mjs";
 
 const DIA = 24 * 60 * 60 * 1000;
 let F, I, CG, Inactivos, Kick;
@@ -922,4 +923,21 @@ test("una copia cerrada que llega por groups.update anota el cierre, desde lo an
   assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: otro, subject: "Grupo", announce: true, participants }));
   assert.deepEqual(F.cierresGrupo(otro).map((c) => c.hasta === null), [false], "una copia de antes de que abriera no lo cierra de nuevo");
   CG.vaciar();
+});
+
+// A recycled number, in a group that lists people by number and doesn't bring NUEVO's LID: the database's LID for the
+// number is VIEJO's, an admin listed first. Looked for by any id they came under, the confirmation found VIEJO, left
+// them alone for being an admin, and NUEVO "se salvó a último momento".
+test(".k inactivos confirmar saca a quien avisó en el grupo, no al primero que comparte una id con él", async () => {
+  const chat = "inactivos-reciclado@g.us";
+  const { X, VIEJO } = numeroReciclado(60);
+  const ahora = Date.now();
+  F.initDataDB({ chat, sender: "105@lid", senderJid: "59899000105@s.whatsapp.net", pushName: "Persona105" });
+  F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 20 * DIA);
+  const participants = [{ id: unNumero(61), lid: VIEJO, admin: "admin" }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
+  await kick(chat, participants, "inactivos");
+  await kick(chat, participants, "inactivos confirmar");
+  assert.deepEqual(expulsiones.map((e) => e.ids[0]), [X]);
 });

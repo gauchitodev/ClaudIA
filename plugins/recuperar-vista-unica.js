@@ -1,5 +1,6 @@
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
+import { esElBot } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["r", "recovery", "recuperar"];
@@ -10,7 +11,7 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);
   const q = m.quoted; // a getter that rebuilds the quote on every read, so it's read once
   if (!q) return client.sendText(m.chat, txt.recoveryOnceNull, m);
-  if (q.sender === client.user.lid) return m.react("❌");
+  if (esElBot(q.sender, client)) return m.react("❌");
   const mime = q.mimetype || q.mediaType || "";
   if (!/image|video|audio/.test(mime)) return client.sendText(m.chat, txt.recoveryOnceNull, m);
   const tope = excedeTope(q, TOPES_MEDIA.vistaUnica);

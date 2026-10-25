@@ -20,7 +20,7 @@ function cliente() {
   const c = { user: { lid: "bot@lid", id: "bot@s.whatsapp.net", jid: "bot@s.whatsapp.net" }, mensajes: [] };
   // Like pushMessage: each chat's messages under that chat, and a quoted copy under its author, with no group.
   c.chats = {
-    [G]: { subject: "Grupo", messages: { G1: guardado(G, "G1", "beto@lid", "lo que dijo Beto") } },
+    [G]: { subject: "Grupo", messages: { G1: guardado(G, "G1", "beto@lid", "lo que dijo Beto"), B1: guardado(G, "B1", "bot@s.whatsapp.net", "algo que dijo Claudia") } },
     [OTRO]: { subject: "Otro", messages: { O1: guardado(OTRO, "O1", "beto@lid", "algo del otro grupo") } },
     "beto@lid": { messages: { C1: guardado("beto@lid", "C1", "beto@lid", "una cita vieja") } },
   };
@@ -61,4 +61,10 @@ test("un borrado de otra persona solo vale si es admin del grupo", async () => {
   assert.deepEqual(await borrar("G1", "caro@lid"), [], "Caro no puede borrar lo de Beto: el borrado es falso");
   const textos = await borrar("G1", "caro@lid", { isWaAdmin: true });
   assert.match(textos[0], /lo que dijo Beto/, "un admin de WhatsApp sí puede borrar lo de otro");
+});
+
+// A group that lists people by number keys Claudia's own messages by her number: deleted by an admin, she posted them
+// back, as if someone else's.
+test("un mensaje de Claudia guardado con su número no se repostea", async () => {
+  assert.deepEqual(await borrar("B1", "admin@lid", { isWaAdmin: true }), []);
 });

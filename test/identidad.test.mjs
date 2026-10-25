@@ -5,9 +5,9 @@ import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 
-// Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what is right today and had no test of its
-// own, and, as todo, what is wrong today, each with the tanda that fixes it (the identity frontier plan). A tanda takes
-// the todo off its cases, and they fail first against the code before it.
+// Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
+// and what was wrong and got fixed. Each of those was a todo until its tanda of the identity frontier plan, and failed
+// first against the code before it.
 
 let F, I, M, R, S, P;
 before(async () => {
@@ -457,17 +457,15 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
   }
 });
 
-// ---------- wrong today: todo until the tanda that fixes each one ----------
+// ---------- whom it protects and whom it acts on: the bot, the owners, and the id the group gives ----------
 
-const I3C = { todo: "se arregla en la tanda I3c" };
-
-test(".besar al bot nombrado por su número: la respuesta de siempre para el bot", I3C, async () => {
+test(".besar al bot nombrado por su número: la respuesta de siempre para el bot", async () => {
   globalThis.enviados = [];
   await P.besar.run(mensaje({ sender: unaLid(50), mentionedJid: [cliente().user.jid] }), { client: cliente(), text: "@bot", usedPrefix: ".", command: "besar" });
   assert.equal(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, globalThis.txt.besarBot);
 });
 
-test(".addowner reconoce al owner escrito con + y espacios", I3C, async (t) => {
+test(".addowner reconoce al owner escrito con + y espacios", async (t) => {
   const conFormato = "+598 99 000 051";
   const antes = globalThis.owners;
   globalThis.owners = [conFormato];
@@ -479,7 +477,7 @@ test(".addowner reconoce al owner escrito con + y espacios", I3C, async (t) => {
   assert.match(ultimoEnviado().msg.text, /ya es owner/);
 });
 
-test("el anti-link saca con la id con que el grupo lista a la persona", I3C, async (t) => {
+test("el anti-link saca con la id con que el grupo lista a la persona", async (t) => {
   const { X, NUEVO, porNumero } = numeroReciclado(53);
   const sacados = [];
   cliente().groupParticipantsUpdate = async (chat, ids, accion) => (sacados.push([ids, accion]), ids.map(() => ({ status: "200" })));
@@ -493,7 +491,7 @@ test("el anti-link saca con la id con que el grupo lista a la persona", I3C, asy
   assert.deepEqual(sacados, [[[X], "remove"]]);
 });
 
-test(".adminbot no se le da a quien no está en el grupo, aunque la base lo conozca", I3C, async () => {
+test(".adminbot no se le da a quien no está en el grupo, aunque la base lo conozca", async () => {
   const C = "adminbot@g.us";
   const L = unaLid(54);
   F.initDataDB({ chat: C, sender: L, senderJid: "", pushName: "Afuera" });
@@ -503,7 +501,7 @@ test(".adminbot no se le da a quien no está en el grupo, aunque la base lo cono
   assert.equal(F.rolGrupo(C, L), null);
 });
 
-test(".config muestra una sola vez a quien tiene un rol bajo cada una de sus ids", I3C, async () => {
+test(".config muestra una sola vez a quien tiene un rol bajo cada una de sus ids", async () => {
   const C = "config@g.us";
   const [L, X] = [unaLid(56), unNumero(56)];
   db.prepare(`INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Doble', 1)`).run(L, X);
@@ -514,10 +512,152 @@ test(".config muestra una sola vez a quien tiene un rol bajo cada una de sus ids
   assert.equal((ultimoEnviado().msg.text.match(new RegExp(`@(${digitos(L)}|${digitos(X)})`, "g")) || []).length, 1);
 });
 
-test("al irse quien tiene ahora un número, el que lo tuvo antes no pierde su rol", I3C, () => {
+test("al irse quien tiene ahora un número, el que lo tuvo antes no pierde su rol", () => {
   const C = "salida@g.us";
   const { X, VIEJO, NUEVO } = numeroReciclado(58);
   F.setRolGrupo(C, VIEJO, "mod");
   R.limpiarRolesAlSalir(C, [{ id: X, lid: NUEVO }]);
   assert.equal(F.rolGrupo(C, VIEJO), "mod");
+});
+
+test("identidadDelGrupo: la LID y el número como los trae el grupo; idsDeParticipante va a la base solo sin LID", () => {
+  const { X, VIEJO, NUEVO, porLid, porNumero, porNumeroSinLid, sinParear } = numeroReciclado(140);
+  assert.deepEqual(I.identidadDelGrupo(porLid[0]), { lid: NUEVO, jid: X });
+  assert.deepEqual(I.identidadDelGrupo(porNumero[0]), { lid: NUEVO, jid: X });
+  assert.deepEqual(I.identidadDelGrupo(porNumeroSinLid[0]), { lid: null, jid: X });
+  assert.deepEqual(I.identidadDelGrupo(sinParear[0]), { lid: NUEVO, jid: null });
+  assert.deepEqual(I.idsDeParticipante(porNumero[0]), [X, NUEVO], "trajo la LID: la de la base para el número es la de VIEJO");
+  assert.deepEqual(I.idsDeParticipante(porNumeroSinLid[0]), [X, VIEJO], "sin LID, la de la base");
+});
+
+// The bot named by its number, as a group that lists people by number names it, with an old row the database may keep
+// under that number: each command that has an answer for the bot gives it. They looked at its LID alone.
+test("el bot nombrado por su número tiene la respuesta de siempre para el bot", async (t) => {
+  const { jid } = cliente().user;
+  db.prepare(`INSERT OR IGNORE INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Claudia', 1)`).run(jid, jid);
+  // A duel taken against her would keep its timer going for minutes, and the test with it.
+  const D = await import("../lib/duelos.js");
+  t.after(() => {
+    db.prepare(`DELETE FROM users WHERE lid = ?`).run(jid);
+    for (const d of D.duelos.values()) clearTimeout(d.timeout);
+    D.duelos.clear();
+  });
+  const casos = [
+    ["pareja-elegir", "pareja", () => globalThis.txt.parejaWhoBot],
+    ["pareja-aceptar", "aceptar", () => globalThis.txt.parejaWhoBotNull(".", "aceptar", jid)],
+    ["pareja-rechazar", "rechazar", () => globalThis.txt.parejaWhoBotNull(".", "rechazar", jid)],
+    ["familia-adoptar", "adoptar", () => "A mí no me adopta nadie: yo los adopté a todos ustedes 😌"],
+    ["coins-duelo", "duelo", () => "❌ Conmigo no, que la banca soy yo."],
+  ];
+  const A = unaLid(141);
+  fijarSaldo(F, G, A, 100);
+  for (const [archivo, command, esperado] of casos) {
+    globalThis.enviados = [];
+    const texto = `@${digitos(jid)} 20`;
+    const plugin = (await import(`../plugins/${archivo}.js`)).default;
+    await plugin.run(mensaje({ sender: A, mentionedJid: [jid] }), { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: [] });
+    assert.equal(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, esperado(), `.${command}`);
+  }
+});
+
+test(".r de un mensaje de Claudia citado por su número no lo recupera", async () => {
+  const Recuperar = (await import("../plugins/recuperar-vista-unica.js")).default;
+  let reaccion = null;
+  const m = { ...mensaje({ sender: unaLid(142), quoted: { sender: cliente().user.jid, mimetype: "image/jpeg" } }), msg: {}, react: async (e) => (reaccion = e) };
+  await Recuperar.run(m, { client: cliente(), isAdmin: true, isOwner: false });
+  assert.equal(reaccion, "❌");
+});
+
+test(".removeowner saca al owner escrito con + y espacios", async (t) => {
+  const conFormato = "+598 99 000 143";
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+  });
+  fs.writeFileSync("config.toml", `owners = ["${conFormato}", "59899000144"]\n`);
+  await P.addowner.run(mensaje({ sender: unaLid(145) }), { client: cliente(), text: conFormato, usedPrefix: ".", command: "removeowner", participants: [] });
+  assert.match(ultimoEnviado().msg.text, /fué removido/);
+  assert.match(fs.readFileSync("config.toml", "utf8"), /^owners = \["59899000144"\]/m);
+});
+
+// In a group that lists people by number, by the id the group lists them under; and when WhatsApp refuses, they say so.
+test("el anti-link, .suicidarse, .aa y .ad actúan sobre la id del grupo, y avisan si WhatsApp no los deja", async (t) => {
+  const { X, NUEVO, porNumero } = numeroReciclado(146);
+  const pedidos = [];
+  cliente().groupParticipantsUpdate = async (chat, ids, accion) => (pedidos.push([ids[0], accion]), ids.map(() => ({ status: "403" })));
+  cliente().groupInviteCode = async () => "OTROCODIGO";
+  t.after(() => {
+    delete cliente().groupParticipantsUpdate;
+    delete cliente().groupInviteCode;
+  });
+  const plugin = async (archivo) => (await import(`../plugins/${archivo}.js`)).default;
+  const m = (extra = {}) => ({ ...mensaje({ sender: NUEVO, senderJid: X }), ...extra });
+  const casos = [
+    ["el anti-link", "remove", "No pude sacarlo (error 403).", () => P.antiLink.before(m({ text: "entren a chat.whatsapp.com/ABCDEFGH" }), { client: cliente(), participants: porNumero, isMod: false, isBotAdmin: true, isOwner: false, chat: { antiGroups: true } })],
+    [".suicidarse", "remove", "No pude sacarte (error 403).", async () => (await plugin("fun-suicidarse")).run(m(), { client: cliente(), text: "", isOwner: false, participants: porNumero })],
+    [".aa", "promote", "No pude darte el admin (error 403).", async () => (await plugin("auto-admin")).run(m(), { client: cliente(), isOwner: true, participants: porNumero })],
+    [".ad", "demote", "No pude sacarte el admin (error 403).", async () => (await plugin("auto-demote")).run(m(), { client: cliente(), isAdmin: true, participants: porNumero })],
+  ];
+  for (const [nombre, accion, aviso, correr] of casos) {
+    pedidos.length = 0;
+    globalThis.enviados = [];
+    await correr();
+    assert.deepEqual(pedidos, [[X, accion]], nombre);
+    assert.equal(ultimoEnviado()?.msg.text, aviso, nombre);
+  }
+});
+
+// The owner as config.toml has them may come with "+" and spaces: the mention was no id at all. And the removal goes by
+// the id the group lists the person under, saying so when WhatsApp refuses, as the others.
+test("el anti-mención de estados menciona al owner por su LID, saca con la id del grupo y avisa si no puede", async (t) => {
+  const { X, NUEVO, porNumero } = numeroReciclado(147);
+  const o = owner(t, 148, { comoEnConfig: "+598 99 000 148" });
+  const pedidos = [];
+  cliente().groupParticipantsUpdate = async (chat, ids, accion) => (pedidos.push([ids[0], accion]), ids.map(() => ({ status: "403" })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  globalThis.enviados = [];
+  const Estados = (await import("../plugins/grupo-anti-group-mention-status.js")).default;
+  const m = { ...mensaje({ sender: NUEVO, senderJid: X }), message: { groupStatusMentionMessage: { message: { protocolMessage: {} } } } };
+  await Estados.before(m, { client: cliente(), participants: porNumero, isMod: false, isOwner: false, isBotAdmin: true, chat: { antiStatus: true } });
+  assert.deepEqual(globalThis.enviados[0]?.msg.mentions, [NUEVO, o.LID]);
+  await esperar(3100); // the removal comes three seconds after the warning
+  assert.deepEqual(pedidos, [[X, "remove"]]);
+  assert.equal(ultimoEnviado().msg.text, "No pude sacarlo (error 403).");
+});
+
+test(".adminbot sin la lista del grupo dice que no pudo verla, y no da el rol", async () => {
+  const C = "adminbot-sin-lista@g.us";
+  const L = unaLid(149);
+  F.initDataDB({ chat: C, sender: L, senderJid: "", pushName: "Alguien" });
+  const texto = `@${digitos(L)}`;
+  await P.roles.run(mensaje({ chat: C, sender: unaLid(150), mentionedJid: [L] }), { client: cliente(), command: "adminbot", args: [texto], text: texto, participants: [], isOwner: true, isWaAdmin: true, isAdmin: true });
+  assert.equal(ultimoEnviado().msg.text, "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.");
+  assert.equal(F.rolGrupo(C, L), null);
+});
+
+// A moderator listed by number, in a group that doesn't bring their LID: the ban roulette spun by another moderator
+// leaves them out, as it does a moderator listed by LID. Each participant goes by how the group gives them, and
+// without the LID, rango read no role.
+test("rango lee el rol por el número si no hay LID, y la ruleta del ban no elige a un moderador listado así", async () => {
+  const C = "ruleta@g.us";
+  const { X, LID } = filaVieja(151);
+  F.setRolGrupo(C, LID, "mod");
+  assert.equal(R.rango(C, { jid: X }), 1);
+  const GIRA = unaLid(152);
+  F.setRolGrupo(C, GIRA, "mod");
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  const participants = [{ id: X, admin: null }, { id: GIRA, admin: null }, botEnGrupo().porNumeroSinLid];
+  await Ruleta.run(mensaje({ chat: C, sender: GIRA }), { client: cliente(), groupMetadata: { participants }, isOwner: false, isWaAdmin: false });
+  assert.match(ultimoEnviado().msg.text, /No se encontraron candidatos/);
+});
+
+test("al irse quien tiene ahora un número, las ventas del que lo tuvo antes siguen", async () => {
+  const C = "ventas-salida@g.us";
+  const { X, VIEJO, NUEVO } = numeroReciclado(153);
+  F.crearPublicacion({ chat: C, usuario: VIEJO, tipo: "vendo", texto: "una bici" });
+  F.crearPublicacion({ chat: C, usuario: NUEVO, tipo: "vendo", texto: "una tele" });
+  const { limpiarVentasAlSalir } = await import("../lib/compraventa.js");
+  limpiarVentasAlSalir(C, [{ id: X, lid: NUEVO }]);
+  const estado = (usuario) => db.prepare(`SELECT estado FROM publicaciones WHERE chat = ? AND usuario = ?`).get(C, usuario)?.estado;
+  assert.deepEqual([estado(VIEJO), estado(NUEVO)], ["activa", "cerrada"]);
 });

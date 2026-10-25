@@ -100,3 +100,12 @@ test(".ranking: «1 reacción» en singular, y por nombre, sin arrobar a nadie",
   assert.match(text, /1\. Beto — 2 reacciones dadas$/);
   assert.equal(mentions, undefined);
 });
+
+// Her own reactions by her number, as a group that lists people by number brings them: they count for nothing, as by
+// her LID.
+test("una reacción de Claudia por su número no cuenta, como por su LID", () => {
+  const C = "reaccion-de-claudia@g.us";
+  contar(reaccion("111@lid", BOT_JID, { chat: C }));
+  assert.equal(F.getSaldoCoins(C, "111@lid"), 0, "quien escribió no cobra por una reacción de ella");
+  assert.equal(F.getSaldoCoins(C, BOT) + F.getSaldoCoins(C, BOT_JID), 0);
+});

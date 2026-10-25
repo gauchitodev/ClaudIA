@@ -1,5 +1,7 @@
 // Anti-links de grupos y canales de WhatsApp.
 // It only fires on a real link (chat.whatsapp.com/CODE); writing "grupo de whatsapp" doesn't count.
+import { expulsar, idDelAutor } from "../lib/identidad.js";
+
 const groupLinkRegex = /chat\.whatsapp\.com\/[A-Za-z0-9]{6,}/i;
 const channelLinkRegex = /whatsapp\.com\/channel\/[A-Za-z0-9]{6,}/i;
 
@@ -24,7 +26,8 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
     client.sendMessage(m.chat, { text: txt.antiGroupsSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
     m.moderado = true; // Claudia leaves it alone (plugins/_auto-ia.js)
     await m.delete();
-    await client.groupParticipantsUpdate(m.chat, [m.sender], "remove");
+    const { ok, status } = await expulsar(client, m.chat, idDelAutor(m, participants));
+    if (!ok) await client.sendText(m.chat, `No pude sacarlo (error ${status}).`, null);
   }
 
   if (chat.antiChannels && isChannelLink) {
