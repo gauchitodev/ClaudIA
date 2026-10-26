@@ -7,7 +7,7 @@ import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
-import { buscarEnGrupo, esOwnerDe } from "./lib/identidad.js";
+import { buscarEnGrupo, esOwnerConfirmado } from "./lib/identidad.js";
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 
 // Keeps the last time each group was greeted
@@ -85,9 +85,9 @@ export async function handleMessage(nMsg) {
     // by it, and the message may bring their LID.
     const userSender = (m.isGroup ? buscarEnGrupo(participants, { lid: m.sender, jid: m.senderJid || user?.jid }) : {}) || {};
     const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: client.user.lid, jid: client.user.jid }) : {}) || {};
-    // By either identity (the LID through the owner's rows), so the owner is recognized even when the message only
-    // carries their LID.
-    const isOwner = m.fromMe || esOwnerDe([m.senderJid, m.sender]);
+    // By the number the message brings, or by the LID WhatsApp says has an owner's number (lib/identidad.js), so the
+    // owner is recognized when the message only carries their LID, and nobody else is for having the number on a row.
+    const isOwner = m.fromMe || esOwnerConfirmado([m.senderJid, m.sender]);
     const isRAdmin = userSender?.admin === "superadmin" || false;
     const isWaAdmin = isRAdmin || userSender?.admin === "admin" || false;
     // Per-group bot roles (.adminbot / .moderador): the bot admin counts as admin and the moderator only as mod.

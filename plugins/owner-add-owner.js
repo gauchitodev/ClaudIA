@@ -1,6 +1,6 @@
 import fs from "fs";
 import toml from "@iarna/toml";
-import { destinatario } from "../lib/identidad.js";
+import { destinatario, confirmarOwners } from "../lib/identidad.js";
 
 // config.toml with only its owners line changed: rewriting the whole file with toml.stringify wiped every comment that
 // explains the settings. The result is parsed back before anything is written: null if the owners didn't come out
@@ -63,6 +63,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: agregalo a mano.", m);
     guardarConfig(nuevo);
     globalThis.owners = owners; // update it in memory
+    await confirmarOwners(client); // their LID, as WhatsApp says, for when a message brings only that
 
     return client.sendText(m.chat, `✅ El numero *${who}* fué añadido como owner.`, m);
   }

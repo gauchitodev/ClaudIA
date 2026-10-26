@@ -29,7 +29,7 @@ const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 // What only lib/identidad.js asks the database: who is who (a number's LID, a LID's number, the owners). The rest of
 // the bot asks lib/identidad.js, so the same question gets the same answer everywhere: answered here and there, a
 // number that changed hands got a different one in each place. The tests look into the database freely.
-export const SOLO_IDENTIDAD = ["lidDeNumero", "jidDeLid", "idsDeOwners", "esOwner"];
+export const SOLO_IDENTIDAD = ["lidDeNumero", "jidDeLid", "idsDeOwners", "esOwner", "numerosDeOwners"];
 const PREGUNTALE_A_IDENTIDAD = "Who is who is lib/identidad.js's to ask the database (SOLO_IDENTIDAD, eslint.config.js): ask lib/identidad.js instead (lidDe, idsDe, esOwnerDe, idsDeOwners).";
 
 export default defineConfig([

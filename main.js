@@ -17,7 +17,7 @@ import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
 import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
 import { recordarIngreso } from "./lib/contexto-chat.js";
 import { procesarTanda } from "./lib/tandas.js";
-import { idsDeParticipante } from "./lib/identidad.js";
+import { idsDeParticipante, confirmarOwnersCadaTanto } from "./lib/identidad.js";
 import { reiniciarSiEsElBot } from "./lib/inactivos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
@@ -111,6 +111,8 @@ async function startBot() {
       intentosReconexion = 0;
       reconectando = false;
       resolverCanal();
+      // Who the owners are by LID, as WhatsApp says (lib/identidad.js), and again every so often.
+      confirmarOwnersCadaTanto();
       globalThis.horaConexion = horaConexion;
       // Coming back from a disconnection, the cached group metadata is dropped: promotes, joins and leaves that
       // happened while the bot was down never arrived as events, so the admin lists can't be trusted any more.

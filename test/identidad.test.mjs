@@ -116,10 +116,55 @@ test("esOwner: con el owner escrito en config.toml con + y espacios", (t) => {
   assert.ok(!F.esOwner(unaLid(13)));
 });
 
-// The day a recycled number's old holder writes again, or a .rd, would be the ones to show otherwise (tanda I4b).
-test("una fila con el número del owner hace owner a esa LID (así es hoy: se decide en la tanda I4b)", (t) => {
+// A row with an owner's number gave its LID the owner's powers until the owner wrote with the number again: .backup
+// sent it the whole database, and .addowner made it stay. The powers go by the LID WhatsApp says has the number now;
+// for being left alone (moderation, notices, ranks) the row still counts, where one too many is no harm.
+test("una fila con el número del owner no le da sus poderes a esa LID: solo a la que WhatsApp dice que lo tiene", async (t) => {
   const o = owner(t, 14, { filaAjena: true });
-  assert.equal(F.esOwner(o.AJENA), true);
+  usyncFalso(t, { [o.X]: o.LID });
+  t.after(() => I.ownersConfirmados.clear());
+  assert.deepEqual([I.esOwnerConfirmado(o.AJENA), I.esOwnerConfirmado(o.LID), I.esOwnerConfirmado(o.X)], [false, false, true], "sin respuesta de WhatsApp, solo su número");
+  await I.confirmarOwners(cliente());
+  assert.deepEqual([I.esOwnerConfirmado(o.AJENA), I.esOwnerConfirmado(o.LID)], [false, true]);
+  assert.equal(I.esOwnerDe(o.AJENA), true, "para dejarla en paz, la fila sigue contando");
+});
+
+// One question per owner, by the digits however config.toml writes them. An answer that doesn't come, or comes without
+// a LID, leaves the last one there was; a number that's another LID's now goes to that one.
+test("confirmarOwners: le pregunta a WhatsApp por cada owner y se queda con lo que contesta", async (t) => {
+  const o = owner(t, 180, { comoEnConfig: `+598 99 ${digitos(unNumero(180)).slice(5, 8)} ${digitos(unNumero(180)).slice(8)}` });
+  t.after(() => I.ownersConfirmados.clear());
+  const consultas = usyncFalso(t, { [o.X]: o.LID });
+  await I.confirmarOwners(cliente());
+  assert.deepEqual(consultas.flatMap((c) => c.users.map((u) => u.id)), [o.X], "una pregunta, por el número sin el + ni los espacios");
+  for (const [ids, poderes] of [[o.LID, true], [[null, o.LID], true], [[unaLid(181), unNumero(181)], false], [[], false], [null, false]]) {
+    assert.equal(I.esOwnerConfirmado(ids), poderes, JSON.stringify(ids));
+  }
+  usyncFalso(t, {});
+  await I.confirmarOwners(cliente());
+  assert.ok(I.esOwnerConfirmado(o.LID), "una respuesta sin LID no borra la que había");
+  const otra = unaLid(180, 3);
+  usyncFalso(t, { [o.X]: otra });
+  await I.confirmarOwners(cliente());
+  assert.deepEqual([I.esOwnerConfirmado(o.LID), I.esOwnerConfirmado(otra)], [false, true], "el número es de otra LID ahora");
+});
+
+test("el bot le pregunta a WhatsApp por los owners al conectarse, y .addowner por el que agrega", async (t) => {
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  assert.match(main, /connection === "open"\) \{[\s\S]*?confirmarOwnersCadaTanto\(\);/);
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+  });
+  const [X, L] = [unNumero(182), unaLid(182)];
+  usyncFalso(t, { [X]: L });
+  fs.writeFileSync("config.toml", 'owners = ["59899111222"]\n');
+  await P.addowner.run(mensaje({ sender: unaLid(183) }), { client: cliente(), text: `+${digitos(X)}`, usedPrefix: ".", command: "addowner", participants: [] });
+  assert.ok(I.esOwnerConfirmado(L), "su LID tiene los poderes enseguida");
+  I.ownersConfirmados.clear();
+  await I.confirmarOwnersCadaTanto();
+  assert.ok(I.esOwnerConfirmado(L), "al conectarse");
 });
 
 test("por número se lee la fila de la LID, aunque haya una vieja y una de dispositivo", () => {

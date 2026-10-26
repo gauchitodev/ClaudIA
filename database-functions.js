@@ -567,10 +567,11 @@ export function obtenerRankingMensual(chat, mes) {
 }
 
 // The owners' numbers as ids, from config.toml as it writes them: with "+" and spaces, they're just the digits.
-const numerosDeOwners = () => (globalThis.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
+export const numerosDeOwners = () => (globalThis.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
 
 // Does this identifier (lid or jid) belong to a bot owner? Owners are configured by phone number, but in groups
-// participants arrive as @lid, so the owner's lid is resolved through the users table.
+// participants arrive as @lid, so the owner's lid is resolved through the users table. For leaving an owner alone,
+// where one too many is no harm: who has an owner's powers goes by the LID WhatsApp confirms (lib/identidad.js).
 export function esOwner(id) {
   if (!id || typeof id !== "string") return false;
   for (const jid of numerosDeOwners()) {

@@ -602,3 +602,21 @@ test("un aviso del grupo con el dispositivo en la LID es de la misma persona", a
   assert.deepEqual(db.prepare("SELECT lid, jid FROM users WHERE lid LIKE '300000000000061%'").all(), [{ lid: DUENO, jid: OWNER }]);
   assert.equal(F.esOwner(DUENO), true);
 });
+
+// An owner's powers by their LID alone go by what WhatsApp says has the owner's number: a row with the number isn't
+// enough, since it may have kept it from before.
+test("un mensaje con solo la LID del owner tiene sus poderes una vez que WhatsApp lo confirma", async (t) => {
+  const client = cliente();
+  const vistos = [];
+  globalThis.plugins = { "quien.js": { cmd: ["quiensoy"], run: async (m, { isOwner }) => vistos.push(isOwner) } };
+  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const DUENO = "300000000000063@lid";
+  F.initDataDB({ chat: GRUPO, sender: DUENO, senderJid: OWNER, pushName: "Dueño" });
+  const I = await import("../lib/identidad.js");
+  t.after(() => I.ownersConfirmados.clear());
+  await llega(client, DUENO, ".quiensoy").hecho;
+  client.executeUSyncQuery = async (consulta) => ({ list: consulta.users.map((u) => ({ id: u.id, lid: u.id === OWNER ? DUENO : undefined })) });
+  await I.confirmarOwners(client);
+  await llega(client, DUENO, ".quiensoy").hecho;
+  assert.deepEqual(vistos, [false, true]);
+});
