@@ -26,6 +26,8 @@ export function loadDatabase() {
 
   const { deDispositivos, repetidos } = soloUnaFilaPorNumero(db);
   if (deDispositivos || repetidos) console.log(`🟢 Migración: cada número quedó en una sola fila (${repetidos} repetida(s), ${deDispositivos} de dispositivos)`);
+  const { juntadas, pasadas } = juntarFilasDeDispositivo(db);
+  if (juntadas || pasadas) console.log(`🟢 Migración: las filas de dispositivo pasaron a la de su LID (${juntadas} juntada(s), ${pasadas} que pasaron a serlo)`);
 
   return usarBase(db);
 }
@@ -41,6 +43,55 @@ export function soloUnaFilaPorNumero(base) {
   const deDispositivos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%:%@lid' AND jid <> ''`).run().changes;
   const repetidos = base.prepare(`UPDATE users SET jid = '' WHERE lid LIKE '%@lid' AND jid LIKE '%@s.whatsapp.net' AND lid <> ${LID_DE_SU_NUMERO}`).run().changes;
   return { deDispositivos, repetidos };
+}
+
+// Two rows of one person into one: into `en` goes what only `de` had, and of a group both have, the higher warning, the
+// silence if either, the messages added up and the earliest seniority (desde). The ban if either had it; the name, the
+// nickname and the memory of `de` only where `en` has none. Then `de` goes. On the connection it's handed.
+function juntarFilas(base, en, de) {
+  const [a, b] = [en, de].map((lid) => base.prepare(`SELECT * FROM users WHERE lid = ?`).get(lid));
+  if (!a || !b) return false;
+  const [gruposA, gruposB] = [a, b].map((f) => conDatosLeidos({ ...f }).inGroup);
+  for (const [chat, suyo] of Object.entries(gruposB)) {
+    const mio = gruposA[chat];
+    if (!mio) {
+      gruposA[chat] = suyo;
+      continue;
+    }
+    const junto = { ...suyo, ...mio };
+    if ("messageCount" in mio || "messageCount" in suyo) junto.messageCount = (mio.messageCount || 0) + (suyo.messageCount || 0);
+    const desdes = [mio.desde, suyo.desde].filter((d) => typeof d === "number");
+    if (desdes.length) junto.desde = Math.min(...desdes);
+    if ("warn" in mio || "warn" in suyo) junto.warn = Math.max(mio.warn || 0, suyo.warn || 0);
+    if (mio.mute || suyo.mute) junto.mute = true;
+    gruposA[chat] = junto;
+  }
+  base.transaction(() => {
+    base
+      .prepare(`UPDATE users SET inGroup = ?, banned = ?, pushName = ?, apodo = ?, memoria = ?, timestamp = ? WHERE lid = ?`)
+      .run(JSON.stringify(gruposA), a.banned || b.banned ? 1 : 0, a.pushName || b.pushName, a.apodo || b.apodo, a.memoria || b.memoria, Math.max(a.timestamp || 0, b.timestamp || 0) || null, en);
+    base.prepare(`DELETE FROM users WHERE lid = ?`).run(de);
+  })();
+  return true;
+}
+
+// The rows with a device's LID ("…:12@lid"), from group notices of before lib/wa-socket.js took the device out, are
+// their person's: each one goes into the row of its LID without the device, or becomes it when there's none. Counted
+// and listed, they were someone else: .estado counted the person twice, and .conteo showed them twice. loadDatabase
+// runs this on every start, on the database it opens, after soloUnaFilaPorNumero has taken their numbers off.
+export function juntarFilasDeDispositivo(base) {
+  let [juntadas, pasadas] = [0, 0];
+  for (const { lid } of base.prepare(`SELECT lid FROM users WHERE lid LIKE '%:%@lid' ORDER BY rowid`).all()) {
+    if (!/:\d+@lid$/.test(lid)) continue; // a colon but no device after it: whose it is, no telling
+    const suya = lid.replace(/:\d+@lid$/, "@lid");
+    if (base.prepare(`SELECT 1 FROM users WHERE lid = ?`).get(suya)) {
+      if (juntarFilas(base, suya, lid)) juntadas++;
+    } else {
+      base.prepare(`UPDATE users SET lid = ? WHERE lid = ?`).run(suya, lid);
+      pasadas++;
+    }
+  }
+  return { juntadas, pasadas };
 }
 
 // Called on every message
@@ -388,9 +439,14 @@ export function getBlacklist(chat = null) {
   return db.prepare(`SELECT * FROM lista_negra WHERE chat IN (?, '*') ORDER BY dateAdded ASC`).all(chat);
 }
 
-// total number of users in the users table
+// The rows the listings show: every one with a LID, and an old one keyed by the number only while no row with a LID has
+// its number, since nothing reads it or writes it any more (FILA_DEL_NUMERO).
+const LISTADOS = `lid LIKE '%@lid' OR jid = '' OR NOT EXISTS (SELECT 1 FROM users v WHERE v.jid = users.jid AND v.lid LIKE '%@lid')`;
+
+// How many people the bot knows (.estado, .menu): as many as the listings show. It counted every row in the table, the
+// old ones keyed by a number nobody reads any more too.
 export function getTotalUsers() {
-  const row = db.prepare("SELECT COUNT(*) AS total FROM users").get();
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM users WHERE ${LISTADOS}`).get();
   return row?.total || 0;
 }
 
@@ -399,7 +455,7 @@ export function getTotalUsers() {
 // it any more (FILA_DEL_NUMERO). Listed, it showed warnings no one could take off, a ban that no longer applied, and
 // the same person twice in .conteo.
 export function getAllUsers() {
-  const rows = db.prepare(`SELECT * FROM users WHERE lid LIKE '%@lid' OR jid = '' OR NOT EXISTS (SELECT 1 FROM users v WHERE v.jid = users.jid AND v.lid LIKE '%@lid')`).all();
+  const rows = db.prepare(`SELECT * FROM users WHERE ${LISTADOS}`).all();
 
   return rows.map(conDatosLeidos);
 }

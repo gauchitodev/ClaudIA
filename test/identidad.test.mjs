@@ -761,3 +761,28 @@ test(".rd borra también la fila vieja del número, si ninguna otra LID lo tiene
   assert.ok(db.prepare("SELECT 1 FROM users WHERE lid = ?").get(b.X), "con otra LID en el número, la fila vieja sigue");
 });
 
+// A device's row is its person's: into the row of the LID without the device, adding up what each counted in a group
+// and keeping the earliest seniority, or as that row when there's none. On the connection it's handed, as
+// soloUnaFilaPorNumero: loadDatabase runs it on the one it's opening.
+test("las filas de dispositivo se juntan con la de su LID, o pasan a serlo, en la base que les pasan", () => {
+  const otra = new Database(":memory:");
+  S.ponerAlDia(otra);
+  const [L, M] = [unaLid(175), unaLid(176)];
+  const dispositivo = (lid, n) => lid.replace("@lid", `:${n}@lid`);
+  const fila = otra.prepare("INSERT INTO users (lid, jid, pushName, inGroup, banned, timestamp) VALUES (?, '', ?, ?, ?, ?)");
+  fila.run(L, "Persona", JSON.stringify({ g1: { messageCount: 5, desde: 2000, warn: 1, mute: false } }), 0, 10); // as getUser sets a group up
+  fila.run(dispositivo(L, 12), "", JSON.stringify({ g1: { messageCount: 2, desde: 1000, mute: true }, g2: { messageCount: 3, desde: 1500 } }), 1, 5);
+  fila.run(dispositivo(L, 3), "Otro nombre", JSON.stringify({ g2: { messageCount: 1, desde: 1200 } }), 0, 6);
+  fila.run(dispositivo(M, 7), "Sola", JSON.stringify({ g1: { messageCount: 4 } }), 0, 7);
+  const delBot = db.prepare(`SELECT COUNT(*) AS n FROM users`).get().n;
+  assert.deepEqual(F.juntarFilasDeDispositivo(otra), { juntadas: 2, pasadas: 1 });
+  const filas = otra.prepare("SELECT lid, pushName, inGroup, banned FROM users ORDER BY lid").all().map((f) => [f.lid, f.pushName, JSON.parse(f.inGroup), f.banned]);
+  assert.deepEqual(filas, [
+    [L, "Persona", { g1: { messageCount: 7, desde: 1000, warn: 1, mute: true }, g2: { messageCount: 4, desde: 1200 } }, 1],
+    [M, "Sola", { g1: { messageCount: 4 } }, 0],
+  ]);
+  assert.deepEqual(F.juntarFilasDeDispositivo(otra), { juntadas: 0, pasadas: 0 }, "la vez siguiente no hay nada");
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM users`).get().n, delBot, "la del bot, intacta");
+  otra.close();
+});
+

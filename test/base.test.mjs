@@ -385,6 +385,20 @@ test("por número se lee y se escribe una sola fila: la de la LID, y si el núme
   assert.deepEqual(db.prepare("SELECT lid FROM users WHERE jid = ?").all(solo), [{ lid: "300000000000556@lid" }]);
 });
 
+// .estado and .menu say how many people the bot knows: as many as the listings show. They counted every row in the
+// table, the old ones keyed by a number a row with a LID has now too.
+test(".estado cuenta a las mismas personas que muestran las listas", async () => {
+  const { prepararBase } = await import("./helpers.mjs");
+  const { F } = await prepararBase("cuantos-usuarios");
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  const [X, Y] = ["59899000811@s.whatsapp.net", "59899000812@s.whatsapp.net"];
+  fila.run(X, X, "Vieja de alguien con LID", 1);
+  fila.run("300000000000811@lid", X, "Con LID", 2);
+  fila.run(Y, Y, "Vieja sola", 1);
+  fila.run("300000000000813@lid", "", "Sin número", 3);
+  assert.deepEqual([F.getTotalUsers(), F.getAllUsers().length], [3, 3]);
+});
+
 // A row whose inGroup isn't valid JSON is read as having nothing there, not as an error that takes the command down: by
 // getUser and by getAllUsers (the listings, .conteo) alike.
 test("una fila con inGroup roto se lee vacía, por getUser y por getAllUsers", async () => {
@@ -628,9 +642,11 @@ test("al arrancar, cada número queda en una sola fila: la que lee getUser", asy
   F.addToBlacklist(X, "estafa", "admin", G);
   assert.deepEqual([F.getUser(X).lid, F.getUser(Z).lid], [Q, D2]);
   globalThis.db = F.loadDatabase(); // the bot starting again
-  assert.deepEqual(db.prepare("SELECT lid, jid FROM users ORDER BY rowid").all().map((u) => [u.lid, u.jid]), [[P, ""], [Q, X], [L, Y], [D, ""], [L2, W], [D2, ""]]);
+  // The devices' rows go into their person's, which keep their own numbers: a device's row is nobody else's.
+  assert.deepEqual(db.prepare("SELECT lid, jid FROM users ORDER BY rowid").all().map((u) => [u.lid, u.jid]), [[P, ""], [Q, X], [L, Y], [L2, W]]);
   assert.equal(F.getUser(Z), null, "nadie queda como el de ese número");
   assert.deepEqual(F.soloUnaFilaPorNumero(db), { deDispositivos: 0, repetidos: 0 }, "la vez siguiente no hay nada que cambiar");
+  assert.deepEqual(F.juntarFilasDeDispositivo(db), { juntadas: 0, pasadas: 0 });
   // Q leaving the number takes what was kept under it: by the number, getUser read Q.
   F.syncUserInfo({ sender: Q, senderJid: "59899000809@s.whatsapp.net" });
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[Q, Q]]);
