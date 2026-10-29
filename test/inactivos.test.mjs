@@ -970,3 +970,18 @@ test(".k inactivos confirmar saca a quien avisó en el grupo, no al primero que 
   await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]), [X]);
 });
+
+// A recycled number the bot never saw change hands: VIEJO was warned under the number and their LID, and neither of
+// them wrote since, so nothing moved the warning to VIEJO (seguirALaPersona). The group lists the number with NUEVO's
+// LID now. Read by any id, NUEVO was warned already: .inactivos didn't tag them, and .k inactivos could remove them.
+test("el aviso de quien tuvo un número no cuenta para quien lo tiene ahora, aunque el bot no haya visto el cambio", async () => {
+  const chat = "inactivos-aviso-ajeno@g.us";
+  const { X, VIEJO, NUEVO, porLid } = numeroReciclado(70);
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA); // the bot keeps track of the group since then
+  F.marcarAvisoInactivo(chat, [VIEJO, X], Date.now() - 4 * DIA); // while the number was VIEJO's
+  const participants = [...porLid, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  assert.deepEqual(I.paraSacar(chat, participants, globalThis.client).listos, [], "NUEVO no está avisado");
+  const { mentions } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
+  assert.deepEqual(mentions, [NUEVO], "y .inactivos lo etiqueta");
+});

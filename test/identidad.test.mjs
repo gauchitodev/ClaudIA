@@ -872,6 +872,7 @@ test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando 
   const b = numeroReciclado(186);
   F.marcarAvisoInactivo(C, [b.VIEJO, b.X], hace(4));
   await escribe(b.VIEJO, unNumero(187));
+  assert.equal(presencia(C, b.X), null, "lo del número se fue con VIEJO");
   const { listos, enPlazo } = Inactivos.paraSacar(C, b.porLid, cliente());
   assert.deepEqual([...listos, ...enPlazo], [], "NUEVO no figura avisado");
 });
