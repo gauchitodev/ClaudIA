@@ -831,3 +831,48 @@ test("las filas de dispositivo se juntan con la de su LID, o pasan a serlo, en l
   otra.close();
 });
 
+// What .inactivos noted under a number goes with whoever had it when the number changes hands, into their LID's row,
+// the latest of each: a join and a warning go under every id the person comes with. Left under the number, it was the
+// next owner's: in the same group their first message was a "Volvió", with the prize, for someone else's warning, and
+// silent they were warned already, so nobody tagged them and .k inactivos could remove them.
+test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando el número cambia de dueño", async () => {
+  const Inactivos = await import("../lib/inactivos.js");
+  const DIA = 24 * 60 * 60 * 1000;
+  const [C, C2] = ["presencia-reciclada@g.us", "presencia-reciclada-2@g.us"];
+  const ahora = Date.now();
+  const hace = (dias) => (dias === null ? null : ahora - dias * DIA);
+  const anotado = (chat, usuario, ingreso, ultimo, avisado) =>
+    db.prepare("INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) VALUES (?, ?, ?, ?, ?)").run(chat, usuario, hace(ingreso), hace(ultimo), hace(avisado));
+  const presencia = (chat, usuario) => {
+    const r = F.presenciaDelGrupo(chat).find((p) => p.usuario === usuario);
+    return r ? [r.ingreso, r.ultimo_mensaje, r.avisado] : null;
+  };
+  const escribe = async (sender, senderJid) => {
+    const m = { chat: C, sender, senderJid, pushName: "x", isGroup: true };
+    F.initDataDB(m);
+    F.syncUserInfo(m);
+    await Inactivos.registrarPresencia(cliente(), m); // after syncUserInfo, as handle-message runs them
+  };
+  db.prepare("INSERT INTO presencia_inicio (chat, desde) VALUES (?, ?)").run(C, hace(60)); // the bot keeps track there
+
+  // The number's next owner writes first. Under each id, in two groups: into VIEJO's row goes the latest of each.
+  const a = numeroReciclado(185);
+  anotado(C, a.VIEJO, 40, 20, 6);
+  anotado(C, a.X, 30, null, 4);
+  anotado(C2, a.VIEJO, 45, 25, 5);
+  anotado(C2, a.X, null, 10, null);
+  globalThis.enviados = [];
+  await escribe(a.NUEVO, a.X);
+  assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text), [], "ningún «Volvió» para NUEVO");
+  assert.equal(F.getSaldoCoins(C, a.NUEVO), 0);
+  assert.deepEqual([presencia(C, a.VIEJO), presencia(C2, a.VIEJO)], [[hace(30), hace(20), hace(4)], [hace(45), hace(10), hace(5)]]);
+  assert.deepEqual([presencia(C, a.X), presencia(C2, a.X)], [null, null]);
+
+  // The one who had it writes from another number first, and the number's next owner never writes.
+  const b = numeroReciclado(186);
+  F.marcarAvisoInactivo(C, [b.VIEJO, b.X], hace(4));
+  await escribe(b.VIEJO, unNumero(187));
+  const { listos, enPlazo } = Inactivos.paraSacar(C, b.porLid, cliente());
+  assert.deepEqual([...listos, ...enPlazo], [], "NUEVO no figura avisado");
+});
+

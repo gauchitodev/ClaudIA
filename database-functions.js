@@ -257,9 +257,12 @@ export function syncUserInfo(m) {
 // A LID comes with a number its row didn't have: the person changed numbers, or the number was someone else's. What was
 // kept under a number with no LID known, a blacklist entry or a bot role given by number, goes to the LID the number
 // was on: it used to stay with the number, and whoever changed numbers was no longer kept out by the blacklist nor
-// protected by their role, while whoever got the number next got both. Only when a single LID row had the number: with
-// two, there's no telling whose it was, and it stays as it was. A row with a device's LID, from before syncUserInfo
-// left them out, isn't anybody's.
+// protected by their role, while whoever got the number next got both. So does what .inactivos noted under it, as a
+// join and a warning go under every id the person comes with: left there, it was the next owner's, and in that group
+// their first message was a "Volvió", with the prize, for someone else's warning; silent, they were warned already,
+// nobody tagged them, and .k inactivos could remove them. Only when a single LID row had the number: with two, there's
+// no telling whose it was, and it stays as it was. A row with a device's LID, from before syncUserInfo left them out,
+// isn't anybody's.
 // The old row keyed by the number this row leaves, from before LIDs, goes when no other LID row has that number: while
 // one had it, the number stood for that one, and the old row was read by nobody. With the number left to it, getUser
 // read it again for whatever came with only that number, its ban and its silence of back then included, and the
@@ -278,7 +281,9 @@ function seguirALaPersona(lid, antes, numero) {
 // it, listing whoever has it now overwrote the entry (one per group and key). So does an entry of the person's own LID
 // kept under the number, as ".ln @persona" keeps it: only the ones with no LID moved, and listing the number's next
 // owner took the person off the list without a word. One the person already had under the LID in that group stays,
-// and the one by number goes. Of two roles in one group, the higher one stays.
+// and the one by number goes. Of two roles in one group, the higher one stays. Of what .inactivos noted in a group
+// under both, the latest of each, as it takes a person's latest under any of their ids (lib/inactivos.js): what it
+// reads of whoever had the number doesn't change.
 function atarAlLid(numero, lid) {
   db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(lid, lid, numero, lid);
   db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(numero, lid);
@@ -287,6 +292,12 @@ function atarAlLid(numero, lid) {
      ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
   ).run(lid, numero);
   db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
+  const elUltimo = (c) => `MAX(COALESCE(${c}, excluded.${c}), COALESCE(excluded.${c}, ${c}))`; // MAX of a NULL is NULL
+  db.prepare(
+    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) SELECT chat, ?, ingreso, ultimo_mensaje, avisado FROM presencia_grupo WHERE usuario = ?
+     ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = ${elUltimo("ingreso")}, ultimo_mensaje = ${elUltimo("ultimo_mensaje")}, avisado = ${elUltimo("avisado")}`,
+  ).run(lid, numero);
+  db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ?`).run(numero);
 }
 
 // update data in the db
