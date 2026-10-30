@@ -152,9 +152,9 @@ test("migra las advertencias globales al formato por grupo", async () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-// What Claudia learned of each person before 3.4 was one memory for the whole bot, with what people told her in private.
-// It's kept per group now, and the old column is erased once: from the file too, where SQLite leaves erased text (an
-// older version, rewritten since, here in pages it freed) and the backups carry it.
+// What Claudia learned of each person before 3.4 was one memory for the whole bot, with what people told her in
+// private. It's kept per group now, and the old column is erased once: from the file too, where SQLite leaves erased
+// text (an older version, rewritten since, here in pages it freed) and the backups carry it.
 test("borra la memoria vieja de todo el bot, una vez, sin dejar rastro en el archivo, y deja la de cada grupo", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-memoria-vieja-"));
   process.chdir(dir);
@@ -352,9 +352,9 @@ test("funciones de la base: monedas, pendientes, mercados, actividad, memoria", 
 
 // A number may have more than one row: an old one keyed by the number itself (from before WhatsApp used LIDs, or a
 // message that came without the LID) besides the one with the LID, or the LIDs of two people if the number was
-// recycled. getUser by number read the oldest one and updateUser by number wrote to all of them: whatever came by number
-// copied the old row over the one with the LID. Both go to the same row now, and a message with only the number from
-// someone already known adds no row keyed by it.
+// recycled. getUser by number read the oldest one and updateUser by number wrote to all of them: whatever came by
+// number copied the old row over the one with the LID. Both go to the same row now, and a message with only the number
+// from someone already known adds no row keyed by it.
 test("por número se lee y se escribe una sola fila: la de la LID, y si el número cambió de dueño, la del que lo usa", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("filas-por-numero");

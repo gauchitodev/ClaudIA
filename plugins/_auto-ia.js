@@ -35,9 +35,9 @@ const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cm
 // Who a "llamar" is for: the people mentioned, or failing that the author of the quoted message, but never Claudia,
 // whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times. Her
 // mention leaves the text by her number as well as her LID: a group listed by number mentions her by the number, which
-// stayed as a typed "@number" and beat the quoted message's author, and with no row of hers in the database it was taken
-// for someone else's, so she called herself. Someone named by number is whoever the group lists with it now, not whoever
-// the database still has it on.
+// stayed as a typed "@number" and beat the quoted message's author, and with no row of hers in the database it was
+// taken for someone else's, so she called herself. Someone named by number is whoever the group lists with it now, not
+// whoever the database still has it on.
 function aQuienLlamar(m, client, participants) {
   const suyos = [client.user?.lid, client.user?.jid].map((id) => id?.split("@")[0].split(":")[0]).filter(Boolean);
   const texto = suyos.reduce((t, digitos) => t.replace(new RegExp(`@${digitos}(?!\\d)`, "g"), ""), String(m.text || ""));
@@ -187,7 +187,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
     }
 
-    // What she learned of this person in this group (lib/memoria-persona.js): never what they said in private or elsewhere.
+    // What she learned of this person in this group (lib/memoria-persona.js):
+    // never what they said in private or elsewhere.
     const memoria = m.isGroup ? memoriaDe(m.sender, m.chat) : "";
     if (memoria) {
       partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores en este grupo: ${memoria}`);
@@ -278,9 +279,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       datos = JSON.parse(resultado.texto);
     } catch (e) {
       // Without the text: it carries what she was going to remember of the person and what a voice note said, and the
-      // log (~/claudia.log) keeps whatever goes into it. Not even the bit of it V8 quotes in the error ("hola, la c"...).
-      // Gemini and the fallbacks already throw a broken JSON away (lib/gemini.js, lib/respaldo-ia.js): this is in case
-      // one of them stops doing it.
+      // log (~/claudia.log) keeps whatever goes into it. Not even the bit of it V8 quotes in the error
+      // ("hola, la c"...). Gemini and the fallbacks already throw a broken JSON away (lib/gemini.js,
+      // lib/respaldo-ia.js): this is in case one of them stops doing it.
       const motivo = String(e.message).split('"')[0].replace(/[,\s]+$/, "");
       const largo = String(resultado.texto || "").length;
       console.error(`[auto-ia] La IA (${globalThis.modeloActivo || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);

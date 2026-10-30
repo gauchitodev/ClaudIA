@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, G } from "./helpers.mjs";
 
-// Reactions (lib/reacciones.js): "received" and UruCoins for whoever wrote the message, "given" and UruCoins for whoever
-// reacted. A reaction to one of Claudia's messages paid her too, with no daily cap: she could top .baltop and be the
-// month's most voted. Now only whoever reacted collects, and for the initiative it's still an answer to her.
+// Reactions (lib/reacciones.js): "received" and UruCoins for whoever wrote the message, "given" and UruCoins for
+// whoever reacted. A reaction to one of Claudia's messages paid her too, with no daily cap: she could top .baltop and
+// be the month's most voted. Now only whoever reacted collects, and for the initiative it's still an answer to her.
 
 let F, R, COINS, mesDe;
 const BOT = "bot@lid"; // clienteFalso's

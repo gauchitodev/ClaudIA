@@ -2,7 +2,8 @@ import { join } from "path";
 import { setupPrimary, fork } from "cluster";
 import { proximoReinicio } from "./lib/reinicio.js";
 
-// Quick crashes in a row: a bot that dies as it starts waits longer each time before the next attempt (lib/reinicio.js).
+// Quick crashes in a row: a bot that dies as it starts waits longer each time before the next attempt
+// (lib/reinicio.js).
 let fallosSeguidos = 0;
 
 function start(file) {

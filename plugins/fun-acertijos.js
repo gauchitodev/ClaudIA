@@ -125,7 +125,8 @@ plugin.before = async (m, { client }) => {
   // compute the Levenshtein distance to allow a margin of error in answers
   const distancia = levenshteinDistance(respuestaUsuario, juego.respuesta);
 
-  // Margin of error proportional to the answer's length (it used to be a flat 4 letters, and "un ojo" passed for "un río").
+  // Margin of error proportional to the answer's length
+  // (it used to be a flat 4 letters, and "un ojo" passed for "un río").
   const margen = Math.max(1, Math.floor(juego.respuesta.length * 0.2));
   if (respuestaUsuario === juego.respuesta || distancia <= margen) {
     const resumen = juegoTerminado(m.chat, m.sender, { nombre: "acertijo" });

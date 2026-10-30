@@ -223,8 +223,8 @@ test("el .s no manda nada cuando la descarga del archivo viene vacía, y el log 
 
 // ---------- how late a message arrived (the 60-second filter in handle-message) ----------
 // The age used to be measured when the message got processed. A batch goes one message at a time and every reply
-// waits its turn in the queue, so the last command of a busy batch could pass the 60 s mark while waiting and be dropped
-// without a word.
+// waits its turn in the queue, so the last command of a busy batch could pass the 60 s mark while waiting and be
+// dropped without a word.
 
 test("atraso: se mide contra la llegada, no contra cuándo se procesa", async () => {
   const { atrasoDeLlegada } = await import("../lib/tiempo.js");
@@ -426,8 +426,8 @@ test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async
   assert.deepEqual(esperas, [(AVISO_TODOS.ESPERA_MIN_MS + AVISO_TODOS.ESPERA_MAX_MS) / 2], "una espera entre grupo y grupo, de 20 a 40 s");
 });
 
-// Spaced out like that, a notice to fifty groups takes some 25 minutes: one with a typo couldn't be stopped, and a second
-// one sent meanwhile went out alongside it.
+// Spaced out like that, a notice to fifty groups takes some 25 minutes: one with a typo couldn't be stopped, and a
+// second one sent meanwhile went out alongside it.
 test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, y no sale otro mientras tanto", async () => {
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
@@ -607,7 +607,8 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
 // What Baileys throws when the socket is closed: before writing anything (lib/Socket/socket.js, sendRawMessage).
 const cerrada = () => Object.assign(new Error("Connection Closed"), { output: { statusCode: 428 } });
 // What it throws when WhatsApp answers one of the questions it asks before writing the message with an error (the
-// group's devices, its metadata): a Boom whose data is WhatsApp's code (assertNodeErrorFree, WABinary/generic-utils.js).
+// group's devices, its metadata): a Boom whose data is WhatsApp's code (assertNodeErrorFree,
+// WABinary/generic-utils.js).
 const rechazada = (codigo, texto) => Object.assign(new Error(texto), { isBoom: true, data: codigo, output: { statusCode: 500 } });
 
 // The second go is for what surely didn't go out: Baileys' Connection Closed, the socket's close code (a number) if it

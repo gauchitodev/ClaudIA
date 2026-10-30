@@ -404,8 +404,8 @@ test("pedido a Claudia: «@Claudia llamalo» en un grupo por número llama a qui
   assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", "@59899000111"]);
 });
 
-// A number that changed hands, in a group that lists people by number: the mention comes by number, and she calls whoever
-// the group lists with it now, not whoever the database still has it on.
+// A number that changed hands, in a group that lists people by number: the mention comes by number, and she calls
+// whoever the group lists with it now, not whoever the database still has it on.
 test("pedido a Claudia: «llamá a @número» llama a quien tiene el número ahora", async () => {
   clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
   const { X, NUEVO, porNumero } = numeroReciclado(1);

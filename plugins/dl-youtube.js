@@ -173,8 +173,8 @@ export async function descargarMultimedia({ client, chat, usuario, texto, tipo, 
       }
 
       if (!miniaturaEnviadaRef.enviada) {
-        // The "sending" notice quotes the request (it used to quote a fake contact that showed up as "WhatsApp · Status").
-        // On automatic retries there is no request to quote, so it goes without one.
+        // The "sending" notice quotes the request (it used to quote a fake contact that showed up as
+        // "WhatsApp · Status"). On automatic retries there is no request to quote, so it goes without one.
         const aviso = txt.sendPreview(isAudio, candidato.title);
         // Only a link: sendFile reads any local file that exists (see parsearResultados).
         if (esHttps(candidato.thumbnail)) {

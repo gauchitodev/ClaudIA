@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, watch } from "fs";
 import { writeFile } from "fs/promises";
 
-// yt-dlp: the binary is downloaded to ./bin (git-ignored) if missing. It used to live in node_modules/gs, and every npm ci wiped it.
+// yt-dlp: the binary is downloaded to ./bin (git-ignored) if missing.
+// It used to live in node_modules/gs, and every npm ci wiped it.
 const BIN = "./bin";
 export const RUTA_YT_DLP = `${BIN}/${process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"}`;
 

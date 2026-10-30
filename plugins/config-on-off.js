@@ -51,7 +51,8 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     triviarelampago: { key: "triviaRelampago", from: "chat" },
     casino: { key: "casino", from: "chat" },
     recapsemanal: { key: "recapSemanal", from: "chat" },
-    // marketplace mode switches: Claudia's automatic chat, the automatic greeting, the UruCoins economy and promotion notices
+    // marketplace mode switches: Claudia's automatic chat, the automatic greeting,
+    // the UruCoins economy and promotion notices
     charla: { key: "charla", from: "chat" },
     saludos: { key: "saludos", from: "chat" },
     monedas: { key: "monedas", from: "chat" },

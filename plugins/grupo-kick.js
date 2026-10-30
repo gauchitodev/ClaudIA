@@ -15,7 +15,8 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     const inactivos = String(text || "").trim().match(/^inactivos(?:\s+(confirmar|si|sí))?$/i);
     if (inactivos) {
       if (!isAdmin) return client.sendText(m.chat, "Sacar inactivos en bloque es solo para admins.", m);
-      // Awaited inside the try: a failure (the connection dropping halfway through) used to get past this plugin's catch.
+      // Awaited inside the try: a failure (the connection dropping halfway through)
+      // used to get past this plugin's catch.
       return await sacarInactivos(client, m, participants, { confirmar: Boolean(inactivos[1]) });
     }
 

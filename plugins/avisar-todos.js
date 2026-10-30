@@ -14,8 +14,9 @@ export const _dep = { esperar, azar: Math.random };
 
 // The notice going out right now, or null: { total, enviados, fallidos (the groups it surely didn't reach, for now),
 // dudosos (the ones it can't tell), nombres (each group's name), reintentando, saliendo (the group on its way),
-// cortadoDesde, control }. Spaced out like this, fifty groups take some 25 minutes: one with a typo couldn't be stopped,
-// and a second one sent meanwhile went out alongside it. In globalThis, so a reload of this file doesn't lose track of it.
+// cortadoDesde, control }. Spaced out like this, fifty groups take some 25 minutes: one with a typo couldn't be
+// stopped, and a second one sent meanwhile went out alongside it. In globalThis, so a reload of this file doesn't lose
+// track of it.
 if (globalThis.avisoATodos === undefined) globalThis.avisoATodos = null;
 
 // Groups by their names: the owner used to hear only how many it didn't reach. A name is whatever the group's admins
@@ -139,7 +140,8 @@ plugin.run = async (m, { client, text, isOwner }) => {
 
   await conectado(); // the owner hears how it went once there's a connection to tell them through
   if (signal.aborted) {
-    // The chat it was cut from already heard how far it got; the one that started it hears it here, if that was another.
+    // The chat it was cut from already heard how far it got;
+    // the one that started it hears it here, if that was another.
     if (aviso.cortadoDesde !== m.chat) await socket().sendText(m.chat, `⏹️ Cortaron el aviso desde otro chat: ${hastaDonde(aviso)}.`, m);
     return;
   }

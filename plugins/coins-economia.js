@@ -7,7 +7,8 @@ plugin.cmd = ["economia", "economía", "ajustar"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 
-// .economia [days]: dashboard for admins · .ajustar @x 50 [reason] or .ajustar @x -50 [reason]: manual correction, owner only
+// .economia [days]: dashboard for admins · .ajustar @x 50 [reason] or .ajustar @x -50 [reason]:
+// manual correction, owner only
 plugin.run = async (m, { client, args, text, command, isOwner, participants }) => {
   if (command !== "ajustar") {
     const dias = Math.min(90, Math.max(1, parseInt(args[0], 10) || 7));

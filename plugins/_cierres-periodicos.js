@@ -20,8 +20,8 @@ const ATRASO_MAX = { semanas: 26, meses: 12 };
 // reactions, otherwise the month's closing fires a few hours before or after the key changes.
 const mencion = (lid) => `@${lid.split("@")[0]}`;
 
-// The periods of one type to close in a chat, oldest first, out of "anteriores" (the past ones, newest first). Where that
-// type was never closed it starts with the previous one only, as it always did.
+// The periods of one type to close in a chat, oldest first, out of "anteriores" (the past ones, newest first). Where
+// that type was never closed it starts with the previous one only, as it always did.
 function porCerrar(chat, tipo, anteriores) {
   const ultimo = ultimoPeriodoCerrado(chat, tipo);
   if (!ultimo) return anteriores.slice(0, 1);

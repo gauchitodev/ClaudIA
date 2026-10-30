@@ -3,8 +3,8 @@ import { nombreDe } from "../lib/menciones.js";
 import { lidMencionado } from "../lib/identidad.js";
 import { parejaDe, exParejasDe } from "../lib/parejas.js";
 
-// .ex [@x]: someone's exes (or yours) and their current partner. Only whoever it's about is tagged: the rest go by name,
-// since tagging the whole list notified every ex.
+// .ex [@x]: someone's exes (or yours) and their current partner. Only whoever it's about is tagged: the rest go by
+// name, since tagging the whole list notified every ex.
 const plugin = {};
 plugin.cmd = ["ex", "miex", "exs"];
 plugin.onlyGroup = true;

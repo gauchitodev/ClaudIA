@@ -12,9 +12,9 @@ plugin.run = async (m, { client, participants, isMod, isOwner, isWaAdmin }) => {
   const esPropio = [m.sender, m.senderJid].includes(m.quoted.sender);
   if (!esPropio && !isMod && !isOwner) return client.sendText(m.chat, txt.deleteMessageOnlyMe, m);
 
-  // Someone else's message, deleted with a bot role (moderator, bot admin), goes only from strictly above, like .kick or
-  // .adv: a moderator used to delete a WhatsApp admin's or the owner's messages through the bot. WhatsApp admins and the
-  // owner delete anything, as WhatsApp itself lets them, and Claudia's own messages are anyone's to clean up.
+  // Someone else's message, deleted with a bot role (moderator, bot admin), goes only from strictly above, like .kick
+  // or .adv: a moderator used to delete a WhatsApp admin's or the owner's messages through the bot. WhatsApp admins and
+  // the owner delete anything, as WhatsApp itself lets them, and Claudia's own messages are anyone's to clean up.
   if (!esPropio && !m.quoted.fromMe && !isOwner && !isWaAdmin) {
     const { lid, jid, participante } = identidadesDe(m.quoted.sender, participants);
     const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: false, esAdminWhatsApp: false }, { lid, jid, esAdminWhatsApp: Boolean(participante?.admin) });

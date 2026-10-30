@@ -11,8 +11,8 @@ plugin.run = async (m, { client, text }) => {
 
   let quoteText, quoteSender, quoteName;
 
-  // Mentions drawn as names, not as the LID digits they carry in the text (lib/menciones.js); and someone the bot has no
-  // name for is "Alguien", not the digits of their id.
+  // Mentions drawn as names, not as the LID digits they carry in the text (lib/menciones.js); and someone the bot has
+  // no name for is "Alguien", not the digits of their id.
   if (m.quoted && m.quoted.text) {
     quoteText = conNombres(m.quoted.text.trim(), m.quoted.contextInfo?.mentionedJid);
     quoteSender = m.quoted.sender;

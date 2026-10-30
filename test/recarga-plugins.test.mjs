@@ -48,8 +48,8 @@ test("recarga: un plugin que no carga deja andando la versión que andaba", asyn
   }
 });
 
-// A game in play is in its lib/ module (a challenge in lib/duelos.js, say), not on globalThis: a reloaded plugin is a new
-// module, and the lib/ module it imports is the one there was, with what it had. Otherwise, saving a game's plugin
+// A game in play is in its lib/ module (a challenge in lib/duelos.js, say), not on globalThis: a reloaded plugin is a
+// new module, and the lib/ module it imports is the one there was, with what it had. Otherwise, saving a game's plugin
 // would drop every game of it in play.
 test("recarga: el plugin recargado ve el estado de lib/ que había, con lo que tenía adentro", async () => {
   const D = await import("../lib/duelos.js");

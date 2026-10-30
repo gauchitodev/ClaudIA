@@ -209,9 +209,9 @@ test("cuenta la charla de antes de la tabla nueva (actividad_diaria)", () => {
   assert.ok(!I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "102@lid"));
 });
 
-// Before the bot kept track of a group, nobody can be told apart from someone silent. It used to go by the first time it
-// had seen each one write: right after the update, whoever sent only stickers, audios or one-word messages (counted, but
-// not when) came out "hace 120 días", tagged, and three days later removable.
+// Before the bot kept track of a group, nobody can be told apart from someone silent. It used to go by the first time
+// it had seen each one write: right after the update, whoever sent only stickers, audios or one-word messages (counted,
+// but not when) came out "hace 120 días", tagged, and three days later removable.
 test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado", async () => {
   const deAntes = (chat, ...ns) => {
     for (const n of ns) {
@@ -233,7 +233,8 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
   assert.equal(textoEnviado(), "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 1 día. Probá en 14 días.");
   assert.equal(ultimoEnviado().msg.mentions, undefined);
 
-  // Since 16 days ago: who sent a sticker 5 days ago stays, and who sent nothing counts from then, not from 4 months back.
+  // Since 16 days ago: who sent a sticker 5 days ago stays, and who sent nothing counts from then,
+  // not from 4 months back.
   const antes = "inactivos-12@g.us";
   participants = deAntes(antes, 101, 102);
   F.registrarMensajeGrupo(antes, ["105@lid"], Date.now() - 16 * DIA);
@@ -780,10 +781,10 @@ test(".k inactivos confirmar dice cuántos ya no estaban, y al que el grupo list
   assert.equal(textoEnviado(), "🧹 Saqué a 2 personas. Una ya no estaba en el grupo.");
 });
 
-// A notice of the group closing or opening that says nothing new changes nothing: the same one again, or one from before
-// the last change on record. An old opening repeated during a later closing ended it as it began, and an old closing
-// repeated after the group opened started one that ran until someone looked. One that came late but fits moves the
-// change back to when it happened: the copy of the group the bot asked for may have told it first.
+// A notice of the group closing or opening that says nothing new changes nothing: the same one again, or one from
+// before the last change on record. An old opening repeated during a later closing ended it as it began, and an old
+// closing repeated after the group opened started one that ran until someone looked. One that came late but fits moves
+// the change back to when it happened: the copy of the group the bot asked for may have told it first.
 test("los avisos de cierre repetidos o fuera de orden no cambian lo que se sabe, y uno atrasado que encaja corrige la hora", () => {
   const chat = "inactivos-53@g.us";
   const H = 60 * 60 * 1000;
@@ -878,7 +879,8 @@ test("abiertoHasta dice lo mismo que contar a mano, aunque los tramos se superpo
 
 // Whoever changed numbers: their messages bring the LID and the new number, and the database still had the old one. In
 // a group listed by number without the LID they looked silent, and could be tagged and removed. Each message is stamped
-// on both ids, a late one too (it reaches .inactivos before the bot notes anything), and the new number goes on their row.
+// on both ids, a late one too (it reaches .inactivos before the bot notes anything), and the new number goes on their
+// row.
 test("quien cambió de número no queda como callado en un grupo que lo lista por el nuevo", () => {
   const chat = "inactivos-56@g.us";
   const [L, VIEJO, NUEVO] = ["300000000000441@lid", "59899000441@s.whatsapp.net", "59899000442@s.whatsapp.net"];

@@ -60,7 +60,8 @@ test("laburos: niveles por cobros, con bonus por nivel y aviso al subir", () => 
   assert.equal(L.textoNivel(7), "nivel 3 (+10 %); faltan 5 cobros para el nivel 4");
   assert.equal(L.textoNivel(11), "nivel 3 (+10 %); falta 1 cobro para el nivel 4");
   assert.equal(L.textoNivel(63), "nivel 10 (+45 %), el máximo");
-  // "a@lid" is a tambero in G with 6 paydays (level 2): they get paid with +5 % and this payday takes them to 7, level 3
+  // "a@lid" is a tambero in G with 6 paydays (level 2):
+  // they get paid with +5 % and this payday takes them to 7, level 3
   globalThis.db.prepare(`UPDATE laburos SET cobros = 6, ultimo_cobro = '' WHERE chat = ? AND usuario = ?`).run(G, "a@lid");
   assert.equal(L.etiquetaLaburo(G, "a@lid"), "🐄 Tambero nv.2");
   const r = L.cobrar(G, "a@lid");

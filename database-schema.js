@@ -2,8 +2,8 @@
 // (database-functions.js) does to the file each start, right after opening it. It was a third of that file, and apart
 // from the rest of it: this runs once a start, and the rest there on every message.
 export function ponerAlDia(db) {
-  // What's erased or written over (a .memoria olvidame, a post taken down, each rewrite of someone's data in a group) is
-  // overwritten with zeros right away. SQLite only marks that space as free (its docs: secure_delete), and the text
+  // What's erased or written over (a .memoria olvidame, a post taken down, each rewrite of someone's data in a group)
+  // is overwritten with zeros right away. SQLite only marks that space as free (its docs: secure_delete), and the text
   // stayed in the file, and in the backups that copy it whole, until something happened to write over it. It costs
   // nothing noticeable: each write's time goes into saving it to disk.
   db.exec(`PRAGMA secure_delete = ON`);
@@ -163,7 +163,8 @@ export function ponerAlDia(db) {
     db.exec(`ALTER TABLE lista_negra ADD COLUMN lid TEXT`);
     console.log("🟢 Migración: columna 'lid' agregada a la lista negra");
   }
-  // Migration: the old blacklist was a single list for every group; its entries move to "*" and the old table is dropped.
+  // Migration: the old blacklist was a single list for every group;
+  // its entries move to "*" and the old table is dropped.
   if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blacklist'`).get()) {
     db.transaction(() => {
       db.exec(`INSERT OR IGNORE INTO lista_negra (chat, jid, reason, dateAdded, addedBy) SELECT '*', jid, reason, dateAdded, addedBy FROM blacklist`);
@@ -557,7 +558,8 @@ export function ponerAlDia(db) {
   if (!habiaParejas) migrarParejasViejas(db);
 
   // Families: each adoption is a row with the child and their two parents (the married couple who adopted them); the
-  // rest of the tree is derived. Unanswered adoption requests live apart and expire on their own. Surnames are per person.
+  // rest of the tree is derived. Unanswered adoption requests live apart and expire on their own. Surnames are per
+  // person.
   db.exec(`
     CREATE TABLE IF NOT EXISTS familia_hijos (
       hijo TEXT PRIMARY KEY,

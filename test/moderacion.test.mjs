@@ -220,8 +220,8 @@ test(".banuser guarda de verdad y avisa si no encontró a nadie", async () => {
 });
 
 test(".llamar no se come los números que vienen después de la mención", async () => {
-  // ".llamar @111 5 minutos" called "1115@lid", who is nobody. The phone number typed here is 111's, and it now resolves
-  // to their LID: it used to mention "5989911111@lid", a LID that doesn't exist either.
+  // ".llamar @111 5 minutos" called "1115@lid", who is nobody. The phone number typed here is 111's, and it now
+  // resolves to their LID: it used to mention "5989911111@lid", a LID that doesn't exist either.
   await correr(Llamar, "@5989911111 5 minutos", "llamar");
   await esperar(50);
   assert.match(ultimo(), /^@111$/, "menciona a la persona por su LID, sin el 5 pegado");

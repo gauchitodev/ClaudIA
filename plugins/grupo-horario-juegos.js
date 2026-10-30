@@ -5,7 +5,8 @@ plugin.cmd = ["horariojuegos", "juegoshorario"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 
-// .horariojuegos 20:00-23:00 sets the window · .horariojuegos off clears it · .horariojuegos with nothing shows the current one
+// .horariojuegos 20:00-23:00 sets the window · .horariojuegos off clears it ·
+// .horariojuegos with nothing shows the current one
 plugin.run = async (m, { client, text, chat }) => {
   const pedido = (text || "").trim().toLowerCase();
   const avisoApagados = chat.games ? "" : "\n\nOjo: los juegos están apagados con .juegos; el horario aplica cuando los prendas.";

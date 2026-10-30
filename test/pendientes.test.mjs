@@ -2,9 +2,9 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso } from "./helpers.mjs";
 
-// What the bot owes for later (lib/pendientes.js): reminders, lightning trivias, download retries, markets. Every minute
-// it runs whatever is due. A send that failed once used to leave the item as "error" for good: a reminder the person had
-// been promised never went out.
+// What the bot owes for later (lib/pendientes.js): reminders, lightning trivias, download retries, markets. Every
+// minute it runs whatever is due. A send that failed once used to leave the item as "error" for good: a reminder the
+// person had been promised never went out.
 
 let F, P;
 before(async () => {

@@ -27,7 +27,8 @@ plugin.before = async (m, { user }) => {
     if (protocolo?.type === 0) return void olvidarMensaje(m.chat, protocolo.key?.id);
     if (protocolo?.type === 14) {
       const { texto, comando } = textoDe(protocolo.editedMessage);
-      // Its author by any of their ids: an edit may come without the LID the message came with, or the other way around.
+      // Its author by any of their ids: an edit may come without the LID the message came with,
+      // or the other way around.
       return void editarMensaje(m.chat, protocolo.key?.id, texto, [m.sender, m.senderJid, m.key?.participant], { comando });
     }
     if (m.fromMe || m.isBaileys) return;

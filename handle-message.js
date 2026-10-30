@@ -122,15 +122,15 @@ export async function handleMessage(nMsg) {
     // .inactivos all the same, though no counter counts it (anotarPresencia). Someone warned who answered "acá estoy"
     // with a link stayed warned, and could be removed.
     if (m.moderado) anotarPresencia(m);
-    // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among them).
-    // Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and so did
-    // whoever the blacklist was about to remove.
+    // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among
+    // them). Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and
+    // so did whoever the blacklist was about to remove.
     if (!m.moderado) saludar(this, m, text, chat);
     for (const plugin of hooks.filter((p) => !p.moderacion)) {
       // What the moderation deleted (m.moderado) reaches no other hook: no game takes it as an answer, no counter
       // counts it, nothing reacts to it. Checked here once for all of them, the ones still to come included. Only
-      // Claudia's short-term memory still gets it: a deletion or an edit from someone on the blacklist applies there all
-      // the same.
+      // Claudia's short-term memory still gets it: a deletion or an edit from someone on the blacklist applies there
+      // all the same.
       if (m.moderado && !plugin.trasModeracion) continue;
       await correrHook(plugin);
     }

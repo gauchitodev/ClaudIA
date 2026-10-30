@@ -27,7 +27,8 @@ plugin.run = async (m, { client, isAdmin, isOwner }) => {
   }
   if (!archivo?.length) return client.sendText(m.chat, txt.recoveryOnceFail, m);
   if (/image|video/.test(mime)) return client.sendFile(m.chat, archivo, null, txt.recoveryOnceSuccess, m);
-  // A voice note, sent like every other one in the repo: sendFile turns it into ogg/opus and Baileys measures its length.
+  // A voice note, sent like every other one in the repo:
+  // sendFile turns it into ogg/opus and Baileys measures its length.
   return client.sendFile(m.chat, archivo, "vista-unica.opus", null, m, true);
 };
 

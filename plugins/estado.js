@@ -38,7 +38,8 @@ plugin.run = async (m, { client }) => {
     guardarVarios(client, todos, pedida); // the query is already paid for: it may as well fill the cache
   } catch {}
 
-  // If "pedidos" climbs with every message the bot sends, the cache isn't plugged into Baileys. See lib/cache-grupos.js.
+  // If "pedidos" climbs with every message the bot sends, the cache isn't plugged into Baileys.
+  // See lib/cache-grupos.js.
   const c = estadisticas();
   const cache = `${c.grupos} ${c.grupos === 1 ? "grupo" : "grupos"} · ${c.aciertos} aciertos, ${c.pedidos} pedidos`;
 

@@ -127,7 +127,8 @@ async function startBot() {
         avisarOwner(`Volví después de ${Math.round((Date.now() - globalThis.horaCaida) / 60000)} min sin conexión.`, "reconexion");
       }
       globalThis.horaCaida = 0;
-      // The watcher is registered once: it used to re-register on every reconnect, so each plugin change reloaded several times.
+      // The watcher is registered once: it used to re-register on every reconnect,
+      // so each plugin change reloaded several times.
       if (!globalThis.watchPluginsIniciado) {
         watchPlugins();
         globalThis.watchPluginsIniciado = true;

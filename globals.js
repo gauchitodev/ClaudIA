@@ -55,7 +55,8 @@ globalThis.txt = strings;
 
 // WhatsApp channel for the "forwarded from the channel" tag on files the bot sends.
 // In config.toml: a [canal] section with enlace = "https://whatsapp.com/channel/..." and, optionally, nombre = "..."
-// to show a different name. main.js asks WhatsApp for the internal channel ID on connect and stores it in globalThis.canal.
+// to show a different name. main.js asks WhatsApp for the internal channel ID on connect and stores it
+// in globalThis.canal.
 globalThis.canalConfig = {
   enlace: config.canal?.enlace || "",
   nombre: config.canal?.nombre || "",

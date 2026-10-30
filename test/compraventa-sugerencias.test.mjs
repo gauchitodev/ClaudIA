@@ -2,9 +2,9 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 
-// The marketplace connects buyers and sellers (lib/compraventa.js): whoever looks for something is reminded of who sells
-// something like it, and whoever sells hears who was looking. In a buy-and-sell group (.modo compraventa) it also reads
-// loose messages: "vendo…" is posted, "¿alguien vende…?" gets the reminder.
+// The marketplace connects buyers and sellers (lib/compraventa.js): whoever looks for something is reminded of who
+// sells something like it, and whoever sells hears who was looking. In a buy-and-sell group (.modo compraventa) it also
+// reads loose messages: "vendo…" is posted, "¿alguien vende…?" gets the reminder.
 
 let F, C, Hook;
 const V = "ventas@g.us"; // a group in buy-and-sell mode; G stays a group of friends
@@ -137,7 +137,8 @@ test("modo compraventa: las respuestas a pedidos sueltos tienen tope por hora", 
 });
 
 // Turning one thing back on after .modo compraventa (the greetings, say) stopped the loose sales without a word, while
-// .menuventas still said buy-and-sell mode: they asked different things. Now both ask for the games and the economy off.
+// .menuventas still said buy-and-sell mode: they asked different things. Now both ask for the games and the economy
+// off.
 test("modo compraventa: prender los saludos no apaga las ventas sueltas, y .menuventas dice lo mismo que el hook", async () => {
   const M = "modo-mixto@g.us";
   for (const n of [111, 222]) F.initDataDB({ chat: M, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });

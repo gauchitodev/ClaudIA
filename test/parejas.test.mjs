@@ -140,7 +140,8 @@ test("besar: un pedido de pareja pendiente no bloquea el beso, una pareja de ver
   assert.match(await besa("3@lid", "2@lid"), /TIENE PAREJA/);
   assert.match(await besa("1@lid", "3@lid"), /SOS INFIEL/);
   assert.doesNotMatch(await besa("1@lid", "2@lid"), /TIENE PAREJA|INFIEL/, "entre ellos sí");
-  // the attempt with 3 left 2 in a huff: a gift fixes it, and with no neglect in play a kiss between partners is never turned down
+  // the attempt with 3 left 2 in a huff: a gift fixes it,
+  // and with no neglect in play a kiss between partners is never turned down
   P.contentarPareja("1@lid", "2@lid");
   P._dep.azar = () => 0.9;
   for (let i = 0; i < 25; i++) assert.match(await besa("1@lid", "2@lid"), /^💞 [\s\S]*Lo recibe:\* @2/);

@@ -390,8 +390,8 @@ test("lidDeDigitos con el grupo: quien tiene el número ahora, y la LID que el g
   assert.equal(I.lidDeDigitos(digitos(unNumero(82)), []), `${digitos(unNumero(82))}@lid`, "de nadie, se toma como LID");
 });
 
-// The number form is only for typed digits nothing is known of. A mentioned or quoted LID is real, and typed digits of a
-// LID the bot knows or the group lists are that LID: none of them makes up a number.
+// The number form is only for typed digits nothing is known of. A mentioned or quoted LID is real, and typed digits of
+// a LID the bot knows or the group lists are that LID: none of them makes up a number.
 test("destinatario no inventa un número para una LID mencionada, citada o tipeada", () => {
   const L = unaLid(83);
   assert.equal(I.destinatario(mensaje({ mentionedJid: [L] }), `@${digitos(L)}`, []).jid, null, "mencionada, de alguien que el grupo no lista");
@@ -440,9 +440,9 @@ test(".llamar @número arroba a quien tiene ahora el número", async () => {
 });
 
 // The commands that name someone with lidMencionado, and .parentesco with lidsMencionados: in a group that lists people
-// by LID, with the number typed by hand, and in one that lists them by number, where the mention comes by number. Whoever
-// the group lists with the number now, never whoever the database still has it on, and tagged by LID. Each one runs with
-// a sender of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
+// by LID, with the number typed by hand, and in one that lists them by number, where the mention comes by number.
+// Whoever the group lists with the number now, never whoever the database still has it on, and tagged by LID. Each one
+// runs with a sender of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
 const COMANDOS_QUE_NOMBRAN = [
   // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
   ["fun-besar", "besar"],

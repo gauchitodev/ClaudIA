@@ -365,9 +365,9 @@ test("nombreDe y sinMenciones: alguien sin nombre es 'alguien'", () => {
   assert.equal(M.sinMenciones("hola @59899000001"), "hola 59899000001", "un número que el bot no conoce queda como lo escribió la IA");
 });
 
-// What someone tells her reaches the AI, and her short-term memory, with its mentions as names: a mention travels as the
-// digits of a LID, which only the admins see (.id), and she repeated them in the group. Her own mention is "@Claudia",
-// and the message of hers they answer comes with names too.
+// What someone tells her reaches the AI, and her short-term memory, with its mentions as names: a mention travels as
+// the digits of a LID, which only the admins see (.id), and she repeated them in the group. Her own mention is
+// "@Claudia", and the message of hers they answer comes with names too.
 test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con LID", async () => {
   conBeto();
   const YO = "200000000000001@lid"; // Claudia's LID, which has no row in the database
@@ -598,9 +598,9 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
   assert.equal(menciones(Mem.borrar(G, ANA, id, false).mensaje), 0);
 });
 
-// .recordá answers with the note: a LID typed by hand that the bot doesn't know (no name to put instead), or digits split
-// by another "@", went back to the group as they came, and sendText made them a mention. .memoria already read them
-// right.
+// .recordá answers with the note: a LID typed by hand that the bot doesn't know (no name to put instead), or digits
+// split by another "@", went back to the group as they came, and sendText made them a mention. .memoria already read
+// them right.
 // In a group of its own: the note it leaves went into the prompt of the next test about Familia.
 test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {
   const texto = "que @300000000000096 debe una ronda, y @3000@00000000091 también";

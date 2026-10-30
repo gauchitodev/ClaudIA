@@ -105,8 +105,9 @@ test("si el ✅ no sale, el tema ya se mandó: no baja otro ni paga dos veces", 
   assert.equal(F.getSaldoCoins(G, YO), COINS.MUSICA, "una sola paga por la música");
 });
 
-// The joke when a song has to wait: it's "in the queue" of someone in the group, never the bot nor whoever asked. A group
-// that lists people by number names both by it, with the LID apart, and the joke used to pick either of them there.
+// The joke when a song has to wait: it's "in the queue" of someone in the group, never the bot nor whoever asked. A
+// group that lists people by number names both by it, with the LID apart, and the joke used to pick either of them
+// there.
 test("la cola de .play no se la cuelga al bot ni a quien pidió, aunque el grupo los liste por número", async () => {
   const { encolarDescarga } = await import("../lib/cola-descargas.js");
   let soltar;

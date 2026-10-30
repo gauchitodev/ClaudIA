@@ -181,7 +181,8 @@ test("trivia: una preparación que perdió su reserva no pisa la ronda que se ab
   assert.equal(Tr.liberarRonda(C, lenta), false);
   assert.equal(Tr.responderTrivia({ chat: C, sender: "a@lid", text: "c", quoted: { id: "EN-JUEGO" } }).reaccion, "✅", "y se puede ganar");
 
-  // With the chat free, a hold that lapsed still opens its round: its question is already out, and nobody else took the turn.
+  // With the chat free, a hold that lapsed still opens its round:
+  // its question is already out, and nobody else took the turn.
   Tr.TRIVIA.RESERVA_MS = 30;
   const sola = Tr.reservarRonda(C, "relampago");
   Tr.TRIVIA.RESERVA_MS = original;

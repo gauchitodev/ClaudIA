@@ -126,7 +126,8 @@ test("ytdlp: los datos van en JSON: tabulaciones o saltos de línea no los corre
 test("ytdlp: se actualiza una vez por día a la hora configurada", async () => {
   const { chequearActualizacionYtDlp, actualizarYtDlp } = await import("../lib/ytdlp.js");
   let corridas = 0;
-  // there is no bin/yt-dlp in CI (it's in .gitignore): with no binary nothing is attempted, and the test doesn't depend on it existing
+  // there is no bin/yt-dlp in CI (it's in .gitignore):
+  // with no binary nothing is attempted, and the test doesn't depend on it existing
   _dep.existe = () => false;
   assert.equal(await actualizarYtDlp(), null);
   _dep.existe = () => true;

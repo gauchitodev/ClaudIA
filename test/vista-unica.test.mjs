@@ -31,7 +31,8 @@ const foto = (extra = {}) => ({ imageMessage: { mimetype: "image/jpeg", ...MEDIA
 const video = (extra = {}) => ({ videoMessage: { mimetype: "video/mp4", ...MEDIA, ...extra } });
 const nota = (extra = {}) => ({ audioMessage: { mimetype: "audio/ogg; codecs=opus", ptt: true, ...MEDIA, ...extra } });
 
-// Every shape a view-once can arrive in. The V1 wrapper (the one Baileys sends them in) has no flag on the media inside.
+// Every shape a view-once can arrive in. The V1 wrapper (the one Baileys sends them in)
+// has no flag on the media inside.
 const FORMATOS = {
   "foto con viewOnce": foto({ viewOnce: true }),
   "video con viewOnce": video({ viewOnce: true }),
@@ -122,7 +123,8 @@ test(".r: el ver una vez ajeno lo recuperan el autor, los admins y el owner; nad
     }
     const pueden = {
       "el autor (por lid)": [{ de: "beto@lid" }, {}],
-      // A group addressed by number: the quote names the author by number, and the sender's lid comes in participantAlt.
+      // A group addressed by number: the quote names the author by number,
+      // and the sender's lid comes in participantAlt.
       "el autor (por número)": [{ de: "59811111111@s.whatsapp.net", deAlt: "5981@lid", autor: "59811111111@s.whatsapp.net" }, {}],
       "un admin": [{}, { isAdmin: true }],
       "el owner": [{}, { isOwner: true }],

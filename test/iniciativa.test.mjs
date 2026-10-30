@@ -450,8 +450,8 @@ test("ambiente: un mensaje que arranca con una mención no es un comando", async
 });
 
 // The memory keeps the mentions as names, and whether a message is a command is marked as it comes (fueComando): by its
-// text, "@Sol ¿venís?" read as "@" and the command .sol. The glances go by the mark, and so does .vistazo reaccion, which
-// skipped anything that started with a prefix.
+// text, "@Sol ¿venís?" read as "@" and the command .sol. The glances go by the mark, and so does .vistazo reaccion,
+// which skipped anything that started with a prefix.
 test("vistazos: lo que le dicen a Sol entra y un comando no, por la marca de la memoria", async () => {
   const chat = nuevoGrupo();
   const pluginsReales = globalThis.plugins;

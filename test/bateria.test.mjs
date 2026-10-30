@@ -114,8 +114,8 @@ test("batería: si Termux:API no contesta, no deja procesos colgados", async () 
   assert.equal(quedo, false, "el ayudante quedó colgado");
 });
 
-// The check every 5 minutes: after Termux:API didn't answer, it leaves it alone for a while instead of starting one more
-// helper waiting for nothing each time. .bat and .estado still try it, and an answer ends the pause.
+// The check every 5 minutes: after Termux:API didn't answer, it leaves it alone for a while instead of starting one
+// more helper waiting for nothing each time. .bat and .estado still try it, and an answer ends the pause.
 test("batería: tras un timeout de Termux:API, el chequeo lo deja tranquilo un rato", async () => {
   let llamadas = 0;
   let contesta = false;
@@ -310,8 +310,8 @@ test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, 
 });
 
 // On a device whose system files can't be read, a single slow answer from Termux:API left the check half an hour
-// without readings: here the notice at 9 % would have come 25 minutes late, or never. With the battery low it asks again
-// on the next check; with the battery fine, the pause holds.
+// without readings: here the notice at 9 % would have come 25 minutes late, or never. With the battery low it asks
+// again on the next check; with the battery fine, the pause holds.
 test("batería baja: un timeout de Termux:API no deja el chequeo media hora sin lecturas", async () => {
   let llamadas = 0;
   let responde = null; // what Termux:API answers; null: not in time

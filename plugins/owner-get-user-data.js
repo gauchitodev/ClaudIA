@@ -4,9 +4,9 @@ import { destinatario } from "../lib/identidad.js";
 const plugin = {};
 plugin.cmd = ["id"];
 // Every admin: the group's WhatsApp admins, the bot's (lib/roles.js) and the owner; not the moderators. It shows the
-// number the bot knows, even in a group that hides it, and posts it in the chat. Only the owner can ask about anyone the
-// bot knows. An admin asks about the people in that group: otherwise, in a group of their own with the bot, they'd get
-// the number behind a LID from any other group, or whose a number is.
+// number the bot knows, even in a group that hides it, and posts it in the chat. Only the owner can ask about anyone
+// the bot knows. An admin asks about the people in that group: otherwise, in a group of their own with the bot, they'd
+// get the number behind a LID from any other group, or whose a number is.
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwner }) => {

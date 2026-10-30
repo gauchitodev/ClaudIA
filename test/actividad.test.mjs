@@ -60,7 +60,8 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   // deterministic.
   A.ACTIVIDAD.RELAMPAGO_PROBABILIDAD = 1;
   A.ACTIVIDAD.RELAMPAGO_MENSAJES_MINIMOS = 0;
-  // a fixed hour inside the window: at night (past RELAMPAGO_HASTA) there is nothing left to schedule and the test failed
+  // a fixed hour inside the window: at night (past RELAMPAGO_HASTA)
+  // there is nothing left to schedule and the test failed
   const mediodia = new Date();
   mediodia.setHours(12, 0, 0, 0);
   assert.equal(T.programarTriviasDelDia(mediodia), 2);

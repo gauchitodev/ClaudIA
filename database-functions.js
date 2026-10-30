@@ -127,17 +127,13 @@ const dondeLaFilaDe = (id) => (id.endsWith("@lid") ? "lid = ?" : `jid = ? ${FILA
 // FILA_DEL_NUMERO puts first. Nor are the three ways a device's row is told apart one and the same: lid LIKE '%:%@lid'
 // (any colon before the end), lid NOT LIKE '%:%' (no colon anywhere) and /:\d+@lid$/ (a colon and digits at the end).
 
-// A users row as the rest of the bot reads it: inGroup and couplesHistory parsed, or empty if they aren't valid JSON.
+// A users row as the rest of the bot reads it: inGroup parsed, or empty if it isn't valid JSON. couplesHistory stays
+// as stored: the couples moved to their own tables (database-schema.js), and only that move reads it.
 function conDatosLeidos(row) {
   try {
     row.inGroup = JSON.parse(row.inGroup || "{}");
   } catch {
     row.inGroup = {};
-  }
-  try {
-    row.couplesHistory = JSON.parse(row.couplesHistory || "[]");
-  } catch {
-    row.couplesHistory = [];
   }
   return row;
 }
@@ -719,7 +715,8 @@ export function marcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`INSERT OR IGNORE INTO periodos_cerrados (chat, tipo, periodo) VALUES (?, ?, ?)`).run(chat, tipo, periodo);
 }
 
-// Undoes marcarPeriodoCerrado, for an announcement marked before it went out whose send failed (lib/avisos-programados.js).
+// Undoes marcarPeriodoCerrado, for an announcement marked before it went out whose send failed
+// (lib/avisos-programados.js).
 export function desmarcarPeriodoCerrado(chat, tipo, periodo) {
   db.prepare(`DELETE FROM periodos_cerrados WHERE chat = ? AND tipo = ? AND periodo = ?`).run(chat, tipo, periodo);
 }
@@ -1247,7 +1244,8 @@ export function guardarEstadoIniciativa(chat, datos) {
   return updateRow("iniciativa_estado", "chat", chat, datos);
 }
 
-// Brings the next glance forward to "momento", only if the scheduled one is later (or there's none). Returns whether it moved.
+// Brings the next glance forward to "momento", only if the scheduled one is later (or there's none).
+// Returns whether it moved.
 export function adelantarVistazo(chat, momento, motivo) {
   asegurarEstadoIniciativa(chat);
   return db.prepare(`UPDATE iniciativa_estado SET proximoVistazo = ?, motivoProximo = ? WHERE chat = ? AND (proximoVistazo = 0 OR proximoVistazo > ?)`).run(momento, motivo, chat, momento).changes > 0;
@@ -1305,7 +1303,8 @@ export function ecoDeIntervenciones(chat, desde) {
     .get(chat, desde);
 }
 
-// How many people talked in a group on a day and how many messages between them (conversation only, see actividad_diaria).
+// How many people talked in a group on a day and how many messages between them
+// (conversation only, see actividad_diaria).
 export function promedioPorPersona(chat, fecha) {
   return db.prepare(`SELECT COUNT(*) AS personas, COALESCE(SUM(mensajes), 0) AS total FROM actividad_diaria WHERE chat = ? AND fecha = ? AND mensajes > 0`).get(chat, fecha);
 }
@@ -1317,8 +1316,8 @@ export function podarIntervenciones(antesDe) {
 // ===================== Per-group bot roles =====================
 // A role is given to the id a mention resolves to, the LID nowadays (the number, for someone the bot didn't know then),
 // and a message from a group that lists people by number may bring only the number. So reading, giving and taking one
-// all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot saying
-// it was gone, and giving it again would add a second one.
+// all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot
+// saying it was gone, and giving it again would add a second one.
 function idsDeRol(usuario) {
   const otro = usuario.endsWith("@lid") ? jidDeLid(usuario) : lidDeNumero(usuario);
   return [...new Set([usuario, otro].filter(Boolean))];

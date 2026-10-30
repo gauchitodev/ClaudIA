@@ -5,7 +5,8 @@ import { parentescoDe } from "../lib/familia.js";
 
 // .besar @x: a virtual kiss, unless either of them is partnered with someone else. A pending couple request doesn't
 // count as a couple. Between partners or spouses the kiss always lands, unless the partner is in a huff: over an
-// attempted infidelity (an hour, or until a gift) or over days with no kiss or gift, where the first can be turned down.
+// attempted infidelity (an hour, or until a gift) or over days with no kiss or gift, where the first can be turned
+// down.
 const plugin = {};
 plugin.cmd = ["kiss", "beso", "besar"];
 plugin.onlyGroup = true;

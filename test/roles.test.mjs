@@ -131,8 +131,8 @@ test("roles: el rango ordena dueño > admin de WhatsApp > admin del bot > modera
   assert.match(R.impedimentoParaModerar(G, { lid: "100@lid", esAdminWhatsApp: true }, { lid: "444@lid", esAdminWhatsApp: true }), /\.demote/);
 });
 
-// A role is given to the id a mention resolves to: the LID nowadays, the number for someone the bot didn't know yet. And
-// a message from a group that lists people by number may bring only the number: either identity has to find it.
+// A role is given to the id a mention resolves to: the LID nowadays, the number for someone the bot didn't know yet.
+// And a message from a group that lists people by number may bring only the number: either identity has to find it.
 test("roles: un rol se encuentra por cualquiera de las dos identidades", () => {
   F.initDataDB(persona(601));
   F.setRolGrupo(G, "601@lid", "mod", "100@lid");

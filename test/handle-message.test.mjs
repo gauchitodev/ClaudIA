@@ -100,8 +100,8 @@ test("lo que borra la moderación no corre como comando", async () => {
 });
 
 // Nor does it reach the hooks after the moderation: a trivia answer with a banned link took the prize, and the message
-// counters counted it. Only Claudia's short-term memory still gets what the moderation marks: a deletion from someone on
-// the blacklist (whom the blacklist removes as soon as they do anything) has to apply there all the same.
+// counters counted it. Only Claudia's short-term memory still gets what the moderation marks: a deletion from someone
+// on the blacklist (whom the blacklist removes as soon as they do anything) has to apply there all the same.
 test("lo que borra la moderación no llega a los juegos ni a los contadores, y un borrado igual sale de la memoria", async () => {
   const Tr = await import("../lib/trivia.js");
   const oyeron = [];
@@ -238,8 +238,8 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
 });
 
-// A group that lists people by number (addressingMode "pn"): Baileys lists its participants by number (id), with the LID
-// apart (lid), and a message brings the number in key.participant and, when the server sends it, the LID in
+// A group that lists people by number (addressingMode "pn"): Baileys lists its participants by number (id), with the
+// LID apart (lid), and a message brings the number in key.participant and, when the server sends it, the LID in
 // participantAlt. Looking at the id alone, the bot didn't see itself as admin there (commands that need it refused, and
 // the anti-link didn't act), nor a WhatsApp admin whose message brought their LID; and a bot moderator whose message
 // brought only the number lost the role.
@@ -398,9 +398,9 @@ test("lo que borra la moderación le levanta el aviso de .inactivos, sin sumar m
 });
 
 // A number may have an old row keyed by itself besides the one with the LID. getUser by number found the old one, and
-// updateUser by number wrote to both: a message that came with only the number (in a group listed by number, without the
-// LID alongside, or in private) copied the old row over the one with the LID, and the person lost their warnings, their
-// silence and their .afk in every group. The muted one's message wasn't deleted either.
+// updateUser by number wrote to both: a message that came with only the number (in a group listed by number, without
+// the LID alongside, or in private) copied the old row over the one with the LID, and the person lost their warnings,
+// their silence and their .afk in every group. The muted one's message wasn't deleted either.
 test("un mensaje que llega solo con el número no le pisa a nadie lo que tiene en sus grupos", async () => {
   const client = cliente();
   globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
