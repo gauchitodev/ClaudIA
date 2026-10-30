@@ -279,7 +279,8 @@ function seguirALaPersona(lid, antes, numero) {
 // owner took the person off the list without a word. One the person already had under the LID in that group stays,
 // and the one by number goes. Of two roles in one group, the higher one stays. Of what .inactivos noted in a group
 // under both, the latest of each, as it takes a person's latest under any of their ids (lib/inactivos.js): what it
-// reads of whoever had the number doesn't change.
+// reads of whoever had the number doesn't change. Except a warning that went out with a LID (aviso_de): it's that
+// LID's, whose own row has it, and it isn't passed on to anyone else.
 function atarAlLid(numero, lid) {
   db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(lid, lid, numero, lid);
   db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(numero, lid);
@@ -290,7 +291,7 @@ function atarAlLid(numero, lid) {
   db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
   const elUltimo = (c) => `MAX(COALESCE(${c}, excluded.${c}), COALESCE(excluded.${c}, ${c}))`; // MAX of a NULL is NULL
   db.prepare(
-    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) SELECT chat, ?, ingreso, ultimo_mensaje, avisado FROM presencia_grupo WHERE usuario = ?
+    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) SELECT chat, ?, ingreso, ultimo_mensaje, CASE WHEN COALESCE(aviso_de, '') = '' THEN avisado END FROM presencia_grupo WHERE usuario = ?
      ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = ${elUltimo("ingreso")}, ultimo_mensaje = ${elUltimo("ultimo_mensaje")}, avisado = ${elUltimo("avisado")}`,
   ).run(lid, numero);
   db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ?`).run(numero);
@@ -996,7 +997,7 @@ export function inicioPresencia(chat) {
 export function reiniciarPresencia(chat) {
   db.transaction(() => {
     db.prepare(`DELETE FROM presencia_inicio WHERE chat = ?`).run(chat);
-    db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE chat = ? AND avisado IS NOT NULL`).run(chat);
+    db.prepare(`UPDATE presencia_grupo SET avisado = NULL, aviso_de = NULL WHERE chat = ? AND avisado IS NOT NULL`).run(chat);
     db.prepare(`DELETE FROM cierres_grupo WHERE chat = ?`).run(chat);
   })();
 }
@@ -1025,42 +1026,56 @@ export function cierresGrupo(chat) {
 // Someone came into a group, under each of their ids. Coming back is a fresh start: a warning from before they left
 // doesn't carry over.
 export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
-  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ingreso) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = excluded.ingreso, avisado = NULL`);
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ingreso) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = excluded.ingreso, avisado = NULL, aviso_de = NULL`);
   for (const id of ids) st.run(chat, id, cuando);
   marcarInicioPresencia(chat, cuando);
 }
 
 // A message from someone: it's stamped on the ids it came with (sellar; the first one, failing that) and lifts the
-// warning from all of them. Returns when they had been warned, or null: who comes back after .inactivos is spared, and
-// paid once (better-sqlite3 runs this whole, so two messages at once can't both find the warning). A warning from
-// before their last message doesn't count, and goes all the same: it went out while they were writing, and they had
-// answered it already. The stamp only moves forward: a message that arrives late, with the time it was sent, doesn't
-// take back a newer one.
+// warning from all of them. Returns when they had been warned, by a warning of theirs (avisoSuyo), or null: who comes
+// back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so two messages at once can't both
+// find the warning). A warning from before their last message doesn't count, and goes all the same: it went out while
+// they were writing, and they had answered it already. So does one under their number that went out with someone
+// else's LID: it was the number's previous owner's, and when the bot hadn't seen the number change hands, the next
+// owner's first message was a "Volvió", with the prize, for it. The stamp only moves forward: a message that arrives
+// late, with the time it was sent, doesn't take back a newer one.
 export function registrarMensajeGrupo(chat, ids, cuando = Date.now(), sellar = ids.slice(0, 1)) {
   if (!ids.length) return null;
-  const previo = db.prepare(`SELECT MAX(avisado) AS avisado, MAX(ultimo_mensaje) AS ultimo FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).get(chat, ...ids);
-  if (previo?.avisado) quitarAvisoInactivo(chat, ids);
+  const filas = db.prepare(`SELECT usuario, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).all(chat, ...ids);
+  const lids = ids.filter((id) => id.endsWith("@lid"));
+  const avisado = Math.max(0, ...filas.filter((f) => f.avisado && avisoSuyo(f, lids)).map((f) => f.avisado));
+  const ultimo = Math.max(0, ...filas.map((f) => f.ultimo_mensaje || 0));
+  if (filas.some((f) => f.avisado)) quitarAvisoInactivo(chat, ids);
   const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`);
   for (const id of sellar) st.run(chat, id, cuando);
   marcarInicioPresencia(chat, cuando);
-  return previo?.avisado > (previo?.ultimo || 0) ? previo.avisado : null;
+  return avisado > ultimo ? avisado : null;
 }
+
+// Whether a warning in presencia_grupo is the person's, given their LIDs: under a LID, always. Under a number, when it
+// went there alone (aviso_de "": the bot knew no LID for it), or when the bot knows no LID of theirs to tell. One that
+// went out with a LID (aviso_de) is that LID's, whose own row has it too; one from before aviso_de (null) may be the
+// number's previous owner's, as a warning goes under every id and the bot doesn't always see a number change hands
+// (seguirALaPersona).
+export const avisoSuyo = (fila, lids) => fila.usuario.endsWith("@lid") || !lids.length || fila.aviso_de === "";
 
 // The warning of .inactivos. Whoever has one standing isn't warned again (lib/inactivos.js), so what's here is a first
 // one, or one that no longer stands (from before the person last wrote, or before the bot came back into the group),
 // and it's written over. It used to keep the first date always: whoever was tagged again could be removed that minute.
+// Under a number it notes whose it is (aviso_de): the LID it went along with, or "" when there was none (avisoSuyo).
 export function marcarAvisoInactivo(chat, ids, cuando = Date.now()) {
-  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET avisado = excluded.avisado`);
-  for (const id of ids) st.run(chat, id, cuando);
+  const lid = ids.find((id) => id.endsWith("@lid")) ?? "";
+  const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, avisado, aviso_de) VALUES (?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET avisado = excluded.avisado, aviso_de = excluded.aviso_de`);
+  for (const id of ids) st.run(chat, id, cuando, id.endsWith("@lid") ? null : lid);
 }
 
 export function quitarAvisoInactivo(chat, ids) {
   if (!ids.length) return;
-  db.prepare(`UPDATE presencia_grupo SET avisado = NULL WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).run(chat, ...ids);
+  db.prepare(`UPDATE presencia_grupo SET avisado = NULL, aviso_de = NULL WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).run(chat, ...ids);
 }
 
 export function presenciaDelGrupo(chat) {
-  return db.prepare(`SELECT usuario, ingreso, ultimo_mensaje, avisado FROM presencia_grupo WHERE chat = ?`).all(chat);
+  return db.prepare(`SELECT usuario, ingreso, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ?`).all(chat);
 }
 
 // Each person's last day with conversation in a group ("YYYY-MM-DD"): what's known of before presencia_grupo.

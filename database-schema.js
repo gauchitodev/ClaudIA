@@ -590,7 +590,8 @@ export function ponerAlDia(db) {
   // Presence in each group, for .inactivos (lib/inactivos.js): when someone came in, their last message of any kind
   // and when .inactivos warned them (null once they write again). By any id the person may come under, like the
   // roles: a join may bring only the number and a message only the LID. actividad_diaria can't tell when someone last
-  // wrote: it only counts conversation (two words or more), and only since 2/9.
+  // wrote: it only counts conversation (two words or more), and only since 2/9. Under a number, whose the warning is
+  // (aviso_de): the LID it went along with, or "" when it went there alone (avisoSuyo, database-functions.js).
   db.exec(`
     CREATE TABLE IF NOT EXISTS presencia_grupo (
       chat TEXT NOT NULL,
@@ -598,9 +599,16 @@ export function ponerAlDia(db) {
       ingreso INTEGER,
       ultimo_mensaje INTEGER,
       avisado INTEGER,
+      aviso_de TEXT,
       PRIMARY KEY (chat, usuario)
     )
   `);
+  // Migration: aviso_de on presence tables that already exist. Their warnings are left without it (null), and under a
+  // number those count only for whoever the bot knows by nothing else.
+  if (!db.prepare(`PRAGMA table_info(presencia_grupo)`).all().some((c) => c.name === "aviso_de")) {
+    db.exec(`ALTER TABLE presencia_grupo ADD COLUMN aviso_de TEXT`);
+    console.log("🟢 Migración: columna 'aviso_de' agregada a presencia_grupo");
+  }
   // Since when the bot keeps track of who writes in each group: the first message or join it noted there. Before that,
   // nobody can be told apart from someone silent, so lib/inactivos.js counts everyone as seen that day at the latest.
   // .inactivos used to go by the first time the bot had seen someone write: whoever sent only stickers, audios or

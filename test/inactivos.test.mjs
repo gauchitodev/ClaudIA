@@ -4,7 +4,7 @@ import fs from "fs";
 import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
-import { numeroReciclado, unNumero } from "./identidad-escenarios.mjs";
+import { numeroReciclado, unNumero, unaLid } from "./identidad-escenarios.mjs";
 
 const DIA = 24 * 60 * 60 * 1000;
 let F, I, CG, Inactivos, Kick;
@@ -986,4 +986,64 @@ test("el aviso de quien tuvo un número no cuenta para quien lo tiene ahora, aun
   assert.deepEqual(I.paraSacar(chat, participants, globalThis.client).listos, [], "NUEVO no está avisado");
   const { mentions } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
   assert.deepEqual(mentions, [NUEVO], "y .inactivos lo etiqueta");
+});
+
+// A warning under a number is the warning of the LID it went out with (aviso_de, avisoSuyo). VIEJO was warned under the
+// number and their LID and never wrote, so no row had the number and nothing moved the warning when NUEVO came with it
+// (seguirALaPersona): NUEVO's first message was a "Volvió", with the prize, for VIEJO's warning. One that went under
+// the number alone, when the bot knew no LID for it, is the warning of whoever has the number: they're still warned
+// once the group lists their LID, and paid when they come back. One from before aviso_de counts under a number only
+// for whoever the bot knows by nothing else.
+test("un aviso bajo un número es de la LID con la que salió: no paga el «Volvió» de otro, y sí el de quien solo tenía el número", async () => {
+  const chat = "inactivos-aviso-de@g.us";
+  const escribe = async (sender, senderJid) => {
+    const msj = { chat, sender, senderJid, pushName: "x", isGroup: true };
+    F.initDataDB(msj);
+    F.syncUserInfo(msj);
+    globalThis.enviados = [];
+    await I.registrarPresencia(globalThis.client, msj); // after syncUserInfo, as handle-message runs them
+    return [globalThis.enviados.map((e) => e.msg?.text).join(""), F.getSaldoCoins(chat, sender)];
+  };
+  const listos = (lid, numero) => I.paraSacar(chat, [{ id: lid, phoneNumber: numero, admin: null }], globalThis.client).listos.length;
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA); // the bot keeps track of the group since then
+
+  const [X, VIEJO, NUEVO] = [unNumero(71), unaLid(71, 1), unaLid(71, 2)];
+  F.marcarAvisoInactivo(chat, [VIEJO, X], Date.now() - 4 * DIA);
+  assert.deepEqual(await escribe(NUEVO, X), ["", 0], "ningún «Volvió» para NUEVO");
+  assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === X)?.avisado ?? null, null, "y el aviso bajo el número se levanta igual");
+  const [volvio, saldo] = await escribe(VIEJO, "");
+  assert.ok(volvio.includes(`Volvió @${VIEJO.split("@")[0]}`), volvio);
+  assert.equal(saldo, 10, "VIEJO sí vuelve de su aviso");
+
+  const [Y, SOLO] = [unNumero(73), unaLid(73)];
+  F.marcarAvisoInactivo(chat, [Y], Date.now() - 4 * DIA); // listed by the number alone, and no row had it
+  assert.equal(listos(SOLO, Y), 1, "con la LID en la lista, sigue avisado");
+  const [volvioSolo, saldoSolo] = await escribe(SOLO, Y);
+  assert.match(volvioSolo, /Volvió/);
+  assert.equal(saldoSolo, 10);
+
+  const [Z, ANTES] = [unNumero(74), unaLid(74)];
+  db.prepare("INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?)").run(chat, Z, Date.now() - 4 * DIA);
+  assert.equal(listos(ANTES, Z), 0, "uno de antes de aviso_de no le cuenta a quien trae su LID");
+  assert.deepEqual(await escribe(ANTES, Z), ["", 0]);
+});
+
+// A warning that went out with a LID isn't passed on with the number: it's that LID's. The group listed C with the
+// number when it was given, while the database had A on it: B writing with the number took the warning under it to A
+// (atarAlLid), and A was warned with C's warning, untagged, and removable. One that went under the number alone, in a
+// group where A hasn't written since, goes to A, as everything else under the number.
+test("atarAlLid no le pasa a quien tenía el número un aviso que salió con otra LID", () => {
+  const [chat, otro] = ["inactivos-atar-aviso@g.us", "inactivos-atar-aviso-2@g.us"];
+  const [N, A, B, C] = [unNumero(75), unaLid(75, 1), unaLid(75, 2), unaLid(75, 3)];
+  for (const g of [chat, otro]) F.registrarMensajeGrupo(g, ["105@lid"], Date.now() - 20 * DIA);
+  F.marcarAvisoInactivo(otro, [N], Date.now() - 4 * DIA); // there, the bot knew no LID for the number
+  F.initDataDB({ chat, sender: A, senderJid: N, pushName: "A" });
+  F.syncUserInfo({ chat, sender: A, senderJid: N, pushName: "A" });
+  F.marcarAvisoInactivo(chat, [C, N], Date.now() - 4 * DIA);
+  F.initDataDB({ chat, sender: B, senderJid: N, pushName: "B" });
+  F.syncUserInfo({ chat, sender: B, senderJid: N, pushName: "B" }); // N is B's now, and what was under it goes to A
+  const avisados = (g, lid) => I.paraSacar(g, [{ id: lid, admin: null }], globalThis.client).listos.length;
+  assert.equal(avisados(chat, A), 0, "A no queda avisado con el aviso de C");
+  assert.equal(avisados(chat, C), 1, "C sigue con el suyo");
+  assert.equal(avisados(otro, A), 1, "el que fue solo al número pasa a A");
 });
