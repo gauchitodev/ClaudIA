@@ -1,5 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionado } from "../lib/identidad.js";
+import { lidMencionadoActual } from "../lib/identidad.js";
 import { textoPerfil } from "../lib/perfil.js";
 
 const plugin = {};
@@ -8,7 +8,7 @@ plugin.onlyGroup = true;
 
 // .perfil → your record · .perfil @person, or replying to one of their messages → that person's
 plugin.run = async (m, { client, text, participants }) => {
-  const lid = lidMencionado(m, text, participants) || m.sender;
+  const lid = await lidMencionadoActual(client, m, text, participants) || m.sender;
 
   const user = getUser(lid);
   if (!user) return client.sendText(m.chat, "No tengo datos de esa persona todavía. Cuando escriba algo en el grupo, la conozco.", m);

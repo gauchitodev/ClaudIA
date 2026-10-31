@@ -1,6 +1,6 @@
 import { textoRacha } from "../lib/actividad.js";
 import { COINS } from "../lib/urucoins.js";
-import { deQuienEs, noSeDeQuien } from "../lib/identidad.js";
+import { deQuienEsActual, noSeDeQuien } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
 const plugin = {};
@@ -11,7 +11,7 @@ plugin.onlyGroup = true;
 // Your daily streak's state (this used to show up in .coins), or with .racha @persona (or replying to one of their
 // messages) someone else's, named without tagging them, as .bal does.
 plugin.run = async (m, { client, text, participants }) => {
-  const lid = deQuienEs(client, m, text, participants);
+  const lid = await deQuienEsActual(client, m, text, participants);
   if (!lid) return client.sendText(m.chat, `🔥 ${noSeDeQuien("la racha", ".racha")}`, m);
 
   if (lid !== m.sender) {

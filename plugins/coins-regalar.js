@@ -1,6 +1,6 @@
 import { getUser, transferirCoins, getSaldoCoins } from "../database-functions.js";
 import { contentarPareja } from "../lib/parejas.js";
-import { lidMencionado } from "../lib/identidad.js";
+import { lidMencionadoActual } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["regalar", "dar", "transferir"];
@@ -9,7 +9,7 @@ plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, text, args, participants }) => {
   // who to: the mention, or the quoted message's author (with the old regex, ".regalar @persona 20" swallowed the 20)
-  const who = lidMencionado(m, text, participants);
+  const who = await lidMencionadoActual(client, m, text, participants);
   const destinatario = who ? getUser(who) : null;
 
   // how much: the first number in the arguments that isn't part of the mention

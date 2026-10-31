@@ -1,4 +1,4 @@
-import { destinatario } from "../lib/identidad.js";
+import { destinatarioActual } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["bloquear", "desbloquear"];
@@ -6,7 +6,7 @@ plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, command, participants }) => {
   // Blocking goes by number: WhatsApp takes no LID here, and a LID is exactly what it used to be handed.
-  const { jid, mencionado } = destinatario(m, text, participants);
+  const { jid, mencionado } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return;
   if (!jid) return client.sendText(m.chat, "No sé el número de esa persona, así que no la puedo bloquear.", m);
 

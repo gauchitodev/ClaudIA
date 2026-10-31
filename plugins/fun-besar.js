@@ -1,5 +1,5 @@
 import { elegirAlAzar } from "../lib/azar.js";
-import { lidMencionado, esElBot } from "../lib/identidad.js";
+import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { parejaDe, enojarPareja, besoEntrePareja } from "../lib/parejas.js";
 import { parentescoDe } from "../lib/familia.js";
 
@@ -13,7 +13,7 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  const who = lidMencionado(m, text, participants);
+  const who = await lidMencionadoActual(client, m, text, participants);
   if (!who) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (esElBot(who, client)) return client.sendText(m.chat, txt.besarBot, m);
   const parentesco = parentescoDe(m.sender, who);

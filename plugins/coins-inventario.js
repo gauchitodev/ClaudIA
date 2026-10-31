@@ -1,6 +1,6 @@
 import { getUser } from "../database-functions.js";
 import { textoInventario } from "../lib/tienda.js";
-import { deQuienEs, noSeDeQuien } from "../lib/identidad.js";
+import { deQuienEsActual, noSeDeQuien } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
 const plugin = {};
@@ -11,7 +11,7 @@ plugin.onlyGroup = true;
 // Your items, nickname and job, or with .inventario @persona (or replying to one of their messages) someone else's,
 // named without tagging them, as .bal does.
 plugin.run = async (m, { client, text, participants, user }) => {
-  const lid = deQuienEs(client, m, text, participants);
+  const lid = await deQuienEsActual(client, m, text, participants);
   if (!lid) return client.sendText(m.chat, `🎒 ${noSeDeQuien("el inventario", ".inventario")}`, m);
 
   const propio = lid === m.sender;

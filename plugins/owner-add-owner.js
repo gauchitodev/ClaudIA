@@ -1,6 +1,6 @@
 import fs from "fs";
 import toml from "@iarna/toml";
-import { destinatario, confirmarOwners, olvidarOwner } from "../lib/identidad.js";
+import { destinatarioActual, confirmarOwners, olvidarOwner } from "../lib/identidad.js";
 
 // config.toml with only its owners line changed: rewriting the whole file with toml.stringify wiped every comment that
 // explains the settings. The result is parsed back before anything is written: null if the owners didn't come out
@@ -27,7 +27,7 @@ plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   // config.toml stores the bare phone number, so of the two identities it's the number we need.
-  const { jid } = destinatario(m, text, participants);
+  const { jid } = await destinatarioActual(client, m, text, participants);
   const who = jid ? jid.split("@")[0] : "";
   if (!who) return client.sendText(m.chat, `No se encontró el numero telefonico del usuario mencionado. Pruebe: ${usedPrefix}${command} +598 99 999 999`, m);
 

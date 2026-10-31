@@ -1,4 +1,4 @@
-import { lidMencionado, esElBot, lidDe } from "../lib/identidad.js";
+import { lidMencionadoActual, esElBot, lidDe } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
@@ -7,7 +7,7 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, text, chat, participants }) => {
   // With nobody mentioned, the game is about whoever wrote it.
-  const who = lidMencionado(m, text, participants) || m.sender;
+  const who = await lidMencionadoActual(client, m, text, participants) || m.sender;
   if (command !== "love" && esElBot(who, client)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // The "saint" is the second configured owner; their @lid is resolved, by the group and failing that the database,
   // because mentions arrive as @lid.

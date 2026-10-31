@@ -303,6 +303,39 @@ test("a quién nombra un mensaje es solo de lib/identidad.js", () => {
   }
 });
 
+// A number the group lists alone, with no LID, is asked of WhatsApp however the message names it: mentioned, typed or
+// as the quoted message's author. Where the group pairs it, no question; with no answer, the database's guess.
+test("lidMencionadoActual y lidsMencionadosActual le preguntan a WhatsApp por un número que el grupo no empareja", async (t) => {
+  const { X, VIEJO, NUEVO, porNumero, porNumeroSinLid } = numeroReciclado(340);
+  const consultas = usyncFalso(t, { [X]: NUEVO });
+  for (const [forma, m, texto] of [
+    ["mencionado", mensaje({ mentionedJid: [X] }), `@${digitos(X)}`],
+    ["tipeado", mensaje({}), `@${digitos(X)}`],
+    ["citado", mensaje({ quoted: { sender: X } }), ""],
+  ]) {
+    assert.equal(await I.lidMencionadoActual(cliente(), m, texto, porNumeroSinLid), NUEVO, forma);
+    assert.deepEqual(await I.lidsMencionadosActual(cliente(), m, texto, porNumeroSinLid), [NUEVO], forma);
+  }
+  assert.equal(consultas.length, 6);
+  assert.equal(await I.lidMencionadoActual(cliente(), mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumero), NUEVO, "el grupo lo empareja");
+  assert.equal(consultas.length, 6, "y no pregunta");
+  usyncFalso(t, {});
+  assert.equal(await I.lidMencionadoActual(cliente(), mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumeroSinLid), VIEJO, "sin respuesta, la suposición de la base");
+});
+
+// The commands go through the versions that ask (lidMencionadoActual, lidsMencionadosActual, deQuienEsActual,
+// destinatarioActual, dosPersonasActual): one with a version that only guesses brought back, in a group that lists
+// people by number alone, whoever had the number before.
+test("ningún plugin resuelve a quién nombra un mensaje sin preguntarle a WhatsApp", () => {
+  const carpeta = new URL("../plugins/", import.meta.url);
+  const usan = [];
+  for (const archivo of fs.readdirSync(carpeta).filter((f) => f.endsWith(".js"))) {
+    const codigo = fs.readFileSync(new URL(archivo, carpeta), "utf8").split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
+    for (const [, nombre] of codigo.matchAll(/\b(lidMencionado|lidsMencionados|deQuienEs|destinatario|dosPersonas|lidDeDigitos)\s*\(/g)) usan.push(`${archivo}: ${nombre}`);
+  }
+  assert.deepEqual(usan, []);
+});
+
 // One way only: lib/menciones.js and the rest import lib/identidad.js, which imports nothing of the bot's but the
 // database. When it imported lib/menciones.js, whatever both needed had to live there, where it didn't belong.
 // Whichever way the import is written: with names or without, as a re-export, through import() or require, with either
@@ -331,6 +364,15 @@ test("una mención por LID de alguien sin fila no inventa un número con los dí
   const m = mensaje({ sender: unaLid(23), mentionedJid: [L] });
   assert.equal(I.destinatario(m, `@${digitos(L)}`, [{ id: L, phoneNumber: unNumero(22) }]).jid, unNumero(22), "el del grupo");
   assert.equal(I.destinatario(m, `@${digitos(L)}`, [{ id: L }]).jid, null, "ninguno");
+});
+
+// In a group that lists people by number alone, .id @number shows whoever WhatsApp says has the number now: with the
+// database's guess, the name and the LID of whoever had it before.
+test(".id @número en un grupo que lista solo por número muestra a quien lo tiene ahora", async (t) => {
+  const { X, NUEVO, porNumeroSinLid } = numeroReciclado(352);
+  usyncFalso(t, { [X]: NUEVO });
+  await P.id.run(mensaje({ sender: unaLid(353), mentionedJid: [X] }), { client: cliente(), text: `@${digitos(X)}`, usedPrefix: ".", command: "id", participants: porNumeroSinLid, isOwner: true });
+  assert.match(ultimoEnviado().msg.text, new RegExp(`Nombre actual: Nuevo[^]*Lid: ${NUEVO}`));
 });
 
 test(".id de alguien sin fila no muestra los dígitos de su LID como número", async () => {
@@ -441,22 +483,28 @@ test(".regalar @número le llega a quien tiene ahora el número", async () => {
   assert.deepEqual([F.getSaldoCoins(G, NUEVO), F.getSaldoCoins(G, VIEJO)], [20, 0]);
 });
 
-test(".llamar @número arroba a quien tiene ahora el número", async () => {
-  const { X, NUEVO, porNumero } = numeroReciclado(42);
-  const C = "llamar@g.us";
-  globalThis.enviados = [];
-  await P.llamar.run(mensaje({ chat: C, sender: unaLid(43), mentionedJid: [X] }), { client: cliente(), text: `@${digitos(X)}`, command: "llamar", participants: porNumero });
-  await esperar(30);
-  await P.llamar.run(mensaje({ chat: C, sender: unaLid(43) }), { client: cliente(), text: "", command: "cancelar" });
-  assert.equal(globalThis.enviados[0]?.msg.text, `@${digitos(NUEVO)}`);
+// In a group that lists people by number alone, whoever WhatsApp says has it.
+test(".llamar @número arroba a quien tiene ahora el número", async (t) => {
+  for (const [forma, n] of [["porNumero", 42], ["porNumeroSinLid", 320]]) {
+    const escenario = numeroReciclado(n);
+    const { X, NUEVO } = escenario;
+    usyncFalso(t, { [X]: NUEVO });
+    const C = `llamar-${n}@g.us`;
+    globalThis.enviados = [];
+    await P.llamar.run(mensaje({ chat: C, sender: unaLid(n + 1), mentionedJid: [X] }), { client: cliente(), text: `@${digitos(X)}`, command: "llamar", participants: escenario[forma] });
+    await esperar(30);
+    await P.llamar.run(mensaje({ chat: C, sender: unaLid(n + 1) }), { client: cliente(), text: "", command: "cancelar" });
+    assert.equal(globalThis.enviados[0]?.msg.text, `@${digitos(NUEVO)}`, forma);
+  }
 });
 
-// The commands that name someone with lidMencionado, and .parentesco with lidsMencionados: in a group that lists people
-// by LID, with the number typed by hand, and in one that lists them by number, where the mention comes by number.
-// Whoever the group lists with the number now, never whoever the database still has it on, and tagged by LID: the
-// "@" and its digits in the text, which client.sendText turns into the mention (parseMention, lib/wa-socket.js). The
-// three of POR_SU_NOMBRE name them by their name instead. Each one runs with a sender of its own, so what one leaves
-// behind (a request, a duel) doesn't reach the next.
+// The commands that name someone with lidMencionadoActual, and .parentesco with lidsMencionadosActual: in a group that
+// lists people by LID, with the number typed by hand, in one that lists them by number, where the mention comes by
+// number, and in one that lists them by number alone, where WhatsApp is asked who has it, and only there. Whoever has
+// the number now, never whoever the database still has it on, and tagged by LID: the "@" and its digits in the text,
+// which client.sendText turns into the mention (parseMention, lib/wa-socket.js). The three of POR_SU_NOMBRE name them
+// by their name instead. Each one runs with a sender of its own, so what one leaves behind (a request, a duel) doesn't
+// reach the next.
 const COMANDOS_QUE_NOMBRAN = [
   // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
   ["fun-besar", "besar"],
@@ -493,10 +541,12 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       Par.fijarCasamiento(A, B);
     },
   };
-  let n = 100;
-  for (const forma of ["porLid", "porNumero"]) {
+  // Each form with numbers of its own. In the group that lists people by number alone, WhatsApp says who has it.
+  for (const [forma, desde] of [["porLid", 100], ["porNumero", 117], ["porNumeroSinLid", 300]]) {
+    let n = desde;
     const escenario = numeroReciclado(n);
     const { X, VIEJO, NUEVO } = escenario;
+    const consultas = usyncFalso(t, { [X]: NUEVO });
     const [deVIEJO, deNUEVO] = [`VIEJO-${n}`, `NUEVO-${n}`]; // names that no other text has
     F.updateUser(VIEJO, { pushName: deVIEJO });
     F.updateUser(NUEVO, { pushName: deNUEVO });
@@ -505,7 +555,7 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
       if (necesita) preparar[necesita](A, B);
       const texto = `@${digitos(X)}${resto}`;
-      const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: forma === "porNumero" ? [X] : [] });
+      const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: forma === "porLid" ? [] : [X] });
       globalThis.enviados = [];
       const plugin = (await import(`../plugins/${archivo}.js`)).default;
       await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: escenario[forma], chat: {}, ...extra });
@@ -517,7 +567,7 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       assert.ok(!arroba(VIEJO) && !nombra(deVIEJO) && !enviados.some((msg) => msg.mentions?.includes(VIEJO)), `nombró a VIEJO: ${caso}`);
       assert.ok(!enviados.some((msg) => msg.mentions?.includes(X) || msg.text.includes(`@${digitos(X)}`)), `arrobó por el número: ${caso}`);
     }
-    n++;
+    assert.equal(consultas.length, forma === "porNumeroSinLid" ? COMANDOS_QUE_NOMBRAN.length : 0, `${forma}: le pregunta a WhatsApp solo si el grupo no empareja el número`);
   }
 });
 
@@ -537,6 +587,24 @@ test("dosPersonas con el grupo: un número es de quien el grupo lista con él", 
   assert.deepEqual(Par.dosPersonas(mensaje({ mentionedJid: [a.X, b.X] }), `@${digitos(a.X)} @${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO]);
   assert.deepEqual(Par.dosPersonas(mensaje({}), `@${digitos(a.X)} @${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO], "tipeados con @");
   assert.deepEqual(Par.dosPersonas(mensaje({}), `+${digitos(a.X)} +${digitos(b.X)}`, participants), [a.NUEVO, b.NUEVO], "tipeados con +");
+});
+
+// .setpareja and .setmarry go through dosPersonasActual: in a group that lists people by number alone, each number is
+// whoever WhatsApp says has it, as for any command that names someone; with the database's guess, whoever had it.
+test("dosPersonasActual le pregunta a WhatsApp por los números que el grupo no empareja", async (t) => {
+  const Par = await import("../lib/parejas.js");
+  const [a, b] = [numeroReciclado(350), numeroReciclado(351)];
+  const consultas = usyncFalso(t, { [a.X]: a.NUEVO, [b.X]: b.NUEVO });
+  const participants = [...a.porNumeroSinLid, ...b.porNumeroSinLid];
+  for (const [forma, m, texto] of [
+    ["mencionados", mensaje({ mentionedJid: [a.X, b.X] }), `@${digitos(a.X)} @${digitos(b.X)}`],
+    ["tipeados con @", mensaje({}), `@${digitos(a.X)} @${digitos(b.X)}`],
+    ["tipeados con +", mensaje({}), `+${digitos(a.X)} +${digitos(b.X)}`],
+  ]) {
+    assert.deepEqual(await Par.dosPersonasActual(cliente(), m, texto, participants), [a.NUEVO, b.NUEVO], forma);
+  }
+  assert.ok(consultas.length > 0);
+  assert.deepEqual(Par.dosPersonas(mensaje({ mentionedJid: [a.X, b.X] }), "", participants), [a.VIEJO, b.VIEJO], "sin preguntar, la suposición de la base");
 });
 
 test(".setpareja y .setmarry le pasan el grupo: forman y casan a quienes tienen los números ahora", async () => {

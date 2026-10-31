@@ -1,4 +1,4 @@
-import { lidsMencionados } from "../lib/identidad.js";
+import { lidsMencionadosActual } from "../lib/identidad.js";
 
 const activeTimers = {};
 
@@ -20,7 +20,7 @@ plugin.run = async (m, { client, text, command, participants }) => {
 
   // The old parsing used a regex with \s that kept swallowing digits: ".llamar @111 5 minutos" ended up calling
   // "1115", who is nobody.
-  const who = lidsMencionados(m, text, participants);
+  const who = await lidsMencionadosActual(client, m, text, participants);
   if (!who.length) return client.sendText(m.chat, "Mencione al menos una persona", m);
   const mencion = who.map((w) => `@${w.split("@")[0]}`).join(" ");
 

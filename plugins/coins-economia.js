@@ -1,6 +1,6 @@
 import { textoEconomia } from "../lib/economia.js";
 import { getUser, ganarCoins, gastarCoins, getSaldoCoins } from "../database-functions.js";
-import { lidMencionado } from "../lib/identidad.js";
+import { lidMencionadoActual } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["economia", "economía", "ajustar"];
@@ -17,7 +17,7 @@ plugin.run = async (m, { client, args, text, command, isOwner, participants }) =
   }
 
   if (!isOwner) return client.sendText(m.chat, txt.onlyOwner, m);
-  const who = lidMencionado(m, text, participants); // the old regex swallowed the amount that came after the mention
+  const who = await lidMencionadoActual(client, m, text, participants); // the old regex swallowed the amount that came after the mention
   const destinatario = who ? getUser(who) : null;
   const cantidad = parseInt(args.find((a) => /^-?\d+$/.test(a)), 10);
   if (!destinatario?.lid || Number.isNaN(cantidad) || cantidad === 0) return client.sendText(m.chat, "Uso: .ajustar @persona 50 [motivo] para dar, o .ajustar @persona -50 [motivo] para sacar.", m);

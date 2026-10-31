@@ -1,5 +1,5 @@
 import { getUser } from "../database-functions.js";
-import { destinatario } from "../lib/identidad.js";
+import { destinatarioActual } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["id"];
@@ -10,7 +10,7 @@ plugin.cmd = ["id"];
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwner }) => {
-  const { quien, lid, jid, mencionado, participante } = destinatario(m, text, participants);
+  const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   // The same answer whether the bot knows that person or not, so it doesn't tell.
   if (!isOwner && !participante) return client.sendText(m.chat, participants?.length ? "🆔 Solo puedo mostrarte el id de alguien de este grupo." : "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.", m);

@@ -1,6 +1,6 @@
 import { getUser } from "../database-functions.js";
 import { textoFamilia, textoFamilias } from "../lib/familia.js";
-import { lidMencionado, estaEnGrupo } from "../lib/identidad.js";
+import { lidMencionadoActual, estaEnGrupo } from "../lib/identidad.js";
 
 // .familia [@x]: someone's tree (or yours). .familias: the group's families, each as a tree, largest first.
 const plugin = {};
@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, command, participants }) => {
   if (command === "familias") return client.sendText(m.chat, textoFamilias(estaEnGrupo(participants)), m);
-  const who = lidMencionado(m, text, participants) || m.sender;
+  const who = await lidMencionadoActual(client, m, text, participants) || m.sender;
   if (!getUser(who)) return client.sendText(m.chat, "No conozco a esa persona todavía.", m);
   await client.sendText(m.chat, textoFamilia(who, who === m.sender), m);
 };

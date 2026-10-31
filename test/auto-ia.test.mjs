@@ -307,9 +307,9 @@ test("pedido a Claudia: una nota de .recordá no le hace mencionar a todos si el
 const BOT = "200000000000001@lid"; // Claudia's LID in these tests: digits, like a real one
 // A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks, bot changes her ids, and
 // participantes is the group's list.
-async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {}, participantes = participants } = {}) {
+async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {}, participantes = participants, cliente = {} } = {}) {
   globalThis.autoIaCooldown.delete(grupo);
-  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {}, ...cliente };
   client.user = { ...client.user, lid: BOT, ...bot };
   const m = { chat: grupo, isGroup: true, sender: "555@lid", pushName: "Ana", text: "", mentionedJid: [], quoted: null, ...extra };
   const fetchAntes = globalThis.fetch;
@@ -412,6 +412,19 @@ test("pedido a Claudia: «llamá a @número» llama a quien tiene el número aho
   const r = await hablarle({ text: `claudia llamá a @${digitos(X)}`, mentionedJid: [X] }, { rango: ADMIN, participantes: [...porNumero, { id: "555@lid", admin: "admin" }] });
   await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" }); // the other nine mentions aren't needed
   assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(NUEVO)}`]);
+});
+
+// In a group that lists people by number alone, with no LID to go by, she asks WhatsApp who has it, once: the database
+// still had whoever had it before, and she called them.
+test("pedido a Claudia: en un grupo que lista solo por número, «llamá a @número» le pregunta a WhatsApp quién lo tiene", async () => {
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  const { X, NUEVO, porNumeroSinLid } = numeroReciclado(2);
+  const consultas = [];
+  const executeUSyncQuery = async (consulta) => (consultas.push(consulta), { list: consulta.users.map((u) => ({ id: u.id, lid: u.id === X ? NUEVO : undefined })) });
+  const r = await hablarle({ text: `claudia llamá a @${digitos(X)}`, mentionedJid: [X] }, { rango: ADMIN, participantes: [...porNumeroSinLid, { id: "555@lid", admin: "admin" }], cliente: { executeUSyncQuery } });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(NUEVO)}`]);
+  assert.equal(consultas.length, 1, "una sola pregunta");
 });
 
 test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como mucho una vez cada media hora", async () => {

@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
+import { numeroReciclado, digitos, usyncFalso } from "./identidad-escenarios.mjs";
 
 let F, A, Bal, Top, Racha, Inv;
 before(async () => {
@@ -77,6 +78,17 @@ test(".bal @persona muestra el saldo de esa persona, sin arrobarla", async () =>
     await pedir("a@lid", { text });
     assert.equal(ultimoEnviado().msg.text, pista, text);
   }
+});
+
+// In a group that lists people by number alone, a mention by number is whoever WhatsApp says has it now: the database
+// still had it on whoever had it before, and .bal showed their balance.
+test(".bal @número en un grupo que lista solo por número muestra el de quien lo tiene ahora", async (t) => {
+  const { X, VIEJO, NUEVO, porNumeroSinLid } = numeroReciclado(330);
+  fijarSaldo(F, OTRO, VIEJO, 500);
+  fijarSaldo(F, OTRO, NUEVO, 70);
+  usyncFalso(t, { [X]: NUEVO });
+  await pedir("a@lid", { text: `@${digitos(X)}`, mentionedJid: [X], participants: porNumeroSinLid });
+  assert.match(ultimoEnviado().msg.text, /^🪙 Nuevo tiene \*70 UruCoins\*/);
 });
 
 test(".baltop lista a los más ricos y te ubica si no entrás", async () => {

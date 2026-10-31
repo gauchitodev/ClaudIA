@@ -1,5 +1,5 @@
 import { setTimeout as esperar } from "node:timers/promises";
-import { fijarCasamiento, dosPersonas, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
+import { fijarCasamiento, dosPersonasActual, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
 
 // .setmarry @a @b [| 3 días]: the owner marries a couple, with however long they've been married.
 const plugin = {};
@@ -7,7 +7,7 @@ plugin.cmd = ["setmarry"];
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, participants }) => {
-  const personas = dosPersonas(m, text, participants);
+  const personas = await dosPersonasActual(client, m, text, participants);
   if (!personas) return client.sendText(m.chat, AVISO_DOS_PERSONAS, m);
   const tiempo = tiempoIndicado(text);
   if (tiempo === null) return client.sendText(m.chat, "Formato de tiempo incorrecto. Asegúrate de usar días, horas o minutos válidos.", m);
