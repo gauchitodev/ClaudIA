@@ -1105,6 +1105,11 @@ test("al entrar alguien con su número solo, la entrada no se anota en la LID qu
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
   I.anotarIngresos(chat, [{ id: X, admin: null }, { id: unaLid(83), phoneNumber: unNumero(83), admin: null }]);
   assert.deepEqual(F.presenciaDelGrupo(chat).map((r) => r.usuario).sort(), [X, unaLid(83), unNumero(83)].sort());
+  // And main.js notes each join that way: put back inline as it was (registrarIngresoGrupo with idsDeParticipante), no
+  // test told.
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  assert.match(main, /if \(action === "add"\) anotarIngresos\(id, participants\);/);
+  assert.doesNotMatch(main, /registrarIngresoGrupo/);
 });
 
 // A message that brings the LID and the number lifts the warning of those two, and not of the LID the database still

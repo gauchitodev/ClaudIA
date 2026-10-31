@@ -342,12 +342,29 @@ test("lidMencionadoActual y lidsMencionadosActual le preguntan a WhatsApp por un
 // The commands go through the versions that ask (lidMencionadoActual, lidsMencionadosActual, deQuienEsActual,
 // destinatarioActual, dosPersonasActual): one with a version that only guesses brought back, in a group that lists
 // people by number alone, whoever had the number before.
+// Called by name, or off the module (I.destinatario), or brought in under another name, from lib/identidad.js or
+// lib/parejas.js, which hid a call by that name.
 test("ningún plugin resuelve a quién nombra un mensaje sin preguntarle a WhatsApp", () => {
+  const ADIVINAN = "lidMencionado|lidsMencionados|deQuienEs|destinatario|dosPersonas|lidDeDigitos";
+  const adivinanEn = (codigo) => [
+    ...[...codigo.matchAll(new RegExp(`\\b(${ADIVINAN})\\s*\\(|\\.(${ADIVINAN})\\b`, "g"))].map((r) => r[1] || r[2]),
+    ...[...codigo.matchAll(/\{([^}]*)\}\s*(?:from\s*|=\s*await\s+import\s*\(\s*)["'`][^"'`]*lib\/(?:identidad|parejas)\.js["'`]/g)]
+      .flatMap(([, lista]) => lista.split(",").map((s) => s.trim().split(/\s+as\s+|\s*:\s*/)[0]))
+      .filter((nombre) => new RegExp(`^(${ADIVINAN})$`).test(nombre)),
+  ];
+  const formas = [
+    'import { destinatario as aQuien } from "../lib/identidad.js";\naQuien(m);',
+    "import * as I from '../lib/identidad.js';\nconst f = I.lidMencionado;",
+    'const { dosPersonas: dos } = await import("../lib/parejas.js");',
+    "deQuienEs(client, m);",
+    'import { lidMencionadoActual } from "../lib/identidad.js";\nconst { destinatario } = r;\ndestinatario.lid;',
+  ];
+  assert.deepEqual(formas.map(adivinanEn), [["destinatario"], ["lidMencionado"], ["dosPersonas"], ["deQuienEs"], []]);
   const carpeta = new URL("../plugins/", import.meta.url);
   const usan = [];
   for (const archivo of fs.readdirSync(carpeta).filter((f) => f.endsWith(".js"))) {
     const codigo = fs.readFileSync(new URL(archivo, carpeta), "utf8").split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
-    for (const [, nombre] of codigo.matchAll(/\b(lidMencionado|lidsMencionados|deQuienEs|destinatario|dosPersonas|lidDeDigitos)\s*\(/g)) usan.push(`${archivo}: ${nombre}`);
+    for (const nombre of adivinanEn(codigo)) usan.push(`${archivo}: ${nombre}`);
   }
   assert.deepEqual(usan, []);
 });
@@ -364,6 +381,11 @@ test("lib/identidad.js no importa nada del bot más que la base", () => {
   const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
   const codigo = fuente.split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
   assert.deepEqual([...new Set(modulos(codigo).filter((de) => de.startsWith(".")))], ["../database-functions.js"]);
+  // And any relative path in a string: a require kept in a variable (createRequire) takes one without the word before
+  // it, and got past the one above.
+  const rutas = (texto) => [...texto.matchAll(/(["'`])(\.{1,2}\/[^"'`]*)\1/g)].map((r) => r[2]);
+  assert.deepEqual(rutas('const cargar = createRequire(import.meta.url);\ncargar("./f.js");'), ["./f.js"]);
+  assert.deepEqual([...new Set(rutas(codigo))], ["../database-functions.js"]);
 });
 
 // ---------- whom a command names: who has the number now, and no number made up ----------
@@ -518,9 +540,10 @@ test(".llamar @número arroba a quien tiene ahora el número", async (t) => {
 // lists people by LID, with the number typed by hand, in one that lists them by number, where the mention comes by
 // number, and in one that lists them by number alone, where WhatsApp is asked who has it, and only there. Whoever has
 // the number now, never whoever the database still has it on, and tagged by LID: the "@" and its digits in the text,
-// which client.sendText turns into the mention (parseMention, lib/wa-socket.js). The three of POR_SU_NOMBRE name them
-// by their name instead. Each one runs with a sender of its own, so what one leaves behind (a request, a duel) doesn't
-// reach the next.
+// which client.sendText turns into the mention (parseMention, lib/wa-socket.js). What goes out through sendMessage
+// carries the mention itself (mentions), which is what tags them there: with the "@" in the text alone, nobody was
+// tagged, and only that passed. The three of POR_SU_NOMBRE name them by their name instead. Each one runs with a sender
+// of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
 const COMANDOS_QUE_NOMBRAN = [
   // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
   ["fun-besar", "besar"],
@@ -557,6 +580,18 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       Par.fijarCasamiento(A, B);
     },
   };
+  // Each send through sendMessage is marked as such (via). Over the client, not a copy of it: what each form sets on it
+  // later (usyncFalso) has to reach the commands.
+  const base = cliente();
+  const conVia = Object.create(base, {
+    sendMessage: {
+      value: async (...args) => {
+        const r = await base.sendMessage(...args);
+        globalThis.enviados.at(-1).via = "sendMessage";
+        return r;
+      },
+    },
+  });
   // Each form with numbers of its own. In the group that lists people by number alone, WhatsApp says who has it.
   for (const [forma, desde] of [["porLid", 100], ["porNumero", 117], ["porNumeroSinLid", 300]]) {
     let n = desde;
@@ -574,7 +609,7 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: forma === "porLid" ? [] : [X] });
       globalThis.enviados = [];
       const plugin = (await import(`../plugins/${archivo}.js`)).default;
-      await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: escenario[forma], chat: {}, ...extra });
+      await plugin.run(m, { client: conVia, text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: escenario[forma], chat: {}, ...extra });
       const enviados = globalThis.enviados.map((e) => e.msg).filter((msg) => msg?.text);
       const arroba = (id) => enviados.some((msg) => msg.text.includes(`@${digitos(id)}`));
       const nombra = (nombre) => enviados.some((msg) => msg.text.includes(nombre));
@@ -582,6 +617,8 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       assert.ok(POR_SU_NOMBRE.includes(command) ? nombra(deNUEVO) : arroba(NUEVO), caso);
       assert.ok(!arroba(VIEJO) && !nombra(deVIEJO) && !enviados.some((msg) => msg.mentions?.includes(VIEJO)), `nombró a VIEJO: ${caso}`);
       assert.ok(!enviados.some((msg) => msg.mentions?.includes(X) || msg.text.includes(`@${digitos(X)}`)), `arrobó por el número: ${caso}`);
+      const sinMencion = globalThis.enviados.filter((e) => e.via === "sendMessage" && (e.msg?.text ?? e.msg?.caption ?? "").includes(`@${digitos(NUEVO)}`) && !e.msg.mentions?.includes(NUEVO));
+      assert.deepEqual(sinMencion.length, 0, `lo arroba en el texto de un sendMessage sin la mención, que es lo que le llega: ${caso}`);
     }
     assert.equal(consultas.length, forma === "porNumeroSinLid" ? COMANDOS_QUE_NOMBRAN.length : 0, `${forma}: le pregunta a WhatsApp solo si el grupo no empareja el número`);
   }
@@ -653,13 +690,16 @@ test("el santo de .gay2 es quien el grupo lista con el número del segundo owner
 
 // ---------- the boundary: only lib/identidad.js asks the database who is who ----------
 
-// Whichever way the import is written: by name, the whole module, handed on, or through import() or require, with the
-// file's name in the path as a string, a template or a sum; and a row's LID or number read off getUser, which is
-// lidDeNumero or jidDeLid by another name. A path or a row kept in a variable is out of the lint's sight.
-// lib/identidad.js asks; the tests look into the database freely; and the rest of the database is open to everyone.
+// Whichever way the import is written: by name, the whole module, handed on, or through import() or a call that isn't
+// a method's (require, or createRequire's, kept in a variable or not), with the file's name in the path as a string, a
+// template or a sum; and a row's LID or number read off getUser, destructured from it, or with getUser renamed on
+// import: lidDeNumero or jidDeLid by another name. A method's call, as fs.readFileSync, reads the file and passes. A
+// path put together elsewhere, or a row kept in a variable, is out of the lint's sight. lib/identidad.js asks; the
+// tests look into the database freely; and the rest of the database is open to everyone.
 test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el lint", async () => {
   const eslint = new ESLint({ cwd: fileURLToPath(new URL("..", import.meta.url)) });
-  const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
+  // The boundary's rules alone: a sum is prefer-template's too, in the tests as well.
+  const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId).filter((regla) => regla?.startsWith("no-restricted"));
   const pedidos = [
     ['import { lidDeNumero } from "../database-functions.js";\nlidDeNumero("x");\n', "no-restricted-imports"],
     ['import { getUser, esOwner as owner } from "../database-functions.js";\nowner(getUser("x"));\n', "no-restricted-imports"],
@@ -671,6 +711,12 @@ test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el li
     ["export const base = (dir) => import(`${dir}/database-functions.js`);\n", "no-restricted-syntax"],
     ['import { createRequire } from "node:module";\nexport const F = createRequire(import.meta.url)("../database-functions.js");\n', "no-restricted-syntax"],
     ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "no-restricted-syntax"],
+    ['import { createRequire } from "node:module";\nexport const F = createRequire(import.meta.url)(`../database-functions.js`);\n', "no-restricted-syntax"],
+    ['import { createRequire } from "node:module";\nexport const F = (dir) => createRequire(import.meta.url)(dir + "/database-functions.js");\n', "no-restricted-syntax"],
+    ['import { createRequire } from "node:module";\nconst cargar = createRequire(import.meta.url);\nexport const F = cargar("../database-functions.js");\n', "no-restricted-syntax"],
+    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)["jid"];\n', "no-restricted-syntax"],
+    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => {\n  const { jid } = getUser(lid) || {};\n  return jid;\n};\n', "no-restricted-syntax"],
+    ['import { getUser as fila } from "../database-functions.js";\nexport const numero = (lid) => fila(lid)?.jid;\n', "no-restricted-syntax"],
   ];
   for (const [codigo, regla] of pedidos) {
     for (const archivo of ["plugins/x.js", "lib/x.js", "x.js"]) assert.deepEqual(await reglas(codigo, archivo), [regla], `${archivo}: ${codigo.split("\n")[0]}`);
@@ -679,6 +725,13 @@ test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el li
   assert.deepEqual(await reglas('import { lidDeNumero, jidDeLid } from "../database-functions.js";\nlidDeNumero(jidDeLid("x"));\n', "lib/identidad.js"), []);
   assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "lib/identidad.js"), []);
   assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\ngetUser("x");\n', "plugins/x.js"), [], "lo demás de la base, sí");
+  // What isn't a way into it: reading the file, its address, or another field of a row.
+  const noPiden = [
+    'import fs from "node:fs";\nexport const texto = () => fs.readFileSync("database-functions.js", "utf8");\n',
+    'export const donde = new URL("../database-functions.js", import.meta.url);\n',
+    'import { getUser } from "../database-functions.js";\nexport const nombre = (lid) => {\n  const { pushName } = getUser(lid) || {};\n  return pushName;\n};\n',
+  ];
+  for (const codigo of noPiden) assert.deepEqual(await reglas(codigo, "plugins/x.js"), [], codigo.split("\n").at(-2));
 });
 
 // A name on the list that database-functions.js no longer exports stops nothing: renamed, the function would be open to

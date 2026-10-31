@@ -39,13 +39,14 @@ export function soloPorNumero(n) {
 
 // Someone with their LID row and the row keyed by the number from before LIDs; with dispositivo, also a device's row
 // ("…:12@lid"), which has no number, as soloUnaFilaPorNumero leaves it. The old row is the newer, as a message that
-// came without the LID leaves it: the number stands for the LID row all the same (FILA_DEL_NUMERO), and with the old
-// row older, "the LID row" and "the newest" couldn't be told apart.
+// came without the LID leaves it, and the one written first: the number stands for the LID row all the same
+// (FILA_DEL_NUMERO), and with the old row older, "the LID row" and "the newest" couldn't be told apart, nor with the
+// LID row first, "the LID row" and "the first one" (a query by number with no ORDER BY gets that one).
 export function filaVieja(n, { dispositivo = false } = {}) {
   const [X, LID] = [unNumero(n), unaLid(n)];
   const DISPOSITIVO = LID.replace("@lid", ":12@lid");
-  fila(LID, X, "Persona", 1);
   fila(X, X, "Vieja", 2);
+  fila(LID, X, "Persona", 1);
   if (dispositivo) fila(DISPOSITIVO, "", "Dispositivo", 3);
   return { X, LID, DISPOSITIVO };
 }

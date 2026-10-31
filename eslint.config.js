@@ -33,28 +33,42 @@ export const SOLO_IDENTIDAD = ["lidDeNumero", "jidDeLid", "idsDeOwners", "esOwne
 const PREGUNTALE_A_IDENTIDAD = "Who is who is lib/identidad.js's to ask the database (SOLO_IDENTIDAD, eslint.config.js): ask lib/identidad.js instead (lidDe, idsDe, esOwnerDe, idsDeOwners).";
 
 // What no-restricted-syntax looks for in the bot's code. A global off the list, and the ways around the import rule
-// below, which sees static imports only: database-functions.js through import() or require (createRequire, in an ES
-// module), with its name whole in the path as a string, a template or a sum; and a row's LID or number read off
-// getUser, which is lidDeNumero or jidDeLid by another name. lib/identidad.js does that last one. A path or a row kept
-// in a variable is out of the lint's sight.
+// below, which sees static imports only: database-functions.js through import() or through a call that isn't a
+// method's (require, or createRequire's, kept in a variable or not), with its name whole in the path as a string, a
+// template or a sum. A method's call, as fs.readFileSync, reads the file, and is no way into it: taken for one, it
+// didn't pass. And a row's LID or number read off getUser, which is lidDeNumero or jidDeLid by another name: off the
+// call, destructured from it, or with getUser renamed on import, which hid the other two. lib/identidad.js does that.
+// A path put together elsewhere, or a row kept in a variable, is out of the lint's sight.
 const GLOBAL_NO_LISTADO = {
   selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
   message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module; a global that has to be, goes on the list.",
 };
+const RUTA_DE_LA_BASE = "/(^|\\/)database-functions\\.js$/";
+const LLAMADA = "CallExpression[callee.type!='MemberExpression']";
 const BASE_A_ESCONDIDAS = [
   {
-    selector: "ImportExpression Literal[value=/(^|\\/)database-functions\\.js$/], ImportExpression TemplateElement[value.raw=/(^|\\/)database-functions\\.js$/]",
+    selector: `ImportExpression Literal[value=${RUTA_DE_LA_BASE}], ImportExpression TemplateElement[value.raw=${RUTA_DE_LA_BASE}]`,
     message: "database-functions.js goes in a static import: through import() the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
   },
   {
-    selector: "CallExpression > Literal.arguments[value=/(^|\\/)database-functions\\.js$/]",
+    selector: [`${LLAMADA} > Literal.arguments[value=${RUTA_DE_LA_BASE}]`, `${LLAMADA} > BinaryExpression.arguments Literal[value=${RUTA_DE_LA_BASE}]`, `${LLAMADA} > TemplateLiteral.arguments > TemplateElement[value.raw=${RUTA_DE_LA_BASE}]`].join(", "),
     message: "database-functions.js goes in a static import: through require the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
   },
 ];
-const IDENTIDAD_DE_UNA_FILA = {
-  selector: "MemberExpression[object.type='CallExpression'][object.callee.name='getUser'][property.name=/^(lid|jid)$/]",
-  message: `getUser(…).lid and .jid are lidDeNumero and jidDeLid by another name. ${PREGUNTALE_A_IDENTIDAD}`,
-};
+const IDENTIDAD_DE_UNA_FILA = [
+  {
+    selector: "MemberExpression[object.type='CallExpression'][object.callee.name='getUser']:matches([property.name=/^(lid|jid)$/], [property.value=/^(lid|jid)$/])",
+    message: `getUser(…).lid and .jid are lidDeNumero and jidDeLid by another name. ${PREGUNTALE_A_IDENTIDAD}`,
+  },
+  {
+    selector: ":matches(VariableDeclarator[init.callee.name='getUser'], VariableDeclarator[init.left.callee.name='getUser'], AssignmentExpression[right.callee.name='getUser'], AssignmentExpression[right.left.callee.name='getUser']) > ObjectPattern > Property[key.name=/^(lid|jid)$/]",
+    message: `A lid or a jid destructured from getUser(…) is lidDeNumero or jidDeLid by another name. ${PREGUNTALE_A_IDENTIDAD}`,
+  },
+  {
+    selector: "ImportSpecifier[imported.name='getUser'][local.name!='getUser']",
+    message: `getUser goes by its name: renamed, the lint doesn't see a row's lid or jid read off it, which is lidDeNumero or jidDeLid by another name. ${PREGUNTALE_A_IDENTIDAD}`,
+  },
+];
 
 export default defineConfig([
   // Folders the bot generates while running (no source code in them).
@@ -98,7 +112,7 @@ export default defineConfig([
   // no-restricted-syntax for the same files would replace the first.
   {
     ignores: ["test/**", "lib/identidad.js"],
-    rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS, IDENTIDAD_DE_UNA_FILA] },
+    rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS, ...IDENTIDAD_DE_UNA_FILA] },
   },
   { files: ["lib/identidad.js"], rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS] } },
 
