@@ -620,3 +620,22 @@ test("un mensaje con solo la LID del owner tiene sus poderes una vez que WhatsAp
   await llega(client, DUENO, ".quiensoy").hecho;
   assert.deepEqual(vistos, [false, true]);
 });
+
+// Whoever writes from a number that moved on doesn't get the role of whoever had it before: with the message bringing
+// only the number, and the database still having it on them, whom the group lists with another number by now, the one
+// who has the number now was a moderator.
+test("quien escribe desde un número que cambió de dueño no tiene el rol del que lo tenía", async () => {
+  const PN = "120363000000000041@g.us";
+  const [X, Y, VIEJO] = ["59899000081@s.whatsapp.net", "59899000082@s.whatsapp.net", "300000000000081@lid"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  F.setRolGrupo(PN, VIEJO, "mod");
+  const corrieron = [];
+  globalThis.plugins = { "espia-mod.js": { cmd: ["solomods"], onlyMod: true, run: async () => corrieron.push(".solomods") } };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Por número", addressingMode: "pn", participants: [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: client.user.jid, lid: BOT, admin: "admin" }] });
+  globalThis.enviados = [];
+  const key = { remoteJid: PN, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: X, addressingMode: "pn" };
+  await handleMessage.call(client, { key, message: { conversation: ".solomods" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Nuevo", _upsertType: "notify", _llegada: Date.now() });
+  assert.deepEqual(corrieron, []);
+  assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text).filter(Boolean), [globalThis.txt.onlyMod]);
+});

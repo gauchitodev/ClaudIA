@@ -15,7 +15,7 @@ plugin.run = async (m, { client, groupMetadata, isOwner, isWaAdmin }) => {
   const quien = { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin };
   // Each one by both identities: the roles go by LID, which a group that lists people by number brings apart, and the
   // owner is recognized by their number.
-  const psmap = groupMetadata.participants.filter((v) => !esElBot(v, client) && !v.admin && !impedimentoParaModerar(m.chat, quien, { ...identidadDelGrupo(v), esAdminWhatsApp: false })).map((v) => v.id);
+  const psmap = groupMetadata.participants.filter((v) => !esElBot(v, client) && !v.admin && !impedimentoParaModerar(m.chat, quien, { ...identidadDelGrupo(v), esAdminWhatsApp: false }, groupMetadata.participants)).map((v) => v.id);
   if (psmap.length === 0) return client.sendText(m.chat, `*No se encontraron candidatos para la ruleta o todos son admintradores*`, m);
   const user = elegirAlAzar(psmap);
   // Announcement first, then the suspense, then the kick. Not awaiting the announcement let it wait its turn in the

@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
-import { numeroReciclado, digitos } from "./identidad-escenarios.mjs";
+import { numeroReciclado, soloPorNumero, unNumero, digitos } from "./identidad-escenarios.mjs";
 import strings from "../lib/strings.js";
 
 // Asking Claudia in plain words ("claudia, llamá a @111") runs .llamar or .tagall straight from the _auto-ia hook, past
@@ -425,6 +425,30 @@ test("pedido a Claudia: en un grupo que lista solo por número, «llamá a @núm
   await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
   assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(NUEVO)}`]);
   assert.equal(consultas.length, 1, "una sola pregunta");
+});
+
+// Once too when WhatsApp doesn't say who has it, for a number the bot doesn't know either: .llamar asked again about
+// whoever she handed it, and with WhatsApp not answering she took twice as long to call.
+test("pedido a Claudia: «llamá a @número» le pregunta a WhatsApp una sola vez, aunque no sepa quién lo tiene", async () => {
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  const X = unNumero(901); // no row, and WhatsApp gives no LID for it
+  const consultas = [];
+  const executeUSyncQuery = async (consulta) => (consultas.push(consulta), { list: consulta.users.map((u) => ({ id: u.id })) });
+  const r = await hablarle({ text: `claudia llamá a @${digitos(X)}`, mentionedJid: [X] }, { rango: ADMIN, participantes: [{ id: X, admin: null }, { id: "555@lid", admin: "admin" }], cliente: { executeUSyncQuery } });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(X)}`]);
+  assert.equal(consultas.length, 1, "una sola pregunta");
+});
+
+// Someone the bot knows by the number alone is tagged by the LID WhatsApp gives too, though what's theirs is under the
+// number: a number's digits after the "@" make a LID nobody has (parseMention, lib/wa-socket.js).
+test("pedido a Claudia: «llamá a @número» arroba por la LID de WhatsApp a quien el bot conoce solo por el número", async () => {
+  clasificacion = { comando: "llamar", respuesta: "¡Dale, ya lo llamo!" };
+  const { X, L, porNumeroSinLid } = soloPorNumero(3);
+  const executeUSyncQuery = async (consulta) => ({ list: consulta.users.map((u) => ({ id: u.id, lid: u.id === X ? L : undefined })) });
+  const r = await hablarle({ text: `claudia llamá a @${digitos(X)}`, mentionedJid: [X] }, { rango: ADMIN, participantes: [...porNumeroSinLid, { id: "555@lid", admin: "admin" }], cliente: { executeUSyncQuery } });
+  await Llamar.run(r.m, { client: r.client, text: "", command: "cancelar" });
+  assert.deepEqual(r.textos, ["¡Dale, ya lo llamo!", `@${digitos(L)}`]);
 });
 
 test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como mucho una vez cada media hora", async () => {

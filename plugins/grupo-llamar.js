@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 // .cancelar goes with it: it only stops a .llamar.
 plugin.onlyAdmin = true;
 
-plugin.run = async (m, { client, text, command, participants }) => {
+plugin.run = async (m, { client, text, command, participants, aLlamar }) => {
   if (command === "cancelar") {
     if (!activeTimers[m.chat]) return client.sendText(m.chat, `No hay menciones en curso.`, m);
     for (const timers of activeTimers[m.chat]) for (const timer of timers) clearTimeout(timer);
@@ -19,8 +19,10 @@ plugin.run = async (m, { client, text, command, participants }) => {
   }
 
   // The old parsing used a regex with \s that kept swallowing digits: ".llamar @111 5 minutos" ended up calling
-  // "1115", who is nobody.
-  const who = await lidsMencionadosActual(client, m, text, participants);
+  // "1115", who is nobody. By the LID WhatsApp gives, which is what tags them (paraArrobar). Claudia hands over whoever
+  // she already worked out (aLlamar, _auto-ia.js): asked again, a number WhatsApp gave no LID for was asked about
+  // twice, and with WhatsApp not answering she took twice CONSULTA_MS to call.
+  const who = aLlamar || (await lidsMencionadosActual(client, m, text, participants, { paraArrobar: true }));
   if (!who.length) return client.sendText(m.chat, "Mencione al menos una persona", m);
   const mencion = who.map((w) => `@${w.split("@")[0]}`).join(" ");
 

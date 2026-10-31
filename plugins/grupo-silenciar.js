@@ -26,7 +26,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   // A muted person has every message deleted by the bot: that only goes from strictly above, like .kick. Lifting a
   // mute harms nobody, so it has no such check.
   if (silenciar) {
-    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
     if (impedimento) return client.sendText(m.chat, `No lo puedo silenciar: ${impedimento}`, m);
   }
   if (!updateUserInGroup(quien, m.chat, { mute: silenciar })) return client.sendText(m.chat, "No pude guardar el cambio.", m);

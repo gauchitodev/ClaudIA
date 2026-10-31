@@ -19,7 +19,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (!isOwner && [lid, jid, quien].some((id) => id && (id === m.sender || id === m.senderJid))) {
     return client.sendText(m.chat, "Tus propias advertencias no te las podés sacar vos: pedíselo a alguien con más rango.", m);
   }
-  const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+  const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
   if (impedimento) return client.sendText(m.chat, `No le puedo sacar la advertencia: ${impedimento}`, m);
   if (!quien) return client.sendText(m.chat, "No tengo registro de esa persona todavía.", m);
 

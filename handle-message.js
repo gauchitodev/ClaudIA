@@ -92,7 +92,7 @@ export async function handleMessage(nMsg) {
     const isWaAdmin = isRAdmin || userSender?.admin === "admin" || false;
     // Per-group bot roles (.adminbot / .moderador): the bot admin counts as admin and the moderator only as mod.
     // WhatsApp admins and the owner get both without needing a role.
-    const { rol: rolBot, isAdmin, isMod } = permisosDe(m.chat, m.sender, { esOwner: isOwner, esAdminWhatsApp: isWaAdmin });
+    const { rol: rolBot, isAdmin, isMod } = permisosDe(m.chat, m.sender, { esOwner: isOwner, esAdminWhatsApp: isWaAdmin, participants });
     let isBotAdmin = !m.isGroup || bot?.admin || false;
 
     // Bail out on baileys messages to avoid clashing with the bot's own.

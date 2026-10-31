@@ -37,7 +37,7 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
 
     // Only from strictly above: a moderator can't remove an admin, nor another moderator. Checked before deleting
     // anything, so a refused kick leaves the messages where they were.
-    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
     if (impedimento) return client.sendText(m.chat, `No lo puedo sacar: ${impedimento}`, m);
 
     await m.quoted?.delete();

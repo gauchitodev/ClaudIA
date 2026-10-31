@@ -37,13 +37,13 @@ const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cm
 // mention leaves the text by her number as well as her LID: a group listed by number mentions her by the number, which
 // stayed as a typed "@number" and beat the quoted message's author, and with no row of hers in the database it was
 // taken for someone else's, so she called herself. Someone named by number is whoever the group lists with it now, not
-// whoever the database still has it on, and in a group that lists them by number alone, whoever WhatsApp says has it
-// (lidsMencionadosActual).
+// whoever the database still has it on, and in a group that lists them by number alone, whoever WhatsApp says has it,
+// by the LID that tags them (lidsMencionadosActual, paraArrobar).
 async function aQuienLlamar(m, client, participants) {
   const suyos = [client.user?.lid, client.user?.jid].map((id) => id?.split("@")[0].split(":")[0]).filter(Boolean);
   const texto = suyos.reduce((t, digitos) => t.replace(new RegExp(`@${digitos}(?!\\d)`, "g"), ""), String(m.text || ""));
   const mencionados = (m.mentionedJid || []).filter((j) => !esElBot(j, client));
-  return (await lidsMencionadosActual(client, { mentionedJid: mencionados, quoted: m.quoted }, texto, participants)).filter((id) => !esElBot(id, client));
+  return (await lidsMencionadosActual(client, { mentionedJid: mencionados, quoted: m.quoted }, texto, participants, { paraArrobar: true })).filter((id) => !esElBot(id, client));
 }
 
 // A tagall or a llamar the AI picks only goes ahead if the message itself asks for mentions ("arrobá a todos",
@@ -411,9 +411,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       // desdeClaudia: what she was told is never read as a .tagall -f, which only an admin can send typing it.
       if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat, desdeClaudia: true });
     } else if (comando === "llamar") {
-      // .llamar gets only the people to call as the message's mentions: never Claudia herself.
+      // .llamar gets the people to call as she worked them out (aLlamar): never Claudia herself, and nobody asked about
+      // again.
       const pl = buscarPlugin("llamar");
-      if (pl) await pl.run(Object.create(m, { mentionedJid: { value: aLlamar } }), { client, text: m.text, command: "llamar", participants });
+      if (pl) await pl.run(m, { client, text: m.text, command: "llamar", participants, aLlamar });
     }
   } catch (e) {
     console.error("[auto-ia] ERROR:", e);

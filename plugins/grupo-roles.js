@@ -28,7 +28,7 @@ plugin.run = async (m, { client, command, args, text, participants, isOwner, isW
   if (!quitar && !participants?.length) return client.sendText(m.chat, "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.", m);
   const objetivo = { lid: lid || jid, jid, esAdminWhatsApp: !!participante?.admin, esBot: esElBot([lid, jid], client), estaEnGrupo: !!participante };
 
-  const r = quitar ? quitarRol(m.chat, rol, quien, objetivo) : darRol(m.chat, rol, quien, objetivo);
+  const r = quitar ? quitarRol(m.chat, rol, quien, objetivo, participants) : darRol(m.chat, rol, quien, objetivo, participants);
   if (!r.ok) return client.sendMessage(m.chat, { text: `❌ ${r.error}`, mentions: r.mentions || [] }, { quoted: m });
   await client.sendMessage(m.chat, { text: r.mensaje, mentions: r.mentions }, { quoted: m });
 };

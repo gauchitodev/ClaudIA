@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar } from "./helpers.mjs";
-import { numeroReciclado, filaVieja, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
+import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 
 // Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
 // and what was wrong and got fixed. Each of those was a todo until its tanda of the identity frontier plan, and failed
@@ -96,6 +96,18 @@ test("deQuienEs: nombrar al bot es preguntar por uno mismo, y un @ que no es men
   assert.equal(I.deQuienEs(cliente(), mensaje({ sender: A, quoted: { sender: cliente().user.jid } }), "", []), A);
   assert.equal(I.deQuienEs(cliente(), mensaje({ sender: A }), "", []), A);
   assert.equal(I.deQuienEs(cliente(), mensaje({ sender: A, text: "@Fulano" }), "@Fulano", []), null);
+});
+
+// Whose data it is: with WhatsApp's answer, the row it led to (destinatario's "quien"), the number's own for someone
+// the bot knows by it alone; without one, the LID the group pairs the number with, even with no row: the row the
+// number has may be whoever had it before.
+test("deQuienEsActual: con la respuesta de WhatsApp, la fila a la que lleva; sin ella, la LID que da el grupo", async (t) => {
+  const { X, L } = soloPorNumero(415);
+  usyncFalso(t, { [X]: L });
+  assert.equal(await I.deQuienEsActual(cliente(), mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, [{ id: X, admin: null }]), X, "la del número, para quien el bot conoce por él");
+  const [Y, VIEJO, N] = [unNumero(416), unaLid(416, 1), unaLid(416, 2)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, Y, "Viejo", 1);
+  assert.equal(await I.deQuienEsActual(cliente(), mensaje({ mentionedJid: [Y] }), `@${digitos(Y)}`, [{ id: Y, lid: N, admin: null }]), N, "sin preguntar, la del grupo, y no la fila vieja del número");
 });
 
 test("destinatarioActual le pregunta a WhatsApp solo si el grupo no empareja el número", async (t) => {
@@ -1121,6 +1133,61 @@ test("a quien el bot conoce solo por su número lo encuentran los comandos aunqu
   assert.equal(R.rango(C, { lid: r.NUEVO, jid: r.X }), 0);
 });
 
+// And the commands that only name them, which go to whoever WhatsApp says has the number too: by the LID it gave, which
+// had nothing, ".regalar @598…" answered how to use it, ".bal" showed 0, ".perfil", ".calificar" and ".parentesco"
+// didn't know them, and ".setpareja" couldn't find the two. Tagging them goes by that LID all the same: a number's
+// digits after the "@" make a LID nobody has (parseMention, lib/wa-socket.js).
+test("a quien el bot conoce solo por su número lo encuentran también los comandos que solo lo nombran", async (t) => {
+  const [a, b] = [soloPorNumero(400), soloPorNumero(401)];
+  const A = unaLid(402);
+  F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
+  fijarSaldo(F, G, a.X, 300);
+  fijarSaldo(F, G, A, 100);
+  usyncFalso(t, { [a.X]: a.L, [b.X]: b.L });
+  const grupo = [...a.porNumeroSinLid, ...b.porNumeroSinLid, { id: A, admin: null }];
+  // In a group listed by number, a mention comes by number.
+  const correr = async (archivo, command, texto, extra = {}) => {
+    globalThis.enviados = [];
+    const mentionedJid = [...texto.matchAll(/@(\d+)/g)].map(([, d]) => `${d}@s.whatsapp.net`);
+    const plugin = (await import(`../plugins/${archivo}.js`)).default;
+    await plugin.run(mensaje({ sender: A, mentionedJid, text: `.${command} ${texto}` }), { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: grupo, chat: {}, ...extra });
+    return globalThis.enviados.map((e) => e.msg?.text).filter(Boolean).join(" | ");
+  };
+  const [arrobaA, arrobaB] = [a, b].map((p) => `@${digitos(p.X)}`);
+  const Par = await import("../lib/parejas.js");
+  const visto = {};
+  await correr("coins-regalar", "regalar", `${arrobaA} 20`);
+  visto.regalar = F.getSaldoCoins(G, a.X);
+  visto.bal = /320 UruCoins/.test(await correr("coins-saldo", "bal", arrobaA));
+  visto.perfil = /Perfil de/.test(await correr("perfil", "perfil", arrobaA));
+  visto.calificar = /Calificaste/.test(await correr("calificar", "calificar", `${arrobaA} 5 buena gente`));
+  visto.parentesco = !/No conozco/.test(await correr("familia-parentesco", "parentesco", arrobaA));
+  await correr("pareja-set-pareja", "setpareja", `${arrobaA} ${arrobaB}`, { isOwner: true });
+  visto.setpareja = Par.parejaDe(a.X)?.pareja === b.X;
+  assert.deepEqual(visto, { regalar: 320, bal: true, perfil: true, calificar: true, parentesco: true, setpareja: true });
+
+  const C = "llamar-solo-por-numero@g.us";
+  globalThis.enviados = [];
+  await P.llamar.run(mensaje({ chat: C, sender: A, mentionedJid: [a.X] }), { client: cliente(), text: arrobaA, command: "llamar", participants: grupo });
+  await esperar(30);
+  await P.llamar.run(mensaje({ chat: C, sender: A }), { client: cliente(), text: "", command: "cancelar" });
+  assert.equal(globalThis.enviados[0]?.msg.text, `@${digitos(a.L)}`, ".llamar lo arroba por la LID");
+});
+
+// With a row of its own, though, the LID WhatsApp gives is who has the number now, as the bot knows them, as for the
+// moderation (destinatario): the number's row may be whoever had it before, known by it alone, and going by it
+// ".regalar @598…" paid them.
+test("si la LID que da WhatsApp tiene fila, los comandos van a ella aunque el número tenga la suya", async (t) => {
+  const { X, L, porNumeroSinLid } = soloPorNumero(417);
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(L, "", "Tiene el número", 2);
+  const A = unaLid(418);
+  fijarSaldo(F, G, A, 100);
+  usyncFalso(t, { [X]: L });
+  const texto = `@${digitos(X)} 20`;
+  await P.regalar.run(mensaje({ sender: A, mentionedJid: [X] }), { client: cliente(), text: texto, args: texto.split(" "), participants: porNumeroSinLid });
+  assert.deepEqual([F.getSaldoCoins(G, L), F.getSaldoCoins(G, X)], [20, 0]);
+});
+
 // A quoted message's author, which a group that lists people by number brings by number, is whoever the group lists
 // with it, as a mention by number is: the row that still had the number was whoever's had it before, and ".regalar"
 // answering their message paid them.
@@ -1137,3 +1204,90 @@ test("el autor de un mensaje citado por número es quien el grupo lista con ese 
   assert.deepEqual([NUEVO, VIEJO].map((id) => Boolean(F.getUser(id, G).inGroup[G]?.mute)), [true, false]);
 });
 
+
+// "@<digits>" typed by hand, with WhatsApp giving no LID for them and the database still having the number on whoever
+// had it before, whom the group lists with another number by now: lidDeDigitos took the database's guess all the
+// same, which lidDe doesn't. ".kick" removed them, ".mute" silenced them, ".moderador quitar" took their role, and
+// ".addowner" wrote their new number into config.toml and made them an owner, which ".bloquear" blocked.
+test("un @número tipeado no es de quien lo tuvo, si el grupo lo lista con otro número", async (t) => {
+  const { X, VIEJO, NUEVO } = numeroReciclado(403);
+  const [Y, ADMIN] = [unNumero(404), unaLid(405)];
+  const C = "tipeado-desmentido@g.us";
+  F.initDataDB({ chat: C, sender: ADMIN, senderJid: "", pushName: "Admin" });
+  F.setRolGrupo(C, VIEJO, "mod", ADMIN);
+  usyncFalso(t, {});
+  const grupo = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: NUEVO, admin: null }, { id: ADMIN, admin: "admin" }, botEnGrupo().porLid];
+  const expulsiones = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (expulsiones.push(ids[0]), ids.map((jid) => ({ status: "200", jid })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const tipeado = `@${digitos(X)}`;
+  const correr = (plugin, command, texto = tipeado) => plugin.run(mensaje({ chat: C, sender: ADMIN, text: `.${command} ${texto}` }), { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: unaLid(406), participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true, isBotAdmin: true });
+  await correr(P.kick, "kick");
+  await correr(P.silenciar, "mute");
+  await correr(P.roles, "moderador", `quitar ${tipeado}`);
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+  });
+  fs.writeFileSync("config.toml", 'owners = ["59899111222"]\n');
+  await P.addowner.run(mensaje({ sender: ADMIN, text: `.addowner ${tipeado}` }), { client: cliente(), text: tipeado, usedPrefix: ".", command: "addowner", participants: grupo });
+  const bloqueos = [];
+  cliente().updateBlockStatus = async (jid, accion) => bloqueos.push([jid, accion]);
+  t.after(() => delete cliente().updateBlockStatus);
+  await P.bloquear.run(mensaje({ sender: ADMIN, text: `.bloquear ${tipeado}` }), { client: cliente(), text: tipeado, command: "bloquear", participants: grupo });
+  const visto = { lid: I.lidDeDigitos(digitos(X), grupo), expulsado: expulsiones.includes(VIEJO), silenciado: Boolean(F.getUser(VIEJO, C).inGroup[C]?.mute), rol: F.rolGrupo(C, VIEJO), owners: globalThis.owners, bloqueos };
+  // The digits are nobody the bot knows: not VIEJO, and the number typed is what's written down and blocked.
+  assert.deepEqual(visto, { lid: `${digitos(X)}@lid`, expulsado: false, silenciado: false, rol: "mod", owners: ["59899111222", digitos(X)], bloqueos: [[X, "block"]] });
+});
+
+// The same number, given to a role: the database's LID for it counted as the person's, through rolGrupo, quitarRolGrupo
+// and setRolGrupo, though the group lists that LID with another number. ".moderador @598…" said the one named was a
+// moderator already, ".moderador quitar +598…" took the role from whoever had the number before, a moderator's ".kick
+// +598…" was refused for their role, and whoever writes from the number had it (handle-message.test.mjs).
+test("los roles no le llegan por el número a quien lo tuvo, si el grupo lo lista con otro", async (t) => {
+  const C = "roles-desmentidos@g.us";
+  const { X, VIEJO } = numeroReciclado(407);
+  const [Y, ADMIN, MOD] = [unNumero(408), unaLid(409), unaLid(410)];
+  F.setRolGrupo(C, VIEJO, "mod", ADMIN);
+  F.setRolGrupo(C, MOD, "mod", ADMIN);
+  usyncFalso(t, {});
+  const expulsiones = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (expulsiones.push(ids[0]), ids.map((jid) => ({ status: "200", jid })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: ADMIN, admin: "admin" }, { id: MOD, admin: null }, botEnGrupo().porNumero];
+  const correr = (plugin, command, texto, { sender = ADMIN, mentionedJid = [], esAdmin = true } = {}) => plugin.run(mensaje({ chat: C, sender, mentionedJid, text: `.${command} ${texto}` }), { client: cliente(), command, text: texto, args: texto.split(" "), usedPrefix: ".", participants: grupo, groupMetadata: { owner: unaLid(411), participants: grupo }, isOwner: false, isWaAdmin: esAdmin, isAdmin: esAdmin });
+  const bajo = (id) => F.rolesGrupo(C).find((r) => r.usuario === id)?.rol || null;
+  const visto = {};
+  await correr(P.roles, "moderador", `@${digitos(X)}`, { mentionedJid: [X] });
+  visto.dar = [bajo(X), bajo(VIEJO)];
+  await correr(P.roles, "moderador", `quitar +${digitos(X)}`);
+  visto.quitar = [bajo(X), bajo(VIEJO)];
+  F.setRolGrupo(C, VIEJO, "admin", ADMIN);
+  await correr(P.kick, "kick", `+${digitos(X)}`, { sender: MOD, esAdmin: false });
+  visto.kick = expulsiones.includes(X);
+  globalThis.enviados = [];
+  await correr((await import("../plugins/grupo-advertir.js")).default, "advertir", `+${digitos(X)} spam`, { sender: MOD, esAdmin: false });
+  visto.advertir = !globalThis.enviados.some((e) => /es admin del bot/.test(e.msg?.text || ""));
+  visto.escribe = R.permisosDe(C, X, { participants: grupo }).isMod;
+  assert.deepEqual(visto, { dar: ["mod", "mod"], quitar: [null, "mod"], kick: true, advertir: true, escribe: false });
+});
+
+// The bot's own number isn't asked about: it's the bot. Replying to a casino result or to another of its messages, in
+// a group that lists it by number alone, ".bal", ".besar" and ".kick" waited on WhatsApp for it. And ".calificaciones
+// borrar 3" worked out whom the message named before seeing it goes by the rating's number, asking about whoever it
+// replied to.
+test("al bot no se le pregunta a WhatsApp por su número, y .calificaciones borrar no pregunta por nadie", async (t) => {
+  const A = unaLid(412);
+  F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Pide" });
+  const consultas = usyncFalso(t, {});
+  const grupo = [{ id: A, admin: "admin" }, { id: unNumero(414), admin: null }, botEnGrupo().porNumeroSinLid];
+  const alBot = mensaje({ sender: A, quoted: { sender: cliente().user.jid, fromMe: true } });
+  for (const [archivo, command] of [["coins-saldo", "bal"], ["fun-besar", "besar"], ["grupo-kick", "kick"]]) {
+    const plugin = (await import(`../plugins/${archivo}.js`)).default;
+    await plugin.run(alBot, { client: cliente(), text: "", args: [], command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: unaLid(413), participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  }
+  const Calificar = (await import("../plugins/calificar.js")).default;
+  await Calificar.run(mensaje({ sender: A, quoted: { sender: unNumero(414) } }), { client: cliente(), command: "calificaciones", args: ["borrar", "3"], text: "borrar 3", isAdmin: true, isOwner: false, participants: grupo });
+  assert.deepEqual(consultas.map((c) => c.users.map((u) => u.id)), []);
+});

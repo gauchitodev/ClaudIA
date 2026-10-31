@@ -17,7 +17,7 @@ plugin.run = async (m, { client, participants, isMod, isOwner, isWaAdmin }) => {
   // the owner delete anything, as WhatsApp itself lets them, and Claudia's own messages are anyone's to clean up.
   if (!esPropio && !m.quoted.fromMe && !isOwner && !isWaAdmin) {
     const { lid, jid, participante } = identidadesDe(m.quoted.sender, participants);
-    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: false, esAdminWhatsApp: false }, { lid, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: false, esAdminWhatsApp: false }, { lid, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
     if (impedimento) return client.sendText(m.chat, `No lo puedo borrar: ${impedimento}`, m);
   }
 

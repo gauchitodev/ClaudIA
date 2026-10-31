@@ -181,7 +181,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   }
   // The same rule for the bot's own roles: a bot admin can't blacklist another bot admin. See lib/roles.js.
   if (command === "ln" && m.isGroup) {
-    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: whoLid, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+    const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: whoLid, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
     if (impedimento) return client.sendText(m.chat, `No lo puedo anotar: ${impedimento}`, m);
   }
 

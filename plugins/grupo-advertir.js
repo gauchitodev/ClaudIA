@@ -21,7 +21,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (esElBot([lid, jid], client)) return m.react("❌");
   if (esOwnerDe([mencionado, lid, jid])) return m.react("❌");
   // The third warning removes them, so warning follows the same rule as .kick: only from strictly above.
-  const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) });
+  const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
   if (impedimento) return client.sendText(m.chat, `No lo puedo advertir: ${impedimento}`, m);
   if (!quien) return client.sendText(m.chat, "No tengo registro de esa persona todavía: que escriba algo en el grupo y probá de nuevo.", m);
 

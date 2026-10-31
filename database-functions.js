@@ -1334,9 +1334,10 @@ function idsDeRol(usuario) {
 }
 const enIds = (ids) => `usuario IN (${ids.map(() => "?").join(", ")})`;
 
-// Under the id given, and only there: whatever the person had under their other identity goes.
-export function setRolGrupo(chat, usuario, rol, dadoPor = "") {
-  const otros = idsDeRol(usuario).filter((id) => id !== usuario);
+// Under the id given, and only there: whatever the person had under their other identity goes. otros are the ids of
+// that one, the database's (idsDeRol) unless the caller says: lib/roles.js passes none for a number it has no LID to
+// go by for, since the database's may be someone else's, as when the group lists that LID with another number.
+export function setRolGrupo(chat, usuario, rol, dadoPor = "", otros = idsDeRol(usuario).filter((id) => id !== usuario)) {
   db.transaction(() => {
     if (otros.length) db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND ${enIds(otros)}`).run(chat, ...otros);
     db.prepare(`INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha`).run(chat, usuario, rol, dadoPor, Date.now());

@@ -11,13 +11,15 @@ plugin.onlyGroup = true;
 // (deleting and editing: admins of the group it was made in, the owner, and deleting also whoever made it)
 plugin.run = async (m, { client, command, args, text, isAdmin, isOwner, participants }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.ok === false ? `❌ ${r.error}` : r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
-  const { lid, deWhatsApp } = await mencionadoActual(client, m, text, participants);
+  const sub = command === "calificaciones" ? (args[0] || "").toLowerCase() : "";
+  const quien = { lid: m.sender, chat: m.chat, isAdmin, isOwner };
+  if (/^(borrar|quitar|sacar)$/.test(sub)) return enviar(borrarCalificacion(parseInt(args[1], 10), quien));
+  if (/^(editar|cambiar|corregir)$/.test(sub)) return enviar(editarCalificacion(parseInt(args[1], 10), parseInt(args[2], 10), args.slice(3).join(" "), quien));
 
+  // Whom it's about, only past those two, which go by the rating's number: worked out first, ".calificaciones borrar 3"
+  // replying to the list in a group that lists people by number alone waited on WhatsApp for whoever wrote it.
+  const { lid, deWhatsApp } = await mencionadoActual(client, m, text, participants);
   if (command === "calificaciones") {
-    const sub = (args[0] || "").toLowerCase();
-    const quien = { lid: m.sender, chat: m.chat, isAdmin, isOwner };
-    if (/^(borrar|quitar|sacar)$/.test(sub)) return enviar(borrarCalificacion(parseInt(args[1], 10), quien));
-    if (/^(editar|cambiar|corregir)$/.test(sub)) return enviar(editarCalificacion(parseInt(args[1], 10), parseInt(args[2], 10), args.slice(3).join(" "), quien));
     const objetivo = lid || m.sender;
     return enviar(textoCalificaciones(objetivo, m.chat, objetivo === m.sender));
   }

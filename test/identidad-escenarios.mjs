@@ -28,6 +28,15 @@ export function numeroReciclado(n) {
   };
 }
 
+// Someone the bot knows by their number alone (X), as a group that lists people by number and whose messages bring no
+// LID leaves them: their row is keyed by the number, and the LID WhatsApp gives for it (L) has none. The group lists
+// them that way.
+export function soloPorNumero(n) {
+  const [X, L] = [unNumero(n), unaLid(n)];
+  fila(X, X, "Por número", 1);
+  return { X, L, porNumeroSinLid: [{ id: X, admin: null }] };
+}
+
 // Someone with their LID row and the row keyed by the number from before LIDs; with dispositivo, also a device's row
 // ("…:12@lid"), which has no number, as soloUnaFilaPorNumero leaves it. The old row is the newer, as a message that
 // came without the LID leaves it: the number stands for the LID row all the same (FILA_DEL_NUMERO), and with the old
