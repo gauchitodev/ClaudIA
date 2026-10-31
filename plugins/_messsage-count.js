@@ -5,7 +5,7 @@ import { registrarPresencia, anotarPresencia, NO_SON_MENSAJES } from "../lib/ina
 // pin. They used to, and reacting a lot or deleting a lot climbed the ranks (lib/rangos.js).
 
 const plugin = (m) => m;
-plugin.before = async (m, { client, user }) => {
+plugin.before = async (m, { client, user, participants }) => {
   // One the bot couldn't decrypt comes without a message: for .inactivos it's a sign of life all the same
   // (anotarPresencia), and the ranks don't count it.
   if (!m.message) return anotarPresencia(m);
@@ -18,7 +18,7 @@ plugin.before = async (m, { client, user }) => {
   if (total != null && user?.inGroup?.[m.chat]) user.inGroup[m.chat].messageCount = total;
 
   // When they last wrote, for .inactivos; someone it had warned is spared.
-  await registrarPresencia(client, m).catch((e) => console.error("[inactivos] ERROR:", e));
+  await registrarPresencia(client, m, participants).catch((e) => console.error("[inactivos] ERROR:", e));
 
   return;
 };

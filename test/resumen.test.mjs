@@ -159,7 +159,7 @@ test("a quien recién entró le resume solo lo de desde que entró", async () =>
   }
   const fs = await import("fs");
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /if \(action === "add"\) for \(const p of participants \|\| \[\]\) recordarIngreso\(id, idsDeParticipante\(p\)\)/, "main.js anota cuándo entra cada uno");
+  assert.match(main, /if \(action === "add"\) for \(const p of participants \|\| \[\]\) recordarIngreso\(id, idsDeParticipante\(p, grupo\)\)/, "main.js anota cuándo entra cada uno");
 });
 
 test("si el «escribiendo…» falla, el resumen sale igual", async () => {

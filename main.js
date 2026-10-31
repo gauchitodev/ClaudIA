@@ -14,7 +14,7 @@ import { limpiarRolesAlSalir } from "./lib/roles.js";
 import { limpiarVentasAlSalir } from "./lib/compraventa.js";
 import { recibirNuevos } from "./lib/bienvenida.js";
 import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
-import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
+import { metadataDe, enCache, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
 import { recordarIngreso } from "./lib/contexto-chat.js";
 import { procesarTanda } from "./lib/tandas.js";
 import { idsDeParticipante, confirmarOwnersCadaTanto } from "./lib/identidad.js";
@@ -164,16 +164,19 @@ async function startBot() {
   client.ev.on("group-participants.update", async ({ id, participants, action }) => {
     try {
       if (!id?.endsWith("@g.us")) return;
+      // The group as the copy at hand has it, for whoever comes or goes with their number alone: the LID the database
+      // knows for it isn't theirs when the group lists that one with another number (idsDeParticipante).
+      const grupo = enCache(id)?.participants;
       // Whoever leaves the group (or is removed) loses the bot role they had there, and their posts and alerts.
       if (action === "remove") {
-        limpiarRolesAlSalir(id, participants);
-        limpiarVentasAlSalir(id, participants);
+        limpiarRolesAlSalir(id, participants, grupo);
+        limpiarVentasAlSalir(id, participants, Date.now(), grupo);
       }
       // The bot itself coming in or leaving: .inactivos starts counting the group over (lib/inactivos.js).
       if (action === "add" || action === "remove") reiniciarSiEsElBot(client, id, participants);
       // Whoever comes in: when, so .resumen only tells them what was said from then on. And in the database, so
       // .inactivos gives them time even after a restart (anotarIngresos, lib/inactivos.js).
-      if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p));
+      if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p, grupo));
       if (action === "add") anotarIngresos(id, participants);
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.

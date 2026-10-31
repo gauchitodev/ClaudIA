@@ -253,9 +253,10 @@ export function syncUserInfo(m) {
 // A LID comes with a number its row didn't have: the person changed numbers, or the number was someone else's. What was
 // kept under a number with no LID known, a blacklist entry or a bot role given by number, goes to the LID the number
 // was on: it used to stay with the number, and whoever changed numbers was no longer kept out by the blacklist nor
-// protected by their role, while whoever got the number next got both. What .inactivos noted under the number goes,
-// and to nobody (atarAlLid). Only when a single LID row had the number: with two, there's no telling whose it was, and
-// it stays as it was. A row with a device's LID, from before syncUserInfo left them out, isn't anybody's.
+// protected by their role, while whoever got the number next got both. What .inactivos noted under the number goes
+// with the person when it was their own, and to nobody when it was someone else's (atarAlLid). Only when a single LID
+// row had the number: with two, there's no telling whose it was, and it stays as it was. A row with a device's LID,
+// from before syncUserInfo left them out, isn't anybody's.
 // The old row keyed by the number this row leaves, from before LIDs, goes when no other LID row has that number: while
 // one had it, the number stood for that one, and the old row was read by nobody. With the number left to it, getUser
 // read it again for whatever came with only that number, its ban and its silence of back then included, and the
@@ -263,7 +264,7 @@ export function syncUserInfo(m) {
 function seguirALaPersona(lid, antes, numero) {
   const filasCon = (n) => db.prepare(`SELECT lid FROM users WHERE jid = ? AND lid LIKE '%@lid' AND lid NOT LIKE '%:%'`).all(n).map((f) => f.lid);
   if (antes !== numero && antes?.endsWith?.("@s.whatsapp.net") && filasCon(antes).length === 1) {
-    atarAlLid(antes, lid); // the only row with it is this one
+    atarAlLid(antes, lid, { suyo: true }); // the only row with it is this one: the number was theirs
     db.prepare(`DELETE FROM users WHERE lid = ?`).run(antes);
   }
   const otros = filasCon(numero).filter((l) => l !== lid);
@@ -275,13 +276,21 @@ function seguirALaPersona(lid, antes, numero) {
 // kept under the number, as ".ln @persona" keeps it: only the ones with no LID moved, and listing the number's next
 // owner took the person off the list without a word. One the person already had under the LID in that group stays,
 // and the one by number goes. Of two roles in one group, the higher one stays.
-// What .inactivos noted under the number goes, and to nobody: a join, a warning and a late message go under every id
-// the person comes with, so each one's is under their LID too, and what's only under the number was noted when no LID
-// was known, with no telling whose. Passed on to whoever had the number, the next owner's join or late message took
-// them off .inactivos for weeks, and a warning from before aviso_de, the next owner's maybe, left them removable
-// without being tagged. Without it, the worst is someone tagged again. Left under the number, it was the next owner's:
-// their first message was a "Volvió", with the prize, for someone else's warning.
-function atarAlLid(numero, lid) {
+// What .inactivos noted under a number that was the person's own (suyo: they changed numbers) goes to them too: in a
+// group that lists people by number alone, whose messages bring no LID, their last message, their join and their
+// warning are only under the number, and dropped, whoever had written three days before was tagged as never seen, and
+// came back from a warning without the "Volvió". The latest of each, as .inactivos takes a person's latest under any of
+// their ids, but not a warning that went out with a LID (aviso_de), which is that LID's, whose own row has it. The last
+// message and the join stay under the number as well: the bot may not have seen it go to someone else, whose they'd be
+// then, and moved, that someone would be left with nothing and tagged as soon as they came in. At worst, someone is
+// spared a while. The warning goes, as for a number that was someone else's: its next owner's first message was a
+// "Volvió" for it.
+// Of a number that was someone else's, what .inactivos noted under it goes, and to nobody: it was noted when no LID was
+// known, with no telling whose. Passed on to whoever had the number, the next owner's join or late message took them
+// off .inactivos for weeks, and a warning from before aviso_de, the next owner's maybe, left them removable without
+// being tagged. Without it, the worst is someone tagged again. Left under the number, it was the next owner's: their
+// first message was a "Volvió", with the prize, for someone else's warning.
+function atarAlLid(numero, lid, { suyo = false } = {}) {
   db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(lid, lid, numero, lid);
   db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(numero, lid);
   db.prepare(
@@ -289,7 +298,17 @@ function atarAlLid(numero, lid) {
      ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
   ).run(lid, numero);
   db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
-  db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ?`).run(numero);
+  if (!suyo) {
+    db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ?`).run(numero);
+    return;
+  }
+  const elUltimo = (c) => `MAX(COALESCE(${c}, excluded.${c}), COALESCE(excluded.${c}, ${c}))`; // MAX of a NULL is NULL
+  db.prepare(
+    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) SELECT chat, ?, ingreso, ultimo_mensaje, CASE WHEN COALESCE(aviso_de, '') = '' THEN avisado END FROM presencia_grupo WHERE usuario = ?
+     ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = ${elUltimo("ingreso")}, ultimo_mensaje = ${elUltimo("ultimo_mensaje")}, avisado = ${elUltimo("avisado")}`,
+  ).run(lid, numero);
+  db.prepare(`UPDATE presencia_grupo SET avisado = NULL, aviso_de = NULL WHERE usuario = ?`).run(numero);
+  db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ? AND ingreso IS NULL AND ultimo_mensaje IS NULL`).run(numero);
 }
 
 // update data in the db
@@ -1030,16 +1049,18 @@ export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
 // warning from all of them. Returns when they had been warned, by a warning of theirs (avisoSuyo), or null: who comes
 // back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so two messages at once can't both
 // find the warning). A warning from before their last message doesn't count, and goes all the same: it went out while
-// they were writing, and they had answered it already. So does one under their number that went out with someone
-// else's LID: it was the number's previous owner's, and when the bot hadn't seen the number change hands, the next
-// owner's first message was a "Volvió", with the prize, for it. The stamp only moves forward: a message that arrives
-// late, with the time it was sent, doesn't take back a newer one.
+// they were writing, and they had answered it already. Nor does one from before they last came in, under an id the join
+// didn't bring (the LID the database guesses for a number): coming back is a fresh start, and whoever had just come in
+// with the number of someone warned was paid a "Volvió" for it. So does one under their number that went out with
+// someone else's LID: it was the number's previous owner's, and when the bot hadn't seen the number change hands, the
+// next owner's first message was a "Volvió", with the prize, for it. The stamp only moves forward: a message that
+// arrives late, with the time it was sent, doesn't take back a newer one.
 export function registrarMensajeGrupo(chat, ids, cuando = Date.now(), sellar = ids.slice(0, 1)) {
   if (!ids.length) return null;
-  const filas = db.prepare(`SELECT usuario, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).all(chat, ...ids);
+  const filas = db.prepare(`SELECT usuario, ingreso, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).all(chat, ...ids);
   const lids = ids.filter((id) => id.endsWith("@lid"));
   const avisado = Math.max(0, ...filas.filter((f) => f.avisado && avisoSuyo(f, lids)).map((f) => f.avisado));
-  const ultimo = Math.max(0, ...filas.map((f) => f.ultimo_mensaje || 0));
+  const ultimo = Math.max(0, ...filas.map((f) => Math.max(f.ultimo_mensaje || 0, f.ingreso || 0)));
   if (filas.some((f) => f.avisado)) quitarAvisoInactivo(chat, ids);
   const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`);
   for (const id of sellar) st.run(chat, id, cuando);

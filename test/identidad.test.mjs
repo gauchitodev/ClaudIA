@@ -752,6 +752,23 @@ test("al irse quien tiene ahora un número, el que lo tuvo antes no pierde su ro
   assert.equal(F.rolGrupo(C, VIEJO), "mod");
 });
 
+// And when the event brings the number alone, by the group: the LID the database has for the number is someone else's
+// when the group lists it with another number. The one who had it lost their role and their posts when the one who has
+// it now left, though they were still in the group. main.js hands over the copy of the group at hand.
+test("al irse con su número solo quien lo tiene ahora, el que lo tuvo antes no pierde su rol ni sus ventas", async () => {
+  const C = "salida-por-numero@g.us";
+  const { X, VIEJO } = numeroReciclado(436);
+  const grupo = [{ id: unNumero(437), lid: VIEJO, admin: null }, { id: unaLid(438), admin: null }];
+  F.setRolGrupo(C, VIEJO, "mod");
+  const Cv = await import("../lib/compraventa.js");
+  const venta = Cv.publicar(C, VIEJO, "vendo", "bici $ 3.000").numero;
+  R.limpiarRolesAlSalir(C, [{ id: X }], grupo);
+  Cv.limpiarVentasAlSalir(C, [{ id: X }], Date.now(), grupo);
+  assert.deepEqual([F.rolGrupo(C, VIEJO), F.getPublicacion(C, venta).estado], ["mod", "activa"]);
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  assert.match(main, /const grupo = enCache\(id\)\?\.participants;[\s\S]*limpiarRolesAlSalir\(id, participants, grupo\)[\s\S]*recordarIngreso\(id, idsDeParticipante\(p, grupo\)\)/, "main.js le pasa el grupo");
+});
+
 test("identidadDelGrupo: la LID y el número como los trae el grupo; idsDeParticipante va a la base solo sin LID", () => {
   const { X, VIEJO, NUEVO, porLid, porNumero, porNumeroSinLid, sinParear } = numeroReciclado(140);
   assert.deepEqual(I.identidadDelGrupo(porLid[0]), { lid: NUEVO, jid: X });

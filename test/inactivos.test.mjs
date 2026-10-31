@@ -1072,7 +1072,8 @@ test("cuando un número cambia de dueño, lo anotado bajo él no le pasa al que 
 
 // In a group listed by number alone, the warning goes under the number the group gives, and not under the LID the
 // database has for it: that may be whoever had the number before, who got the "Volvió" and the prize for it when they
-// wrote. Whoever has the number now is spared when they write, and the warning under the number goes then (atarAlLid).
+// wrote. Whoever has the number now is spared when they write, and the warning under the number goes then, with the
+// rest of what's under it (atarAlLid): with no telling whose it was, they come back without the "Volvió" nor the prize.
 test("en un grupo que lista por número solo, el aviso no va a la LID que la base supone para el número", async () => {
   const chat = "inactivos-aviso-pn@g.us";
   const [VIEJO, NUEVO, X, Y] = [unaLid(78, 1), unaLid(78, 2), unNumero(78), unNumero(79)];
@@ -1091,7 +1092,7 @@ test("en un grupo que lista por número solo, el aviso no va a la LID que la bas
     await I.registrarPresencia(globalThis.client, msj);
     return [textoEnviado(), F.getSaldoCoins(chat, sender)];
   };
-  await escribe(NUEVO, X);
+  assert.deepEqual(await escribe(NUEVO, X), ["", 0], "NUEVO vuelve sin el «Volvió»: el aviso bajo el número se fue sin pasárselo a nadie");
   assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0, "NUEVO se salvó");
   assert.deepEqual(await escribe(VIEJO, Y), ["", 0], "VIEJO no cobra un aviso que no era suyo");
 });
@@ -1121,4 +1122,117 @@ test("un mensaje atrasado de quien tiene ahora un número no le levanta el aviso
   assert.deepEqual(listos(), [VIEJO]);
   I.anotarPresencia({ chat, isGroup: true, sender: NUEVO, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 }, { antesDelNumero: true });
   assert.deepEqual(listos(), [VIEJO], "VIEJO sigue avisado");
+});
+
+// Whoever changes their own number takes along what .inactivos noted under the old one (atarAlLid, suyo): in a group
+// that lists people by number alone, whose messages bring no LID, their last message, their join and their warning are
+// only there. Dropped, whoever had written three days before was tagged as never seen, whoever had just come in too,
+// and both came back from a warning without the "Volvió". The last message and the join stay under the old number as
+// well, and its warning doesn't; nor is a warning that went out with someone else's LID taken along.
+test("quien cambia su propio número se lleva lo que .inactivos anotó bajo el viejo", async () => {
+  const [A, X1, X2, OTRA] = [unaLid(84), unNumero(84), unNumero(85), unaLid(86)];
+  const [escribio, entro, avisado] = ["inactivos-propio-1@g.us", "inactivos-propio-2@g.us", "inactivos-propio-3@g.us"];
+  const ahora = Date.now();
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X1, "A", 1);
+  for (const g of [escribio, entro, avisado]) F.registrarMensajeGrupo(g, ["105@lid"], ahora - 40 * DIA);
+  F.registrarMensajeGrupo(escribio, [X1], ahora - 3 * DIA); // A wrote there, with the number alone
+  F.registrarIngresoGrupo(entro, [X1], ahora - 5 * DIA); // and came in there
+  F.marcarAvisoInactivo(entro, [OTRA, X1], ahora - 2 * DIA); // someone else's warning, that went out with their LID
+  F.marcarAvisoInactivo(avisado, [X1], ahora - DIA); // and was warned there, tagged by the number
+  // A writes somewhere else with the LID and the new number.
+  const msj = { chat: "inactivos-propio-otro@g.us", sender: A, senderJid: X2, pushName: "A", isGroup: true };
+  F.initDataDB(msj);
+  F.syncUserInfo(msj);
+  // Every group lists A by the new number alone.
+  const porNumero = (chat) => {
+    const participants = [{ id: X2, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+    miembros.set(chat, participants);
+    return participants;
+  };
+  const { listos, enPlazo } = I.paraSacar(entro, porNumero(entro), globalThis.client);
+  const visto = {
+    escribio: I.inactivosDe(escribio, porNumero(escribio), globalThis.client).length,
+    entro: I.inactivosDe(entro, porNumero(entro), globalThis.client).length,
+    avisoAjeno: listos.length + enPlazo.length,
+    bajoElViejo: F.presenciaDelGrupo(escribio).find((r) => r.usuario === X1)?.ultimo_mensaje ?? null,
+    avisosBajoElViejo: [entro, avisado].map((g) => F.presenciaDelGrupo(g).find((r) => r.usuario === X1)?.avisado ?? null),
+  };
+  // A writes in the group where they were warned, with the new number alone.
+  const vuelve = { chat: avisado, sender: X2, senderJid: X2, pushName: "A", isGroup: true };
+  F.initDataDB(vuelve);
+  F.syncUserInfo(vuelve);
+  globalThis.enviados = [];
+  await I.registrarPresencia(globalThis.client, vuelve, porNumero(avisado));
+  visto.volvio = /^🎉 Volvió/.test(textoEnviado());
+  assert.deepEqual(visto, { escribio: 0, entro: 0, avisoAjeno: 0, bajoElViejo: ahora - 3 * DIA, avisosBajoElViejo: [null, null], volvio: true });
+});
+
+// A warning from before someone last came in doesn't stand, under any of their ids: coming back is a fresh start, and
+// the join goes under the ids the event brings, which with the number alone leave out the LID the database has for it
+// (anotarIngresos). Read under that LID, a warning of whoever had the number before, or the person's own from before
+// they left, made whoever had just come in removable at once with .k inactivos, and paid them a "Volvió" when they
+// wrote.
+test("un aviso de antes de la última entrada no cuenta, ni para .k inactivos ni para el «Volvió»", async () => {
+  const ahora = Date.now();
+  const admins = [{ id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  // VIEJO was warned, under his LID too, and left; X is NUEVO's now, who comes in with it alone.
+  const chat = "inactivos-entra-con-un-aviso@g.us";
+  const [VIEJO, X] = [unaLid(87), unNumero(87)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 60 * DIA);
+  F.registrarMensajeGrupo(chat, [VIEJO], ahora - 30 * DIA);
+  F.marcarAvisoInactivo(chat, [X, VIEJO], ahora - 10 * DIA);
+  I.anotarIngresos(chat, [{ id: X, admin: null }]);
+  const participants = [{ id: X, admin: null }, ...admins];
+  miembros.set(chat, participants);
+  const visto = { nuevoParaSacar: I.paraSacar(chat, participants, globalThis.client).listos.length };
+  const msj = { chat, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true };
+  F.initDataDB(msj);
+  F.syncUserInfo(msj);
+  globalThis.enviados = [];
+  await I.registrarPresencia(globalThis.client, msj, participants);
+  visto.volvio = textoEnviado();
+  // The person's own, warned while the group listed them with their LID: they left, and come back with the number
+  // alone.
+  const otro = "inactivos-vuelve-con-su-aviso@g.us";
+  const [A, Z] = [unaLid(88), unNumero(88)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, Z, "A", 1);
+  F.registrarMensajeGrupo(otro, ["105@lid"], ahora - 60 * DIA);
+  F.marcarAvisoInactivo(otro, [Z, A], ahora - 10 * DIA);
+  I.anotarIngresos(otro, [{ id: Z, admin: null }]);
+  visto.vuelveParaSacar = I.paraSacar(otro, [{ id: Z, lid: A, admin: null }, ...admins], globalThis.client).listos.length;
+  assert.deepEqual(visto, { nuevoParaSacar: 0, volvio: "", vuelveParaSacar: 0 });
+});
+
+// The LID the database has for a number isn't the person's when the group lists that LID with another number: it's
+// whoever had the number before, who changed numbers and is still in the group. Taken for theirs, whoever has the
+// number now looked warned with their warning, and writing with the number alone was paid the "Volvió" and took it
+// away.
+test("la LID que la base supone para un número no es suya si el grupo la lista con otro número", async () => {
+  const chat = "inactivos-lid-desmentida@g.us";
+  const ahora = Date.now();
+  const [VIEJO, X, Y] = [unaLid(89), unNumero(89), unNumero(90)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 40 * DIA);
+  F.registrarIngresoGrupo(chat, [X], ahora - 20 * DIA); // whoever has X came in, with it alone
+  const participants = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  F.marcarAvisoInactivo(chat, [Y, VIEJO], ahora - 4 * DIA); // VIEJO warned, as the group lists him
+  const listos = () => I.paraSacar(chat, participants, globalThis.client).listos.map((e) => e.participante.id);
+  const visto = { antes: listos() };
+  // A late message of theirs, with the copy of the group at hand, as handle-message's early cuts have it.
+  CG.guardar(globalThis.client, chat, { id: chat, subject: "Los Pibes", participants });
+  I.anotarPresencia({ chat, isGroup: true, sender: X, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(ahora / 1000) - 90 }, { antesDelNumero: true });
+  visto.atrasado = listos();
+  // Whoever has X writes with it alone, through the hook, which handle-message hands the group: without the copy, so
+  // it's the group the hook passes on that counts.
+  CG.invalidar(globalThis.client, chat);
+  const msj = { chat, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true, message: { conversation: "hola" }, mtype: "conversation" };
+  F.initDataDB(msj);
+  F.syncUserInfo(msj);
+  globalThis.enviados = [];
+  await (await import("../plugins/_messsage-count.js")).default.before(msj, { client: globalThis.client, user: {}, participants });
+  visto.volvio = textoEnviado();
+  visto.despues = listos();
+  assert.deepEqual(visto, { antes: [Y], atrasado: [Y], volvio: "", despues: [Y] });
 });
