@@ -16,8 +16,12 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (!isOwner && !participante) return client.sendText(m.chat, participants?.length ? "🆔 Solo puedo mostrarte el id de alguien de este grupo." : "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.", m);
 
   const whoData = quien ? getUser(quien) : null;
-  const whoJid = whoData?.jid || jid || "";
-  const whoLid = whoData?.lid || lid || "";
+  // The number the message names, or the group lists them with, or WhatsApp gave (destinatario's jid), ahead of the one
+  // their row has, which stays until a message brings another: ".id +598…" of whoever has the number now showed the
+  // one their row still had, someone else's by then. And only a LID as the LID: the row of someone the bot knows by
+  // their number alone is under the number.
+  const whoJid = jid || whoData?.jid || "";
+  const whoLid = [lid, whoData?.lid].find((id) => id?.endsWith("@lid")) || "";
 
   // Careful: don't name this variable "txt", it shadows the texts global and breaks txt.defaultWho above.
   const info = `Usuario: ${whoJid ? `+${whoJid.split("@")[0]}` : "número desconocido"}\n\nNombre actual: ${whoData?.pushName || "—"}\n\nLid: ${whoLid || "—"}\n\nEn la base: ${whoData ? "sí" : "no, todavía no escribió"}\n\nChat actual: ${m.chat}`;

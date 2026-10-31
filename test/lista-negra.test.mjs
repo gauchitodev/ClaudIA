@@ -2,6 +2,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
+import { owner, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own, loading it was most of that
 // test's time, the more the slower the machine: 10.6 s against its 10 with the CPU at 12%.
@@ -783,4 +784,29 @@ test(".ln por número no anota ni echa a quien la base recuerda si el grupo lo l
   globalThis.client.groupFetchAllParticipating = async () => ({ "otro@g.us": { id: "otro@g.us", subject: "Otro", participants: [{ id: VIEJO, phoneNumber: Y, admin: null }, bot] } });
   await desdeElPrivado("+59899000981 estafa");
   assert.deepEqual(expulsiones, []);
+});
+
+// The owners are left alone by the list as for their powers (esOwnerConfirmado), joining and writing: by what comes
+// with them and by the number the group lists them with. By their rows, someone else's that still had an owner's number
+// got in past the list, and was removed only once they wrote; and an owner WhatsApp hadn't confirmed yet, whose event
+// and messages bring only their LID, was removed by an entry under their number, from whoever had it before.
+test("la lista negra deja en paz a los dueños como para sus poderes, al entrar y al escribir", async (t) => {
+  // AJENA, someone else's row that still has the owner's number, listed in the group.
+  const o = owner(t, 830, { filaAjena: true });
+  F.addToBlacklist(o.AJENA, "estafa", "100@lid", G, o.AJENA);
+  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: o.AJENA }], [...participants, { id: o.AJENA, admin: null }]);
+  const visto = { ajenaAlEntrar: expulsiones.map((e) => e.ids[0]) };
+  // Another owner, whose row has no number and whom WhatsApp hasn't confirmed yet: their number was listed back when it
+  // was someone else's, and the group lists them with it.
+  const [OL, Z] = [unaLid(831), unNumero(831)];
+  globalThis.owners = [...globalThis.owners, digitos(Z)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, '', 'Dueño', 1)").run(OL);
+  F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);
+  const conDueno = [...participants, { id: OL, phoneNumber: Z, admin: null }];
+  expulsiones = [];
+  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: OL }], conDueno);
+  visto.duenoAlEntrar = expulsiones.length;
+  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: globalThis.client, participants: conDueno, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
+  visto.duenoAlEscribir = expulsiones.length;
+  assert.deepEqual(visto, { ajenaAlEntrar: [o.AJENA], duenoAlEntrar: 0, duenoAlEscribir: 0 });
 });

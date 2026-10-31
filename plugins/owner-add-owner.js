@@ -1,6 +1,6 @@
 import fs from "fs";
 import toml from "@iarna/toml";
-import { destinatarioActual, confirmarOwners, olvidarOwner } from "../lib/identidad.js";
+import { numeroActual, numeroSinConfirmar, confirmarOwnerNuevo, olvidarOwner } from "../lib/identidad.js";
 
 // config.toml with only its owners line changed: rewriting the whole file with toml.stringify wiped every comment that
 // explains the settings. The result is parsed back before anything is written: null if the owners didn't come out
@@ -26,9 +26,10 @@ plugin.cmd = ["addowner", "removeowner", "aowner", "rowner"];
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
-  // config.toml stores the bare phone number, so of the two identities it's the number we need.
-  const { jid } = await destinatarioActual(client, m, text, participants);
-  const who = jid ? jid.split("@")[0] : "";
+  // config.toml stores the bare phone number, so of the two identities it's the number we need, as they have it now.
+  const { numero, porQue } = await numeroActual(client, m, text, participants);
+  if (porQue) return client.sendText(m.chat, numeroSinConfirmar(porQue, `${usedPrefix}${command}`), m);
+  const who = numero ? numero.split("@")[0] : "";
   if (!who) return client.sendText(m.chat, `No se encontró el numero telefonico del usuario mencionado. Pruebe: ${usedPrefix}${command} +598 99 999 999`, m);
 
   let configContent;
@@ -63,7 +64,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: agregalo a mano.", m);
     guardarConfig(nuevo);
     globalThis.owners = owners; // update it in memory
-    await confirmarOwners(client); // their LID, as WhatsApp says, for when a message brings only that
+    await confirmarOwnerNuevo(); // their LID, as WhatsApp says, for when a message brings only that
 
     return client.sendText(m.chat, `✅ El numero *${who}* fué añadido como owner.`, m);
   }
@@ -84,7 +85,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: sacalo a mano.", m);
     guardarConfig(nuevo);
     globalThis.owners = owners; // update it in memory
-    olvidarOwner(jid); // what WhatsApp said of the number is about whoever had it then: added again, it's asked anew
+    olvidarOwner(numero); // what WhatsApp said of the number is about whoever had it then: added again, it's asked anew
 
     return client.sendText(m.chat, `✅ *${who}* fué removido de owners.`, m);
   }

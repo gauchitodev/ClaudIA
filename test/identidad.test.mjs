@@ -16,6 +16,10 @@ before(async () => {
   ({ F } = await prepararBase("identidad"));
   globalThis.txt = (await import("../lib/strings.js")).default;
   I = await import("../lib/identidad.js");
+  // A round of the owners' questions that leaves one of them without an answer asks again REINTENTO_MS later: from a
+  // test, an hour later, past the end of the file. At 60 s, on a slow machine, that was still this file, and the
+  // question went to whatever test ran then. The tests of the retries set their own, and leave every owner answered.
+  I.OWNERS.REINTENTO_MS = 60 * 60 * 1000;
   M = await import("../lib/menciones.js");
   R = await import("../lib/roles.js");
   S = await import("../database-schema.js");
@@ -1290,4 +1294,171 @@ test("al bot no se le pregunta a WhatsApp por su número, y .calificaciones borr
   const Calificar = (await import("../plugins/calificar.js")).default;
   await Calificar.run(mensaje({ sender: A, quoted: { sender: unNumero(414) } }), { client: cliente(), command: "calificaciones", args: ["borrar", "3"], text: "borrar 3", isAdmin: true, isOwner: false, participants: grupo });
   assert.deepEqual(consultas.map((c) => c.users.map((u) => u.id)), []);
+});
+
+// ".addowner @persona", ".removeowner" and ".bloquear" named by LID, with no number the message or the group gives for
+// them: the one their row has stays until a message brings another, and may be someone else's by then. With it,
+// ".addowner" made whoever has it now an owner, ".bloquear" blocked them, and ".removeowner" took away their powers;
+// replying to an old message of whoever left did too. WhatsApp is asked: theirs if it says so, and otherwise the number
+// is asked for, typed.
+test(".addowner, .removeowner y .bloquear con @persona confirman con WhatsApp el número de su fila, o lo piden escrito", async (t) => {
+  const antes = globalThis.owners;
+  const bloqueos = [];
+  cliente().updateBlockStatus = async (jid) => bloqueos.push(jid);
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+    delete cliente().updateBlockStatus;
+  });
+  // VIEJO wrote long ago with X, and WhatsApp says X is NUEVO's now (deOtro), says nothing (sinRespuesta), or says X is
+  // still VIEJO's (suyo). In a group that lists people by LID, without their numbers.
+  const escenario = (n, quienLoTiene, owners = ["59899111222"]) => {
+    const [VIEJO, NUEVO, X] = [unaLid(n, 1), unaLid(n, 2), unNumero(n)];
+    db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+    usyncFalso(t, quienLoTiene ? { [X]: quienLoTiene === "NUEVO" ? NUEVO : VIEJO } : {});
+    globalThis.owners = owners.map((o) => (o === "X" ? digitos(X) : o));
+    fs.writeFileSync("config.toml", `owners = [${globalThis.owners.map((o) => JSON.stringify(o)).join(", ")}]\n`);
+    globalThis.enviados = [];
+    bloqueos.length = 0;
+    return { VIEJO, NUEVO, X };
+  };
+  const correr = (plugin, command, m, participants) => plugin.run(mensaje({ sender: unaLid(419), ...m }), { client: cliente(), text: m.mentionedJid ? `@${digitos(m.mentionedJid[0])}` : "", usedPrefix: ".", command, participants });
+  const visto = {};
+  for (const [caso, n, quienLoTiene] of [["deOtro", 420, "NUEVO"], ["sinRespuesta", 421, null], ["suyo", 422, "VIEJO"]]) {
+    const { VIEJO, NUEVO } = escenario(n, quienLoTiene);
+    await correr(P.addowner, "addowner", { mentionedJid: [VIEJO] }, [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }]);
+    await correr(P.bloquear, "bloquear", { mentionedJid: [VIEJO] }, [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }]);
+    visto[caso] = { owners: globalThis.owners.slice(1).length, bloqueos: bloqueos.length, VIEJOconPoderes: I.esOwnerConfirmado(VIEJO), respuesta: globalThis.enviados[0]?.msg.text };
+  }
+  // NUEVO, an owner by X: ".removeowner @VIEJO".
+  const r = escenario(423, "NUEVO", ["59899111222", "X"]);
+  await correr(P.addowner, "removeowner", { mentionedJid: [r.VIEJO] }, [{ id: r.VIEJO, admin: null }, { id: r.NUEVO, admin: null }]);
+  visto.removeowner = globalThis.owners.includes(digitos(r.X));
+  // Replying to an old message of VIEJO, who left: the group lists NUEVO with the number VIEJO's row still has.
+  const c = escenario(424, "NUEVO");
+  await correr(P.addowner, "addowner", { quoted: { sender: c.VIEJO, text: "hola" } }, [{ id: c.NUEVO, phoneNumber: c.X, admin: null }]);
+  visto.citado = globalThis.owners.length;
+  const pideElNumero = (comienzo) => `${comienzo} Escribilo: .addowner +598 99 999 999`;
+  assert.deepEqual(visto, {
+    deOtro: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero("No sé qué número tiene ahora esa persona: el que tengo anotado ya es de otra.") },
+    sinRespuesta: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero("No pude confirmar con WhatsApp el número de esa persona, y el que tengo anotado puede ser viejo.") },
+    suyo: { owners: 1, bloqueos: 1, VIEJOconPoderes: true, respuesta: `✅ El numero *${digitos(unNumero(422))}* fué añadido como owner.` },
+    removeowner: true,
+    citado: 1,
+  });
+});
+
+// .id shows the number as they have it now, the one the message names, or the group lists them with, or WhatsApp gives,
+// ahead of the one their row still has; and only a LID as the LID.
+test(".id muestra el número que tiene ahora, no el viejo de su fila, y solo una LID como LID", async (t) => {
+  const [VIEJO, NUEVO, X, Y] = [unaLid(425, 1), unaLid(425, 2), unNumero(425), unNumero(426)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const a = soloPorNumero(427);
+  usyncFalso(t, { [X]: NUEVO, [Y]: VIEJO, [a.X]: a.L });
+  const id = async (m, opciones) => {
+    await P.id.run(mensaje({ sender: unaLid(428), ...m }), { client: cliente(), usedPrefix: ".", command: "id", isOwner: false, ...opciones });
+    return ultimoEnviado().msg.text.split("\n\n").slice(0, 3).join(" · ");
+  };
+  const visto = {
+    tipeado: await id({ chat: "dueno@s.whatsapp.net" }, { text: `+${digitos(Y)}`, participants: [], isOwner: true }),
+    delGrupo: await id({ mentionedJid: [VIEJO] }, { text: `@${digitos(VIEJO)}`, participants: [{ id: VIEJO, phoneNumber: Y, admin: null }] }),
+    soloPorNumero: await id({ mentionedJid: [a.X] }, { text: `@${digitos(a.X)}`, participants: a.porNumeroSinLid }),
+  };
+  assert.deepEqual(visto, {
+    tipeado: `Usuario: +${digitos(Y)} · Nombre actual: Viejo · Lid: ${VIEJO}`,
+    delGrupo: `Usuario: +${digitos(Y)} · Nombre actual: Viejo · Lid: ${VIEJO}`,
+    soloPorNumero: `Usuario: +${digitos(a.X)} · Nombre actual: Por número · Lid: ${a.L}`,
+  });
+});
+
+// .addowner waits on WhatsApp as a command does, and whoever it adds is asked again while there's no answer: it waited
+// TOPE_MS for one question, and with WhatsApp slow the owner heard back 18 s later; and asked once, the new owner had
+// no powers by their LID until the next round, 6 hours later.
+test(".addowner no espera la ronda entera, y al owner nuevo se le vuelve a preguntar", async (t) => {
+  const [L, X] = [unaLid(429), unNumero(429)];
+  const antes = { owners: globalThis.owners, tope: I.OWNERS.TOPE_MS, reintento: I.OWNERS.REINTENTO_MS, consulta: I.IDENTIDAD.CONSULTA_MS };
+  Object.assign(I.OWNERS, { TOPE_MS: 600, REINTENTO_MS: 20 });
+  I.IDENTIDAD.CONSULTA_MS = 50;
+  t.after(() => {
+    globalThis.owners = antes.owners;
+    Object.assign(I.OWNERS, { TOPE_MS: antes.tope, REINTENTO_MS: antes.reintento });
+    I.IDENTIDAD.CONSULTA_MS = antes.consulta;
+    I.ownersConfirmados.clear();
+    delete cliente().executeUSyncQuery;
+  });
+  // WhatsApp doesn't answer until it does, about the only owner: once it answers, the retries end.
+  let responde = false;
+  cliente().executeUSyncQuery = (consulta) => (responde ? Promise.resolve({ list: consulta.users.map((u) => ({ id: u.id, lid: L })) }) : new Promise(() => {}));
+  fs.writeFileSync("config.toml", "owners = []\n");
+  const t0 = Date.now();
+  await P.addowner.run(mensaje({ sender: unaLid(430) }), { client: cliente(), text: `+${digitos(X)}`, usedPrefix: ".", command: "addowner", participants: [] });
+  const tardo = Date.now() - t0;
+  responde = true;
+  for (let i = 0; i < 100 && !I.esOwnerConfirmado(L); i++) await esperar(20);
+  assert.deepEqual({ antesDelTope: tardo < I.OWNERS.TOPE_MS, suLid: I.esOwnerConfirmado(L) }, { antesDelTope: true, suLid: true });
+});
+
+// And an answer about the number asked for before .removeowner, which came in after: kept, it came back with the number
+// added again, and with WhatsApp saying nothing of it then, the LID it had before had the powers.
+test(".removeowner olvida también la respuesta que llega después, de una pregunta de antes", async (t) => {
+  const [A, X] = [unaLid(431), unNumero(431)];
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+    delete cliente().executeUSyncQuery;
+  });
+  fs.writeFileSync("config.toml", `owners = ["59899111222", "${digitos(X)}"]\n`);
+  globalThis.owners = ["59899111222", digitos(X)];
+  // A round asking, with WhatsApp slow to answer that X is A's; then WhatsApp says nothing of X.
+  let suelta;
+  const lenta = new Promise((resolve) => (suelta = resolve));
+  let enVuelo = true;
+  const preguntas = [];
+  cliente().executeUSyncQuery = async (consulta) => {
+    const deAntes = enVuelo;
+    preguntas.push(consulta);
+    if (deAntes) await lenta;
+    return { list: consulta.users.map((u) => ({ id: u.id, lid: deAntes && u.id === X ? A : undefined })) };
+  };
+  const ronda = I.confirmarOwners(cliente());
+  for (let i = 0; i < 100 && !preguntas.length; i++) await esperar(5);
+  enVuelo = false;
+  const comoOwner = (command) => P.addowner.run(mensaje({ sender: unaLid(432) }), { client: cliente(), text: `+${digitos(X)}`, usedPrefix: ".", command, participants: [] });
+  await comoOwner("removeowner");
+  suelta();
+  await ronda;
+  await comoOwner("addowner");
+  assert.deepEqual([I.esOwnerConfirmado(A), I.esOwnerConfirmado(X)], [false, true]);
+});
+
+// A round calls off the one before, its retry waiting and its question in flight: one that came with a question in
+// flight left two chains of retries, each asking on its own.
+test("una ronda nueva deja una sola cadena de reintentos, aunque llegue con una pregunta en vuelo", async (t) => {
+  const [X, L] = [unNumero(433), unaLid(433)];
+  const antes = { owners: globalThis.owners, tope: I.OWNERS.TOPE_MS, reintento: I.OWNERS.REINTENTO_MS };
+  globalThis.owners = [digitos(X)];
+  Object.assign(I.OWNERS, { TOPE_MS: 2000, REINTENTO_MS: 30 });
+  // Each question waits until the test answers it.
+  const pendientes = [];
+  cliente().executeUSyncQuery = () => new Promise((resolve) => pendientes.push(resolve));
+  t.after(async () => {
+    // Every question answered with the LID: the chain ends.
+    for (const responder of pendientes) responder({ list: [{ id: X, lid: L }] });
+    await esperar(50);
+    globalThis.owners = antes.owners;
+    Object.assign(I.OWNERS, { TOPE_MS: antes.tope, REINTENTO_MS: antes.reintento });
+    I.ownersConfirmados.clear();
+    delete cliente().executeUSyncQuery;
+  });
+  const hasta = async (n) => {
+    for (let i = 0; i < 200 && pendientes.length < n; i++) await esperar(5);
+  };
+  I.confirmarOwnersCadaTanto();
+  await hasta(1);
+  I.confirmarOwnersCadaTanto(); // the next round, with the first question in flight
+  await hasta(2);
+  for (const responder of pendientes.slice(0, 2)) responder({ list: [{ id: X }] }); // both without a LID
+  await esperar(200); // the retries go out REINTENTO_MS later
+  assert.equal(pendientes.length, 3, "las dos preguntas y un solo reintento");
 });

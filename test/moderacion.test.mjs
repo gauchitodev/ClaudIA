@@ -14,6 +14,10 @@ before(async () => {
   ({ F } = await prepararBase("moderacion"));
   globalThis.txt = strings;
   globalThis.client.user.lid = "999@lid";
+  // A round of the owners' questions that leaves one of them without an answer asks again REINTENTO_MS later: from a
+  // test, an hour later, past the end of the file. At 60 s, on a slow machine, that was still this file, and the
+  // question went to whatever test ran then. The tests of the retries set their own, and leave every owner answered.
+  (await import("../lib/identidad.js")).OWNERS.REINTENTO_MS = 60 * 60 * 1000;
   Kick = (await import("../plugins/grupo-kick.js")).default;
   Silenciar = (await import("../plugins/grupo-silenciar.js")).default;
   Ban = (await import("../plugins/owner-banuser.js")).default;

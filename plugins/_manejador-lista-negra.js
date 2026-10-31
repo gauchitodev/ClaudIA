@@ -1,4 +1,4 @@
-import { estaEnListaNegra } from "../lib/lista-negra.js";
+import { estaEnListaNegra, esOwnerParaLaLista } from "../lib/lista-negra.js";
 import { expulsar } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
@@ -20,6 +20,9 @@ plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmi
   // the number only, which in newer groups often isn't in the message at all.
   const encontrado = estaEnListaNegra([m.senderJid, m.sender], m.chat, participants);
   if (!encontrado) return;
+  // An owner by the number the group lists them with too, though their message brings only a LID WhatsApp hasn't
+  // confirmed yet (esOwnerParaLaLista): the entry may be under that number, from whoever had it before.
+  if (esOwnerParaLaLista([m.senderJid, m.sender], participants)) return;
 
   // delete the message and remove the user. Marked, the hooks after this one leave the message alone (Claudia doesn't
   // answer it, the marketplace doesn't publish it).
