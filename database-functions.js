@@ -253,8 +253,8 @@ export function syncUserInfo(m) {
 // A LID comes with a number its row didn't have: the person changed numbers, or the number was someone else's. What was
 // kept under a number with no LID known, a blacklist entry or a bot role given by number, goes to the LID the number
 // was on: it used to stay with the number, and whoever changed numbers was no longer kept out by the blacklist nor
-// protected by their role, while whoever got the number next got both. What .inactivos noted under the number goes
-// with the person when it was their own, and to nobody when it was someone else's (atarAlLid). Only when a single LID
+// protected by their role, while whoever got the number next got both. What .inactivos noted under the number goes to
+// the person whose number it was or is now, and not to whoever had it before (pasarPresencia). Only when a single LID
 // row had the number: with two, there's no telling whose it was, and it stays as it was. A row with a device's LID,
 // from before syncUserInfo left them out, isn't anybody's.
 // The old row keyed by the number this row leaves, from before LIDs, goes when no other LID row has that number: while
@@ -264,11 +264,16 @@ export function syncUserInfo(m) {
 function seguirALaPersona(lid, antes, numero) {
   const filasCon = (n) => db.prepare(`SELECT lid FROM users WHERE jid = ? AND lid LIKE '%@lid' AND lid NOT LIKE '%:%'`).all(n).map((f) => f.lid);
   if (antes !== numero && antes?.endsWith?.("@s.whatsapp.net") && filasCon(antes).length === 1) {
-    atarAlLid(antes, lid, { suyo: true }); // the only row with it is this one: the number was theirs
+    // The only row with it is this one: the number was theirs.
+    atarAlLid(antes, lid);
+    pasarPresencia(antes, lid, { suyo: true });
     db.prepare(`DELETE FROM users WHERE lid = ?`).run(antes);
   }
   const otros = filasCon(numero).filter((l) => l !== lid);
-  if (otros.length === 1) atarAlLid(numero, otros[0]);
+  if (otros.length === 1) {
+    atarAlLid(numero, otros[0]);
+    pasarPresencia(numero, lid); // the number is theirs now
+  }
 }
 
 // Under the LID, in the entry's key too: the number is someone else's now, or nobody's, and with the entry still under
@@ -276,21 +281,7 @@ function seguirALaPersona(lid, antes, numero) {
 // kept under the number, as ".ln @persona" keeps it: only the ones with no LID moved, and listing the number's next
 // owner took the person off the list without a word. One the person already had under the LID in that group stays,
 // and the one by number goes. Of two roles in one group, the higher one stays.
-// What .inactivos noted under a number that was the person's own (suyo: they changed numbers) goes to them too: in a
-// group that lists people by number alone, whose messages bring no LID, their last message, their join and their
-// warning are only under the number, and dropped, whoever had written three days before was tagged as never seen, and
-// came back from a warning without the "Volvió". The latest of each, as .inactivos takes a person's latest under any of
-// their ids, but not a warning that went out with a LID (aviso_de), which is that LID's, whose own row has it. The last
-// message and the join stay under the number as well: the bot may not have seen it go to someone else, whose they'd be
-// then, and moved, that someone would be left with nothing and tagged as soon as they came in. At worst, someone is
-// spared a while. The warning goes, as for a number that was someone else's: its next owner's first message was a
-// "Volvió" for it.
-// Of a number that was someone else's, what .inactivos noted under it goes, and to nobody: it was noted when no LID was
-// known, with no telling whose. Passed on to whoever had the number, the next owner's join or late message took them
-// off .inactivos for weeks, and a warning from before aviso_de, the next owner's maybe, left them removable without
-// being tagged. Without it, the worst is someone tagged again. Left under the number, it was the next owner's: their
-// first message was a "Volvió", with the prize, for someone else's warning.
-function atarAlLid(numero, lid, { suyo = false } = {}) {
+function atarAlLid(numero, lid) {
   db.prepare(`UPDATE OR IGNORE lista_negra SET jid = ?, lid = ? WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(lid, lid, numero, lid);
   db.prepare(`DELETE FROM lista_negra WHERE jid = ? AND (lid IS NULL OR lid IN ('', ?))`).run(numero, lid);
   db.prepare(
@@ -298,15 +289,36 @@ function atarAlLid(numero, lid, { suyo = false } = {}) {
      ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
   ).run(lid, numero);
   db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
+}
+
+// What .inactivos noted under a number goes to whoever it's someone's: the person whose own number it was, who changed
+// it (suyo), or whoever has it now. In a group that lists people by number alone, whose messages bring no LID, what
+// they did there is only under the number: dropped, whoever had written three days before was tagged as never seen, so
+// was whoever had just come in, and a warning came back without its "Volvió". Passed on to whoever had the number
+// before, the next owner's join or late message took them off .inactivos for weeks. The latest of each, as .inactivos
+// takes a person's latest under any of their ids.
+// A warning passes marked with the number it was under (aviso_de): it pays the "Volvió" of whoever writes, but doesn't
+// stand for .inactivos nor .k inactivos (avisoPasado), as there's no telling for sure that whoever the number tagged
+// was them; at worst, someone is tagged again. A warning still under the number when whoever has it now writes with
+// their LID was theirs most likely: a join clears it (registrarIngresoGrupo). One that went out with a LID (aviso_de)
+// is that LID's, whose own row has it, and stays out, and so does one from before aviso_de when the number was someone
+// else's: it went under every id, the previous owner's too.
+// A number that was the person's own keeps its last message and its join as well: the bot may not have seen it go to
+// someone else, whose they'd be then, and moved, that someone was left with nothing, tagged as soon as they came in. At
+// worst, someone is spared a while. Its warnings go.
+function pasarPresencia(numero, lid, { suyo = false } = {}) {
+  const pasa = suyo ? "COALESCE(aviso_de, '') = ''" : "aviso_de = ''";
+  const elUltimo = (c) => `MAX(COALESCE(${c}, excluded.${c}), COALESCE(excluded.${c}, ${c}))`; // MAX of a NULL is NULL
+  db.prepare(
+    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado, aviso_de)
+     SELECT chat, ?, ingreso, ultimo_mensaje, CASE WHEN ${pasa} THEN avisado END, CASE WHEN ${pasa} AND avisado IS NOT NULL THEN ? END FROM presencia_grupo WHERE usuario = ?
+     ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = ${elUltimo("ingreso")}, ultimo_mensaje = ${elUltimo("ultimo_mensaje")},
+       avisado = COALESCE(avisado, excluded.avisado), aviso_de = CASE WHEN avisado IS NULL THEN excluded.aviso_de ELSE aviso_de END`,
+  ).run(lid, numero, numero);
   if (!suyo) {
     db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ?`).run(numero);
     return;
   }
-  const elUltimo = (c) => `MAX(COALESCE(${c}, excluded.${c}), COALESCE(excluded.${c}, ${c}))`; // MAX of a NULL is NULL
-  db.prepare(
-    `INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado) SELECT chat, ?, ingreso, ultimo_mensaje, CASE WHEN COALESCE(aviso_de, '') = '' THEN avisado END FROM presencia_grupo WHERE usuario = ?
-     ON CONFLICT(chat, usuario) DO UPDATE SET ingreso = ${elUltimo("ingreso")}, ultimo_mensaje = ${elUltimo("ultimo_mensaje")}, avisado = ${elUltimo("avisado")}`,
-  ).run(lid, numero);
   db.prepare(`UPDATE presencia_grupo SET avisado = NULL, aviso_de = NULL WHERE usuario = ?`).run(numero);
   db.prepare(`DELETE FROM presencia_grupo WHERE usuario = ? AND ingreso IS NULL AND ultimo_mensaje IS NULL`).run(numero);
 }
@@ -1074,6 +1086,10 @@ export function registrarMensajeGrupo(chat, ids, cuando = Date.now(), sellar = i
 // number's previous owner's, as a warning goes under every id and the bot doesn't always see a number change hands
 // (seguirALaPersona).
 export const avisoSuyo = (fila, lids) => fila.usuario.endsWith("@lid") || !lids.length || fila.aviso_de === "";
+
+// Whether a warning under a LID came from a number, which it's marked with (pasarPresencia): it pays the "Volvió" of
+// whoever writes, but doesn't stand for .inactivos nor .k inactivos. Given under a LID, a warning has no aviso_de.
+export const avisoPasado = (fila) => fila.usuario.endsWith("@lid") && Boolean(fila.aviso_de);
 
 // The warning of .inactivos. Whoever has one standing isn't warned again (lib/inactivos.js), so what's here is a first
 // one, or one that no longer stands (from before the person last wrote, or before the bot came back into the group),

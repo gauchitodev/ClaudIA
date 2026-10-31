@@ -1028,11 +1028,11 @@ test("un aviso bajo un número es de la LID con la que salió: no paga el «Volv
   assert.deepEqual(await escribe(ANTES, Z), ["", 0]);
 });
 
-// A warning under a number isn't passed on with it (atarAlLid): one that went out with a LID is that LID's, and one
-// that went under the number alone was given when no LID was known, with no telling whose. The group listed C with the
-// number when it was given, while the database had A on it: B writing with the number took the warning under it to A,
-// and A was warned with C's warning, untagged, and removable.
-test("atarAlLid no le pasa a quien tenía el número los avisos que había bajo él", () => {
+// A warning under a number isn't passed on to whoever had it (pasarPresencia): one that went out with a LID is that
+// LID's, and one that went under the number alone was given when no LID was known, with no telling whose. The group
+// listed C with the number when it was given, while the database had A on it: B writing with the number took the
+// warning under it to A, and A was warned with C's warning, untagged, and removable.
+test("a quien tenía el número no se le pasan los avisos que había bajo él", () => {
   const [chat, otro] = ["inactivos-atar-aviso@g.us", "inactivos-atar-aviso-2@g.us"];
   const [N, A, B, C] = [unNumero(75), unaLid(75, 1), unaLid(75, 2), unaLid(75, 3)];
   for (const g of [chat, otro]) F.registrarMensajeGrupo(g, ["105@lid"], Date.now() - 20 * DIA);
@@ -1048,9 +1048,9 @@ test("atarAlLid no le pasa a quien tenía el número los avisos que había bajo 
   assert.equal(avisados(otro, A), 0, "ni el que fue solo al número");
 });
 
-// When a number changes hands, nothing .inactivos noted under it goes to whoever had it (atarAlLid). The next owner's
-// join, and a warning of theirs from before aviso_de, did: the one who had the number came off .inactivos for weeks,
-// and could be removed without having been tagged.
+// When a number changes hands, nothing .inactivos noted under it goes to whoever had it (pasarPresencia). The next
+// owner's join, and a warning of theirs from before aviso_de, did: the one who had the number came off .inactivos for
+// weeks, and could be removed without having been tagged.
 test("cuando un número cambia de dueño, lo anotado bajo él no le pasa al que lo tenía", () => {
   const chat = "inactivos-numero-pasado@g.us";
   const [A, B, X, Y] = [unaLid(76, 1), unaLid(76, 2), unNumero(76), unNumero(77)];
@@ -1072,8 +1072,8 @@ test("cuando un número cambia de dueño, lo anotado bajo él no le pasa al que 
 
 // In a group listed by number alone, the warning goes under the number the group gives, and not under the LID the
 // database has for it: that may be whoever had the number before, who got the "Volvió" and the prize for it when they
-// wrote. Whoever has the number now is spared when they write, and the warning under the number goes then, with the
-// rest of what's under it (atarAlLid): with no telling whose it was, they come back without the "Volvió" nor the prize.
+// wrote. Whoever has the number now is spared when they write: the warning under the number goes to them with the rest
+// of what's under it (pasarPresencia), and their first message with their LID is a "Volvió", with the prize.
 test("en un grupo que lista por número solo, el aviso no va a la LID que la base supone para el número", async () => {
   const chat = "inactivos-aviso-pn@g.us";
   const [VIEJO, NUEVO, X, Y] = [unaLid(78, 1), unaLid(78, 2), unNumero(78), unNumero(79)];
@@ -1092,7 +1092,7 @@ test("en un grupo que lista por número solo, el aviso no va a la LID que la bas
     await I.registrarPresencia(globalThis.client, msj);
     return [textoEnviado(), F.getSaldoCoins(chat, sender)];
   };
-  assert.deepEqual(await escribe(NUEVO, X), ["", 0], "NUEVO vuelve sin el «Volvió»: el aviso bajo el número se fue sin pasárselo a nadie");
+  assert.deepEqual(await escribe(NUEVO, X), [`🎉 Volvió @${NUEVO.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 10.`, 10], "NUEVO vuelve con su «Volvió»: el aviso bajo el número pasó a su LID");
   assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0, "NUEVO se salvó");
   assert.deepEqual(await escribe(VIEJO, Y), ["", 0], "VIEJO no cobra un aviso que no era suyo");
 });
@@ -1129,11 +1129,11 @@ test("un mensaje atrasado de quien tiene ahora un número no le levanta el aviso
   assert.deepEqual(listos(), [VIEJO], "VIEJO sigue avisado");
 });
 
-// Whoever changes their own number takes along what .inactivos noted under the old one (atarAlLid, suyo): in a group
-// that lists people by number alone, whose messages bring no LID, their last message, their join and their warning are
-// only there. Dropped, whoever had written three days before was tagged as never seen, whoever had just come in too,
-// and both came back from a warning without the "Volvió". The last message and the join stay under the old number as
-// well, and its warning doesn't; nor is a warning that went out with someone else's LID taken along.
+// Whoever changes their own number takes along what .inactivos noted under the old one (pasarPresencia, suyo): in a
+// group that lists people by number alone, whose messages bring no LID, their last message, their join and their
+// warning are only there. Dropped, whoever had written three days before was tagged as never seen, whoever had just
+// come in too, and both came back from a warning without the "Volvió". The last message and the join stay under the
+// old number as well, and its warning doesn't; nor is a warning that went out with someone else's LID taken along.
 test("quien cambia su propio número se lleva lo que .inactivos anotó bajo el viejo", async () => {
   const [A, X1, X2, OTRA] = [unaLid(84), unNumero(84), unNumero(85), unaLid(86)];
   const [escribio, entro, avisado] = ["inactivos-propio-1@g.us", "inactivos-propio-2@g.us", "inactivos-propio-3@g.us"];
@@ -1240,4 +1240,59 @@ test("la LID que la base supone para un número no es suya si el grupo la lista 
   visto.volvio = textoEnviado();
   visto.despues = listos();
   assert.deepEqual(visto, { antes: [Y], atrasado: [Y], volvio: "", despues: [Y] });
+});
+
+// When a number turns out to be someone else's now (seguirALaPersona: their first message with their LID), what
+// .inactivos noted under it goes to them (pasarPresencia), and not to nobody: in a group that lists people by number
+// alone, what they did there with the number was only under it. Dropped, whoever had written three days before was
+// tagged as never seen, and whoever the number tagged came back without their "Volvió". The warning passed on doesn't
+// stand for .k inactivos, though: there's no telling for sure that whoever the number tagged was them.
+test("a quien tiene ahora un número le pasa lo que .inactivos anotó bajo él, y su «Volvió»", async () => {
+  const [VIEJO, NUEVO, X] = [unaLid(91, 1), unaLid(91, 2), unNumero(91)];
+  const [escribio, avisado] = ["inactivos-numero-nuevo-1@g.us", "inactivos-numero-nuevo-2@g.us"];
+  const ahora = Date.now();
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  for (const g of [escribio, avisado]) F.registrarMensajeGrupo(g, ["105@lid"], ahora - 40 * DIA);
+  F.registrarMensajeGrupo(escribio, [X], ahora - 3 * DIA); // whoever has X wrote there, with it alone
+  F.marcarAvisoInactivo(avisado, [X], ahora - 4 * DIA); // and was tagged there by it
+  // NUEVO writes somewhere else with the LID and X: X is theirs now.
+  const msj = { chat: "inactivos-numero-nuevo-otro@g.us", sender: NUEVO, senderJid: X, pushName: "Nuevo", isGroup: true };
+  F.initDataDB(msj);
+  F.syncUserInfo(msj);
+  // Both groups list NUEVO by X alone.
+  const conX = (chat) => {
+    const participants = [{ id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+    miembros.set(chat, participants);
+    return participants;
+  };
+  const { listos, enPlazo } = I.paraSacar(avisado, conX(avisado), globalThis.client);
+  const visto = { escribio: I.inactivosDe(escribio, conX(escribio), globalThis.client).length, avisoParaSacar: listos.length + enPlazo.length };
+  // NUEVO writes where they were tagged, with X alone.
+  const vuelve = { chat: avisado, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true };
+  F.initDataDB(vuelve);
+  F.syncUserInfo(vuelve);
+  globalThis.enviados = [];
+  await I.registrarPresencia(globalThis.client, vuelve, conX(avisado));
+  visto.volvio = textoEnviado();
+  assert.deepEqual(visto, { escribio: 0, avisoParaSacar: 0, volvio: `🎉 Volvió @${X.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 10.` });
+});
+
+// A warning passed on from a number (pasarPresencia) doesn't stand for .inactivos nor .k inactivos: whoever the number
+// tagged may not be who it went to. A, who changed numbers, took the warning under their old one, which may have been
+// someone else's by then, and with it standing, A could be removed without having been tagged. A is tagged again.
+test("un aviso que pasó de un número no deja sacar a nadie: lo vuelven a etiquetar", async () => {
+  const [A, X1, X2] = [unaLid(92), unNumero(92), unNumero(93)];
+  const chat = "inactivos-aviso-pasado@g.us";
+  const ahora = Date.now();
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X1, "A", 1);
+  F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 40 * DIA);
+  F.marcarAvisoInactivo(chat, [X1], ahora - 4 * DIA); // tagged by X1
+  const msj = { chat: "inactivos-aviso-pasado-otro@g.us", sender: A, senderJid: X2, pushName: "A", isGroup: true };
+  F.initDataDB(msj);
+  F.syncUserInfo(msj); // A changes numbers, and takes the warning along
+  const participants = [{ id: X2, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+  miembros.set(chat, participants);
+  const { listos, enPlazo } = I.paraSacar(chat, participants, globalThis.client);
+  const visto = { paraSacar: listos.length + enPlazo.length, etiquetado: (await I.avisarInactivos(globalThis.client, m(chat, ""), participants)).mentions };
+  assert.deepEqual(visto, { paraSacar: 0, etiquetado: [X2] });
 });

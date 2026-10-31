@@ -805,6 +805,22 @@ test("al irse quien tiene ahora un número, el que lo tuvo antes no pierde su ro
   assert.equal(F.rolGrupo(C, VIEJO), "mod");
 });
 
+// "@<digits>" typed by hand of a number the bot knows nothing of, with WhatsApp not saying whose it is: those digits
+// were taken for a LID, "<digits>@lid", and the role went under it, nobody's. The group lists the number: the role goes
+// under it, and someone not in the group isn't given one.
+test(".moderador @<dígitos> de un número que el bot no conoce no le da el rol a una LID que no es de nadie", async (t) => {
+  const C = "roles-digitos-sueltos@g.us";
+  const [X, ADMIN] = [unNumero(439), unaLid(440)];
+  usyncFalso(t, {});
+  const grupo = [{ id: X, admin: null }, { id: ADMIN, admin: "admin" }, botEnGrupo().porNumero];
+  const correr = (texto) => P.roles.run(mensaje({ chat: C, sender: ADMIN, text: `.moderador ${texto}` }), { client: cliente(), command: "moderador", text: texto, args: texto.split(" "), usedPrefix: ".", participants: grupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  await correr(`@${digitos(X)}`);
+  globalThis.enviados = [];
+  await correr(`@${digitos(unNumero(441))}`); // someone who isn't in the group
+  const visto = { roles: F.rolesGrupo(C).map((r) => [r.usuario, r.rol]), afuera: globalThis.enviados.at(-1)?.msg.text };
+  assert.deepEqual(visto, { roles: [[X, "mod"]], afuera: "❌ Esa persona no está en el grupo." });
+});
+
 // And when the event brings the number alone, by the group: the LID the database has for the number is someone else's
 // when the group lists it with another number. The one who had it lost their role and their posts when the one who has
 // it now left, though they were still in the group. main.js hands over the copy of the group at hand.
@@ -1008,12 +1024,11 @@ test("las filas de dispositivo se juntan con la de su LID, o pasan a serlo, en l
   otra.close();
 });
 
-// What .inactivos noted under a number goes when the number changes hands, and to nobody: a join, a warning and a late
-// message go under every id the person comes with, so each one's is under their LID too. Left under the number, it was
-// the next owner's: in the same group their first message was a "Volvió", with the prize, for someone else's warning,
-// and silent they were warned already, so nobody tagged them and .k inactivos could remove them. Passed on to whoever
-// had the number, what was the next owner's (a join, a late message, a warning from before aviso_de) became theirs.
-test("lo que .inactivos anotó bajo un número se borra cuando el número cambia de dueño, sin pasárselo a nadie", async () => {
+// What .inactivos noted under a number that changes hands goes to whoever has it now (pasarPresencia), and not to
+// whoever had it: passed on to them, what was the next owner's (a join, a late message, a warning from before aviso_de)
+// became theirs. A warning from before aviso_de doesn't go to the next owner either: it went under every id, the one
+// before's too, and their first message was a "Volvió", with the prize, for someone else's warning.
+test("lo que .inactivos anotó bajo un número que cambia de dueño va a quien lo tiene ahora, no a quien lo tenía", async () => {
   const Inactivos = await import("../lib/inactivos.js");
   const DIA = 24 * 60 * 60 * 1000;
   const [C, C2] = ["presencia-reciclada@g.us", "presencia-reciclada-2@g.us"];
@@ -1045,6 +1060,7 @@ test("lo que .inactivos anotó bajo un número se borra cuando el número cambia
   assert.equal(F.getSaldoCoins(C, a.NUEVO), 0);
   assert.deepEqual([presencia(C, a.VIEJO), presencia(C2, a.VIEJO)], [[hace(40), hace(20), hace(6)], [hace(45), hace(25), hace(5)]]);
   assert.deepEqual([presencia(C, a.X), presencia(C2, a.X)], [null, null]);
+  assert.deepEqual([presencia(C, a.NUEVO)[0], presencia(C2, a.NUEVO)], [hace(30), [null, hace(10), null]], "la entrada y el mensaje, a NUEVO; el aviso de antes de aviso_de, a nadie");
 
   // The one who had it writes from another number first, and the number's next owner never writes.
   const b = numeroReciclado(186);
