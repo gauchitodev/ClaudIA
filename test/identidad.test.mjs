@@ -70,6 +70,7 @@ test("identidadesDe: por LID, por número con el grupo, y por número con la bas
   assert.deepEqual(sin(I.identidadesDe(X, porNumeroSinLid)), { jid: X, lid: VIEJO, participante: X, lidDeLaBase: true, desmentida: false });
   const conOtroNumero = [{ id: VIEJO, phoneNumber: unNumero(190), admin: null }];
   assert.deepEqual(sin(I.identidadesDe(X, conOtroNumero)), { jid: X, lid: null, participante: null, lidDeLaBase: false, desmentida: true }, "una suposición que el grupo desmiente no vale");
+  assert.equal(I.identidadesDe([X, NUEVO], [{ id: NUEVO, phoneNumber: unNumero(198) }]).jid, X, "el número dado, el que dijo WhatsApp, no lo cambia el grupo");
   assert.deepEqual(I.identidadesDe([], porLid), { jid: null, lid: null, participante: null, lidDeLaBase: false, desmentida: false });
 });
 
@@ -877,5 +878,114 @@ test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando 
   assert.equal(presencia(C, b.X), null, "lo del número se fue con VIEJO");
   const { listos, enPlazo } = Inactivos.paraSacar(C, b.porLid, cliente());
   assert.deepEqual([...listos, ...enPlazo], [], "NUEVO no figura avisado");
+});
+
+// ---------- the owners: their number, their protection, and asking WhatsApp ----------
+
+// A LID's number, for what needs it (.addowner writes it into config.toml, .bloquear blocks it), is the one the group
+// lists them with, who has it now: the one their row has stays until a message brings another. With a number that
+// moved on to someone else, ".addowner @persona" made that someone an owner, and ".bloquear @persona" blocked them.
+test(".addowner y .bloquear toman el número con que el grupo lista a la persona, no el viejo de su fila", async (t) => {
+  const [VIEJO, NUEVO, X, Y] = [unaLid(191, 1), unaLid(191, 2), unNumero(191), unNumero(192)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+  });
+  usyncFalso(t, { [X]: NUEVO, [Y]: VIEJO });
+  fs.writeFileSync("config.toml", 'owners = ["59899111222"]\n');
+  const grupo = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: NUEVO, phoneNumber: X, admin: null }];
+  const nombrado = { sender: unaLid(193), mentionedJid: [VIEJO] };
+  await P.addowner.run(mensaje(nombrado), { client: cliente(), text: `@${digitos(VIEJO)}`, usedPrefix: ".", command: "addowner", participants: grupo });
+  assert.deepEqual(globalThis.owners, ["59899111222", digitos(Y)]);
+  assert.deepEqual([I.esOwnerConfirmado(VIEJO), I.esOwnerConfirmado([NUEVO, X])], [true, false]);
+  const bloqueos = [];
+  cliente().updateBlockStatus = async (jid, accion) => bloqueos.push([jid, accion]);
+  t.after(() => delete cliente().updateBlockStatus);
+  await P.bloquear.run(mensaje(nombrado), { client: cliente(), text: `@${digitos(VIEJO)}`, command: "bloquear", participants: grupo });
+  assert.deepEqual(bloqueos, [[Y, "block"]]);
+});
+
+// Whoever has an owner's powers is left alone too: an owner whose row has no number, confirmed by WhatsApp, could be
+// muted, warned, removed or blacklisted by any admin, .inactivos protected whatever row had the number instead, and
+// an entry from before kept them out of every group they came into.
+test("al owner que WhatsApp confirma se lo deja en paz, aunque su fila no tenga el número", async (t) => {
+  const [OL, X] = [unaLid(194), unNumero(194)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, '', 'Owner', 1)").run(OL);
+  const antes = globalThis.owners;
+  globalThis.owners = [digitos(X)];
+  const expulsiones = [];
+  cliente().groupParticipantsUpdate = async (chat, ids, accion) => (expulsiones.push([ids[0], accion]), ids.map((jid) => ({ status: "200", jid })));
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+    delete cliente().groupParticipantsUpdate;
+  });
+  usyncFalso(t, { [X]: OL });
+  await I.confirmarOwners(cliente());
+  assert.deepEqual([I.esOwnerConfirmado(OL), I.esOwnerDe(OL), I.idsDeOwners().has(OL)], [true, true, true]);
+  const enElGrupo = [{ id: OL, admin: null }];
+  await P.silenciar.run(mensaje({ mentionedJid: [OL] }), { client: cliente(), text: `@${digitos(OL)}`, command: "mute", usedPrefix: ".", participants: enElGrupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  assert.notEqual(F.getUser(OL, G).inGroup[G]?.mute, true, ".mute no lo silencia");
+  F.addToBlacklist(OL, "de antes", "admin", G, OL);
+  const { expulsarDeListaNegra } = await import("../lib/lista-negra.js");
+  await expulsarDeListaNegra(cliente(), G, enElGrupo, enElGrupo);
+  assert.deepEqual(expulsiones, [], "al entrar no lo echa la lista negra");
+});
+
+// The owners' question waits longer than a command's, nobody being on the other end, and while an owner is left
+// without an answer it's asked again soon, each time twice as late: right after connecting WhatsApp may be slow, and
+// waiting for the next round left an owner whose messages bring only their LID without powers for hours.
+test("si WhatsApp tarda o falla al confirmar a los owners, se les vuelve a preguntar pronto", async (t) => {
+  const [OL, X] = [unaLid(195), unNumero(195)];
+  const antes = { owners: globalThis.owners, tope: I.OWNERS.TOPE_MS, reintento: I.OWNERS.REINTENTO_MS, consulta: I.IDENTIDAD.CONSULTA_MS };
+  globalThis.owners = [digitos(X)];
+  Object.assign(I.OWNERS, { TOPE_MS: 400, REINTENTO_MS: 20 });
+  I.IDENTIDAD.CONSULTA_MS = 20;
+  t.after(() => {
+    globalThis.owners = antes.owners;
+    Object.assign(I.OWNERS, { TOPE_MS: antes.tope, REINTENTO_MS: antes.reintento });
+    I.IDENTIDAD.CONSULTA_MS = antes.consulta;
+    I.ownersConfirmados.clear();
+    delete cliente().executeUSyncQuery;
+  });
+  const responde = (lid) => ({ list: [{ id: X, lid }] });
+  cliente().executeUSyncQuery = async () => (await esperar(60), responde(OL)); // later than a command waits
+  assert.equal(await I.lidSegunWhatsApp(cliente(), X), null, "un comando no la espera");
+  await I.confirmarOwners(cliente());
+  assert.ok(I.esOwnerConfirmado(OL), "la consulta de los owners sí");
+
+  I.ownersConfirmados.clear();
+  let preguntas = 0;
+  cliente().executeUSyncQuery = async () => {
+    if (++preguntas === 1) throw new Error("timed out");
+    return responde(OL);
+  };
+  await I.confirmarOwnersCadaTanto();
+  assert.ok(!I.esOwnerConfirmado(OL), "la primera falló");
+  await esperar(150);
+  assert.deepEqual([I.esOwnerConfirmado(OL), preguntas], [true, 2], "y al rato se le volvió a preguntar, una vez");
+});
+
+// A number removed from the owners and added again doesn't give the powers to the LID WhatsApp said had it before: an
+// answer that doesn't come keeps the last one there was, and by then the number may be someone else's.
+test(".removeowner olvida la LID que WhatsApp había confirmado para el número", async (t) => {
+  const [A, X] = [unaLid(196), unNumero(196)];
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+  });
+  fs.writeFileSync("config.toml", `owners = ["59899111222", "${digitos(X)}"]\n`);
+  globalThis.owners = ["59899111222", digitos(X)];
+  usyncFalso(t, { [X]: A });
+  await I.confirmarOwners(cliente());
+  assert.ok(I.esOwnerConfirmado(A));
+  const comoOwner = (command) => P.addowner.run(mensaje({ sender: unaLid(197) }), { client: cliente(), text: `+${digitos(X)}`, usedPrefix: ".", command, participants: [] });
+  await comoOwner("removeowner");
+  usyncFalso(t, {}); // WhatsApp says nothing of the number now
+  await comoOwner("addowner");
+  assert.deepEqual([I.esOwnerConfirmado(A), I.esOwnerConfirmado(X)], [false, true]);
 });
 
