@@ -841,11 +841,12 @@ test("las filas de dispositivo se juntan con la de su LID, o pasan a serlo, en l
   otra.close();
 });
 
-// What .inactivos noted under a number goes with whoever had it when the number changes hands, into their LID's row,
-// the latest of each: a join and a warning go under every id the person comes with. Left under the number, it was the
-// next owner's: in the same group their first message was a "Volvió", with the prize, for someone else's warning, and
-// silent they were warned already, so nobody tagged them and .k inactivos could remove them.
-test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando el número cambia de dueño", async () => {
+// What .inactivos noted under a number goes when the number changes hands, and to nobody: a join, a warning and a late
+// message go under every id the person comes with, so each one's is under their LID too. Left under the number, it was
+// the next owner's: in the same group their first message was a "Volvió", with the prize, for someone else's warning,
+// and silent they were warned already, so nobody tagged them and .k inactivos could remove them. Passed on to whoever
+// had the number, what was the next owner's (a join, a late message, a warning from before aviso_de) became theirs.
+test("lo que .inactivos anotó bajo un número se borra cuando el número cambia de dueño, sin pasárselo a nadie", async () => {
   const Inactivos = await import("../lib/inactivos.js");
   const DIA = 24 * 60 * 60 * 1000;
   const [C, C2] = ["presencia-reciclada@g.us", "presencia-reciclada-2@g.us"];
@@ -865,7 +866,7 @@ test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando 
   };
   db.prepare("INSERT INTO presencia_inicio (chat, desde) VALUES (?, ?)").run(C, hace(60)); // the bot keeps track there
 
-  // The number's next owner writes first. Under each id, in two groups: into VIEJO's row goes the latest of each.
+  // The number's next owner writes first. Under each id, in two groups: VIEJO's rows stay as they were.
   const a = numeroReciclado(185);
   anotado(C, a.VIEJO, 40, 20, 6);
   anotado(C, a.X, 30, null, 4);
@@ -875,14 +876,14 @@ test("lo que .inactivos anotó bajo un número se va con quien lo tenía cuando 
   await escribe(a.NUEVO, a.X);
   assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text), [], "ningún «Volvió» para NUEVO");
   assert.equal(F.getSaldoCoins(C, a.NUEVO), 0);
-  assert.deepEqual([presencia(C, a.VIEJO), presencia(C2, a.VIEJO)], [[hace(30), hace(20), hace(4)], [hace(45), hace(10), hace(5)]]);
+  assert.deepEqual([presencia(C, a.VIEJO), presencia(C2, a.VIEJO)], [[hace(40), hace(20), hace(6)], [hace(45), hace(25), hace(5)]]);
   assert.deepEqual([presencia(C, a.X), presencia(C2, a.X)], [null, null]);
 
   // The one who had it writes from another number first, and the number's next owner never writes.
   const b = numeroReciclado(186);
   F.marcarAvisoInactivo(C, [b.VIEJO, b.X], hace(4));
   await escribe(b.VIEJO, unNumero(187));
-  assert.equal(presencia(C, b.X), null, "lo del número se fue con VIEJO");
+  assert.equal(presencia(C, b.X), null, "lo del número se borró");
   const { listos, enPlazo } = Inactivos.paraSacar(C, b.porLid, cliente());
   assert.deepEqual([...listos, ...enPlazo], [], "NUEVO no figura avisado");
 });

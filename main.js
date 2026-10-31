@@ -4,7 +4,7 @@ import { rmSync, mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
-import { loadDatabase, registrarIngresoGrupo } from "./database-functions.js";
+import { loadDatabase } from "./database-functions.js";
 import { contarReaccion } from "./lib/reacciones.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
@@ -18,7 +18,7 @@ import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from ".
 import { recordarIngreso } from "./lib/contexto-chat.js";
 import { procesarTanda } from "./lib/tandas.js";
 import { idsDeParticipante, confirmarOwnersCadaTanto } from "./lib/identidad.js";
-import { reiniciarSiEsElBot } from "./lib/inactivos.js";
+import { reiniciarSiEsElBot, anotarIngresos } from "./lib/inactivos.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -172,9 +172,9 @@ async function startBot() {
       // The bot itself coming in or leaving: .inactivos starts counting the group over (lib/inactivos.js).
       if (action === "add" || action === "remove") reiniciarSiEsElBot(client, id, participants);
       // Whoever comes in: when, so .resumen only tells them what was said from then on. And in the database, so
-      // .inactivos gives them time even after a restart.
+      // .inactivos gives them time even after a restart (anotarIngresos, lib/inactivos.js).
       if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p));
-      if (action === "add") for (const p of participants || []) registrarIngresoGrupo(id, idsDeParticipante(p));
+      if (action === "add") anotarIngresos(id, participants);
 
       // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
       // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches
