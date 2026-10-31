@@ -2,13 +2,13 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
-import { owner, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
+import { owner, unaLid, unNumero, digitos, usyncFalso } from "./identidad-escenarios.mjs";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own, loading it was most of that
 // test's time, the more the slower the machine: 10.6 s against its 10 with the CPU at 12%.
 import "@whiskeysockets/baileys";
 
-let F, LN, B, P, Manejador;
+let F, LN, B, P, Manejador, Detect, Identidad;
 
 // What WhatsApp answers on removal: "200" is ok. Another can be forced to test the rejection path.
 let expulsiones = [];
@@ -23,6 +23,12 @@ before(async () => {
   B = await import("../lib/bienvenida.js");
   P = (await import("../plugins/grupo-lista-negra.js")).default;
   Manejador = (await import("../plugins/_manejador-lista-negra.js")).default;
+  Detect = (await import("../plugins/_detect-events.js")).default;
+  Identidad = await import("../lib/identidad.js");
+  // The list asks WhatsApp about an owner it would keep out by their number in a round of the owners' questions
+  // (estaEnListaNegra), and a round that leaves one without an answer asks again REINTENTO_MS later: an hour, past the
+  // end of the file. At 60 s it could come while the file still ran, and its question went to whatever test ran then.
+  Identidad.OWNERS.REINTENTO_MS = 60 * 60 * 1000;
 });
 
 // Put back before each test: the sweep's test swaps it for its own, and in another order a rejected removal came out
@@ -809,4 +815,109 @@ test("la lista negra deja en paz a los dueños como para sus poderes, al entrar 
   await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: globalThis.client, participants: conDueno, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
   visto.duenoAlEscribir = expulsiones.length;
   assert.deepEqual(visto, { ajenaAlEntrar: [o.AJENA], duenoAlEntrar: 0, duenoAlEscribir: 0 });
+});
+
+// An owner WhatsApp hasn't confirmed yet, whose event or message brings only their LID, and an entry under their
+// number, from whoever had it before: they came by the number their row has, and WhatsApp is asked who has it now.
+// Confirmed, they're left alone. With the number someone else's, they're kept out as whoever had it, and their LID
+// goes on the entry. With no answer, they're kept out all the same, as their powers wait for it, but their LID stays
+// off the entry: written on it, the owner was kept out by it wherever WhatsApp hadn't confirmed them yet. What
+// WhatsApp already said isn't asked again. Returns the questions.
+const conLaEntradaDeAntes = (t, o, mapa) => {
+  db.exec("DELETE FROM lista_negra");
+  F.addToBlacklist(o.X, "el que tenía el número antes", "100@lid", G);
+  Identidad.ownersConfirmados.delete(o.X);
+  expulsiones = [];
+  return usyncFalso(t, mapa);
+};
+
+test("al entrar, a un owner sin confirmar con una entrada bajo su número se lo pregunta a WhatsApp antes de sacarlo", async (t) => {
+  const o = owner(t, 840); // their row { LID, X }, and X on the owners
+  t.after(() => Identidad.ownersConfirmados.delete(o.X));
+  const conOwner = [...participants, { id: o.LID, admin: null }]; // listed by the LID alone
+  const OTRA = unaLid(840, 5);
+  const entrar = async (mapa, yaDijo = null) => {
+    const consultas = conLaEntradaDeAntes(t, o, mapa);
+    if (yaDijo) Identidad.ownersConfirmados.set(o.X, yaDijo);
+    await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: o.LID }], conOwner);
+    return [consultas.length, expulsiones.map((e) => e.ids[0]), F.isBlacklisted(o.X, G).lid];
+  };
+  const visto = {
+    confirmado: await entrar({ [o.X]: o.LID }),
+    deOtro: await entrar({ [o.X]: OTRA }),
+    sinRespuesta: await entrar({}),
+    yaConfirmado: await entrar({}, o.LID),
+    yaDeOtro: await entrar({}, OTRA),
+  };
+  assert.deepEqual(visto, {
+    confirmado: [1, [], null],
+    deOtro: [1, [o.LID], o.LID],
+    sinRespuesta: [1, [o.LID], null],
+    yaConfirmado: [0, [], null],
+    yaDeOtro: [0, [o.LID], o.LID],
+  });
+});
+
+test("al escribir, a un owner sin confirmar con una entrada bajo su número se lo pregunta a WhatsApp antes de sacarlo", async (t) => {
+  const o = owner(t, 841);
+  t.after(() => Identidad.ownersConfirmados.delete(o.X));
+  const conOwner = [...participants, { id: o.LID, admin: null }];
+  const escribir = async (mapa) => {
+    const consultas = conLaEntradaDeAntes(t, o, mapa);
+    const m = mensaje({ sender: o.LID, senderJid: "", messageStubType: null });
+    // As handle-message has it, from before WhatsApp answers.
+    const isOwner = Identidad.esOwnerConfirmado([m.senderJid, m.sender]);
+    await Manejador.before(m, { client: globalThis.client, participants: conOwner, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner });
+    return [consultas.length, expulsiones.map((e) => e.ids[0]), F.isBlacklisted(o.X, G).lid];
+  };
+  const visto = { confirmado: await escribir({ [o.X]: o.LID }), deOtro: await escribir({ [o.X]: unaLid(841, 5) }), sinRespuesta: await escribir({}) };
+  assert.deepEqual(visto, { confirmado: [1, [], null], deOtro: [1, [o.LID], o.LID], sinRespuesta: [1, [o.LID], null] });
+});
+
+// An owner the group lists with their number is left alone before the list is looked at, which writes the LID on the
+// entry: with the owner's on the entry of whoever had the number before, whose row still has it, the owner was kept
+// out wherever they came without the number, and the one listed got in.
+test("el owner que el grupo lista con su número no le deja su LID a la entrada de quien lo tuvo antes", async (t) => {
+  const [OL, Z, VIEJO] = [unaLid(842), unNumero(842), unaLid(842, 7)];
+  const antes = globalThis.owners;
+  globalThis.owners = [digitos(Z)];
+  t.after(() => (globalThis.owners = antes));
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, '', 'Dueño', 1)").run(OL);
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Viejo', 1)").run(VIEJO, Z);
+  F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);
+  const consultas = usyncFalso(t, {}); // WhatsApp doesn't answer
+  const conSuNumero = [...participants, { id: OL, phoneNumber: Z, admin: null }];
+  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: globalThis.client, participants: conSuNumero, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
+  const visto = { alEscribir: [consultas.length, expulsiones.length, F.isBlacklisted(Z, G).lid] };
+  // Later, still unconfirmed, the owner comes into a group that doesn't bring their number, and so does VIEJO.
+  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: OL }], [...participants, { id: OL, admin: null }]);
+  visto.ownerAlEntrar = expulsiones.length;
+  expulsiones = [];
+  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: VIEJO }], [...participants, { id: VIEJO, admin: null }]);
+  visto.viejoAlEntrar = expulsiones.map((e) => e.ids[0]);
+  assert.deepEqual(visto, { alEscribir: [0, 0, null], ownerAlEntrar: 0, viejoAlEntrar: [VIEJO] });
+});
+
+// A request to join (stub 172) is checked as a join: an owner's, with their number, was turned down by an entry under
+// it, from whoever had it before, and their LID written on it. One with only their LID is asked about as on joining.
+test("el pedido de entrada de un owner no lo rechaza una entrada bajo su número", async (t) => {
+  const o = owner(t, 843);
+  t.after(() => Identidad.ownersConfirmados.delete(o.X));
+  let pendientes = [];
+  const rechazos = [];
+  globalThis.client.groupRequestParticipantsList = async () => pendientes;
+  globalThis.client.groupRequestParticipantsUpdate = async (chat, ids, accion) => rechazos.push(...ids.map((id) => [id, accion]));
+  t.after(() => {
+    delete globalThis.client.groupRequestParticipantsList;
+    delete globalThis.client.groupRequestParticipantsUpdate;
+  });
+  const pedir = async (pedido, mapa) => {
+    const consultas = conLaEntradaDeAntes(t, o, mapa);
+    pendientes = [pedido];
+    rechazos.length = 0;
+    await Detect.before({ chat: G, isGroup: true, sender: "", messageStubType: 172, messageStubParameters: [] }, { client: globalThis.client, participants, isBotAdmin: true, chat: { detect: false } });
+    return [consultas.length, [...rechazos], F.isBlacklisted(o.X, G).lid];
+  };
+  const visto = { conSuNumero: await pedir({ jid: o.LID, phone_number: o.X }, {}), soloLaLid: await pedir({ jid: o.LID }, { [o.X]: o.LID }), sinRespuesta: await pedir({ jid: o.LID }, {}) };
+  assert.deepEqual(visto, { conSuNumero: [0, [], null], soloLaLid: [1, [], null], sinRespuesta: [1, [[o.LID, "reject"]], null] });
 });

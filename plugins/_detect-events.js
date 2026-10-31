@@ -20,10 +20,12 @@ plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {
       for (const participante of pendientes) {
         // The request carries the LID and, when WhatsApp sends it, the number: the blacklist is checked against both
         // and the rejection uses the id the request came listed under. It used to check the number only and, when that
-        // was missing, they slipped through (and a null was pushed onto the rejection list).
+        // was missing, they slipped through (and a null was pushed onto the rejection list). The bot's owners are let
+        // in, as when they join (estaEnListaNegra): an owner's request with their number was turned down by an entry
+        // under it, from whoever had it before, and their LID written on it.
         const ids = [participante.jid, participante.phone_number].filter(Boolean);
         if (ids.length === 0) continue;
-        if (!estaEnListaNegra(ids, m.chat)) continue;
+        if (!(await estaEnListaNegra(ids, m.chat, participants))) continue;
         usuariosRechazar.push(ids[0]);
       }
 
