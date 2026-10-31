@@ -1354,6 +1354,13 @@ export function quitarRolGrupo(chat, usuario) {
   return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND ${enIds(ids)}`).run(chat, ...ids).changes > 0;
 }
 
+// The role kept under exactly this id, and nothing under the person's other identity: for a role given by a number,
+// whose LID the database may have on someone else (lib/roles.js).
+export function borrarRolGrupo(chat, usuario) {
+  if (!usuario) return false;
+  return db.prepare(`DELETE FROM roles_grupo WHERE chat = ? AND usuario = ?`).run(chat, usuario).changes > 0;
+}
+
 // "admin", "mod" o null
 export function rolGrupo(chat, usuario) {
   if (!usuario) return null;

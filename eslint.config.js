@@ -32,6 +32,30 @@ const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 export const SOLO_IDENTIDAD = ["lidDeNumero", "jidDeLid", "idsDeOwners", "esOwner", "numerosDeOwners"];
 const PREGUNTALE_A_IDENTIDAD = "Who is who is lib/identidad.js's to ask the database (SOLO_IDENTIDAD, eslint.config.js): ask lib/identidad.js instead (lidDe, idsDe, esOwnerDe, idsDeOwners).";
 
+// What no-restricted-syntax looks for in the bot's code. A global off the list, and the ways around the import rule
+// below, which sees static imports only: database-functions.js through import() or require (createRequire, in an ES
+// module), with its name whole in the path as a string, a template or a sum; and a row's LID or number read off
+// getUser, which is lidDeNumero or jidDeLid by another name. lib/identidad.js does that last one. A path or a row kept
+// in a variable is out of the lint's sight.
+const GLOBAL_NO_LISTADO = {
+  selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
+  message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module; a global that has to be, goes on the list.",
+};
+const BASE_A_ESCONDIDAS = [
+  {
+    selector: "ImportExpression Literal[value=/(^|\\/)database-functions\\.js$/], ImportExpression TemplateElement[value.raw=/(^|\\/)database-functions\\.js$/]",
+    message: "database-functions.js goes in a static import: through import() the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
+  },
+  {
+    selector: "CallExpression > Literal.arguments[value=/(^|\\/)database-functions\\.js$/]",
+    message: "database-functions.js goes in a static import: through require the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
+  },
+];
+const IDENTIDAD_DE_UNA_FILA = {
+  selector: "MemberExpression[object.type='CallExpression'][object.callee.name='getUser'][property.name=/^(lid|jid)$/]",
+  message: `getUser(…).lid and .jid are lidDeNumero and jidDeLid by another name. ${PREGUNTALE_A_IDENTIDAD}`,
+};
+
 export default defineConfig([
   // Folders the bot generates while running (no source code in them).
   { ignores: ["database/", "tmp/", "botSession*/"] },
@@ -69,25 +93,14 @@ export default defineConfig([
     },
   },
 
-  // The bot's code keeps on globalThis only what EN_GLOBALTHIS lists; the tests set globals up and look into them
-  // freely.
+  // The bot's code keeps on globalThis only what EN_GLOBALTHIS lists, and doesn't go around the import rule below; the
+  // tests set globals up and look into the database freely. One list for each set of files: a second
+  // no-restricted-syntax for the same files would replace the first.
   {
-    ignores: ["test/**"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
-          message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module; a global that has to be, goes on the list.",
-        },
-        // Here and not in a block of its own: a second no-restricted-syntax for the same files would replace this one.
-        {
-          selector: "ImportExpression[source.value=/(^|\\/)database-functions\\.js$/]",
-          message: "database-functions.js goes in a static import: through import() the lint can't tell whether it asks who is who, which is lib/identidad.js's (SOLO_IDENTIDAD, eslint.config.js).",
-        },
-      ],
-    },
+    ignores: ["test/**", "lib/identidad.js"],
+    rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS, IDENTIDAD_DE_UNA_FILA] },
   },
+  { files: ["lib/identidad.js"], rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS] } },
 
   // Who is who goes to the database only from lib/identidad.js, whichever way the import is written: by name, the whole
   // module (import * as), or handed on (export … from).

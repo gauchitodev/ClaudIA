@@ -1,4 +1,5 @@
 import { advertidos, MAX_ADVERTENCIAS, getUser } from "../database-functions.js";
+import { identidadesDe } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
 const plugin = {};
@@ -16,7 +17,8 @@ plugin.run = async (m, { client }) => {
   const quien = (lid) => {
     const u = getUser(lid);
     if (m.isGroup || (u?.apodo || u?.pushName || "").trim()) return nombreDe(lid);
-    return u?.jid ? `+${u.jid.split("@")[0]}` : lid.split("@")[0];
+    const { jid } = identidadesDe(lid);
+    return jid ? `+${jid.split("@")[0]}` : lid.split("@")[0];
   };
   const lineas = lista.map((u) => `│ ${quien(u.lid)} *(${u.warn}/${MAX_ADVERTENCIAS})*${m.isGroup ? "" : ` · ${client.chats?.[u.chat]?.subject || u.chat}`}`);
 

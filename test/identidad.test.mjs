@@ -70,6 +70,7 @@ test("identidadesDe: por LID, por número con el grupo, y por número con la bas
   assert.deepEqual(sin(I.identidadesDe(X, porNumeroSinLid)), { jid: X, lid: VIEJO, participante: X, lidDeLaBase: true, desmentida: false });
   const conOtroNumero = [{ id: VIEJO, phoneNumber: unNumero(190), admin: null }];
   assert.deepEqual(sin(I.identidadesDe(X, conOtroNumero)), { jid: X, lid: null, participante: null, lidDeLaBase: false, desmentida: true }, "una suposición que el grupo desmiente no vale");
+  assert.equal(I.lidDe(X, conOtroNumero), X, "ni para lidDe");
   assert.equal(I.identidadesDe([X, NUEVO], [{ id: NUEVO, phoneNumber: unNumero(198) }]).jid, X, "el número dado, el que dijo WhatsApp, no lo cambia el grupo");
   assert.deepEqual(I.identidadesDe([], porLid), { jid: null, lid: null, participante: null, lidDeLaBase: false, desmentida: false });
 });
@@ -97,12 +98,12 @@ test("deQuienEs: nombrar al bot es preguntar por uno mismo, y un @ que no es men
   assert.equal(I.deQuienEs(cliente(), mensaje({ sender: A, text: "@Fulano" }), "@Fulano", []), null);
 });
 
-test("lidMencionadoActual le pregunta a WhatsApp solo si el grupo no empareja el número", async (t) => {
+test("destinatarioActual le pregunta a WhatsApp solo si el grupo no empareja el número", async (t) => {
   const { X, NUEVO, porNumero } = numeroReciclado(10);
   const consultas = usyncFalso(t, { [X]: NUEVO });
-  assert.equal(await I.lidMencionadoActual(cliente(), mensaje({ mentionedJid: [X] }), "", porNumero), NUEVO);
+  assert.equal((await I.destinatarioActual(cliente(), mensaje({ mentionedJid: [X] }), "", porNumero)).lid, NUEVO);
   assert.equal(consultas.length, 0, "el grupo ya lo dice");
-  assert.equal(await I.lidMencionadoActual(cliente(), mensaje({ mentionedJid: [X] }), "", []), NUEVO, "y la base decía VIEJO");
+  assert.equal((await I.destinatarioActual(cliente(), mensaje({ mentionedJid: [X] }), "", [])).lid, NUEVO, "y la base decía VIEJO");
   assert.equal(consultas.length, 1);
 });
 
@@ -555,9 +556,10 @@ test("el santo de .gay2 es quien el grupo lista con el número del segundo owner
 
 // ---------- the boundary: only lib/identidad.js asks the database who is who ----------
 
-// Whichever way the import is written: by name, the whole module, handed on, or through import(), which the lint can't
-// read and so is stopped whole. lib/identidad.js asks; the tests look into the database freely; and the rest of the
-// database is open to everyone.
+// Whichever way the import is written: by name, the whole module, handed on, or through import() or require, with the
+// file's name in the path as a string, a template or a sum; and a row's LID or number read off getUser, which is
+// lidDeNumero or jidDeLid by another name. A path or a row kept in a variable is out of the lint's sight.
+// lib/identidad.js asks; the tests look into the database freely; and the rest of the database is open to everyone.
 test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el lint", async () => {
   const eslint = new ESLint({ cwd: fileURLToPath(new URL("..", import.meta.url)) });
   const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
@@ -568,12 +570,17 @@ test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el li
     ['export { jidDeLid } from "../database-functions.js";\n', "no-restricted-imports"],
     ['export * from "./database-functions.js";\n', "no-restricted-imports"],
     ['export const base = () => import("../database-functions.js");\n', "no-restricted-syntax"],
+    ["export const base = () => import(`../database-functions.js`);\n", "no-restricted-syntax"],
+    ["export const base = (dir) => import(`${dir}/database-functions.js`);\n", "no-restricted-syntax"],
+    ['import { createRequire } from "node:module";\nexport const F = createRequire(import.meta.url)("../database-functions.js");\n', "no-restricted-syntax"],
+    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "no-restricted-syntax"],
   ];
   for (const [codigo, regla] of pedidos) {
     for (const archivo of ["plugins/x.js", "lib/x.js", "x.js"]) assert.deepEqual(await reglas(codigo, archivo), [regla], `${archivo}: ${codigo.split("\n")[0]}`);
     assert.deepEqual(await reglas(codigo, "test/x.test.mjs"), [], `en un test: ${codigo.split("\n")[0]}`);
   }
   assert.deepEqual(await reglas('import { lidDeNumero, jidDeLid } from "../database-functions.js";\nlidDeNumero(jidDeLid("x"));\n', "lib/identidad.js"), []);
+  assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "lib/identidad.js"), []);
   assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\ngetUser("x");\n', "plugins/x.js"), [], "lo demás de la base, sí");
 });
 
@@ -987,5 +994,64 @@ test(".removeowner olvida la LID que WhatsApp había confirmado para el número"
   usyncFalso(t, {}); // WhatsApp says nothing of the number now
   await comoOwner("addowner");
   assert.deepEqual([I.esOwnerConfirmado(A), I.esOwnerConfirmado(X)], [false, true]);
+});
+
+// ---------- what the bot keeps under a number ----------
+
+// Someone the bot knows by their number alone (a group listed by number, whose messages bring no LID) has their row and
+// their role under the number. Once WhatsApp says which LID has it, that LID has nothing: .adv and .mute had no record
+// of them, .moderador said they weren't in the group and couldn't take away a role given by the number, and a moderator
+// could remove another one whose role was under the number.
+test("a quien el bot conoce solo por su número lo encuentran los comandos aunque WhatsApp diga su LID", async (t) => {
+  const C = "solo-por-numero@g.us";
+  const [X, L, MOD, ADMIN] = [unNumero(200), unaLid(200), unNumero(201), unaLid(202)];
+  for (const n of [X, MOD]) F.initDataDB({ chat: C, sender: n, senderJid: n, pushName: "Por número" });
+  F.setRolGrupo(C, X, "mod", ADMIN);
+  F.setRolGrupo(C, MOD, "mod", ADMIN);
+  usyncFalso(t, { [X]: L });
+  const expulsiones = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (expulsiones.push(ids[0]), ids.map((jid) => ({ status: "200", jid })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const grupo = [{ id: X, admin: null }, { id: MOD, admin: null }, botEnGrupo().porNumeroSinLid];
+  const Warn = (await import("../plugins/grupo-advertir.js")).default;
+  const correr = (P, command, texto, { sender = ADMIN, esAdmin = true } = {}) =>
+    P.run(mensaje({ chat: C, sender, mentionedJid: [X] }), { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo }, isOwner: false, isWaAdmin: esAdmin, isAdmin: esAdmin });
+  const arrobaX = `@${digitos(X)}`;
+  await correr(Warn, "advertir", `${arrobaX} spam`);
+  assert.equal(F.advertenciasDe(X, C), 1, ".adv");
+  await correr(P.silenciar, "mute", arrobaX);
+  assert.equal(F.getUser(X, C).inGroup[C].mute, true, ".mute");
+  await correr(P.kick, "kick", arrobaX, { sender: MOD, esAdmin: false });
+  assert.deepEqual(expulsiones, [], "un moderador no saca a otro");
+  await correr(P.roles, "moderador", `quitar ${arrobaX}`);
+  assert.equal(F.rolGrupo(C, X), null, ".moderador quitar");
+  F.setRolGrupo(C, X, "mod", ADMIN);
+  await correr(P.roles, "adminbot", arrobaX);
+  assert.deepEqual([F.rolGrupo(C, L), F.rolGrupo(C, X)], ["admin", null], ".adminbot, bajo la LID que dijo WhatsApp, y el rol por número se va");
+  const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
+  await Rd.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X] }), { client: cliente(), text: arrobaX, command: "rd", usedPrefix: ".", participants: grupo });
+  assert.equal(db.prepare("SELECT 1 FROM users WHERE lid = ?").get(X), undefined, ".rd borra la fila guardada bajo el número");
+
+  // The role under exactly the number, and not the one of the LID the database has for it: that's whoever had the
+  // number before, once it moved on.
+  const r = numeroReciclado(206);
+  F.setRolGrupo(C, r.VIEJO, "mod", ADMIN);
+  assert.equal(R.rango(C, { lid: r.NUEVO, jid: r.X }), 0);
+});
+
+// A quoted message's author, which a group that lists people by number brings by number, is whoever the group lists
+// with it, as a mention by number is: the row that still had the number was whoever's had it before, and ".regalar"
+// answering their message paid them.
+test("el autor de un mensaje citado por número es quien el grupo lista con ese número", async (t) => {
+  const { X, VIEJO, NUEVO, porNumero, porNumeroSinLid } = numeroReciclado(204);
+  const A = unaLid(205);
+  fijarSaldo(F, G, A, 100);
+  await P.regalar.run(mensaje({ sender: A, quoted: { sender: X } }), { client: cliente(), text: "20", args: ["20"], participants: porNumero });
+  assert.deepEqual([F.getSaldoCoins(G, NUEVO), F.getSaldoCoins(G, VIEJO)], [20, 0]);
+  assert.deepEqual(I.lidsMencionados(mensaje({ quoted: { sender: X } }), "", porNumero), [NUEVO], "y lidsMencionados igual");
+  // A command that does something to the person asks WhatsApp who has the number, if the group doesn't pair it.
+  usyncFalso(t, { [X]: NUEVO });
+  await P.silenciar.run(mensaje({ sender: A, quoted: { sender: X } }), { client: cliente(), text: "", command: "mute", usedPrefix: ".", participants: porNumeroSinLid, isOwner: false, isWaAdmin: true, isAdmin: true });
+  assert.deepEqual([NUEVO, VIEJO].map((id) => Boolean(F.getUser(id, G).inGroup[G]?.mute)), [true, false]);
 });
 

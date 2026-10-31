@@ -10,7 +10,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const { quien, lid, jid, mencionado } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  const aBorrar = lid || quien;
+  // The row they have: the LID's, or the one kept under the number for someone the bot knew by it alone.
+  const aBorrar = quien || lid;
   if (!aBorrar) return client.sendText(m.chat, "No tengo registro de esa persona.", m);
 
   // leave the bot's owners alone, unless they're resetting themselves

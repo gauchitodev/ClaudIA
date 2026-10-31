@@ -7,7 +7,7 @@ import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
 import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
-import { buscarEnGrupo, esOwnerConfirmado } from "./lib/identidad.js";
+import { buscarEnGrupo, identidadesDe, esOwnerConfirmado } from "./lib/identidad.js";
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 
 // Keeps the last time each group was greeted
@@ -83,7 +83,7 @@ export async function handleMessage(nMsg) {
     const participants = (m.isGroup ? groupMetadata.participants : []) || [];
     // Whoever wrote, and the bot, by either identity (lib/identidad.js): a group that lists people by number names them
     // by it, and the message may bring their LID.
-    const userSender = (m.isGroup ? buscarEnGrupo(participants, { lid: m.sender, jid: m.senderJid || user?.jid }) : {}) || {};
+    const userSender = (m.isGroup ? identidadesDe([m.sender, m.senderJid], participants).participante : {}) || {};
     const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: client.user.lid, jid: client.user.jid }) : {}) || {};
     // By the number the message brings, or by the LID WhatsApp says has an owner's number (lib/identidad.js), so the
     // owner is recognized when the message only carries their LID, and nobody else is for having the number on a row.
