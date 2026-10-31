@@ -2,6 +2,10 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
+// Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
+// asks WhatsApp, and inside the first test that asks, under a time limit of its own, loading it was most of that
+// test's time, the more the slower the machine: 10.6 s against its 10 with the CPU at 12%.
+import "@whiskeysockets/baileys";
 
 let F, LN, B, P, Manejador;
 
@@ -678,7 +682,8 @@ test("por privado, .ln2 saca la entrada como la muestra .vln", async () => {
 // it may be whoever had the number before: they were removed, and an entry kept without a LID went to them as soon as
 // the number's owner now wrote (seguirALaPersona). WhatsApp is asked who has it (USync's LID query), only when the
 // group doesn't say, and that one is listed, removed and kept on the entry. With no answer in time it goes on as
-// before.
+// before. With its own time limit: if the code stopped putting one on the question WhatsApp doesn't answer, this would
+// wait for it, and hang until npm test's 120 s instead of failing.
 test(".ln por número le pregunta a WhatsApp quién lo tiene, si el grupo no lo dice", { timeout: 10_000 }, async (t) => {
   const I = await import("../lib/identidad.js");
   const [VIEJO, NUEVO, X] = ["300000000000961@lid", "300000000000962@lid", "59899000961@s.whatsapp.net"];

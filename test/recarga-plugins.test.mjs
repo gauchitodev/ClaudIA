@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { prepararBase } from "./helpers.mjs";
 
 // watchPlugins (load-functions.js) loads a plugin again when its file changes, without restarting the bot. It used to
@@ -48,9 +49,9 @@ test("recarga: un plugin que no carga deja andando la versión que andaba", asyn
   }
 });
 
-// A game in play is in its lib/ module (a challenge in lib/duelos.js, say), not on globalThis: a reloaded plugin is a
-// new module, and the lib/ module it imports is the one there was, with what it had. Otherwise, saving a game's plugin
-// would drop every game of it in play.
+// What a plugin keeps in a lib/ module (a challenge in lib/duelos.js, say) outlives the plugin being reloaded: a
+// reloaded plugin is a new module, and the lib/ module it imports is the one there was, with what it had. Kept in the
+// plugin's own module instead, saving the plugin drops it: every game of it in play, say.
 test("recarga: el plugin recargado ve el estado de lib/ que había, con lo que tenía adentro", async () => {
   const D = await import("../lib/duelos.js");
   const archivo = path.join(carpeta, "pendientes.js");
@@ -70,6 +71,32 @@ test("recarga: el plugin recargado ve el estado de lib/ que había, con lo que t
     D.duelos.delete("recarga@g.us|b@lid");
     fs.rmSync(archivo, { force: true });
     await L.recargarPlugin("pendientes.js", "rename", carpeta);
+  }
+});
+
+// Or on globalThis, as .antiubicacion's notice keeps who was told when, one notice every so often for each person: in a
+// variable of the plugin, saving its file started it over, and the next share brought the notice again. The real
+// plugin, loaded as watchPlugins loads it.
+test("recarga: el aviso de la ubicación en tiempo real no se repite por recargar el plugin", async () => {
+  const plugins = `${path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugins")}/`;
+  const avisos = [];
+  const client = { sendText: async (chat, texto) => (avisos.push(texto), {}) };
+  const opciones = { client, isOwner: false, isMod: false, isBotAdmin: true, user: {}, chat: { antiLiveLocation: true, antiDelete: false } };
+  const compartir = () => globalThis.plugins["_chatbot-events"].before({ isGroup: true, mtype: "liveLocationMessage", chat: "recarga@g.us", sender: "300000000000005@lid", delete: async () => {} }, opciones);
+  const logReal = console.log;
+  console.log = () => {};
+  try {
+    await L.recargarPlugin("_chatbot-events.js", "rename", plugins);
+    const antes = globalThis.plugins["_chatbot-events"];
+    await compartir();
+    await L.recargarPlugin("_chatbot-events.js", "change", plugins); // the file was saved
+    assert.notEqual(globalThis.plugins["_chatbot-events"], antes, "es el plugin vuelto a cargar");
+    await compartir();
+    assert.equal(avisos.length, 1);
+  } finally {
+    console.log = logReal;
+    delete globalThis.plugins["_chatbot-events"];
+    globalThis.avisoUbicacionCooldown?.clear();
   }
 });
 

@@ -2,6 +2,9 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
 import strings from "../lib/strings.js";
+// Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
+// asks WhatsApp, and that fell inside the first test that asks, under a time limit of its own.
+import "@whiskeysockets/baileys";
 
 let F, Kick, Silenciar, Ban, Llamar;
 let expulsiones = [];
@@ -50,26 +53,24 @@ const m = (text, { mentionedJid = [], quoted = null } = {}) => ({
 });
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
 // Like the dispatcher, it says who runs the command: here, 100, the group's creator. The rank matters since
-// moderation only goes from strictly above (lib/roles.js).
+// moderation only goes from strictly above (lib/roles.js). Done when it returns, .kick's pauses and the removal
+// included: there's nothing to wait for after it.
 const correr = (P, text, command, opciones = {}) =>
   P.run(m(text, opciones), { client: globalThis.client, text, command, usedPrefix: ".", participants, groupMetadata, isOwner: false, isWaAdmin: true, ...opciones.rango });
 
 test(".kick expulsa con el id del grupo y avisa si WhatsApp no deja", async () => {
   await correr(Kick, "@111", "kick", { mentionedJid: ["111@lid"] });
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
 
   expulsiones = [];
   statusExpulsion = "403";
   await correr(Kick, "@111", "kick", { mentionedJid: ["111@lid"] });
-  await esperar(1400);
   assert.match(ultimo(), /No pude sacarlo \(error 403\)/);
 });
 
 test(".kick por número resuelve a la persona, no a un LID inventado", async () => {
   // It used to build "<digits>@lid" from what was typed: writing the phone number gave a LID that doesn't exist.
   await correr(Kick, "@5989911111", "kick");
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }], "lo encuentra por el número del grupo");
 });
 
@@ -80,7 +81,6 @@ test(".kick saca a quien se mencionó aunque su fila tenga un número que ya es 
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X, "A", 1);
   const grupo = [{ id: OTRO, admin: null, phoneNumber: X }, { id: A, admin: null, phoneNumber: "59899000809@s.whatsapp.net" }, participants.at(-1)];
   await correr(Kick, "@300000000000801", "kick", { mentionedJid: [A], rango: { participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo } } });
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: [A], accion: "remove" }]);
 
   // And the other way around: in a group that lists people by number the mention comes by number, which the database
@@ -88,7 +88,6 @@ test(".kick saca a quien se mencionó aunque su fila tenga un número que ya es 
   expulsiones = [];
   const porNumero = [{ id: "59899000809@s.whatsapp.net", lid: A, admin: null }, { id: X, lid: OTRO, admin: null }, { id: "59899000999@s.whatsapp.net", lid: "999@lid", admin: "admin" }];
   await correr(Kick, "@59899000801", "kick", { mentionedJid: [X], rango: { participants: porNumero, groupMetadata: { owner: "100@lid", participants: porNumero } } });
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: [X], accion: "remove" }]);
 });
 
@@ -96,7 +95,8 @@ test(".kick saca a quien se mencionó aunque su fila tenga un número que ya es 
 // before: every command that does something to a person acted on them, and ".rd" deleted their data. WhatsApp is asked
 // who has the number (lib/identidad.js, destinatarioActual), and that one is acted on; the group's own pairing, a
 // mention by LID, a quoted message or the digits of a LID the bot knows need no question. Without an answer in time,
-// the guess of before.
+// the guess of before. With its own time limit: if the code stopped putting one on the question WhatsApp doesn't
+// answer, this would wait for it, and hang until npm test's 120 s instead of failing.
 test("los comandos que le hacen algo a alguien nombrado por un número le preguntan a WhatsApp quién lo tiene", { timeout: 30_000 }, async (t) => {
   const I = await import("../lib/identidad.js");
   const [VIEJO, NUEVO, X] = ["300000000000881@lid", "300000000000882@lid", "59899000881@s.whatsapp.net"];
@@ -125,12 +125,10 @@ test("los comandos que le hacen algo a alguien nombrado por un número le pregun
 
   filas();
   await correrA(Kick, "kick", "+59899000881");
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick");
   // Typed with an "@", the group's creator being who had the number: it's not them who is removed, nor who's spared.
   expulsiones = [];
   await Kick.run(m("@59899000881"), { client: globalThis.client, text: "@59899000881", command: "kick", usedPrefix: ".", participants: grupo, groupMetadata: { owner: VIEJO, participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
-  await esperar(1400);
   assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick @número, con el creador del grupo como dueño anterior");
   for (const [P, command, cambio] of [[Promote, "promote", "promote"], [Demote, "demote", "demote"]]) {
     await correrA(P, command, "+59899000881");
@@ -641,9 +639,8 @@ test("por número y sin respuesta de WhatsApp, no se toca a quien la base recuer
   const grupo = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: "999@lid", admin: "admin" }];
   const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
   const correrA = (P, command, text) => P.run(m(text), { client: globalThis.client, text, args: text.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
-  // What .kick removes by (it waits over a second before removing, and this file runs close to Node 22's cap on it).
-  const { participante, lid, quien } = await I.destinatarioActual(globalThis.client, m("+59899000891"), "+59899000891", grupo);
-  assert.deepEqual([participante, lid, quien], [null, null, null], ".kick no saca a VIEJO");
+  await correrA(Kick, "kick", "+59899000891");
+  assert.ok(!expulsiones.some((e) => e.ids.includes(VIEJO)), ".kick no saca a VIEJO");
   await correrA(Silenciar, "mute", "+59899000891");
   assert.notEqual(F.getUser(VIEJO, G).inGroup[G]?.mute, true, ".mute no lo silencia");
   await correrA(Rd, "rd", "+59899000891");

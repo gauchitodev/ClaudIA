@@ -107,10 +107,12 @@ test("destinatarioActual le pregunta a WhatsApp solo si el grupo no empareja el 
   assert.equal(consultas.length, 1);
 });
 
+// Two rows with a LID: the owner's, and someone else's that still has the number (filaAjena). For being left alone,
+// one too many is no harm.
 test("idsDeOwners: el número de cada owner y las LID de todas sus filas", (t) => {
-  const o = owner(t, 11);
+  const o = owner(t, 11, { filaAjena: true });
   db.prepare(`INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, '', 1)`).run(o.X, o.X); // the one from before LIDs
-  assert.deepEqual([...F.idsDeOwners()].sort(), [o.X, o.LID].sort());
+  assert.deepEqual([...F.idsDeOwners()].sort(), [o.X, o.LID, o.AJENA].sort());
 });
 
 test("esOwner: con el owner escrito en config.toml con + y espacios", (t) => {
@@ -303,10 +305,16 @@ test("a quién nombra un mensaje es solo de lib/identidad.js", () => {
 
 // One way only: lib/menciones.js and the rest import lib/identidad.js, which imports nothing of the bot's but the
 // database. When it imported lib/menciones.js, whatever both needed had to live there, where it didn't belong.
+// Whichever way the import is written: with names or without, as a re-export, through import() or require, with either
+// quote or a template. Read as `from "…"` and `import("…")` only, `import "./menciones.js"` got past, and so did
+// `from './urucoins.js'`.
 test("lib/identidad.js no importa nada del bot más que la base", () => {
+  const modulos = (fuente) => [...fuente.matchAll(/\b(?:from|import|require)\s*\(?\s*(["'`])([^"'`]+)\1/g)].map((r) => r[2]);
+  const formas = ['import "./a.js";', "import { b } from './b.js';", 'export * from "./c.js";', "await import(`./d.js`);", "require('./e.js');", "import.meta.url;"];
+  assert.deepEqual(modulos(formas.join("\n")), ["./a.js", "./b.js", "./c.js", "./d.js", "./e.js"]);
   const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
-  const deDonde = [...fuente.matchAll(/\bfrom\s+"([^"]+)"|\bimport\s*\(\s*"([^"]+)"/g)].map(([, a, b]) => a || b);
-  assert.deepEqual([...new Set(deDonde.filter((de) => de.startsWith(".")))], ["../database-functions.js"]);
+  const codigo = fuente.split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
+  assert.deepEqual([...new Set(modulos(codigo).filter((de) => de.startsWith(".")))], ["../database-functions.js"]);
 });
 
 // ---------- whom a command names: who has the number now, and no number made up ----------
@@ -445,8 +453,10 @@ test(".llamar @número arroba a quien tiene ahora el número", async () => {
 
 // The commands that name someone with lidMencionado, and .parentesco with lidsMencionados: in a group that lists people
 // by LID, with the number typed by hand, and in one that lists them by number, where the mention comes by number.
-// Whoever the group lists with the number now, never whoever the database still has it on, and tagged by LID. Each one
-// runs with a sender of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
+// Whoever the group lists with the number now, never whoever the database still has it on, and tagged by LID: the
+// "@" and its digits in the text, which client.sendText turns into the mention (parseMention, lib/wa-socket.js). The
+// three of POR_SU_NOMBRE name them by their name instead. Each one runs with a sender of its own, so what one leaves
+// behind (a request, a duel) doesn't reach the next.
 const COMANDOS_QUE_NOMBRAN = [
   // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
   ["fun-besar", "besar"],
@@ -466,7 +476,8 @@ const COMANDOS_QUE_NOMBRAN = [
   ["rango", "rango"],
   ["familia-parentesco", "parentesco"],
 ];
-test("los comandos que nombran a alguien van a quien tiene el número ahora, y lo arroban por su LID", async (t) => {
+const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco"];
+test("los comandos que nombran a alguien van a quien tiene el número ahora, y lo arroban por su LID, o lo nombran", async (t) => {
   const Par = await import("../lib/parejas.js");
   const D = await import("../lib/duelos.js");
   t.after(() => {
@@ -499,9 +510,11 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       const plugin = (await import(`../plugins/${archivo}.js`)).default;
       await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: escenario[forma], chat: {}, ...extra });
       const enviados = globalThis.enviados.map((e) => e.msg).filter((msg) => msg?.text);
-      const nombra = (id, nombre) => enviados.some((msg) => msg.text.includes(`@${digitos(id)}`) || msg.text.includes(nombre) || msg.mentions?.includes(id));
+      const arroba = (id) => enviados.some((msg) => msg.text.includes(`@${digitos(id)}`));
+      const nombra = (nombre) => enviados.some((msg) => msg.text.includes(nombre));
       const caso = `${forma}, .${command}: ${enviados.map((msg) => msg.text).join(" | ")}`;
-      assert.ok(nombra(NUEVO, deNUEVO) && !nombra(VIEJO, deVIEJO), caso);
+      assert.ok(POR_SU_NOMBRE.includes(command) ? nombra(deNUEVO) : arroba(NUEVO), caso);
+      assert.ok(!arroba(VIEJO) && !nombra(deVIEJO) && !enviados.some((msg) => msg.mentions?.includes(VIEJO)), `nombró a VIEJO: ${caso}`);
       assert.ok(!enviados.some((msg) => msg.mentions?.includes(X) || msg.text.includes(`@${digitos(X)}`)), `arrobó por el número: ${caso}`);
     }
     n++;
