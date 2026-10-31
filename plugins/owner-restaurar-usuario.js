@@ -16,7 +16,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   // leave the bot's owners alone, unless they're resetting themselves
   if (esOwnerDe([mencionado, aBorrar, jid]) && m.sender !== aBorrar) return m.react("❌");
 
-  deleteUser(aBorrar);
+  // Nothing to reset when the LID WhatsApp gives for a number has no row: it said "Se reinició" all the same.
+  if (!deleteUser(aBorrar).changes) return client.sendText(m.chat, "No tengo registro de esa persona.", m);
   client.sendText(m.chat, txt.rdSuccess(aBorrar), m);
 };
 

@@ -727,3 +727,55 @@ test(".ln por número le pregunta a WhatsApp quién lo tiene, si el grupo no lo 
   assert.equal(await I.lidSegunWhatsApp({ executeUSyncQuery: async () => ({ list: [{ id: X, lid: X }] }) }, X), null, "un número no es una LID");
   assert.equal(await I.lidSegunWhatsApp({}, X), null, "sin cómo preguntar");
 });
+
+// "@<digits>" typed by hand right after .ln, not picked from WhatsApp's list, is who goes on the list, as with the
+// other commands: replying to a message, it fell to the quoted one's author, and ".ln @59899… estafa" answering
+// whoever warned about the scammer listed and removed them. .ln2 took the quoted one off the list the same way.
+test(".ln @<número tipeado> respondiendo a alguien anota a ese número, no a quien escribió el mensaje", async () => {
+  F.initDataDB({ chat: G, sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", pushName: "A" });
+  await correr("ln", "@59899777777 estafa", { quoted: { sender: "111@lid" } });
+  assert.deepEqual([F.getBlacklist(G).map((e) => [e.jid, e.reason]), expulsiones], [[["59899777777@s.whatsapp.net", "estafa"]], []]);
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "@222 spam", { quoted: { sender: "111@lid" } }); // the digits of a LID the group lists
+  assert.deepEqual([F.getBlacklist(G).map((e) => e.jid), expulsiones.map((e) => e.ids)], [["222@lid"], [["222@lid"]]]);
+  F.addToBlacklist("59899111111@s.whatsapp.net", "otra cosa", "admin", G, "111@lid");
+  await correr("ln2", "@222", { quoted: { sender: "111@lid" } });
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.jid), ["59899111111@s.whatsapp.net"]);
+});
+
+// A mention or a quoted message that comes by number, as a group that lists people by number brings them, is asked
+// about as a typed number is: kept without a LID, the entry went to whoever had the number before as soon as its owner
+// now wrote anywhere (seguirALaPersona), and they were the one removed when they came to write.
+test(".ln con una mención o un mensaje citado por número le pregunta a WhatsApp quién lo tiene", async (t) => {
+  const [VIEJO, NUEVO, X] = ["300000000000971@lid", "300000000000972@lid", "59899000971@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: NUEVO }] });
+  t.after(() => delete globalThis.client.executeUSyncQuery);
+  const porNumero = [participants[0], { id: X, admin: null }, participants.at(-1)];
+  await correr("ln", "@59899000971 spam", { mentionedJid: [X] }, { participants: porNumero });
+  assert.deepEqual([F.getBlacklist(G).map((e) => [e.jid, e.lid]), expulsiones.map((e) => e.ids)], [[[X, NUEVO]], [[X]]]);
+  const escribe = { chat: "otro@g.us", isGroup: true, sender: NUEVO, senderJid: X, pushName: "Nuevo" };
+  F.initDataDB(escribe);
+  F.syncUserInfo(escribe);
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, NUEVO]], "no pasa a VIEJO cuando NUEVO escribe");
+  db.exec("DELETE FROM lista_negra");
+  await correr("ln", "spam", { quoted: { sender: X } }, { participants: porNumero });
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, NUEVO]], "citado por número");
+});
+
+// With WhatsApp not saying who has a number, .ln doesn't list it where the group lists the database's guess with
+// another number: the person moved on to it. Listed and removed, or kept by the number alone, the entry went to them
+// as soon as the number's owner wrote. From private the sweep leaves them alone in such a group.
+test(".ln por número no anota ni echa a quien la base recuerda si el grupo lo lista con otro número", async (t) => {
+  const [VIEJO, X, Y] = ["300000000000981@lid", "59899000981@s.whatsapp.net", "59899000989@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X }] }); // it answers, without a LID
+  t.after(() => delete globalThis.client.executeUSyncQuery);
+  const conOtroNumero = [participants[0], { id: VIEJO, phoneNumber: Y, admin: null }, participants.at(-1)];
+  await correr("ln", "+59899000981 estafa", {}, { participants: conOtroNumero });
+  assert.deepEqual([F.getBlacklist(G), expulsiones], [[], []]);
+  assert.match(ultimo(), /^No sé de quién es ese número ahora/);
+  globalThis.client.groupFetchAllParticipating = async () => ({ "otro@g.us": { id: "otro@g.us", subject: "Otro", participants: [{ id: VIEJO, phoneNumber: Y, admin: null }, bot] } });
+  await desdeElPrivado("+59899000981 estafa");
+  assert.deepEqual(expulsiones, []);
+});

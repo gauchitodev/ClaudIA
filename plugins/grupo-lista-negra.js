@@ -1,6 +1,6 @@
 import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUser } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
-import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe, lidEnElGrupo } from "../lib/identidad.js";
+import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe, lidEnElGrupo, numeroTipeado } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { nombreDe, conNombres } from "../lib/menciones.js";
 
@@ -114,6 +114,15 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     reason = conNombres(inicio.slice(arroba.length + 1), m.mentionedJid).trim();
   } else if (arroba && command === "ln2" && !m.isGroup) {
     tecleado = arroba; // as private .vln shows an entry kept under a LID
+  } else if (arroba) {
+    // "@<digits>" typed by hand right after the command, not picked from WhatsApp's list: the digits of a LID the bot
+    // knows or the group lists, or else a number, as the other commands read them (lib/identidad.js). Replying to a
+    // message, it fell to the quoted one's author: ".ln @59899… estafa" answering whoever warned about the scammer
+    // listed and removed them.
+    const comoLid = `${arroba}@lid`;
+    if (getUser(comoLid) || buscarEnGrupo(m.isGroup ? participants : null, { lid: comoLid })) who = comoLid;
+    else if (arroba.length >= 7) who = `${arroba}@s.whatsapp.net`;
+    reason = conNombres(inicio.slice(arroba.length + 1), m.mentionedJid).trim();
   } else if (/\+\d/.test(text) || m.mentionedJid?.length) {
     // Someone named further on, and nobody right after the command. Replying to someone else's message, whoever wrote
     // it may be who was meant, or the one named: it asks, rather than guess and remove the wrong one.
@@ -140,17 +149,22 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 
   if (!who) return client.sendText(m.chat, txt.defaultWhoBlackList(usedPrefix, command), m);
 
-  // A typed number may be someone else's now than the one the database has it on, a number recycled or left for
-  // another: unless the group lists who has it, WhatsApp says, and that is who it is. With only the database's guess,
-  // in a group that doesn't list numbers or from private, the previous owner was removed, and an entry kept without a
-  // LID went to them as soon as the number's owner now wrote (seguirALaPersona).
-  const lidActual = tecleado && who.endsWith("@s.whatsapp.net") && !lidEnElGrupo(m.isGroup ? participants : null, who) ? await lidSegunWhatsApp(client, who) : null;
+  // A number may be someone else's now than the one the database has it on, a number recycled or left for another:
+  // unless the group lists who has it, WhatsApp says, and that is who it is. Typed, and mentioned or quoted by number
+  // too, which is how a group that lists people by number brings them. With only the database's guess, in a group that
+  // doesn't list numbers or from private, the previous owner was removed, and an entry kept without a LID went to them
+  // as soon as the number's owner now wrote (seguirALaPersona).
+  const lidActual = who.endsWith("@s.whatsapp.net") && !lidEnElGrupo(m.isGroup ? participants : null, who) ? await lidSegunWhatsApp(client, who) : null;
 
   // The person's two identities: the number, which is what gets recorded, and the LID, which is what the group lists
   // them under and what WhatsApp removes them by. Both come from the database and from the group's participants.
   // Someone who never wrote may have no known number: then they're recorded by LID, which is still enough to
   // recognize and remove them. A LID only the database knows for the number isn't kept (lidDeLaBase, lib/identidad.js).
-  const { jid, lid: whoLid, participante, lidDeLaBase } = identidadesDe(lidActual ? [who, lidActual] : who, m.isGroup ? participants : null);
+  const { jid, lid: whoLid, participante, lidDeLaBase, desmentida } = identidadesDe(lidActual ? [who, lidActual] : who, m.isGroup ? participants : null);
+  // The database has the number on someone the group lists with another number, and WhatsApp didn't say who has it
+  // now: listed by the number alone, the entry went to the one the database has as soon as the number's owner wrote
+  // (seguirALaPersona), and they were removed for it.
+  if (desmentida && command === "ln") return client.sendText(m.chat, "No sé de quién es ese número ahora, y WhatsApp no me contestó. Probá de nuevo en un rato.", m);
   who = jid || whoLid || who;
   const lidQueQueda = lidDeLaBase ? null : whoLid;
 
@@ -203,8 +217,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     const sacado = [];
     const aMano = [];
     for (const [chatId, metadata] of Object.entries(grupos)) {
-      // With a LID only the database knows, whoever each group lists with the number goes first: that's who has it.
-      const enGrupo = buscarEnGrupo(metadata?.participants, { jid: who, lid: (lidDeLaBase && lidEnElGrupo(metadata?.participants, who)) || whoLid });
+      // As here (identidadesDe): with a LID only the database knows, whoever each group lists with the number goes
+      // first, that's who has it, and the guess doesn't go where the group lists that LID with another number.
+      const enGrupo = identidadesDe(lidDeLaBase ? who : [who, whoLid], metadata?.participants).participante;
       if (!enGrupo) continue;
       const nombre = metadata.subject || chatId;
       // Where the bot isn't admin WhatsApp would refuse anyway: no point asking.
@@ -258,39 +273,6 @@ function numerosOcultos(texto) {
     if (/^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}-\d{4})$/.test(tira)) return tira;
     return "(número oculto)";
   });
-}
-
-// Where a number typed after .ln ends: the reason may start with digits too. Typed all together, ten digits or more, it
-// ends where they do: "+59899666666 2 veces me estafó" listed 598996666662. Spaced out or with dashes, any group may be
-// the reason's first word ("+598 99 666 666 2 veces me estafó" listed 598996666662 too, and "+59899666 666" became
-// 59899666 when it was taken as typed all together). The cut that is someone the bot knows wins, in the group or in the
-// database, unless a shorter one makes a whole number too: the longer one may be the number and the reason's digits,
-// someone else's by chance ("+43 664 123456 7 veces" listed whoever had 436641234567). With nobody known, the only cut
-// that makes a whole number with its country's code, 10 to 15 digits, and with no cut that long, the only one of 7 or
-// more, as long as the shortest numbers are with theirs: "+50012345 2 veces" listed 500123452. With more than one it
-// asks, rather than listing someone else. Past 15 digits no cut is a number, and it stops: a long run of spaced digits
-// was otherwise copied once for each of them. Returns { tipeado, digitos } or { dudas }.
-function numeroTipeado(texto, participants) {
-  const cortes = [];
-  for (const grupo of texto.matchAll(/\d+/g)) {
-    const tipeado = texto.slice(0, grupo.index + grupo[0].length);
-    const digitos = tipeado.replace(/\D/g, "");
-    if (digitos.length > 15) break;
-    cortes.push({ tipeado, digitos });
-  }
-  if (!cortes.length) return { tipeado: texto.match(/^\+\d+/)[0], digitos: texto.match(/^\+(\d+)/)[1] }; // no number is that long
-  if (cortes[0].digitos.length >= 10) return cortes[0];
-  const conocidos = cortes.filter(({ digitos }) => {
-    const jid = `${digitos}@s.whatsapp.net`;
-    return digitos.length >= 7 && ((participants || []).some((p) => p?.phoneNumber === jid || p?.id === jid) || getUser(jid));
-  });
-  const enteros = cortes.filter(({ digitos }) => digitos.length >= 10);
-  const dudas = (opciones) => ({ dudas: opciones.map(({ digitos }) => digitos) });
-  if (conocidos.length > 1) return dudas(conocidos);
-  if (conocidos.length === 1 && !enteros.some(({ digitos }) => digitos.length < conocidos[0].digitos.length)) return conocidos[0];
-  const posibles = enteros.length ? enteros : cortes.filter(({ digitos }) => digitos.length >= 7);
-  if (posibles.length > 1) return dudas(posibles);
-  return posibles[0] || cortes.at(-1);
 }
 
 const alternativas = (opciones) => `${opciones.slice(0, -1).join(", ")} o ${opciones.at(-1)}`;

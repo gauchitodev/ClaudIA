@@ -623,3 +623,48 @@ test("mismaPersona: por la LID que la base sabe del número, pero no a través d
   assert.ok(!mismaPersona("4747@lid", "4748@lid"), "dos personas que usaron el mismo número");
   assert.ok(!mismaPersona(null, [undefined, ""]));
 });
+
+// With WhatsApp not saying who has a number, the database's guess isn't taken where the group lists that LID with
+// another number: the person moved on to it. .kick removed them, .mute silenced them and .rd deleted their data, for a
+// number that's someone else's now.
+test("por número y sin respuesta de WhatsApp, no se toca a quien la base recuerda si el grupo lo lista con otro número", async (t) => {
+  const I = await import("../lib/identidad.js");
+  const [VIEJO, X, Y] = ["300000000000891@lid", "59899000891@s.whatsapp.net", "59899000898@s.whatsapp.net"];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const consultaReal = I.IDENTIDAD.CONSULTA_MS;
+  I.IDENTIDAD.CONSULTA_MS = 20;
+  globalThis.client.executeUSyncQuery = () => new Promise(() => {});
+  t.after(() => {
+    delete globalThis.client.executeUSyncQuery;
+    I.IDENTIDAD.CONSULTA_MS = consultaReal;
+  });
+  const grupo = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: "999@lid", admin: "admin" }];
+  const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
+  const correrA = (P, command, text) => P.run(m(text), { client: globalThis.client, text, args: text.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  // What .kick removes by (it waits over a second before removing, and this file runs close to Node 22's cap on it).
+  const { participante, lid, quien } = await I.destinatarioActual(globalThis.client, m("+59899000891"), "+59899000891", grupo);
+  assert.deepEqual([participante, lid, quien], [null, null, null], ".kick no saca a VIEJO");
+  await correrA(Silenciar, "mute", "+59899000891");
+  assert.notEqual(F.getUser(VIEJO, G).inGroup[G]?.mute, true, ".mute no lo silencia");
+  await correrA(Rd, "rd", "+59899000891");
+  assert.ok(F.getUser(VIEJO), ".rd no borra su fila");
+});
+
+// .rd by a number whose LID, as WhatsApp gives it, has no row resets nothing: it said "Se reinició" all the same.
+test(".rd por número no dice que reinició si no había nada que borrar", async (t) => {
+  const [X, L] = ["59899000893@s.whatsapp.net", "300000000000893@lid"];
+  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: L }] });
+  t.after(() => delete globalThis.client.executeUSyncQuery);
+  const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
+  await Rd.run(m("+59899000893"), { client: globalThis.client, text: "+59899000893", command: "rd", usedPrefix: ".", participants, isOwner: true });
+  assert.equal(ultimo(), "No tengo registro de esa persona.");
+});
+
+// A "+number" ends where it does, as .ln reads it (numeroTipeado): glued to a reason that starts with digits, ".adv
+// +598… 3 veces" asked WhatsApp about another number and warned whoever had it, or nobody.
+test(".adv por número no se come los dígitos del motivo", async () => {
+  const Warn = (await import("../plugins/grupo-advertir.js")).default;
+  const antes = F.advertenciasDe("111@lid", G);
+  await correr(Warn, "+5989911111 3 veces seguidas", "advertir");
+  assert.equal(F.advertenciasDe("111@lid", G), antes + 1);
+});

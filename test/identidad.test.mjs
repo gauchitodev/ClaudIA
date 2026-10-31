@@ -64,11 +64,13 @@ test("estaEnGrupo: en un grupo que lista por número, por la lid que trae cada u
 test("identidadesDe: por LID, por número con el grupo, y por número con la base sola", () => {
   const { X, VIEJO, NUEVO, porLid, porNumero, porNumeroSinLid } = numeroReciclado(6);
   const sin = ({ participante, ...resto }) => ({ ...resto, participante: participante?.id ?? null });
-  assert.deepEqual(sin(I.identidadesDe(NUEVO, porLid)), { jid: X, lid: NUEVO, participante: NUEVO, lidDeLaBase: false }, "el número, del grupo");
-  assert.deepEqual(sin(I.identidadesDe(X, porNumero)), { jid: X, lid: NUEVO, participante: X, lidDeLaBase: false }, "la LID, de quien el grupo lista con el número");
-  assert.deepEqual(sin(I.identidadesDe(X, [])), { jid: X, lid: VIEJO, participante: null, lidDeLaBase: true }, "sin grupo, la de la base: una suposición");
-  assert.deepEqual(sin(I.identidadesDe(X, porNumeroSinLid)), { jid: X, lid: VIEJO, participante: X, lidDeLaBase: true });
-  assert.deepEqual(I.identidadesDe([], porLid), { jid: null, lid: null, participante: null, lidDeLaBase: false });
+  assert.deepEqual(sin(I.identidadesDe(NUEVO, porLid)), { jid: X, lid: NUEVO, participante: NUEVO, lidDeLaBase: false, desmentida: false }, "el número, del grupo");
+  assert.deepEqual(sin(I.identidadesDe(X, porNumero)), { jid: X, lid: NUEVO, participante: X, lidDeLaBase: false, desmentida: false }, "la LID, de quien el grupo lista con el número");
+  assert.deepEqual(sin(I.identidadesDe(X, [])), { jid: X, lid: VIEJO, participante: null, lidDeLaBase: true, desmentida: false }, "sin grupo, la de la base: una suposición");
+  assert.deepEqual(sin(I.identidadesDe(X, porNumeroSinLid)), { jid: X, lid: VIEJO, participante: X, lidDeLaBase: true, desmentida: false });
+  const conOtroNumero = [{ id: VIEJO, phoneNumber: unNumero(190), admin: null }];
+  assert.deepEqual(sin(I.identidadesDe(X, conOtroNumero)), { jid: X, lid: null, participante: null, lidDeLaBase: false, desmentida: true }, "una suposición que el grupo desmiente no vale");
+  assert.deepEqual(I.identidadesDe([], porLid), { jid: null, lid: null, participante: null, lidDeLaBase: false, desmentida: false });
 });
 
 test("lidEnElGrupo: por la id o por el phoneNumber, y nada si el grupo no lo empareja", () => {
