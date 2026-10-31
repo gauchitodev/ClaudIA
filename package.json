@@ -1,6 +1,6 @@
 {
   "name": "claudia",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "main": "start-process.js",
   "type": "module",
   "scripts": {
