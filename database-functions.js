@@ -1058,26 +1058,29 @@ export function registrarIngresoGrupo(chat, ids, cuando = Date.now()) {
 }
 
 // A message from someone: it's stamped on the ids it came with (sellar; the first one, failing that) and lifts the
-// warning from all of them. Returns when they had been warned, by a warning of theirs (avisoSuyo), or null: who comes
-// back after .inactivos is spared, and paid once (better-sqlite3 runs this whole, so two messages at once can't both
-// find the warning). A warning from before their last message doesn't count, and goes all the same: it went out while
-// they were writing, and they had answered it already. Nor does one from before they last came in, under an id the join
-// didn't bring (the LID the database guesses for a number): coming back is a fresh start, and whoever had just come in
-// with the number of someone warned was paid a "Volvió" for it. So does one under their number that went out with
-// someone else's LID: it was the number's previous owner's, and when the bot hadn't seen the number change hands, the
-// next owner's first message was a "Volvió", with the prize, for it. The stamp only moves forward: a message that
-// arrives late, with the time it was sent, doesn't take back a newer one.
+// warning from all of them. Returns the warning of theirs that stood (avisoSuyo), or null: who comes back after
+// .inactivos is spared, and paid once (better-sqlite3 runs this whole, so two messages at once can't both find the
+// warning). It's { avisado, de }: when they had been warned, and the numbers the ones passed on from a number came
+// from (avisoPasado), where a return paid to that number is (lib/inactivos.js).
+// A warning from before their last message doesn't count, and goes all the same: it went out while they were writing,
+// and they had answered it already. Nor does one from before they last came in, under an id the join didn't bring
+// (the LID the database guesses for a number): coming back is a fresh start, and whoever had just come in with the
+// number of someone warned was paid a "Volvió" for it. So does one under their number that went out with someone
+// else's LID: it was the number's previous owner's, and when the bot hadn't seen the number change hands, the next
+// owner's first message was a "Volvió", with the prize, for it. The stamp only moves forward: a message that arrives
+// late, with the time it was sent, doesn't take back a newer one.
 export function registrarMensajeGrupo(chat, ids, cuando = Date.now(), sellar = ids.slice(0, 1)) {
   if (!ids.length) return null;
   const filas = db.prepare(`SELECT usuario, ingreso, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(ids)})`).all(chat, ...ids);
   const lids = ids.filter((id) => id.endsWith("@lid"));
-  const avisado = Math.max(0, ...filas.filter((f) => f.avisado && avisoSuyo(f, lids)).map((f) => f.avisado));
+  const suyos = filas.filter((f) => f.avisado && avisoSuyo(f, lids));
+  const avisado = Math.max(0, ...suyos.map((f) => f.avisado));
   const ultimo = Math.max(0, ...filas.map((f) => Math.max(f.ultimo_mensaje || 0, f.ingreso || 0)));
   if (filas.some((f) => f.avisado)) quitarAvisoInactivo(chat, ids);
   const st = db.prepare(`INSERT INTO presencia_grupo (chat, usuario, ultimo_mensaje) VALUES (?, ?, ?) ON CONFLICT(chat, usuario) DO UPDATE SET ultimo_mensaje = MAX(COALESCE(ultimo_mensaje, 0), excluded.ultimo_mensaje)`);
   for (const id of sellar) st.run(chat, id, cuando);
   marcarInicioPresencia(chat, cuando);
-  return avisado > ultimo ? avisado : null;
+  return avisado > ultimo ? { avisado, de: suyos.filter(avisoPasado).map((f) => f.aviso_de) } : null;
 }
 
 // Whether a warning in presencia_grupo is the person's, given their LIDs: under a LID, always. Under a number, when it

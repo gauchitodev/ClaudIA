@@ -5,6 +5,7 @@ import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 import { numeroReciclado, unNumero, unaLid } from "./identidad-escenarios.mjs";
+import { COINS } from "../lib/urucoins.js";
 
 const DIA = 24 * 60 * 60 * 1000;
 let F, I, CG, Inactivos, Kick;
@@ -76,7 +77,7 @@ test(".inactivos etiqueta solo a los callados de verdad: ni admins, ni roles, ni
   assert.match(msg.text, /Inactivos \(3\)/);
   assert.match(msg.text, /@101 — hace 20 días/);
   assert.match(msg.text, /@102 — no le vi ningún mensaje/);
-  assert.match(msg.text, /se salva y se lleva 🪙 10/);
+  assert.ok(msg.text.includes(`se salva y se lleva 🪙 ${COINS.REGRESO} `), msg.text);
 });
 
 test(".inactivos 30 cambia el corte, y un número que no es de días se rechaza", async () => {
@@ -107,13 +108,13 @@ test("el avisado que vuelve a escribir se salva y cobra una sola vez", async () 
   const antes = F.getSaldoCoins(chat, "101@lid");
 
   await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
-  assert.match(textoEnviado(), /Volvió @101: sale de la lista de inactivos y se lleva 🪙 10/);
-  assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + 10);
+  assert.equal(textoEnviado(), `🎉 Volvió @101: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.`);
+  assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + COINS.REGRESO);
 
   globalThis.enviados = [];
   await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid" });
   assert.equal(globalThis.enviados.length, 0);
-  assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + 10);
+  assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + COINS.REGRESO);
 });
 
 test("con la economía apagada el que vuelve se salva igual, sin monedas", async () => {
@@ -358,7 +359,7 @@ test("un aviso guardado bajo la LID y el número se levanta entero: el regreso s
   F.marcarAvisoInactivo(chat, ["101@lid", "59899000101@s.whatsapp.net"], Date.now() - DIA);
   await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "" });
   await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
-  assert.equal(F.getSaldoCoins(chat, "101@lid"), 10);
+  assert.equal(F.getSaldoCoins(chat, "101@lid"), COINS.REGRESO);
 });
 
 // A warning kept under the number alone, from a group that listed people by number, lifted by a message that brings
@@ -398,7 +399,7 @@ test("el premio por volver va una vez cada 30 días, y .inactivos pide 7 días c
     // They came back 10 days ago: the next warning, 4 days ago, is after that (one from before isn't a warning).
     db.prepare("UPDATE presencia_grupo SET ultimo_mensaje = ? WHERE chat = ? AND usuario = ?").run(Date.now() - 10 * DIA, chat, "101@lid");
   }
-  assert.equal(F.getSaldoCoins(chat, "101@lid"), 10);
+  assert.equal(F.getSaldoCoins(chat, "101@lid"), COINS.REGRESO);
   assert.equal(textoEnviado(), "🎉 Volvió @101: sale de la lista de inactivos.", "la segunda vez, sin premio");
   await Inactivos.run(m(chat, "1"), { client: globalThis.client, participants, text: "1" });
   assert.match(textoEnviado(), /de 7 a 365/);
@@ -909,7 +910,7 @@ test("el premio por volver va una vez cada 30 días aunque un regreso llegue con
   db.prepare("UPDATE urucoins_log SET fecha = ? WHERE chat = ?").run(Date.now() - 16 * DIA, chat); // paid 16 days ago
   F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
   await I.registrarPresencia(globalThis.client, { chat, sender: N, senderJid: N }); // back again, with only the number
-  assert.deepEqual([F.getSaldoCoins(chat, L), F.getSaldoCoins(chat, N)], [10, 0]);
+  assert.deepEqual([F.getSaldoCoins(chat, L), F.getSaldoCoins(chat, N)], [COINS.REGRESO, 0]);
   // In a group whose messages come with only the number, the person's coins are under it, and .saldo reads it: paid to
   // the LID, the prize never showed up there. And with a recycled number the bot hadn't seen with its new LID yet, it
   // went to whoever had it before.
@@ -917,7 +918,7 @@ test("el premio por volver va una vez cada 30 días aunque un regreso llegue con
   F.initDataDB({ chat, sender: L2, senderJid: N2, pushName: "Dani" });
   F.marcarAvisoInactivo(chat, [L2, N2], Date.now() - DIA);
   await I.registrarPresencia(globalThis.client, { chat, sender: N2, senderJid: N2 });
-  assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [0, 10]);
+  assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [0, COINS.REGRESO]);
 });
 
 // A whole copy of the group that comes through groups.update: Baileys emits one from groupFetchAllParticipating
@@ -1013,14 +1014,14 @@ test("un aviso bajo un número es de la LID con la que salió: no paga el «Volv
   assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === X)?.avisado ?? null, null, "y el aviso bajo el número se levanta igual");
   const [volvio, saldo] = await escribe(VIEJO, "");
   assert.ok(volvio.includes(`Volvió @${VIEJO.split("@")[0]}`), volvio);
-  assert.equal(saldo, 10, "VIEJO sí vuelve de su aviso");
+  assert.equal(saldo, COINS.REGRESO, "VIEJO sí vuelve de su aviso");
 
   const [Y, SOLO] = [unNumero(73), unaLid(73)];
   F.marcarAvisoInactivo(chat, [Y], Date.now() - 4 * DIA); // listed by the number alone, and no row had it
   assert.equal(listos(SOLO, Y), 1, "con la LID en la lista, sigue avisado");
   const [volvioSolo, saldoSolo] = await escribe(SOLO, Y);
   assert.match(volvioSolo, /Volvió/);
-  assert.equal(saldoSolo, 10);
+  assert.equal(saldoSolo, COINS.REGRESO);
 
   const [Z, ANTES] = [unNumero(74), unaLid(74)];
   db.prepare("INSERT INTO presencia_grupo (chat, usuario, avisado) VALUES (?, ?, ?)").run(chat, Z, Date.now() - 4 * DIA);
@@ -1092,7 +1093,7 @@ test("en un grupo que lista por número solo, el aviso no va a la LID que la bas
     await I.registrarPresencia(globalThis.client, msj);
     return [textoEnviado(), F.getSaldoCoins(chat, sender)];
   };
-  assert.deepEqual(await escribe(NUEVO, X), [`🎉 Volvió @${NUEVO.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 10.`, 10], "NUEVO vuelve con su «Volvió»: el aviso bajo el número pasó a su LID");
+  assert.deepEqual(await escribe(NUEVO, X), [`🎉 Volvió @${NUEVO.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.`, COINS.REGRESO], "NUEVO vuelve con su «Volvió»: el aviso bajo el número pasó a su LID");
   assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0, "NUEVO se salvó");
   assert.deepEqual(await escribe(VIEJO, Y), ["", 0], "VIEJO no cobra un aviso que no era suyo");
 });
@@ -1274,7 +1275,7 @@ test("a quien tiene ahora un número le pasa lo que .inactivos anotó bajo él, 
   globalThis.enviados = [];
   await I.registrarPresencia(globalThis.client, vuelve, conX(avisado));
   visto.volvio = textoEnviado();
-  assert.deepEqual(visto, { escribio: 0, avisoParaSacar: 0, volvio: `🎉 Volvió @${X.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 10.` });
+  assert.deepEqual(visto, { escribio: 0, avisoParaSacar: 0, volvio: `🎉 Volvió @${X.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.` });
 });
 
 // A warning passed on from a number (pasarPresencia) doesn't stand for .inactivos nor .k inactivos: whoever the number
@@ -1295,4 +1296,108 @@ test("un aviso que pasó de un número no deja sacar a nadie: lo vuelven a etiqu
   const { listos, enPlazo } = I.paraSacar(chat, participants, globalThis.client);
   const visto = { paraSacar: listos.length + enPlazo.length, etiquetado: (await I.avisarInactivos(globalThis.client, m(chat, ""), participants)).mentions };
   assert.deepEqual(visto, { paraSacar: 0, etiquetado: [X2] });
+});
+
+// .k inactivos confirmar looks at each one again with the whole group, as the preview did: with them alone for a group,
+// the LID the database has for the number of someone listed by it alone counted as theirs, though the group lists that
+// LID with another number. The warning, or the message, of whoever had the number before spared the one the preview
+// showed, and the admin heard they had been spared at the last moment.
+test(".k inactivos confirmar saca a quien mostró la vista previa aunque la base tenga su número en la fila de otro", async () => {
+  const ahora = Date.now();
+  const [VIEJO, X, Y] = [unaLid(94), unNumero(94), unNumero(95)];
+  // VIEJO changed to Y and hasn't written since: his row still has X, NUEVO's now, whom the group lists by it alone.
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const deViejo = { avisado: (chat) => F.marcarAvisoInactivo(chat, [Y, VIEJO], ahora - DIA), escribio: (chat) => F.registrarMensajeGrupo(chat, [VIEJO], ahora - DIA) };
+  const visto = {};
+  for (const [caso, ayer] of Object.entries(deViejo)) {
+    const chat = `inactivos-rechequeo-${caso}@g.us`;
+    F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 40 * DIA);
+    const participants = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+    miembros.set(chat, participants);
+    F.marcarAvisoInactivo(chat, [X], ahora - 4 * DIA); // NUEVO, tagged by the number 4 days ago
+    ayer(chat); // VIEJO, tagged yesterday, or writing yesterday under his LID
+    expulsiones = [];
+    await kick(chat, participants, "inactivos");
+    await kick(chat, participants, "inactivos confirmar");
+    visto[caso] = [expulsiones.map((e) => e.ids[0]), textoEnviado()];
+  }
+  assert.deepEqual(visto, { avisado: [[X], "🧹 Saqué a 1 persona."], escribio: [[X], "🧹 Saqué a 1 persona."] });
+});
+
+// The prize for coming back goes once every PREMIO_CADA_DIAS under any of the person's ids, and under the number a
+// warning passed on to their LID came from: a return in a group listed by number alone was paid to it, and once they
+// changed numbers, the next warning, passed on to their LID (pasarPresencia), was paid again the same day.
+test("el premio por volver no se cobra dos veces aunque la persona se cambie de número", async () => {
+  const chat = "inactivos-premio-otro-numero@g.us";
+  const [A, X1, X2] = [unaLid(96), unNumero(96), unNumero(97)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X1, "A", 1);
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
+  const escribe = async (sender, senderJid, enChat = chat) => {
+    const msj = { chat: enChat, sender, senderJid, pushName: "A", isGroup: true };
+    F.initDataDB(msj);
+    F.syncUserInfo(msj);
+    globalThis.enviados = [];
+    await I.registrarPresencia(globalThis.client, msj, [{ id: senderJid, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }]);
+    return textoEnviado();
+  };
+  F.marcarAvisoInactivo(chat, [X1], Date.now() - 4 * DIA); // tagged by the number, as the group lists them
+  const primero = await escribe(X1, X1); // back with the number alone: paid to it
+  F.marcarAvisoInactivo(chat, [X1], Date.now() + 5); // tagged again
+  await escribe(A, X2, "inactivos-premio-otro-numero-2@g.us"); // a new number, written somewhere else with the LID
+  const segundo = await escribe(X2, X2); // back with the new number alone
+  assert.deepEqual([primero, segundo], [`🎉 Volvió @${X1.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.`, `🎉 Volvió @${X2.split("@")[0]}: sale de la lista de inactivos.`]);
+});
+
+// What .inactivos noted under a number goes to whoever's it is (pasarPresencia), and when their LID has its own row in
+// that group the two are joined: the latest join and message of either, and the LID's own warning, which a passed one
+// doesn't write over. Without one, the number's comes along, marked as passed on. A warning from before aviso_de
+// (null), as every database from before has them, goes along with someone's own old number.
+test("lo de un número se junta con lo que la LID ya tenía en el grupo, y un aviso de antes de aviso_de va con el número propio", () => {
+  const ahora = Date.now();
+  const hace = (d) => ahora - d * DIA;
+  const fila = db.prepare("INSERT INTO presencia_grupo (chat, usuario, ingreso, ultimo_mensaje, avisado, aviso_de) VALUES (?, ?, ?, ?, ?, ?)");
+  const deLaFila = (chat, usuario) => db.prepare("SELECT ingreso, ultimo_mensaje, avisado, aviso_de FROM presencia_grupo WHERE chat = ? AND usuario = ?").get(chat, usuario);
+  const escribeEnOtro = (sender, senderJid) => {
+    const msj = { chat: "inactivos-juntar-otro@g.us", sender, senderJid, pushName: "x", isGroup: true };
+    F.initDataDB(msj);
+    F.syncUserInfo(msj);
+  };
+  // X was VIEJO's and is NUEVO's now: in one group NUEVO was warned under the LID, in the other one not.
+  const { X, NUEVO } = numeroReciclado(98);
+  const [conAviso, sinAviso, propio] = ["inactivos-juntar-1@g.us", "inactivos-juntar-2@g.us", "inactivos-juntar-3@g.us"];
+  fila.run(conAviso, NUEVO, hace(10), hace(8), hace(2), null);
+  fila.run(sinAviso, NUEVO, hace(10), hace(8), null, null);
+  for (const chat of [conAviso, sinAviso]) fila.run(chat, X, hace(5), hace(9), hace(3), "");
+  escribeEnOtro(NUEVO, X);
+  // A changes their own number, X1 to X2, with a warning under X1 from before aviso_de.
+  const [A, X1, X2] = [unaLid(99), unNumero(99), unNumero(100)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(A, X1, "A", 1);
+  fila.run(propio, A, hace(10), hace(8), null, null);
+  fila.run(propio, X1, hace(5), hace(9), hace(3), null);
+  escribeEnOtro(A, X2);
+  const visto = { conAviso: deLaFila(conAviso, NUEVO), sinAviso: deLaFila(sinAviso, NUEVO), propio: deLaFila(propio, A), bajoElViejo: deLaFila(propio, X1) };
+  assert.deepEqual(visto, {
+    conAviso: { ingreso: hace(5), ultimo_mensaje: hace(8), avisado: hace(2), aviso_de: null },
+    sinAviso: { ingreso: hace(5), ultimo_mensaje: hace(8), avisado: hace(3), aviso_de: X },
+    propio: { ingreso: hace(5), ultimo_mensaje: hace(8), avisado: hace(3), aviso_de: X1 },
+    bajoElViejo: { ingreso: hace(5), ultimo_mensaje: hace(9), avisado: null, aviso_de: null },
+  });
+});
+
+// .inactivos looks each member up in the group by an index of it (conIndice), and not by going over the whole group
+// for each one: in a group listed by number it held the bot 2 s with 3000 members. Counted by the times each member is
+// read, which a copy of the group doesn't hide: a few dozen times at most, and not once for every other member.
+test(".inactivos busca a cada miembro en el grupo sin recorrerlo entero por cada uno", () => {
+  const chat = "inactivos-muchos@g.us";
+  const N = 300;
+  const fila = db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)");
+  let lecturas = 0;
+  // Listed by number alone, and the database knows each one's LID.
+  const grupo = Array.from({ length: N }, (_, i) => {
+    fila.run(unaLid(1000 + i), unNumero(1000 + i), `Persona${i}`, 1);
+    return new Proxy({ id: unNumero(1000 + i), admin: null }, { get: (t, k, r) => (lecturas++, Reflect.get(t, k, r)) });
+  });
+  F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
+  I.paraSacar(chat, grupo, globalThis.client);
+  assert.ok(lecturas <= 40 * N, `${lecturas} lecturas para ${N} miembros`);
 });
