@@ -25,7 +25,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     return client.sendText(m.chat, `${txt.besarInfiel(mia.pareja)}\n\n💢 @${mia.pareja.split("@")[0]} se enteró y quedó enojada: por una hora no te acepta besos. Se le pasa con un regalo (.regalar).`, m, { mentions: [mia.pareja] });
   }
   const suya = parejaDe(who);
-  if (suya && suya.pareja !== m.sender) return client.sendText(m.chat, txt.besarTienePareja(who), m);
+  if (suya && suya.pareja !== m.sender) return client.sendText(m.chat, txt.besarTienePareja(who), m, { mentions: [who] });
 
   const enPareja = mia && mia.pareja === who;
   if (enPareja) {
@@ -44,7 +44,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const recibido = `${teks}\n\n*💌Lo recibe:* @${who.split("@")[0]}\n\n*😚De parte de:* @${m.sender.split("@")[0]}`;
   const rechazado = `@${who.split("@")[0]} rechazó el beso y le corrió la cara a @${m.sender.split("@")[0]} 🤣`;
   const mensaje = enPareja ? recibido : elegirAlAzar([recibido, rechazado]);
-  const kz = await client.sendText(m.chat, mensaje, m);
+  // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  const kz = await client.sendText(m.chat, mensaje, m, { mentions: [who, m.sender] });
   client.sendMessage(m.chat, { react: { text: mensaje !== recibido ? "🤣" : casados ? "💍" : enPareja ? "💞" : "💋", key: kz.key } });
 };
 

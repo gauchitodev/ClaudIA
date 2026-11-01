@@ -19,7 +19,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
 
   // Nothing to reset when the LID WhatsApp gives for a number has no row: it said "Se reinició" all the same.
   if (!deleteUser(aBorrar).changes) return client.sendText(m.chat, "No tengo registro de esa persona.", m);
-  client.sendText(m.chat, txt.rdSuccess(aBorrar), m);
+  // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  client.sendText(m.chat, txt.rdSuccess(aBorrar), m, { mentions: [aBorrar] });
 };
 
 export default plugin;

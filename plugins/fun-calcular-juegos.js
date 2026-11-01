@@ -17,10 +17,12 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
   if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, `0% @${who.split("@")[0]} es un santo 😇`, m, { mentions: [who] });
 
   const porcentaje = Math.floor(Math.random() * 101);
+  // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  const decir = (juego) => client.sendText(m.chat, juego, m, { mentions: [who] });
 
   if (command === "gay2") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *GAY*_ 🏳️‍🌈`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "🏳️‍🌈", key: kz.key } });
   }
 
@@ -28,7 +30,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
     const veces = porcentaje <= 30 ? "🙄" : "ES UN FÁCIL🤨🦊";
     const zorro = porcentaje <= 30 ? "ZORRO." : "ZORRO😈";
     const juego = `*🤨𝙼𝙴𝙳𝙸𝙳𝙾𝚁 𝙳𝙴 𝚉𝙾𝚁𝚁𝙴𝚁𝙸́𝙰🦊*\n\n*@${who.split("@")[0]}* ES *${porcentaje}%* ${zorro}\n\n${veces}`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "🦊", key: kz.key } });
   }
 
@@ -36,42 +38,42 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
     const veces = porcentaje <= 30 ? "🙄" : "ES UNA FÁCIL🤨🦊";
     const zorra = porcentaje <= 30 ? "ZORRA." : "ZORRA😈";
     const juego = `*🤨𝙼𝙴𝙳𝙸𝙳𝙾𝚁 𝙳𝙴 𝚉𝙾𝚁𝚁𝙴𝚁𝙸́𝙰🦊*\n\n*@${who.split("@")[0]}* ES *${porcentaje}%* ${zorra}\n\n${veces}`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "🦊", key: kz.key } });
   }
 
   if (command === "lesbiana") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 🏳️‍🌈`.trim();
-    await client.sendText(m.chat, juego, m);
+    await decir(juego);
   }
 
   if (command === "pajero") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 😏💦`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "💦", key: kz.key } });
   }
 
   if (command === "pajera") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()}*_ 😏💦`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "💦", key: kz.key } });
   }
 
   if (command === "puto") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()},* *MÁS INFORMACIÓN A SU PRIVADO 🔥🥵*_`.trim();
-    await client.sendText(m.chat, juego, m);
+    await decir(juego);
   }
 
   if (command === "puta") {
     const juego = `_*@${who.split("@")[0]}* *ES* *${porcentaje}%* *${command.replace("how", "").toUpperCase()},* *MÁS INFORMACIÓN A SU PRIVADO 🔥🥵*_`.trim();
-    await client.sendText(m.chat, juego, m);
+    await decir(juego);
   }
 
   if (command === "infiel") {
     const veces = porcentaje === 0 ? "ES UN ANGEL😇" : porcentaje <= 30 ? "🙄" : "🦊🦊🦊🦊🦊🦊🦊🦊";
     const infiel = porcentaje === 0 ? "INFIEL." : "INFIEL😈";
     const juego = `*@${who.split("@")[0]}* ES *${porcentaje}%* ${infiel}\n\n${veces}`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     let react;
     if (juego.includes("ANGEL")) {
       react = "😇";
@@ -88,7 +90,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
     const pregunta = getR <= 4 ? "Podría haber sido peor😐" : "POBRE CORNUDA😔";
     const veces = getR === 1 ? "VEZ" : "VECES";
     const juego = `*A @${who.split("@")[0]} LE METIERON LOS CUERNOS ${getR} ${veces}*\n\n*_${pregunta}_*`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "🫎", key: kz.key } });
   }
 
@@ -97,7 +99,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
     const pregunta = getR <= 4 ? "Podría haber sido peor😐" : "POBRE CORNUDO😔";
     const veces = getR === 1 ? "VEZ" : "VECES";
     const juego = `*A @${who.split("@")[0]} LE METIERON LOS CUERNOS ${getR} ${veces}*\n\n*_${pregunta}_*`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "🫎", key: kz.key } });
   }
 
@@ -105,7 +107,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
     const getR = Math.floor(Math.random() * 101);
     const pregunta = getR <= 50 ? "Resultado un poco bajo😔" : "¿Deberías pedirle que sea tu novia/o?😍";
     const juego = `*❤️MEDIDOR DE AMOR❤️*\n\n*_El amor de @${who.split("@")[0]} ES DE ${getR}%_*\n\n*_${pregunta}_*`.trim();
-    const kz = await client.sendText(m.chat, juego, m);
+    const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
   }
 };

@@ -13,7 +13,8 @@ plugin.run = async (m, { client, text, participants }) => {
 
   const [a, b] = personas;
   fijarPareja(a, b, Date.now() - tiempo);
-  const kz = await client.sendText(m.chat, txt.parejaAccept(a, b), m);
+  // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  const kz = await client.sendText(m.chat, txt.parejaAccept(a, b), m, { mentions: [a, b] });
   client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
 };
 

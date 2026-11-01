@@ -27,7 +27,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (advertencias === 0) return client.sendText(m.chat, "No tiene advertencias en este grupo.", m);
 
   setAdvertencias(quien, m.chat, advertencias - 1);
-  await client.sendText(m.chat, txt.advertirDeleteSuccess(quien, advertencias - 1, MAX_ADVERTENCIAS), m);
+  // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  await client.sendText(m.chat, txt.advertirDeleteSuccess(quien, advertencias - 1, MAX_ADVERTENCIAS), m, { mentions: [quien] });
 };
 
 export default plugin;

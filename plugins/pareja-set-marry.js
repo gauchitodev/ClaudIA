@@ -16,7 +16,8 @@ plugin.run = async (m, { client, text, participants }) => {
   const r = fijarCasamiento(a, b, Date.now() - tiempo);
   if (!r.ok) return client.sendText(m.chat, "💍 *Antes de casarse, primero deben ser pareja!*\nUsa: `.setpareja @user1 @user2`", m);
 
-  const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(a, b), m);
+  // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(a, b), m, { mentions: [a, b] });
   await esperar(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });

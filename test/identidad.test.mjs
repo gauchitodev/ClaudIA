@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import Database from "better-sqlite3";
-import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar } from "./helpers.mjs";
+import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 
 // Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
@@ -622,6 +622,121 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
     }
     assert.equal(consultas.length, forma === "porNumeroSinLid" ? COMANDOS_QUE_NOMBRAN.length : 0, `${forma}: le pregunta a WhatsApp solo si el grupo no empareja el número`);
   }
+});
+
+// Someone the bot knows by their number alone (soloPorNumero), whose LID WhatsApp gives has no row: the commands go to
+// the number (comoLoConoce), and every message that names them with "@" carries the mention. The "@" in the text alone,
+// through sendText, came out as "<digits>@lid" (parseMention), which is nobody, and WhatsApp tagged nobody: .besar,
+// .love, the couple's commands, .setpareja, .setmarry, .adv, .unwarn and .rd. .rd goes last, as it erases them.
+const ARROBAN_POR_EL_NUMERO = [
+  ...COMANDOS_QUE_NOMBRAN.filter(([, command]) => !POR_SU_NOMBRE.includes(command)),
+  ["grupo-advertir", "adv", " spam", null, { isWaAdmin: true }],
+  ["grupo-advertir", "adv", " spam", "unaParaSalir", { isWaAdmin: true }], // the one that removes them
+  ["grupo-advertir-delete", "unwarn", "", null, { isWaAdmin: true }], // one of the warnings .adv gave
+  ["pareja-set-pareja", "setpareja", " @OTRO"],
+  ["pareja-set-marry", "setmarry", " @OTRO"],
+  ["owner-restaurar-usuario", "rd", "", null, { isOwner: true }],
+];
+test("a quien el bot conoce solo por su número lo arroban con la mención: el «@» del texto solo no le llegaba", async (t) => {
+  const Par = await import("../lib/parejas.js");
+  const D = await import("../lib/duelos.js");
+  t.after(() => {
+    for (const d of D.duelos.values()) clearTimeout(d.timeout);
+    D.duelos.clear();
+  });
+  const [uno, otro] = [soloPorNumero(500), soloPorNumero(501)];
+  const { X } = uno;
+  usyncFalso(t, { [X]: uno.L, [otro.X]: otro.L });
+  const participants = [...uno.porNumeroSinLid, ...otro.porNumeroSinLid];
+  let n = 510;
+  for (const [archivo, command, resto = "", necesita = null, extra = {}] of ARROBAN_POR_EL_NUMERO) {
+    const [A, B] = [unaLid(++n, 1), unaLid(n, 2)];
+    F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
+    if (necesita === "saldo") fijarSaldo(F, G, A, 1000);
+    if (necesita === "casamiento") {
+      fijarSaldo(F, G, A, 1000);
+      F.initDataDB({ chat: G, sender: B, senderJid: "", pushName: "Cónyuge" });
+      Par.fijarPareja(A, B);
+      Par.fijarCasamiento(A, B);
+    }
+    if (necesita === "unaParaSalir") F.setAdvertencias(X, G, F.MAX_ADVERTENCIAS - 1);
+    const texto = `@${digitos(X)}${resto.replace("@OTRO", `@${digitos(otro.X)}`)}`;
+    const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: resto.includes("@OTRO") ? [X, otro.X] : [X] });
+    globalThis.enviados = [];
+    const plugin = (await import(`../plugins/${archivo}.js`)).default;
+    await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants, chat: {}, ...extra });
+    const nombran = globalThis.enviados.map((e) => e.msg).filter((msg) => (msg?.text ?? msg?.caption ?? "").includes(`@${digitos(X)}`));
+    const caso = `.${command}: ${globalThis.enviados.map((e) => e.msg?.text ?? e.msg?.caption).join(" | ")}`;
+    assert.ok(nombran.length, `no lo nombra: ${caso}`);
+    assert.ok(
+      nombran.every((msg) => msg.mentions?.includes(X)),
+      `lo nombra sin la mención: ${caso}`,
+    );
+  }
+});
+
+// The other answers of .besar and of the couple's commands name them too: their partner, someone else, the couple they
+// already are, the partner of whoever asks, and .aceptar and .rechazar of a request of theirs. Each one with people of
+// its own, as the bot knows them by their number alone, and each person named carries their mention.
+test("las otras respuestas de .besar y de pareja también arroban con la mención a quien el bot conoce por su número", async (t) => {
+  const Par = await import("../lib/parejas.js");
+  const plugins = { besar: "fun-besar", pareja: "pareja-elegir", aceptar: "pareja-aceptar", rechazar: "pareja-rechazar" };
+  const casos = [
+    ["tienePareja", "besar", ({ P, C }) => Par.fijarPareja(P, C)],
+    ["yaJuntos", "pareja", ({ A, P }) => Par.fijarPareja(A, P)],
+    ["vosTenesPareja", "pareja", ({ A, Q }) => Par.fijarPareja(A, Q)],
+    ["aceptarYaJuntos", "aceptar", ({ A, P }) => Par.fijarPareja(A, P)],
+    ["acepta", "aceptar", ({ A, P }) => Par.pedirPareja(P, A, G)],
+    ["rechazarYaJuntos", "rechazar", ({ A, P }) => Par.fijarPareja(A, P)],
+    ["rechaza", "rechazar", ({ A, P }) => Par.pedirPareja(P, A, G)],
+  ];
+  const visto = {};
+  let n = 530;
+  for (const [caso, command, preparar] of casos) {
+    const [p, q] = [soloPorNumero(++n), soloPorNumero(++n)];
+    usyncFalso(t, { [p.X]: p.L, [q.X]: q.L });
+    const A = unaLid(n, 2);
+    F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
+    preparar({ A, P: p.X, Q: q.X, C: unaLid(n, 3) });
+    const texto = `@${digitos(p.X)}`;
+    globalThis.enviados = [];
+    const plugin = (await import(`../plugins/${plugins[command]}.js`)).default;
+    await plugin.run(mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: [p.X] }), { client: cliente(), text: texto, args: [texto], command, usedPrefix: ".", participants: [...p.porNumeroSinLid, ...q.porNumeroSinLid], chat: {} });
+    const conTexto = globalThis.enviados.map((e) => e.msg).filter((msg) => msg?.text);
+    const nombrados = [p.X, q.X].filter((id) => conTexto.some((msg) => msg.text.includes(`@${digitos(id)}`)));
+    visto[caso] = nombrados.map((id) => conTexto.filter((msg) => msg.text.includes(`@${digitos(id)}`)).every((msg) => msg.mentions?.includes(id)));
+  }
+  assert.deepEqual(visto, { tienePareja: [true], yaJuntos: [true], vosTenesPareja: [true, true], aceptarYaJuntos: [true], acepta: [true], rechazarYaJuntos: [true], rechaza: [true] });
+});
+
+// sendText tags what the text names with "@<digits>", which parseMention takes for LIDs, and whoever it's handed in
+// mentions. An id handed there is the one its digits in the text stand for: taken for a LID too, someone the bot knows
+// by their number alone went out as "<digits>@lid" as well, and Baileys keeps that list (contextInfo over mentions,
+// Utils/messages.js).
+test("sendText: la mención que le pasan es la de sus dígitos en el texto, y no una LID de esos dígitos", async () => {
+  const WS = await import("../lib/wa-socket.js");
+  const crearReal = WS._dep.crearSocket;
+  WS._dep.crearSocket = () => ({ ...clienteFalso(), user: { id: "59800000001:5@s.whatsapp.net", lid: "200000000000001@lid" }, ev: { emit() {}, on() {} }, groupFetchAllParticipating: async () => ({}) });
+  let socket;
+  try {
+    socket = WS.makeWASocket({});
+  } finally {
+    WS._dep.crearSocket = crearReal;
+  }
+  const [X, L] = [unNumero(560), unaLid(561)];
+  // Each one to its own chat, so none waits for the one before (lib/ritmo.js).
+  const menciones = async (chat, texto, opciones) => {
+    globalThis.enviados = [];
+    await socket.sendText(chat, texto, null, opciones);
+    return globalThis.enviados.at(-1).msg.contextInfo.mentionedJid;
+  };
+  const visto = {
+    numero: await menciones("sendtext-1@g.us", `hola @${digitos(X)}`, { mentions: [X] }),
+    lid: await menciones("sendtext-2@g.us", `hola @${digitos(L)}`),
+    ambos: await menciones("sendtext-3@g.us", `@${digitos(L)} y @${digitos(X)}`, { mentions: [X] }),
+    laMismaLid: await menciones("sendtext-4@g.us", `hola @${digitos(L)}`, { mentions: [L] }),
+  };
+  assert.deepEqual(visto, { numero: [X], lid: [L], ambos: [L, X], laMismaLid: [L] });
 });
 
 test("idsDe: de un número, también la LID de la base; de una LID, su número solo si se pide", () => {

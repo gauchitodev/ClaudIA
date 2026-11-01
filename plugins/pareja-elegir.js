@@ -22,16 +22,17 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     if (r.motivo === "teLoPidio") return client.sendText(m.chat, `La persona ya te pidió ser tu pareja! Responde su petición con:\n\n${usedPrefix}aceptar @${numero}\n${usedPrefix}rechazar @${numero}`, m, { mentions: [who] });
     if (r.motivo === "tienePareja") return client.sendText(m.chat, `@${numero} ya tiene pareja, respete 🤨`, m, { mentions: [who] });
     if (r.motivo === "vosTenesPareja") {
-      const kz = await client.sendText(m.chat, txt.parejaInfiel(r.pareja, who), m);
+      const kz = await client.sendText(m.chat, txt.parejaInfiel(r.pareja, who), m, { mentions: [r.pareja, who] });
       return client.sendMessage(m.chat, { react: { text: "😡", key: kz.key } });
     }
     if (r.motivo === "yaJuntos") {
-      const kz = await client.sendText(m.chat, txt.parejaAlready(who), m);
+      const kz = await client.sendText(m.chat, txt.parejaAlready(who), m, { mentions: [who] });
       return client.sendMessage(m.chat, { react: { text: "🥰", key: kz.key } });
     }
     return;
   }
-  const kz = await client.sendText(m.chat, txt.parejaPeticion(elegirAlAzar(DECLARACIONES), m.sender, who), m);
+  // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  const kz = await client.sendText(m.chat, txt.parejaPeticion(elegirAlAzar(DECLARACIONES), m.sender, who), m, { mentions: [m.sender, who] });
   client.sendMessage(m.chat, { react: { text: "😳", key: kz.key } });
 };
 

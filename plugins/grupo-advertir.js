@@ -28,7 +28,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   const advertencias = advertenciasDe(quien, m.chat) + 1;
 
   if (advertencias >= MAX_ADVERTENCIAS) {
-    await client.sendText(m.chat, txt.advertirKick(quien), m);
+    await client.sendText(m.chat, txt.advertirKick(quien), m, { mentions: [quien] });
     // Removal uses the id the group lists the person under, and the count is cleared only if WhatsApp accepted.
     const { ok, status } = await expulsar(client, m.chat, participante?.id || lid || quien);
     if (ok) return setAdvertencias(quien, m.chat, 0);
@@ -37,7 +37,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   }
 
   setAdvertencias(quien, m.chat, advertencias);
-  await client.sendText(m.chat, txt.advertirSuccess(quien, razon, advertencias, MAX_ADVERTENCIAS), m);
+  // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
+  await client.sendText(m.chat, txt.advertirSuccess(quien, razon, advertencias, MAX_ADVERTENCIAS), m, { mentions: [quien] });
 };
 
 export default plugin;
