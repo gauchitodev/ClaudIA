@@ -10,7 +10,7 @@ plugin.onlyGroup = true;
 // lib/roles.js.
 plugin.run = async (m, { client, command, args, text, participants, isOwner, isWaAdmin, isAdmin }) => {
   if (["adminbots", "moderadores", "mods", "roles"].includes(command) || !args.length) {
-    const r = textoRoles(m.chat);
+    const r = textoRoles(m.chat, participants);
     return client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions }, { quoted: m });
   }
 
@@ -20,13 +20,20 @@ plugin.run = async (m, { client, command, args, text, participants, isOwner, isW
   // Both identities, and how the group lists them: a group that lists people by number names them by it, and lists a
   // WhatsApp admin that way too. Named by a number the group doesn't pair, WhatsApp says who has it now; with the LID
   // alone, someone the bot knew by the number was "not in the group", and a role given by the number stayed. The role
-  // goes under the LID, or the number for someone with no LID known.
-  const { lid, jid, participante } = await destinatarioActual(client, m, text, participants);
+  // goes under the LID, or the number for someone with no LID known. With WhatsApp's answer, under the id the bot knows
+  // them by (destinatario's quien, as comoLoConoce takes it): for someone it knows by the number alone, whose messages
+  // bring no LID, the role under the LID WhatsApp gave served nothing, and ".adminbot" took away the one under the
+  // number that did.
+  const { lid, jid, participante, quien: suyo, segunWhatsApp, desmentida } = await destinatarioActual(client, m, text, participants);
   const quien = { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin, isAdmin };
   // In the group by the group's list: a row in the database is anyone who ever wrote where the bot is, and the role
   // went to someone who wasn't here. Without the list, it can't tell.
   if (!quitar && !participants?.length) return client.sendText(m.chat, "No pude ver la lista de miembros del grupo; probá de nuevo en un rato.", m);
-  const objetivo = { lid: lid || jid, jid, esAdminWhatsApp: !!participante?.admin, esBot: esElBot([lid, jid], client), estaEnGrupo: !!participante };
+  // Whoever the group lists with a number the database has on someone it lists with another one, and WhatsApp not
+  // saying who has it now (desmentida), as ".ln" refuses: under the number alone, the role went to that someone as soon
+  // as whoever has the number now wrote with their LID (seguirALaPersona).
+  if (!quitar && desmentida && participante) return client.sendText(m.chat, "No sé de quién es ese número ahora, y WhatsApp no me contestó. Probá de nuevo en un rato.", m);
+  const objetivo = { lid: (segunWhatsApp && suyo) || lid || jid, jid, esAdminWhatsApp: !!participante?.admin, esBot: esElBot([lid, jid], client), estaEnGrupo: !!participante };
 
   const r = quitar ? quitarRol(m.chat, rol, quien, objetivo, participants) : darRol(m.chat, rol, quien, objetivo, participants);
   if (!r.ok) return client.sendMessage(m.chat, { text: `❌ ${r.error}`, mentions: r.mentions || [] }, { quoted: m });

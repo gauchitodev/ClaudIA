@@ -1367,7 +1367,11 @@ export function podarIntervenciones(antesDe) {
 // A role is given to the id a mention resolves to, the LID nowadays (the number, for someone the bot didn't know then),
 // and a message from a group that lists people by number may bring only the number. So reading, giving and taking one
 // all go by the person's two identities: taking it by one alone would leave the row under the other, with the bot
-// saying it was gone, and giving it again would add a second one.
+// saying it was gone, and giving it again would add a second one. lib/roles.js works the two out with the group
+// (identidadesDelRol), reads and takes each by itself (rolesGrupo, borrarRolGrupo) and hands setRolGrupo the other: the
+// database's other identity for an id may be someone else's, a number keeping the LID of whoever had it before, or a
+// LID's row keeping the number it moved on from. rolGrupo and quitarRolGrupo, which go by the database's, are left for
+// the tests to look into the database with.
 function idsDeRol(usuario) {
   const otro = usuario.endsWith("@lid") ? jidDeLid(usuario) : lidDeNumero(usuario);
   return [...new Set([usuario, otro].filter(Boolean))];

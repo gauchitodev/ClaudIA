@@ -8,8 +8,9 @@ plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
   const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa } = chat;
-  // Once per person, as .roles: someone with a role under each of their ids came out twice.
-  const roles = rolesPorPersona(m.chat);
+  // Once per person, as .roles: someone with a role under each of their ids came out twice. And as the group lists
+  // them: a role under a number that moved on named whoever had it before.
+  const roles = rolesPorPersona(m.chat, groupMetadata?.participants);
   const conRol = (rol) => [...roles].filter(([, r]) => r === rol).map(([id]) => `@${id.split("@")[0]}`);
   const admins = conRol("admin");
   const mods = conRol("mod");

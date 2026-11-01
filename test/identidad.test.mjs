@@ -1304,8 +1304,9 @@ test(".removeowner olvida la LID que WhatsApp había confirmado para el número"
 
 // Someone the bot knows by their number alone (a group listed by number, whose messages bring no LID) has their row and
 // their role under the number. Once WhatsApp says which LID has it, that LID has nothing: .adv and .mute had no record
-// of them, .moderador said they weren't in the group and couldn't take away a role given by the number, and a moderator
-// could remove another one whose role was under the number.
+// of them, .moderador said they weren't in the group and couldn't take away a role given by the number, a moderator
+// could remove another one whose role was under the number, and .adminbot put the role under that LID, which their
+// messages never bring, and took away the one under the number.
 test("a quien el bot conoce solo por su número lo encuentran los comandos aunque WhatsApp diga su LID", async (t) => {
   const C = "solo-por-numero@g.us";
   const [X, L, MOD, ADMIN] = [unNumero(200), unaLid(200), unNumero(201), unaLid(202)];
@@ -1331,7 +1332,8 @@ test("a quien el bot conoce solo por su número lo encuentran los comandos aunqu
   assert.equal(F.rolGrupo(C, X), null, ".moderador quitar");
   F.setRolGrupo(C, X, "mod", ADMIN);
   await correr(P.roles, "adminbot", arrobaX);
-  assert.deepEqual([F.rolGrupo(C, L), F.rolGrupo(C, X)], ["admin", null], ".adminbot, bajo la LID que dijo WhatsApp, y el rol por número se va");
+  const subido = [F.rolGrupo(C, L), F.rolGrupo(C, X), R.permisosDe(C, X, { participants: grupo }).isAdmin];
+  assert.deepEqual(subido, [null, "admin", true], ".adminbot, bajo el número con que el bot lo conoce, que es lo que traen sus mensajes");
   const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
   await Rd.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X] }), { client: cliente(), text: arrobaX, command: "rd", usedPrefix: ".", participants: grupo });
   assert.equal(db.prepare("SELECT 1 FROM users WHERE lid = ?").get(X), undefined, ".rd borra la fila guardada bajo el número");
@@ -1455,7 +1457,9 @@ test("un @número tipeado no es de quien lo tuvo, si el grupo lo lista con otro 
 // The same number, given to a role: the database's LID for it counted as the person's, through rolGrupo, quitarRolGrupo
 // and setRolGrupo, though the group lists that LID with another number. ".moderador @598…" said the one named was a
 // moderator already, ".moderador quitar +598…" took the role from whoever had the number before, a moderator's ".kick
-// +598…" was refused for their role, and whoever writes from the number had it (handle-message.test.mjs).
+// +598…" was refused for their role, and whoever writes from the number had it (handle-message.test.mjs). With
+// WhatsApp not saying who has the number, ".moderador @598…" refuses, as ".ln" does: under the number, the role went to
+// whoever had it before as soon as whoever has it now wrote with their LID (seguirALaPersona).
 test("los roles no le llegan por el número a quien lo tuvo, si el grupo lo lista con otro", async (t) => {
   const C = "roles-desmentidos@g.us";
   const { X, VIEJO } = numeroReciclado(407);
@@ -1471,7 +1475,8 @@ test("los roles no le llegan por el número a quien lo tuvo, si el grupo lo list
   const bajo = (id) => F.rolesGrupo(C).find((r) => r.usuario === id)?.rol || null;
   const visto = {};
   await correr(P.roles, "moderador", `@${digitos(X)}`, { mentionedJid: [X] });
-  visto.dar = [bajo(X), bajo(VIEJO)];
+  visto.dar = [bajo(X), bajo(VIEJO), ultimoEnviado().msg.text];
+  db.prepare("INSERT OR IGNORE INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, 'mod', ?, 1)").run(C, X, ADMIN); // under the number, from before
   await correr(P.roles, "moderador", `quitar +${digitos(X)}`);
   visto.quitar = [bajo(X), bajo(VIEJO)];
   F.setRolGrupo(C, VIEJO, "admin", ADMIN);
@@ -1481,7 +1486,219 @@ test("los roles no le llegan por el número a quien lo tuvo, si el grupo lo list
   await correr((await import("../plugins/grupo-advertir.js")).default, "advertir", `+${digitos(X)} spam`, { sender: MOD, esAdmin: false });
   visto.advertir = !globalThis.enviados.some((e) => /es admin del bot/.test(e.msg?.text || ""));
   visto.escribe = R.permisosDe(C, X, { participants: grupo }).isMod;
-  assert.deepEqual(visto, { dar: ["mod", "mod"], quitar: [null, "mod"], kick: true, advertir: true, escribe: false });
+  const noSe = "No sé de quién es ese número ahora, y WhatsApp no me contestó. Probá de nuevo en un rato.";
+  assert.deepEqual(visto, { dar: [null, "mod", noSe], quitar: [null, "mod"], kick: true, advertir: true, escribe: false });
+});
+
+// A role kept under a number (from before LIDs, or given by it) is whoever has the number now's: whoever had it before,
+// whose row still has it and whom the group lists with another number, read it as theirs by their LID (idsDeRol).
+// They were a moderator, a moderator couldn't remove them, .roles, .config and .perfil named them, ".moderador quitar
+// @persona" took the role from whoever has the number now, so did giving them one, and so did their leaving the group,
+// the event bringing their LID.
+test("un rol bajo un número es de quien lo tiene ahora, no de quien lo tuvo antes y el grupo lista con otro", async (t) => {
+  const C = "rol-bajo-el-numero@g.us";
+  const { X, VIEJO } = numeroReciclado(600);
+  const [Y, ADMIN, MOD] = [unNumero(601), unaLid(601), unaLid(602)];
+  db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, 'mod', ?, 1)").run(C, X, ADMIN);
+  F.setRolGrupo(C, MOD, "mod", ADMIN);
+  usyncFalso(t, {});
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: ADMIN, admin: "admin" }, { id: MOD, admin: null }, botEnGrupo().porNumero];
+  const arrobaVIEJO = `@${digitos(VIEJO)}`;
+  const moderador = (texto) => P.roles.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: texto ? [VIEJO] : [], text: `.moderador ${texto}` }), { client: cliente(), command: "moderador", text: texto, args: texto ? texto.split(" ") : [], usedPrefix: ".", participants: grupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  const bajo = (id) => F.rolesGrupo(C).find((r) => r.usuario === id)?.rol || null;
+  const visto = { VIEJO: R.permisosDe(C, VIEJO, { participants: grupo }).isMod, X: R.permisosDe(C, X, { participants: grupo }).isMod, moderarAVIEJO: R.impedimentoParaModerar(C, { lid: MOD }, { lid: VIEJO, jid: Y }, grupo) };
+  await moderador(""); // with nobody named, the list (.roles)
+  visto.roles = ultimoEnviado().msg.mentions;
+  await P.config.run(mensaje({ chat: C, sender: ADMIN }), { client: cliente(), groupMetadata: { subject: "Grupo", id: C, participants: grupo }, chat: {} });
+  visto.config = [`@${digitos(X)}`, arrobaVIEJO].map((arroba) => ultimoEnviado().msg.text.includes(arroba));
+  const Perfil = (await import("../plugins/perfil.js")).default;
+  await Perfil.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [VIEJO] }), { client: cliente(), text: arrobaVIEJO, participants: grupo });
+  visto.perfilDeVIEJO = /moderador/.test(ultimoEnviado().msg.text);
+  await moderador(`quitar ${arrobaVIEJO}`);
+  visto.quitarAVIEJO = ultimoEnviado().msg.text;
+  await moderador(arrobaVIEJO);
+  visto.darAVIEJO = [bajo(VIEJO), bajo(X)];
+  R.limpiarRolesAlSalir(C, [VIEJO], grupo); // VIEJO leaves, the event bringing his LID alone
+  visto.alSalir = [bajo(VIEJO), bajo(X)];
+  const esperado = { VIEJO: false, X: true, moderarAVIEJO: null, roles: [X, MOD], config: [true, false], perfilDeVIEJO: false, quitarAVIEJO: `❌ ${arrobaVIEJO} no tiene rol del bot en este grupo.`, darAVIEJO: ["mod", "mod"], alSalir: [null, "mod"] };
+  assert.deepEqual(visto, esperado);
+});
+
+// Leaving with their LID alone in the event, a role kept under the number the group lists them with goes too, and not
+// the one under the number their row has: by the LID, quitarRolGrupo went to that one, whoever has it now, and left
+// the one under their number.
+test("al irse con la LID sola, se va el rol bajo el número con que lo lista el grupo, no el del número de su fila", () => {
+  const C = "salida-por-lid@g.us";
+  const { X, VIEJO } = numeroReciclado(621);
+  const Y = unNumero(622);
+  const rol = db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, 'mod', '', 1)");
+  rol.run(C, Y); // given by the number he has now
+  rol.run(C, X); // whoever has his old number
+  R.limpiarRolesAlSalir(C, [VIEJO], [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }]);
+  assert.deepEqual(F.rolesGrupo(C).map((r) => r.usuario), [X]);
+});
+
+// A number the group lists with no LID, which the database has on someone the group lists with another number, and
+// WhatsApp not saying whose it is: ".adminbot" refuses too, as ".moderador" does. With WhatsApp's answer, the role goes
+// to the LID it gave, and stays with them once they write with it and the number.
+test(".moderador y .adminbot se niegan con un número que la base tiene en otro, salvo que WhatsApp diga de quién es", async (t) => {
+  const C = "rol-dudoso@g.us";
+  const { X, VIEJO, NUEVO } = numeroReciclado(603);
+  const [Y, ADMIN] = [unNumero(604), unaLid(604)];
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: ADMIN, admin: "admin" }, botEnGrupo().porNumero];
+  const correr = (command) => P.roles.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X], text: `.${command} @${digitos(X)}` }), { client: cliente(), command, text: `@${digitos(X)}`, args: [`@${digitos(X)}`], usedPrefix: ".", participants: grupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  usyncFalso(t, {});
+  await correr("moderador");
+  const respuestas = [ultimoEnviado().msg.text];
+  await correr("adminbot");
+  respuestas.push(ultimoEnviado().msg.text);
+  const sinRespuesta = { respuestas, roles: F.rolesGrupo(C).length };
+  usyncFalso(t, { [X]: NUEVO });
+  await correr("moderador");
+  F.syncUserInfo({ sender: NUEVO, senderJid: X, pushName: "Nuevo" }); // NUEVO writes once with his LID and X
+  const conRespuesta = { roles: F.rolesGrupo(C).map((r) => [r.usuario, r.rol]), NUEVO: R.permisosDe(C, NUEVO, { participants: grupo }).isMod, VIEJO: R.permisosDe(C, VIEJO, { participants: grupo }).isMod };
+  const noSe = "No sé de quién es ese número ahora, y WhatsApp no me contestó. Probá de nuevo en un rato.";
+  assert.deepEqual({ sinRespuesta, conRespuesta }, { sinRespuesta: { respuestas: [noSe, noSe], roles: 0 }, conRespuesta: { roles: [[NUEVO, "mod"]], NUEVO: true, VIEJO: false } });
+});
+
+// Someone the bot knows by their number alone (a group listed by number, whose messages bring no LID): with WhatsApp
+// giving their LID, the role went under it, which their messages never bring. It was announced and served nothing:
+// their commands were "solo para moderadores", the ban roulette could pick a bot admin, and .perfil didn't show it.
+// It goes under the number, as the bot knows them (comoLoConoce).
+test("a quien el bot conoce solo por su número, .moderador y .adminbot le dan un rol que le sirve", async (t) => {
+  const C = "rol-solo-por-numero@g.us";
+  const { X, L, porNumeroSinLid } = soloPorNumero(605);
+  const ADMIN = unaLid(606);
+  usyncFalso(t, { [X]: L });
+  const grupo = [...porNumeroSinLid, { id: ADMIN, admin: "admin" }, botEnGrupo().porNumeroSinLid];
+  const arrobaX = `@${digitos(X)}`;
+  const correr = (command) => P.roles.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X], text: `.${command} ${arrobaX}` }), { client: cliente(), command, text: arrobaX, args: [arrobaX], usedPrefix: ".", participants: grupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  const roles = () => F.rolesGrupo(C).map((r) => [r.usuario, r.rol]);
+  await correr("moderador");
+  const mod = { roles: roles(), isMod: R.permisosDe(C, X, { participants: grupo }).isMod, mentions: ultimoEnviado().msg.mentions };
+  await correr("adminbot");
+  const Perfil = (await import("../plugins/perfil.js")).default;
+  await Perfil.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X] }), { client: cliente(), text: arrobaX, participants: grupo });
+  const admin = { roles: roles(), isAdmin: R.permisosDe(C, X, { participants: grupo }).isAdmin, rango: R.rango(C, { jid: X }, grupo), perfil: /🛡️ admin del bot/.test(ultimoEnviado().msg.text) };
+  assert.deepEqual({ mod, admin }, { mod: { roles: [[X, "mod"]], isMod: true, mentions: [X] }, admin: { roles: [[X, "admin"]], isAdmin: true, rango: 2, perfil: true } });
+});
+
+// ".perfil @598…" of whoever has a number now, with WhatsApp not saying whose it is, in a group that lists whoever had
+// it before with another number: it showed that one's record, their role included. It doesn't know whoever has it now.
+test(".perfil de un número que el grupo ya muestra con otra persona no muestra la ficha de quien lo tuvo antes", async (t) => {
+  const C = "perfil-de-otro@g.us";
+  const { X, VIEJO } = numeroReciclado(607);
+  const [Y, PIDE] = [unNumero(608), unaLid(608)];
+  F.setRolGrupo(C, VIEJO, "mod", PIDE);
+  usyncFalso(t, {});
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: PIDE, admin: null }, botEnGrupo().porNumero];
+  const Perfil = (await import("../plugins/perfil.js")).default;
+  await Perfil.run(mensaje({ chat: C, sender: PIDE, mentionedJid: [X] }), { client: cliente(), text: `@${digitos(X)}`, participants: grupo });
+  assert.equal(ultimoEnviado().msg.text, "No tengo datos de esa persona todavía. Cuando escriba algo en el grupo, la conozco.");
+});
+
+// ".del" from a moderator, replying to the message of whoever has a number now, in a group that lists them by it alone
+// and not whoever had it before (a bot admin, whose row still has it): it went by the database's guess without asking
+// WhatsApp, and refused for that one's role.
+test(".del le pregunta a WhatsApp de quién es el número del mensaje, y no choca con el rol de quien lo tuvo antes", async (t) => {
+  const C = "del-por-numero@g.us";
+  const { X, VIEJO, NUEVO } = numeroReciclado(609);
+  const MOD = unaLid(610);
+  F.setRolGrupo(C, VIEJO, "admin", unaLid(611));
+  F.setRolGrupo(C, MOD, "mod", unaLid(611));
+  const consultas = usyncFalso(t, { [X]: NUEVO });
+  const grupo = [{ id: X, admin: null }, { id: unNumero(610), lid: MOD, admin: null }, botEnGrupo().porNumero];
+  let borrado = false;
+  const Del = (await import("../plugins/grupo-delete-message.js")).default;
+  await Del.run(mensaje({ chat: C, sender: MOD, quoted: { sender: X, fromMe: false, delete: async () => (borrado = true) } }), { client: cliente(), participants: grupo, isMod: true, isOwner: false, isWaAdmin: false });
+  assert.deepEqual({ borrado, consultas: consultas.length }, { borrado: true, consultas: 1 });
+});
+
+// Whoever moderates writing from their number alone, which the database has on whoever had it before (a bot admin the
+// group lists with another number): their rank is their own, as the group says, in every command that moderates.
+// Nothing held that the plugins hand impedimentoParaModerar the group, nor that the rank of whoever moderates goes by
+// it: without it, a moderator had that bot admin's rank, and muted, warned, kicked, listed another moderator, or
+// deleted their messages.
+test("quien modera desde un número que la base tiene en otro no tiene más rango que el suyo, en cada comando", async (t) => {
+  const C = "modera-por-numero@g.us";
+  const { X, VIEJO } = numeroReciclado(612);
+  const [Y, OTRO, NUMERO_OTRO] = [unNumero(613), unaLid(614), unNumero(614)];
+  const rol = db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, '', 1)");
+  rol.run(C, X, "mod"); // whoever writes from X moderates
+  rol.run(C, VIEJO, "admin"); // whoever had X is a bot admin
+  rol.run(C, OTRO, "mod");
+  F.initDataDB({ chat: C, sender: OTRO, senderJid: NUMERO_OTRO, pushName: "Otro" });
+  usyncFalso(t, {});
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: NUMERO_OTRO, lid: OTRO, admin: null }, botEnGrupo().porNumero];
+  const arroba = `@${digitos(OTRO)}`;
+  const respuestas = {};
+  for (const [archivo, command, texto] of [["grupo-silenciar", "mute", arroba], ["grupo-advertir-delete", "unwarn", arroba], ["grupo-lista-negra", "ln", `${arroba} spam`], ["grupo-kick", "kick", arroba], ["grupo-advertir", "advertir", `${arroba} spam`]]) {
+    const plugin = (await import(`../plugins/${archivo}.js`)).default;
+    globalThis.enviados = [];
+    await plugin.run(mensaje({ chat: C, sender: X, mentionedJid: [OTRO], text: `.${command} ${texto}` }), { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: unaLid(615), participants: grupo }, isOwner: false, isWaAdmin: false, isAdmin: false });
+    respuestas[command] = globalThis.enviados.at(-1)?.msg.text;
+  }
+  let borrado = false;
+  const Del = (await import("../plugins/grupo-delete-message.js")).default;
+  await Del.run(mensaje({ chat: C, sender: X, quoted: { sender: OTRO, fromMe: false, delete: async () => (borrado = true) } }), { client: cliente(), participants: grupo, isMod: true, isOwner: false, isWaAdmin: false });
+  respuestas.del = globalThis.enviados.at(-1)?.msg.text;
+  const esMod = "es moderador. Eso lo puede hacer un admin del bot o de WhatsApp.";
+  const visto = { respuestas, borrado, silenciado: Boolean(F.getUser(OTRO, C).inGroup[C].mute), advertencias: F.advertenciasDe(OTRO, C) };
+  const negativas = { mute: `No lo puedo silenciar: ${esMod}`, unwarn: `No le puedo sacar la advertencia: ${esMod}`, ln: `No lo puedo anotar: ${esMod}`, kick: `No lo puedo sacar: ${esMod}`, advertir: `No lo puedo advertir: ${esMod}`, del: `No lo puedo borrar: ${esMod}` };
+  assert.deepEqual(visto, { respuestas: negativas, borrado: false, silenciado: false, advertencias: 0 });
+});
+
+// The ban roulette of a bot admin, in a group that lists by number alone whoever has a number now, and with another
+// number whoever had it before, a bot admin too, whose row still has it: whoever has the number now is a candidate, as
+// the group says. Nothing held that the roulette hands impedimentoParaModerar the group.
+test("la ruleta del ban de un admin del bot puede elegir a quien tiene un número, sin el rol de quien lo tuvo antes", async (t) => {
+  const C = "ruleta-por-numero@g.us";
+  const { X, VIEJO } = numeroReciclado(616);
+  const [Y, GIRA] = [unNumero(617), unaLid(617)];
+  F.setRolGrupo(C, VIEJO, "admin", GIRA);
+  F.setRolGrupo(C, GIRA, "admin", unaLid(618));
+  const elegidos = [];
+  cliente().groupParticipantsUpdate = async (chat, ids) => (elegidos.push(...ids), ids.map(() => ({ status: "200" })));
+  t.after(() => delete cliente().groupParticipantsUpdate);
+  const participants = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, botEnGrupo().porNumero];
+  const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
+  await Ruleta.run(mensaje({ chat: C, sender: GIRA }), { client: cliente(), groupMetadata: { participants }, isOwner: false, isWaAdmin: false });
+  assert.deepEqual(elegidos, [X]);
+});
+
+// ".moderador quitar @598…" of whoever the group lists by that number alone, the database having it on whoever had it
+// before (a bot admin the group lists with another number): the role it takes is the number's, read with the group.
+// Nothing held that quitarRol reads the role it takes with it: without, it said the number's was a bot admin. Nor that
+// darRol does: the plugin refuses to give one there (desmentida), and darRol by itself said the same.
+test(".moderador quitar de un número lee con el grupo el rol que tiene, sin el de quien lo tuvo antes", async (t) => {
+  const C = "quitar-por-numero@g.us";
+  const { X, VIEJO } = numeroReciclado(619);
+  const [Y, ADMIN] = [unNumero(620), unaLid(620)];
+  F.setRolGrupo(C, VIEJO, "admin", ADMIN);
+  db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, 'mod', ?, 1)").run(C, X, ADMIN);
+  usyncFalso(t, {});
+  const grupo = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: ADMIN, admin: "admin" }, botEnGrupo().porNumero];
+  const texto = `quitar @${digitos(X)}`;
+  await P.roles.run(mensaje({ chat: C, sender: ADMIN, mentionedJid: [X], text: `.moderador ${texto}` }), { client: cliente(), command: "moderador", text: texto, args: texto.split(" "), usedPrefix: ".", participants: grupo, isOwner: false, isWaAdmin: true, isAdmin: true });
+  const visto = { respuesta: ultimoEnviado().msg.text, roles: F.rolesGrupo(C).map((r) => [r.usuario, r.rol]) };
+  const dar = R.darRol(C, "mod", { lid: ADMIN, esAdminWhatsApp: true, isAdmin: true }, { lid: X, jid: X, estaEnGrupo: true }, grupo);
+  visto.darRol = [dar.ok, F.rolesGrupo(C).find((r) => r.usuario === X)?.rol];
+  assert.deepEqual(visto, { respuesta: `Listo, @${digitos(X)} ya no es moderador acá.`, roles: [[VIEJO, "admin"]], darRol: [true, "mod"] });
+});
+
+// A group that lists whoever had a number without it (WhatsApp brings phoneNumber only when its server sends it), and
+// whoever has it now with it: the number their row still has isn't theirs, and the role kept under it is whoever the
+// group lists it with's. By the LID, the database's had it: whoever had it before was a moderator, whoever has it now
+// wasn't, and the role went when the first one left.
+test("con la LID sola, el número de su fila no cuenta si el grupo lo lista con otra LID", async () => {
+  const C = "rol-de-quien-lo-lista@g.us";
+  const { X, VIEJO, NUEVO } = numeroReciclado(623);
+  db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, 'mod', '', 1)").run(C, X);
+  const grupo = [{ id: VIEJO, admin: null }, { id: NUEVO, phoneNumber: X, admin: null }, botEnGrupo().porLid];
+  const visto = { VIEJO: R.permisosDe(C, VIEJO, { participants: grupo }).isMod, NUEVO: R.permisosDe(C, NUEVO, { participants: grupo }).isMod };
+  R.limpiarRolesAlSalir(C, [VIEJO], grupo);
+  visto.alIrseVIEJO = F.rolesGrupo(C).map((r) => r.usuario);
+  assert.deepEqual(visto, { VIEJO: false, NUEVO: true, alIrseVIEJO: [X] });
 });
 
 // The bot's own number isn't asked about: it's the bot. Replying to a casino result or to another of its messages, in
