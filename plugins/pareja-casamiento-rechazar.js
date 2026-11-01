@@ -1,5 +1,6 @@
 import { responderCasamiento } from "../lib/parejas.js";
-import { responderAdopcion, textoRespuestaAdopcion } from "../lib/familia.js";
+import { responderAdopcion, textoRespuestaAdopcion, porAdoptar } from "../lib/familia.js";
+import { comoLoEsperan } from "../lib/identidad.js";
 
 // .no: turns down your partner's marriage proposal, or the adoption you were offered.
 const plugin = {};
@@ -7,8 +8,10 @@ plugin.cmd = ["no"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client }) => {
-  const adopcion = textoRespuestaAdopcion(m.sender, responderAdopcion(m.sender, false));
+plugin.run = async (m, { client, participants }) => {
+  // Asked by their LID, whoever writes from their number alone answers from it (lib/identidad.js).
+  const hijo = await comoLoEsperan(client, m, participants, porAdoptar(m.sender));
+  const adopcion = textoRespuestaAdopcion(m.sender, responderAdopcion(hijo, false));
   if (adopcion) return client.sendMessage(m.chat, adopcion, { quoted: m });
   const r = responderCasamiento(m.sender, false);
   if (!r.ok) {

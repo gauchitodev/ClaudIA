@@ -1,6 +1,6 @@
-import { desafiar, aceptar, rechazar, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
+import { desafiar, aceptar, rechazar, retadosEn, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
 import { COINS } from "../lib/urucoins.js";
-import { lidMencionadoActual } from "../lib/identidad.js";
+import { lidMencionadoActual, comoLoEsperan } from "../lib/identidad.js";
 
 const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
@@ -19,9 +19,11 @@ plugin.run = async (m, { client, args, text, command, chat, participants }) => {
 
   let r;
   if (ACCIONES.has(command)) r = accionPelea(m.chat, m.sender, command);
-  else if (command === "acepto") r = aceptar(m.chat, m.sender, avisar);
-  else if (command === "rechazo") r = rechazar(m.chat, m.sender);
-  else {
+  else if (command === "acepto" || command === "rechazo") {
+    // Challenged by their LID, whoever writes from their number alone answers from it (lib/identidad.js).
+    const como = await comoLoEsperan(client, m, participants, retadosEn(m.chat, m.sender));
+    r = command === "acepto" ? aceptar(m.chat, m.sender, avisar, como) : rechazar(m.chat, m.sender, como);
+  } else {
     if (!args.length) {
       const enCurso = textoPelea(m.chat, m.sender);
       if (enCurso) return client.sendText(m.chat, enCurso, m);

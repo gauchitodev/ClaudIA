@@ -37,6 +37,17 @@ export function soloPorNumero(n) {
   return { X, L, porNumeroSinLid: [{ id: X, admin: null }] };
 }
 
+// Someone with two rows the bot doesn't know are one person's: the one keyed by their number (X), as a group that lists
+// people by number leaves it when their messages bring no LID (soloPorNumero), and their LID's (L), with no number,
+// from where their messages bring the LID alone. WhatsApp says L has X. Three ways a group may list them: by LID with
+// the number, by number with the LID, and by number alone.
+export function conDosFilas(n) {
+  const [X, L] = [unNumero(n), unaLid(n)];
+  fila(X, X, "Por número", 1);
+  fila(L, "", "Por LID", 2);
+  return { X, L, porLid: [{ id: L, phoneNumber: X, admin: null }], porNumero: [{ id: X, lid: L, admin: null }], porNumeroSinLid: [{ id: X, admin: null }] };
+}
+
 // Someone with their LID row and the row keyed by the number from before LIDs; with dispositivo, also a device's row
 // ("…:12@lid"), which has no number, as soloUnaFilaPorNumero leaves it. The old row is the newer, as a message that
 // came without the LID leaves it, and the one written first: the number stands for the LID row all the same

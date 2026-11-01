@@ -8,7 +8,7 @@ plugin.onlyOwner = true;
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   // The mention may arrive as a LID or as a number: it's resolved to an id that exists before writing, because an
   // UPDATE against a row that isn't there used to pass as good.
-  const { quien, lid, jid, mencionado } = await destinatarioActual(client, m, text, participants);
+  const { quien, filas, lid, jid, mencionado } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (esElBot([lid, jid], client)) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
@@ -16,7 +16,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (esOwnerDe([mencionado, lid, jid])) return m.react("❌");
   if (!quien) return client.sendText(m.chat, "No tengo registro de esa persona todavía: que escriba algo y probá de nuevo.", m);
 
-  if (!updateUser(quien, { banned: command === "banuser" })) return client.sendText(m.chat, "No pude guardar el cambio.", m);
+  // On every row of theirs (lib/identidad.js, filasDe): their commands from a group that lists people by number may
+  // bring the number alone, and the bot reads the row kept under it.
+  const guardados = filas.map((fila) => updateUser(fila, { banned: command === "banuser" }));
+  if (!guardados.every(Boolean)) return client.sendText(m.chat, "No pude guardar el cambio.", m);
   m.react("☑️");
 };
 

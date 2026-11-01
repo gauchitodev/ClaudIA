@@ -1611,6 +1611,11 @@ export function getSolicitudAdopcion(hijo) {
   return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE hijo = ?`).get(hijo) || null;
 }
 
+// every adoption request, as stored: the expired ones too, which lib/familia.js leaves out
+export function solicitudesAdopcion() {
+  return db.prepare(`SELECT * FROM solicitudes_adopcion`).all();
+}
+
 // the request a person has open as an adopting parent
 export function getSolicitudAdopcionDe(padre) {
   return db.prepare(`SELECT * FROM solicitudes_adopcion WHERE padre_a = ? OR padre_b = ?`).get(padre, padre) || null;

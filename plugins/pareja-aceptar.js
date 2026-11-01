@@ -1,6 +1,6 @@
 import { getUser } from "../database-functions.js";
-import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
-import { aceptarPareja } from "../lib/parejas.js";
+import { lidMencionadoActual, esElBot, comoLoEsperan } from "../lib/identidad.js";
+import { aceptarPareja, solicitudDe } from "../lib/parejas.js";
 
 // .aceptar @x: accepts x's couple request.
 const plugin = {};
@@ -15,7 +15,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (esElBot(who, client)) return client.sendText(m.chat, txt.parejaWhoBotNull(usedPrefix, command, who), m, { mentions: [who] });
   if (who === m.sender) return client.sendText(m.chat, txt.parejaWhoSender, m);
 
-  const r = aceptarPareja(m.sender, who);
+  // Asked by their LID, whoever writes from their number alone answers from it (lib/identidad.js), and the couple is
+  // that LID's, as everything done to them when they're named.
+  const r = aceptarPareja(await comoLoEsperan(client, m, participants, [solicitudDe(who)?.para]), who);
   if (!r.ok) {
     if (r.motivo === "yaJuntos") {
       const kz = await client.sendText(m.chat, txt.parejaAlready(who), m, { mentions: [who] });

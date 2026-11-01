@@ -14,7 +14,7 @@ plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwner, isWaAdmin }) => {
   // Like the rest of the moderation: the identity is resolved before writing, and the mute belongs to this group.
-  const { quien, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
+  const { quien, filas, lid, jid, mencionado, participante } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
   if (esElBot([lid, jid], client)) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
@@ -29,7 +29,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
     const impedimento = impedimentoParaModerar(m.chat, { lid: m.sender, esOwner: isOwner, esAdminWhatsApp: isWaAdmin }, { lid: lid || quien, jid, esAdminWhatsApp: Boolean(participante?.admin) }, participants);
     if (impedimento) return client.sendText(m.chat, `No lo puedo silenciar: ${impedimento}`, m);
   }
-  if (!updateUserInGroup(quien, m.chat, { mute: silenciar })) return client.sendText(m.chat, "No pude guardar el cambio.", m);
+  // On every row of theirs (lib/identidad.js, filasDe): their messages from a group that lists people by number may
+  // bring the number alone, and the bot reads the row kept under it.
+  const guardados = filas.map((fila) => updateUserInGroup(fila, m.chat, { mute: silenciar }));
+  if (!guardados.every(Boolean)) return client.sendText(m.chat, "No pude guardar el cambio.", m);
   m.react("☑️");
 };
 
