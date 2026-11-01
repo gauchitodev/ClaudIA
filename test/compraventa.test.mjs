@@ -500,9 +500,6 @@ test("compraventa: quien se va del grupo se lleva sus publicaciones y sus alerta
   assert.deepEqual(F.publicacionesActivas(S).map((p) => p.usuario), ["888@lid"]);
   assert.equal(F.getPublicacion(S, a).estado, "cerrada");
   assert.deepEqual(F.alertasDe(S, "777@lid"), []);
-  const fs = await import("fs");
-  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /if \(action === "remove"\) \{[^}]*limpiarVentasAlSalir\(id, participants, Date\.now\(\), grupo\)/, "main.js lo llama cuando alguien sale, con el grupo");
 });
 
 // Without admin WhatsApp refuses the change: it was asked again every 5 minutes, forever, nobody heard about it, and

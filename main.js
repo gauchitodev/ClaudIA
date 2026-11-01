@@ -10,15 +10,11 @@ import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
 import { avisarOwner } from "./lib/avisos.js";
 import { limpiarTmp } from "./lib/limpieza-tmp.js";
-import { limpiarRolesAlSalir } from "./lib/roles.js";
-import { limpiarVentasAlSalir } from "./lib/compraventa.js";
-import { recibirNuevos } from "./lib/bienvenida.js";
 import { instalarDevolucionAlCerrar } from "./lib/cierre.js";
-import { metadataDe, enCache, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
-import { recordarIngreso } from "./lib/contexto-chat.js";
+import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from "./lib/cache-grupos.js";
 import { procesarTanda } from "./lib/tandas.js";
-import { idsDeParticipante, confirmarOwnersCadaTanto } from "./lib/identidad.js";
-import { reiniciarSiEsElBot, anotarIngresos } from "./lib/inactivos.js";
+import { confirmarOwnersCadaTanto } from "./lib/identidad.js";
+import { alCambiarParticipantes } from "./lib/participantes.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -115,8 +111,9 @@ async function startBot() {
       confirmarOwnersCadaTanto();
       globalThis.horaConexion = horaConexion;
       // Coming back from a disconnection, the cached group metadata is dropped: promotes, joins and leaves that
-      // happened while the bot was down never arrived as events, so the admin lists can't be trusted any more.
-      // On the first connection there is nothing to drop.
+      // happened while the bot was down never arrived as events, so the admin lists can't be trusted any more. The
+      // last copy of each group stays, for who is who alone (ultimaCopia, lib/cache-grupos.js). On the first
+      // connection there is nothing to drop.
       if (yaConectoAlgunaVez) vaciar();
       yaConectoAlgunaVez = true;
       // Notify the owner: on process start, and when coming back from a long outage.
@@ -158,38 +155,9 @@ async function startBot() {
     });
   });
 
-  // When a group's participants or admins change, the stored metadata is refreshed.
-  // Without this the admin list stays as it was on connect, and the bot doesn't find out it was
-  // given (or stripped of) admin until the next restart.
-  client.ev.on("group-participants.update", async ({ id, participants, action }) => {
-    try {
-      if (!id?.endsWith("@g.us")) return;
-      // The group as the copy at hand has it, for whoever comes or goes with their number alone: the LID the database
-      // knows for it isn't theirs when the group lists that one with another number (idsDeParticipante).
-      const grupo = enCache(id)?.participants;
-      // Whoever leaves the group (or is removed) loses the bot role they had there, and their posts and alerts.
-      if (action === "remove") {
-        limpiarRolesAlSalir(id, participants, grupo);
-        limpiarVentasAlSalir(id, participants, Date.now(), grupo);
-      }
-      // The bot itself coming in or leaving: .inactivos starts counting the group over (lib/inactivos.js).
-      if (action === "add" || action === "remove") reiniciarSiEsElBot(client, id, participants);
-      // Whoever comes in: when, so .resumen only tells them what was said from then on. And in the database, so
-      // .inactivos gives them time even after a restart (anotarIngresos, lib/inactivos.js).
-      if (action === "add") for (const p of participants || []) recordarIngreso(id, idsDeParticipante(p, grupo));
-      if (action === "add") anotarIngresos(id, participants);
-
-      // Metadata is refreshed first: the blacklist needs to know which id the group lists each person under.
-      // If it couldn't be fetched, carry on anyway: the group rules still get sent. The same join also reaches
-      // processMessageStubType, and the cache collapses both into a single query.
-      const metadata = await metadataDe(client, id, { fresca: true });
-
-      // Whoever joins: the blacklisted are removed on the spot, everyone else gets the group rules.
-      if (action === "add") await recibirNuevos(client, id, participants, metadata);
-    } catch (e) {
-      console.error("[grupos] error refrescando metadata:", e);
-    }
-  });
+  // Someone came into a group, left it, or was promoted or demoted: the group's metadata is asked for again, and what
+  // changes for the bot (roles, posts, .inactivos, the blacklist, the rules) is in lib/participantes.js.
+  client.ev.on("group-participants.update", (evento) => alCambiarParticipantes(client, evento));
 
   // Reaction points: "received" for whoever wrote the message, "given" for whoever reacted (lib/reacciones.js).
   client.ev.on("messages.reaction", (reactions) => {
@@ -203,7 +171,7 @@ async function startBot() {
   });
 
   // Whole metadata is kept, a settings change invalidates: see aplicarCambioDeGrupo in lib/cache-grupos.js.
-  // Participant changes are refreshed by the handler above.
+  // Participant changes are refreshed by lib/participantes.js.
   client.ev.on("groups.update", (cambios) => {
     for (const cambio of cambios || []) aplicarCambioDeGrupo(client, cambio);
   });

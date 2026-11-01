@@ -50,6 +50,20 @@ export async function prepararBase(nombre = "prueba") {
 
 export const ultimoEnviado = () => globalThis.enviados[globalThis.enviados.length - 1];
 
+// The nodes of some code's syntax tree, as ESLint parses it, that match a selector (the language of
+// no-restricted-syntax, eslint.config.js), each with its parent. For what the tests check of main.js, which no test can
+// run (it connects to WhatsApp): read as text, a call commented out still matched, and a variable renamed broke the
+// check. ESLint is loaded only by the files that ask.
+export async function nodosQue(selector, codigo) {
+  const { Linter } = await import("eslint");
+  const nodos = [];
+  const regla = { create: () => ({ [selector]: (nodo) => nodos.push(nodo) }) };
+  const config = { languageOptions: { ecmaVersion: "latest", sourceType: "module" }, plugins: { prueba: { rules: { nodos: regla } } }, rules: { "prueba/nodos": "error" } };
+  const fatal = new Linter().verify(codigo, [config], { filename: "codigo.js" }).find((m) => m.fatal);
+  if (fatal) throw new Error(`El código no parsea: ${fatal.message} (línea ${fatal.line})`);
+  return nodos;
+}
+
 // Sets the balance to exactly n (moverCoins takes negatives; ganarCoins ignores amounts <= 0).
 export function fijarSaldo(F, chat, usuario, n) {
   const diferencia = n - F.getSaldoCoins(chat, usuario);

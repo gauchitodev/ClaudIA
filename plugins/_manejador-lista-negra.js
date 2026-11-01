@@ -3,8 +3,8 @@ import { expulsar } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
 
 // The blacklist's safety net: if someone on it got in anyway, they're removed as soon as they write. Removal on
-// joining is handled by main.js through the participants event; this covers whoever was already inside when they
-// were listed, and whoever the bot couldn't recognize at that moment.
+// joining is handled by lib/bienvenida.js through the participants event; this covers whoever was already inside when
+// they were listed, and whoever the bot couldn't recognize at that moment.
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 plugin.before = async (m, { client, participants, isBotAdmin, isRAdmin, isWaAdmin, isOwner }) => {

@@ -264,6 +264,36 @@ test("cache de grupos: groups.update con la metadata entera la guarda, y un camb
   assert.equal(consultas.length, 0, "nada de esto le pregunta a WhatsApp");
 });
 
+// The last copy of each group stays after reconnecting, and after a settings change, for who is who alone
+// (ultimaCopia): the messages that arrive late after reconnecting reach .inactivos before the bot asks for the group.
+// Never for who is an admin: the copy that serves that goes with vaciar, as before, and a query that fails after
+// reconnecting still gives nothing. A chat of its own: the last copy outlives the vaciar() of every test.
+test("cache de grupos: la última copia queda después de reconectar, solo para saber quién es quién", async () => {
+  const client = cliente();
+  const ULTIMA = "ultima@g.us";
+  assert.equal(C.ultimaCopia(ULTIMA), null, "sin copia, nada");
+  await C.metadataDe(client, ULTIMA, { ahora: T0 });
+  C.vaciar();
+  assert.deepEqual([C.enCache(ULTIMA, T0), C.ultimaCopia(ULTIMA)?.subject], [null, "ultima"], "la vigente se fue, la última no");
+  C.invalidar(client, ULTIMA);
+  assert.equal(C.ultimaCopia(ULTIMA)?.subject, "ultima", "un cambio de configuración no cambia quién está");
+  const errorReal = console.error;
+  console.error = () => {};
+  const deSiempre = responder;
+  try {
+    responder = () => {
+      throw new Error("rate-overlimit");
+    };
+    assert.equal(await C.metadataDe(client, ULTIMA, { fresca: true, ahora: T0 + 1000 }), null, "para los admins no sirve");
+    responder = (jid) => ({ ...deSiempre(jid), subject: "la nueva" });
+    await C.metadataDe(client, ULTIMA, { ahora: T0 + 1000 + C.CACHE_GRUPOS.REFRESCO_MIN_MS });
+    assert.equal(C.ultimaCopia(ULTIMA)?.subject, "la nueva", "la que llega después es la última");
+  } finally {
+    console.error = errorReal;
+    responder = deSiempre;
+  }
+});
+
 // ---------- consistency: scanning the source ----------
 // The cache has one owner and one way into Baileys. None of this shows when it breaks: the bot keeps working, it just
 // goes back to asking WhatsApp on every message it sends. Modelled on test/motivos.test.mjs.

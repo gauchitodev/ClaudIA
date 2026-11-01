@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import Database from "better-sqlite3";
-import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso } from "./helpers.mjs";
+import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso, nodosQue } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own (".addowner no espera la ronda
@@ -176,9 +176,15 @@ test("confirmarOwners: le pregunta a WhatsApp por cada owner y se queda con lo q
   assert.deepEqual([I.esOwnerConfirmado(o.LID), I.esOwnerConfirmado(otra)], [false, true], "el número es de otra LID ahora");
 });
 
+// main.js asks when the connection opens: read as code (nodosQue), in the branch of the "open" itself. Read as text, it
+// passed with the call commented out, or moved to every batch of messages.
 test("el bot le pregunta a WhatsApp por los owners al conectarse, y .addowner por el que agrega", async (t) => {
-  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /connection === "open"\) \{[\s\S]*?confirmarOwnersCadaTanto\(\);/);
+  const AL_ABRIRSE = 'CallExpression[callee.property.name="on"][arguments.0.value="connection.update"] IfStatement[test.right.value="open"] > BlockStatement.consequent CallExpression[callee.name="confirmarOwnersCadaTanto"]';
+  const cuantas = async (codigo) => (await nodosQue(AL_ABRIRSE, codigo)).length;
+  const conexion = (alAbrirse, enCadaTanda = "") => `client.ev.on("connection.update", ({ connection }) => {\n  if (connection === "close") {\n  } else if (connection === "open") {\n    ${alAbrirse}\n  }\n});\nclient.ev.on("messages.upsert", () => {\n  ${enCadaTanda}\n});`;
+  const formas = [conexion("confirmarOwnersCadaTanto();"), conexion("// confirmarOwnersCadaTanto();"), conexion("", "confirmarOwnersCadaTanto();")];
+  assert.deepEqual(await Promise.all(formas.map(cuantas)), [1, 0, 0]);
+  assert.equal(await cuantas(fs.readFileSync(new URL("../main.js", import.meta.url), "utf8")), 1, "main.js no le pregunta por los owners al abrirse la conexión");
   const antes = globalThis.owners;
   t.after(() => {
     globalThis.owners = antes;
@@ -943,7 +949,8 @@ test(".moderador @<dígitos> de un número que el bot no conoce no le da el rol 
 
 // And when the event brings the number alone, by the group: the LID the database has for the number is someone else's
 // when the group lists it with another number. The one who had it lost their role and their posts when the one who has
-// it now left, though they were still in the group. main.js hands over the copy of the group at hand.
+// it now left, though they were still in the group. lib/participantes.js hands over the group as it is then
+// (test/participantes.test.mjs).
 test("al irse con su número solo quien lo tiene ahora, el que lo tuvo antes no pierde su rol ni sus ventas", async () => {
   const C = "salida-por-numero@g.us";
   const { X, VIEJO } = numeroReciclado(436);
@@ -954,8 +961,6 @@ test("al irse con su número solo quien lo tiene ahora, el que lo tuvo antes no 
   R.limpiarRolesAlSalir(C, [{ id: X }], grupo);
   Cv.limpiarVentasAlSalir(C, [{ id: X }], Date.now(), grupo);
   assert.deepEqual([F.rolGrupo(C, VIEJO), F.getPublicacion(C, venta).estado], ["mod", "activa"]);
-  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /const grupo = enCache\(id\)\?\.participants;[\s\S]*limpiarRolesAlSalir\(id, participants, grupo\)[\s\S]*recordarIngreso\(id, idsDeParticipante\(p, grupo\)\)/, "main.js le pasa el grupo");
 });
 
 test("identidadDelGrupo: la LID y el número como los trae el grupo; idsDeParticipante va a la base solo sin LID", () => {

@@ -1,6 +1,5 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import fs from "fs";
 import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import strings from "../lib/strings.js";
@@ -256,7 +255,6 @@ test("cuando el bot entra o sale de un grupo, la cuenta de .inactivos empieza de
   assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), []);
   F.registrarMensajeGrupo(chat, ["103@lid"]);
   assert.ok(Math.abs(F.inicioPresencia(chat) - Date.now()) < 5000, "el próximo mensaje la arranca");
-  assert.match(fs.readFileSync(new URL("../main.js", import.meta.url), "utf8"), /action === "add" \|\| action === "remove"\) reiniciarSiEsElBot\(client, id, participants\)/);
 });
 
 // It used to take the list once and go through it: someone who wrote while the removals went on was told "Volvió" and
@@ -837,13 +835,6 @@ test("si el bot vuelve a un grupo cerrado, el cierre cuenta desde que volvió", 
   assert.deepEqual(F.cierresGrupo(otro).map((c) => [Math.round((ahora - c.desde) / DIA), c.hasta]), [[2, null]], "al reconectar, de todos los grupos");
 });
 
-test("consistencia: cuando el bot entra a un grupo, main.js pide la copia del grupo después de empezar la cuenta de nuevo", () => {
-  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  const evento = main.slice(main.indexOf('"group-participants.update"'));
-  const [reinicia, pide] = [evento.indexOf("reiniciarSiEsElBot("), evento.indexOf("metadataDe(client, id, { fresca: true })")];
-  assert.ok(reinicia > 0 && pide > reinicia, "la copia pedida antes quedaba borrada con la cuenta");
-});
-
 // The copy of the group may be a few minutes older than the group's notice: closed after the copy was taken, .inactivos
 // tagged people who couldn't answer, and ended the closing right there, as of the moment it looked.
 test("un grupo que se cerró después de la copia que tiene el bot cuenta como cerrado", async () => {
@@ -1106,11 +1097,6 @@ test("al entrar alguien con su número solo, la entrada no se anota en la LID qu
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
   I.anotarIngresos(chat, [{ id: X, admin: null }, { id: unaLid(83), phoneNumber: unNumero(83), admin: null }]);
   assert.deepEqual(F.presenciaDelGrupo(chat).map((r) => r.usuario).sort(), [X, unaLid(83), unNumero(83)].sort());
-  // And main.js notes each join that way: put back inline as it was (registrarIngresoGrupo with idsDeParticipante), no
-  // test told.
-  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /if \(action === "add"\) anotarIngresos\(id, participants\);/);
-  assert.doesNotMatch(main, /registrarIngresoGrupo/);
 });
 
 // A message that brings the LID and the number lifts the warning of those two, and not of the LID the database still
@@ -1128,6 +1114,40 @@ test("un mensaje atrasado de quien tiene ahora un número no le levanta el aviso
   assert.deepEqual(listos(), [VIEJO]);
   I.anotarPresencia({ chat, isGroup: true, sender: NUEVO, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 }, { antesDelNumero: true });
   assert.deepEqual(listos(), [VIEJO], "VIEJO sigue avisado");
+});
+
+// After reconnecting the bot has no copy of any group (vaciar), and the messages that arrive late reach .inactivos
+// before it asks for one. With the database alone, a late message from whoever has a number now, with the number
+// alone, counted for the LID the database has for that number, whoever had it before, though the group listed them
+// with another number, and lifted their warning. So it did 5 minutes after the last copy, and with the group's list
+// empty, as handle-message hands it over when WhatsApp didn't answer for the group, where it also paid whoever has the
+// number a "Volvió" for it. By the last copy the bot had.
+test("después de reconectar, un mensaje de quien tiene ahora un número no le levanta el aviso a quien lo tuvo", async () => {
+  const escenario = async (n, prepararGrupo) => {
+    const chat = `inactivos-reconecto-${n}@g.us`;
+    const { X, VIEJO } = numeroReciclado(n);
+    const Y = unNumero(n + 1);
+    F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
+    F.registrarMensajeGrupo(chat, [VIEJO], Date.now() - 30 * DIA);
+    F.marcarAvisoInactivo(chat, [VIEJO, Y], Date.now() - 4 * DIA);
+    const participants = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
+    miembros.set(chat, participants);
+    await prepararGrupo(chat);
+    const m = { chat, isGroup: true, sender: X, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 };
+    return { m, Y, avisados: () => I.paraSacar(chat, participants, globalThis.client).listos.map((e) => e.participante.id) };
+  };
+  const reconectar = async (chat) => {
+    await CG.metadataDe(globalThis.client, chat); // the copy from before
+    CG.vaciar();
+  };
+  const atrasado = await escenario(120, reconectar);
+  I.anotarPresencia(atrasado.m, { antesDelNumero: true });
+  const vencida = await escenario(122, (chat) => CG.metadataDe(globalThis.client, chat, { ahora: Date.now() - CG.CACHE_GRUPOS.VIDA_MS - 1000 }));
+  I.anotarPresencia(vencida.m, { antesDelNumero: true });
+  const sinGrupo = await escenario(124, reconectar);
+  await I.registrarPresencia(globalThis.client, sinGrupo.m, []);
+  const visto = { atrasado: atrasado.avisados(), conLaCopiaVencida: vencida.avisados(), sinElGrupo: [sinGrupo.avisados(), textoEnviado()] };
+  assert.deepEqual(visto, { atrasado: [atrasado.Y], conLaCopiaVencida: [vencida.Y], sinElGrupo: [[sinGrupo.Y], ""] });
 });
 
 // Whoever changes their own number takes along what .inactivos noted under the old one (pasarPresencia, suyo): in a
