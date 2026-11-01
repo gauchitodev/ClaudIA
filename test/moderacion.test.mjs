@@ -313,18 +313,60 @@ test(".p y .d miran lo que contesta WhatsApp", async () => {
   assert.match(ultimo(), /dejo de funcionar/, "no se saca el admin a sí mismo");
 });
 
-test(".bloquear usa el número, que es lo único que WhatsApp acepta", async () => {
+// .bloquear hands Baileys the number, and first puts in its store the LID WhatsApp says has it now: what Baileys
+// blocks is the LID its own store has for the number, which may be whoever had it before (updateBlockStatus,
+// Socket/chats.js).
+test(".bloquear le pasa el número a Baileys con la LID que WhatsApp dice que lo tiene", async (t) => {
   const Bloquear = (await import("../plugins/owner-bloquear.js")).default;
-  const bloqueos = [];
-  globalThis.client.updateBlockStatus = async (jid, accion) => bloqueos.push({ jid, accion });
+  const pasos = [];
+  globalThis.client.updateBlockStatus = async (jid, accion) => pasos.push(["bloquea", jid, accion]);
+  globalThis.client.signalRepository = { lidMapping: { storeLIDPNMappings: async (pares) => pasos.push(["guarda", pares]) } };
+  globalThis.client.executeUSyncQuery = async (c) => ({ list: c.users.map((u) => ({ id: u.id, lid: u.id === "5989911111@s.whatsapp.net" ? "111@lid" : undefined })) });
+  t.after(() => ["updateBlockStatus", "signalRepository", "executeUSyncQuery"].forEach((k) => delete globalThis.client[k]));
 
   await correr(Bloquear, "@111", "bloquear", { mentionedJid: ["111@lid"] });
-  assert.deepEqual(bloqueos, [{ jid: "5989911111@s.whatsapp.net", accion: "block" }]);
+  assert.deepEqual(pasos, [
+    ["guarda", [{ lid: "111@lid", pn: "5989911111@s.whatsapp.net" }]],
+    ["bloquea", "5989911111@s.whatsapp.net", "block"],
+  ]);
 
   // 333's number isn't known: it says so instead of sending a LID WhatsApp will reject
   await correr(Bloquear, "@333", "bloquear", { mentionedJid: ["333@lid"] });
-  assert.equal(bloqueos.length, 1);
+  assert.equal(pasos.length, 2);
   assert.match(ultimo(), /No sé el número de esa persona/);
+});
+
+// The same with Baileys' real socket, whose store still has the number on whoever had it before (VIEJO), as a message
+// of theirs left it, and WhatsApp saying it's NUEVO's now: what goes out to block and unblock carries NUEVO's LID. With
+// a connection to a closed local port the node doesn't leave, and the logger, in "trace", shows it as it would.
+test(".bloquear con Baileys de verdad: lo que sale lleva la LID que confirma WhatsApp, no la de su store", async () => {
+  const pino = (await import("pino")).default;
+  const { makeWASocket, initAuthCreds } = await import("@whiskeysockets/baileys");
+  const X = "59899000777@s.whatsapp.net";
+  const [VIEJO, NUEVO] = ["300000000777001@lid", "300000000777002@lid"];
+  const lineas = [];
+  const datos = {};
+  const keys = {
+    get: async (tipo, ids) => Object.fromEntries(ids.filter((id) => datos[`${tipo}/${id}`] !== undefined).map((id) => [id, datos[`${tipo}/${id}`]])),
+    set: async (data) => {
+      for (const tipo in data) for (const id in data[tipo]) data[tipo][id] ? (datos[`${tipo}/${id}`] = data[tipo][id]) : delete datos[`${tipo}/${id}`];
+    },
+  };
+  const logger = pino({ level: "trace" }, { write: (linea) => lineas.push(linea) });
+  const sock = makeWASocket({ auth: { creds: initAuthCreds(), keys }, logger, waWebSocketUrl: "ws://127.0.0.1:9", connectTimeoutMs: 2000 });
+  sock.ev.on("connection.update", () => {});
+  try {
+    await sock.signalRepository.lidMapping.storeLIDPNMappings([{ lid: VIEJO, pn: X }]);
+    sock.executeUSyncQuery = async (c) => ({ list: c.users.map((u) => ({ id: u.id, lid: u.id === X ? NUEVO : undefined })) });
+    sock.sendText = async () => {}; // "Connection Closed", which is what the closed port answers
+    const Bloquear = (await import("../plugins/owner-bloquear.js")).default;
+    const privado = { chat: "59899111222@s.whatsapp.net", sender: "59899111222@s.whatsapp.net", isGroup: false, mentionedJid: [], quoted: null, react: async () => {} };
+    for (const command of ["bloquear", "desbloquear"]) await Bloquear.run(privado, { client: sock, text: `+${X.split("@")[0]}`, usedPrefix: ".", command, participants: [] });
+  } finally {
+    sock.end(undefined);
+  }
+  const items = lineas.map((l) => JSON.parse(l)).filter((l) => l.msg === "xml send" && /blocklist/.test(l.xml)).map((l) => l.xml.match(/<item [^>]*>/)?.[0]);
+  assert.deepEqual(items, [`<item action='block' jid='${NUEVO}' pn_jid='${X}'/>`, `<item action='unblock' jid='${NUEVO}'/>`]);
 });
 
 test(".fr parte el texto por el @ que está escrito, no por el id resuelto", async () => {

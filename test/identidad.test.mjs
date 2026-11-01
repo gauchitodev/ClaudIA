@@ -6,6 +6,11 @@ import { ESLint } from "eslint";
 import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
+// Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
+// asks WhatsApp, and inside the first test that asks, under a time limit of its own (".addowner no espera la ronda
+// entera"), loading it took most of that limit. It was loaded already only because a plugin these tests import loads
+// it too.
+import "@whiskeysockets/baileys";
 
 // Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
 // and what was wrong and got fixed. Each of those was a todo until its tanda of the identity frontier plan, and failed
@@ -1441,9 +1446,10 @@ test("un @número tipeado no es de quien lo tuvo, si el grupo lo lista con otro 
   cliente().updateBlockStatus = async (jid, accion) => bloqueos.push([jid, accion]);
   t.after(() => delete cliente().updateBlockStatus);
   await P.bloquear.run(mensaje({ sender: ADMIN, text: `.bloquear ${tipeado}` }), { client: cliente(), text: tipeado, command: "bloquear", participants: grupo });
-  const visto = { lid: I.lidDeDigitos(digitos(X), grupo), expulsado: expulsiones.includes(VIEJO), silenciado: Boolean(F.getUser(VIEJO, C).inGroup[C]?.mute), rol: F.rolGrupo(C, VIEJO), owners: globalThis.owners, bloqueos };
-  // The digits are nobody the bot knows: not VIEJO, and the number typed is what's written down and blocked.
-  assert.deepEqual(visto, { lid: `${digitos(X)}@lid`, expulsado: false, silenciado: false, rol: "mod", owners: ["59899111222", digitos(X)], bloqueos: [[X, "block"]] });
+  const visto = { lid: I.lidDeDigitos(digitos(X), grupo), expulsado: expulsiones.includes(VIEJO), silenciado: Boolean(F.getUser(VIEJO, C).inGroup[C]?.mute), rol: F.rolGrupo(C, VIEJO), owners: globalThis.owners, bloqueos, alBloquear: ultimoEnviado().msg.text };
+  // The digits are nobody the bot knows: not VIEJO, and the number typed is what's written down. Nor is it blocked
+  // while WhatsApp doesn't say whose LID it is (.bloquear): Baileys would block the one its store has for it.
+  assert.deepEqual(visto, { lid: `${digitos(X)}@lid`, expulsado: false, silenciado: false, rol: "mod", owners: ["59899111222", digitos(X)], bloqueos: [], alBloquear: "No pude confirmar con WhatsApp de quién es ese número ahora, así que no lo bloqueo. Probá de nuevo en un rato." });
 });
 
 // The same number, given to a role: the database's LID for it counted as the person's, through rolGrupo, quitarRolGrupo
@@ -1529,7 +1535,7 @@ test(".addowner, .removeowner y .bloquear con @persona confirman con WhatsApp el
     const { VIEJO, NUEVO } = escenario(n, quienLoTiene);
     await correr(P.addowner, "addowner", { mentionedJid: [VIEJO] }, [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }]);
     await correr(P.bloquear, "bloquear", { mentionedJid: [VIEJO] }, [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }]);
-    visto[caso] = { owners: globalThis.owners.slice(1).length, bloqueos: bloqueos.length, VIEJOconPoderes: I.esOwnerConfirmado(VIEJO), respuesta: globalThis.enviados[0]?.msg.text };
+    visto[caso] = { owners: globalThis.owners.slice(1).length, bloqueos: bloqueos.length, VIEJOconPoderes: I.esOwnerConfirmado(VIEJO), respuesta: globalThis.enviados[0]?.msg.text, alBloquear: globalThis.enviados[1]?.msg.text ?? null };
   }
   // NUEVO, an owner by X: ".removeowner @VIEJO".
   const r = escenario(423, "NUEVO", ["59899111222", "X"]);
@@ -1539,11 +1545,12 @@ test(".addowner, .removeowner y .bloquear con @persona confirman con WhatsApp el
   const c = escenario(424, "NUEVO");
   await correr(P.addowner, "addowner", { quoted: { sender: c.VIEJO, text: "hola" } }, [{ id: c.NUEVO, phoneNumber: c.X, admin: null }]);
   visto.citado = globalThis.owners.length;
-  const pideElNumero = (comienzo) => `${comienzo} Escribilo: .addowner +598 99 999 999`;
+  const pideElNumero = (comienzo, comando = ".addowner") => `${comienzo} Escribilo: ${comando} +598 99 999 999`;
+  const [deOtro, sinRespuesta] = ["No sé qué número tiene ahora esa persona: el que tengo anotado ya es de otra.", "No pude confirmar con WhatsApp el número de esa persona, y el que tengo anotado puede ser viejo."];
   assert.deepEqual(visto, {
-    deOtro: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero("No sé qué número tiene ahora esa persona: el que tengo anotado ya es de otra.") },
-    sinRespuesta: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero("No pude confirmar con WhatsApp el número de esa persona, y el que tengo anotado puede ser viejo.") },
-    suyo: { owners: 1, bloqueos: 1, VIEJOconPoderes: true, respuesta: `✅ El numero *${digitos(unNumero(422))}* fué añadido como owner.` },
+    deOtro: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero(deOtro), alBloquear: pideElNumero(deOtro, ".bloquear") },
+    sinRespuesta: { owners: 0, bloqueos: 0, VIEJOconPoderes: false, respuesta: pideElNumero(sinRespuesta), alBloquear: pideElNumero(sinRespuesta, ".bloquear") },
+    suyo: { owners: 1, bloqueos: 1, VIEJOconPoderes: true, respuesta: `✅ El numero *${digitos(unNumero(422))}* fué añadido como owner.`, alBloquear: null },
     removeowner: true,
     citado: 1,
   });
@@ -1570,6 +1577,94 @@ test(".id muestra el número que tiene ahora, no el viejo de su fila, y solo una
     delGrupo: `Usuario: +${digitos(Y)} · Nombre actual: Viejo · Lid: ${VIEJO}`,
     soloPorNumero: `Usuario: +${digitos(a.X)} · Nombre actual: Por número · Lid: ${a.L}`,
   });
+});
+
+// .id of someone whose number the bot has only in their row (named by LID, in a group that lists no numbers): WhatsApp
+// is asked whose it is, and it's shown as theirs only if it says so (numeroActual). Shown as theirs, ".bloquear +598…"
+// with it blocked whoever has it now.
+test(".id de alguien cuyo número solo está en su fila: el suyo si WhatsApp lo confirma, y si no, lo dice", async (t) => {
+  const visto = {};
+  for (const [caso, n, quienLoTiene] of [["deOtro", 450, "NUEVO"], ["sinRespuesta", 451, null], ["suyo", 452, "VIEJO"]]) {
+    const [VIEJO, NUEVO, X] = [unaLid(n, 1), unaLid(n, 2), unNumero(n)];
+    db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+    usyncFalso(t, quienLoTiene ? { [X]: quienLoTiene === "NUEVO" ? NUEVO : VIEJO } : {});
+    const participants = [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }];
+    await P.id.run(mensaje({ sender: unaLid(n, 3), mentionedJid: [VIEJO] }), { client: cliente(), text: `@${digitos(VIEJO)}`, usedPrefix: ".", command: "id", participants, isOwner: true });
+    visto[caso] = ultimoEnviado().msg.text.split("\n\n")[0];
+  }
+  assert.deepEqual(visto, {
+    deOtro: "Usuario: número desconocido: el que tenía anotado ya es de otra persona",
+    sinRespuesta: `Usuario: +${digitos(unNumero(451))}, sin confirmar: WhatsApp no me contestó, y puede ser viejo`,
+    suyo: `Usuario: +${digitos(unNumero(452))}`,
+  });
+});
+
+// The answer asks for the number typed (numeroSinConfirmar), and the owner who typed it replying to that person's
+// message again had it left aside: the message quoted won, and the bot answered the same. A typed "+number" wins in
+// the owner's commands, and .bloquear asks WhatsApp about it once.
+test(".addowner y .bloquear con el número escrito respondiendo al mensaje de la persona toman el número escrito", async (t) => {
+  const [VIEJO, NUEVO, X, Y] = [unaLid(453, 1), unaLid(453, 2), unNumero(453), unNumero(454)];
+  db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
+  const consultas = usyncFalso(t, { [X]: NUEVO, [Y]: VIEJO });
+  const antes = globalThis.owners;
+  const bloqueos = [];
+  cliente().updateBlockStatus = async (jid, accion) => bloqueos.push([jid, accion]);
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+    delete cliente().updateBlockStatus;
+  });
+  fs.writeFileSync("config.toml", 'owners = ["59899111222"]\n');
+  globalThis.owners = ["59899111222"];
+  const participants = [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }];
+  const respondiendo = (plugin, command) => plugin.run(mensaje({ sender: unaLid(455), text: `.${command} +${digitos(Y)}`, quoted: { sender: VIEJO, text: "hola" } }), { client: cliente(), text: `+${digitos(Y)}`, usedPrefix: ".", command, participants });
+  await respondiendo(P.addowner, "addowner");
+  consultas.length = 0;
+  await respondiendo(P.bloquear, "bloquear");
+  assert.deepEqual({ owners: globalThis.owners, bloqueos, preguntasAlBloquear: consultas.length }, { owners: ["59899111222", digitos(Y)], bloqueos: [[Y, "block"]], preguntasAlBloquear: 1 });
+});
+
+// Replying to a message that comes by number, in a group that lists people by number alone, the number is the one the
+// message names, with no question to WhatsApp (destinatario's jidDeLaFila): asked, with WhatsApp silent, .addowner
+// answered it couldn't confirm the number.
+test(".addowner respondiendo a un mensaje que llega por número toma ese número aunque WhatsApp no conteste", async (t) => {
+  const { X, porNumeroSinLid } = numeroReciclado(456);
+  usyncFalso(t, {});
+  const antes = globalThis.owners;
+  t.after(() => {
+    globalThis.owners = antes;
+    I.ownersConfirmados.clear();
+  });
+  fs.writeFileSync("config.toml", 'owners = ["59899111222"]\n');
+  globalThis.owners = ["59899111222"];
+  await P.addowner.run(mensaje({ sender: unaLid(457), quoted: { sender: X, text: "hola" } }), { client: cliente(), text: "", usedPrefix: ".", command: "addowner", participants: porNumeroSinLid });
+  assert.deepEqual(globalThis.owners, ["59899111222", digitos(X)]);
+});
+
+// A round of the owners' questions calls off the retry the one before left waiting (rondaDeOwners): left to fire, it
+// asked once more on its own. Counted by the questions in order, not by a time: the round's own retry is the third,
+// and the one before's would come right along with it. Waited for with timers of the test's own: the retries' don't
+// keep the process going, and on Node 22 the test runner gave up on this test and every one after it in the file.
+test("una ronda de los owners cancela el reintento que esperaba la anterior", async (t) => {
+  const X = unNumero(458);
+  const antes = { owners: globalThis.owners, reintento: I.OWNERS.REINTENTO_MS };
+  globalThis.owners = [digitos(X)];
+  I.OWNERS.REINTENTO_MS = 100;
+  let preguntas = 0;
+  cliente().executeUSyncQuery = async () => (preguntas++, { list: [{ id: X }] }); // never a LID
+  t.after(async () => {
+    cliente().executeUSyncQuery = async () => ({ list: [{ id: X, lid: unaLid(458) }] });
+    await I.rondaDeOwners(); // answered: no retry is left waiting
+    globalThis.owners = antes.owners;
+    I.OWNERS.REINTENTO_MS = antes.reintento;
+    I.ownersConfirmados.clear();
+    delete cliente().executeUSyncQuery;
+  });
+  await I.rondaDeOwners(); // a question, and a retry REINTENTO_MS later
+  await I.rondaDeOwners(); // the next one, with that retry waiting: a question, and a retry of its own
+  for (let vueltas = 0; preguntas < 3 && vueltas < 300; vueltas++) await esperar(10);
+  await esperar(50);
+  assert.equal(preguntas, 3);
 });
 
 // .addowner waits on WhatsApp as a command does, and whoever it adds is asked again while there's no answer: it waited
