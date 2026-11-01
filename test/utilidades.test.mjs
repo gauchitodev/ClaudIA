@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
-import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { prepararBase, G, ultimoEnviado, nodosQue, manejadorDe, dentroDe } from "./helpers.mjs";
 
 let F, Rec, C, B, Av, CC, Mem, E, LT;
 before(async () => {
@@ -242,15 +242,23 @@ test("atraso: se mide contra la llegada, no contra cuándo se procesa", async ()
   assert.equal(atrasoDeLlegada({ _llegada: llegada }), 0);
 });
 
+// Read as code (nodosQue): the time taken once for the whole batch, in the handler and not for each message, and put on
+// each message inside procesarTanda's callback; and handle-message dropping, as a sign of life, what came over 60 s
+// late. Read as text, commented out it passed, and a renamed variable broke it.
 test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con ella", async () => {
   const { fileURLToPath } = await import("url");
   const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
   const main = fs.readFileSync(path.join(raiz, "main.js"), "utf8");
-  const bloque = main.slice(main.indexOf('client.ev.on("messages.upsert"'), main.indexOf('client.ev.on("group-participants.update"'));
-  assert.ok(bloque.length > 100, "no se encontró el handler de messages.upsert: el escaneo no está andando");
-  assert.match(bloque, /const llegada = Date\.now\(\);[\s\S]*m\._llegada = llegada;/, "main.js dejó de marcar cuándo llegó la tanda");
+  const nodos = await nodosQue('CallExpression[callee.property.name="on"][arguments.0.value="messages.upsert"] CallExpression[callee.name="procesarTanda"], AssignmentExpression[left.property.name="_llegada"]', main);
+  const tanda = nodos.find((n) => n.type === "CallExpression");
+  const porMensaje = tanda?.arguments[1];
+  const declaradas = (manejadorDe(tanda)?.body.body || []).flatMap((s) => (s.type === "VariableDeclaration" ? s.declarations : []));
+  const llegada = declaradas.find((d) => d.init?.callee?.object?.name === "Date" && d.init.callee.property?.name === "now")?.id.name;
+  const marca = nodos.find((n) => n.type === "AssignmentExpression" && n.right.name === llegada && n.left.object?.name === porMensaje?.params[0]?.name);
+  assert.ok(llegada && marca && dentroDe(marca, porMensaje), "main.js dejó de marcar cuándo llegó la tanda");
   const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
-  assert.match(handle, /if \(atrasoDeLlegada\(m\) > 60\) return anotarPresencia\(m, \{ antesDelNumero: true \}\);/, "handle-message dejó de filtrar por el atraso de llegada");
+  const filtro = 'IfStatement[test.left.callee.name="atrasoDeLlegada"][test.operator=">"][test.right.value=60] ReturnStatement > CallExpression[callee.name="anotarPresencia"] > ObjectExpression > Property[key.name="antesDelNumero"][value.value=true]';
+  assert.equal((await nodosQue(filtro, handle)).length, 1, "handle-message dejó de filtrar por el atraso de llegada");
 });
 
 test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo", async () => {

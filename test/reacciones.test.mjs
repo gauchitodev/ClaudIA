@@ -1,7 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
-import { prepararBase, G } from "./helpers.mjs";
+import { prepararBase, G, nodosQue, recorreElEvento, esElCliente } from "./helpers.mjs";
 
 // Reactions (lib/reacciones.js): "received" and UruCoins for whoever wrote the message, "given" and UruCoins for
 // whoever reacted. A reaction to one of Claudia's messages paid her too, with no daily cap: she could top .baltop and
@@ -79,9 +79,12 @@ test("lo que Claudia juntó antes no la pone en .baltop, en el ranking ni en los
   assert.equal(F.puestoRankingMensual(mes, C, "111@lid").puesto, 1);
 });
 
-test("main.js cuenta las reacciones con lib/reacciones.js", () => {
+// Each reaction the event brings, with the client. Read as code (nodosQue): read as text, the call passed commented
+// out, and broke on a renamed variable.
+test("main.js cuenta las reacciones con lib/reacciones.js", async () => {
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /"messages\.reaction"[\s\S]{0,200}contarReaccion\(client, r\)/);
+  const llamadas = await nodosQue('CallExpression[callee.property.name="on"][arguments.0.value="messages.reaction"] CallExpression[callee.name="contarReaccion"]', main);
+  assert.ok(llamadas.some((llamada) => esElCliente(llamada.arguments[0]) && recorreElEvento(llamada)), "main.js no le pasa cada reacción a contarReaccion");
 });
 
 // It said "1 reacciones", and tagged everyone on it: .baltop and .timba already went by name.

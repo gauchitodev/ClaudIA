@@ -64,6 +64,7 @@ test("un global nuevo en globalThis no pasa el lint si no está en la lista; los
     ["globalThis.estadoNuevo = new Map();\n", "lib/x.js"],
     ["globalThis.estadoNuevo = 1;\n", "plugins/x.js"],
     ["global.estadoNuevo = 1;\n", "main.js"],
+    ["globalThis.estadoNuevo = 1;\n", "lib/identidad.js"],
   ]) {
     assert.deepEqual(await reglas(codigo, archivo), ["no-restricted-syntax"], `${archivo}: ${codigo.trim()}`);
   }

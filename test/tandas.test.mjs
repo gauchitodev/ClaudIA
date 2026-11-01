@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { procesarTanda } from "../lib/tandas.js";
+import { nodosQue, manejadorDe } from "./helpers.mjs";
 
 // A batch of incoming messages (one messages.upsert, main.js) used to go one message at a time: a chat whose replies
 // were waiting their turn to be sent held up every other chat in the batch. Now it's in order within each chat, and the
@@ -37,7 +38,11 @@ test("tandas: lo que falla en un mensaje no corta el resto", async () => {
   await procesarTanda(undefined, async () => assert.fail("no hay nada que procesar"));
 });
 
-test("consistencia: main.js procesa las tandas con procesarTanda", () => {
+// The messages of each batch the event brings, waited for. Read as code (nodosQue): read as text, the call passed
+// commented out, and broke on a renamed variable.
+test("consistencia: main.js procesa las tandas con procesarTanda", async () => {
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /client\.ev\.on\("messages\.upsert"[\s\S]{0,400}await procesarTanda\(chatUpdate\.messages,/);
+  const llamadas = await nodosQue('CallExpression[callee.property.name="on"][arguments.0.value="messages.upsert"] CallExpression[callee.name="procesarTanda"]', main);
+  const conLaTanda = (llamada) => llamada.parent.type === "AwaitExpression" && llamada.arguments[0]?.property?.name === "messages" && llamada.arguments[0].object?.name === manejadorDe(llamada)?.params[0]?.name;
+  assert.ok(llamadas.some(conLaTanda), "main.js no procesa cada tanda con procesarTanda");
 });

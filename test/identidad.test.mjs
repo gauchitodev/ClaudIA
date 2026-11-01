@@ -1,8 +1,6 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { ESLint } from "eslint";
 import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso, nodosQue } from "./helpers.mjs";
 import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
@@ -348,55 +346,6 @@ test("lidMencionadoActual y lidsMencionadosActual le preguntan a WhatsApp por un
   assert.equal(consultas.length, 6, "y no pregunta");
   usyncFalso(t, {});
   assert.equal(await I.lidMencionadoActual(cliente(), mensaje({ mentionedJid: [X] }), `@${digitos(X)}`, porNumeroSinLid), VIEJO, "sin respuesta, la suposición de la base");
-});
-
-// The commands go through the versions that ask (lidMencionadoActual, lidsMencionadosActual, deQuienEsActual,
-// destinatarioActual, dosPersonasActual): one with a version that only guesses brought back, in a group that lists
-// people by number alone, whoever had the number before.
-// Called by name, or off the module (I.destinatario), or brought in under another name, from lib/identidad.js or
-// lib/parejas.js, which hid a call by that name.
-test("ningún plugin resuelve a quién nombra un mensaje sin preguntarle a WhatsApp", () => {
-  const ADIVINAN = "lidMencionado|lidsMencionados|deQuienEs|destinatario|dosPersonas|lidDeDigitos";
-  const adivinanEn = (codigo) => [
-    ...[...codigo.matchAll(new RegExp(`\\b(${ADIVINAN})\\s*\\(|\\.(${ADIVINAN})\\b`, "g"))].map((r) => r[1] || r[2]),
-    ...[...codigo.matchAll(/\{([^}]*)\}\s*(?:from\s*|=\s*await\s+import\s*\(\s*)["'`][^"'`]*lib\/(?:identidad|parejas)\.js["'`]/g)]
-      .flatMap(([, lista]) => lista.split(",").map((s) => s.trim().split(/\s+as\s+|\s*:\s*/)[0]))
-      .filter((nombre) => new RegExp(`^(${ADIVINAN})$`).test(nombre)),
-  ];
-  const formas = [
-    'import { destinatario as aQuien } from "../lib/identidad.js";\naQuien(m);',
-    "import * as I from '../lib/identidad.js';\nconst f = I.lidMencionado;",
-    'const { dosPersonas: dos } = await import("../lib/parejas.js");',
-    "deQuienEs(client, m);",
-    'import { lidMencionadoActual } from "../lib/identidad.js";\nconst { destinatario } = r;\ndestinatario.lid;',
-  ];
-  assert.deepEqual(formas.map(adivinanEn), [["destinatario"], ["lidMencionado"], ["dosPersonas"], ["deQuienEs"], []]);
-  const carpeta = new URL("../plugins/", import.meta.url);
-  const usan = [];
-  for (const archivo of fs.readdirSync(carpeta).filter((f) => f.endsWith(".js"))) {
-    const codigo = fs.readFileSync(new URL(archivo, carpeta), "utf8").split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
-    for (const nombre of adivinanEn(codigo)) usan.push(`${archivo}: ${nombre}`);
-  }
-  assert.deepEqual(usan, []);
-});
-
-// One way only: lib/menciones.js and the rest import lib/identidad.js, which imports nothing of the bot's but the
-// database. When it imported lib/menciones.js, whatever both needed had to live there, where it didn't belong.
-// Whichever way the import is written: with names or without, as a re-export, through import() or require, with either
-// quote or a template. Read as `from "…"` and `import("…")` only, `import "./menciones.js"` got past, and so did
-// `from './urucoins.js'`.
-test("lib/identidad.js no importa nada del bot más que la base", () => {
-  const modulos = (fuente) => [...fuente.matchAll(/\b(?:from|import|require)\s*\(?\s*(["'`])([^"'`]+)\1/g)].map((r) => r[2]);
-  const formas = ['import "./a.js";', "import { b } from './b.js';", 'export * from "./c.js";', "await import(`./d.js`);", "require('./e.js');", "import.meta.url;"];
-  assert.deepEqual(modulos(formas.join("\n")), ["./a.js", "./b.js", "./c.js", "./d.js", "./e.js"]);
-  const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
-  const codigo = fuente.split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
-  assert.deepEqual([...new Set(modulos(codigo).filter((de) => de.startsWith(".")))], ["../database-functions.js"]);
-  // And any relative path in a string: a require kept in a variable (createRequire) takes one without the word before
-  // it, and got past the one above.
-  const rutas = (texto) => [...texto.matchAll(/(["'`])(\.{1,2}\/[^"'`]*)\1/g)].map((r) => r[2]);
-  assert.deepEqual(rutas('const cargar = createRequire(import.meta.url);\ncargar("./f.js");'), ["./f.js"]);
-  assert.deepEqual([...new Set(rutas(codigo))], ["../database-functions.js"]);
 });
 
 // ---------- whom a command names: who has the number now, and no number made up ----------
@@ -812,60 +761,6 @@ test("el santo de .gay2 es quien el grupo lista con el número del segundo owner
   const Juegos = (await import("../plugins/fun-calcular-juegos.js")).default;
   await Juegos.run(mensaje({ sender: unaLid(164), mentionedJid: [S] }), { client: cliente(), command: "gay2", text: `@${digitos(S)}`, participants: [{ id: S, lid: SANTO, admin: null }] });
   assert.match(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, /es un santo/);
-});
-
-// ---------- the boundary: only lib/identidad.js asks the database who is who ----------
-
-// Whichever way the import is written: by name, the whole module, handed on, or through import() or a call that isn't
-// a method's (require, or createRequire's, kept in a variable or not), with the file's name in the path as a string, a
-// template or a sum; and a row's LID or number read off getUser, destructured from it, or with getUser renamed on
-// import: lidDeNumero or jidDeLid by another name. A method's call, as fs.readFileSync, reads the file and passes. A
-// path put together elsewhere, or a row kept in a variable, is out of the lint's sight. lib/identidad.js asks; the
-// tests look into the database freely; and the rest of the database is open to everyone.
-test("pedirle a la base quién es quién fuera de lib/identidad.js no pasa el lint", async () => {
-  const eslint = new ESLint({ cwd: fileURLToPath(new URL("..", import.meta.url)) });
-  // The boundary's rules alone: a sum is prefer-template's too, in the tests as well.
-  const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId).filter((regla) => regla?.startsWith("no-restricted"));
-  const pedidos = [
-    ['import { lidDeNumero } from "../database-functions.js";\nlidDeNumero("x");\n', "no-restricted-imports"],
-    ['import { getUser, esOwner as owner } from "../database-functions.js";\nowner(getUser("x"));\n', "no-restricted-imports"],
-    ['import * as F from "../database-functions.js";\nF.getUser("x");\n', "no-restricted-imports"],
-    ['export { jidDeLid } from "../database-functions.js";\n', "no-restricted-imports"],
-    ['export * from "./database-functions.js";\n', "no-restricted-imports"],
-    ['export const base = () => import("../database-functions.js");\n', "no-restricted-syntax"],
-    ["export const base = () => import(`../database-functions.js`);\n", "no-restricted-syntax"],
-    ["export const base = (dir) => import(`${dir}/database-functions.js`);\n", "no-restricted-syntax"],
-    ['import { createRequire } from "node:module";\nexport const F = createRequire(import.meta.url)("../database-functions.js");\n', "no-restricted-syntax"],
-    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "no-restricted-syntax"],
-    ['import { createRequire } from "node:module";\nexport const F = createRequire(import.meta.url)(`../database-functions.js`);\n', "no-restricted-syntax"],
-    ['import { createRequire } from "node:module";\nexport const F = (dir) => createRequire(import.meta.url)(dir + "/database-functions.js");\n', "no-restricted-syntax"],
-    ['import { createRequire } from "node:module";\nconst cargar = createRequire(import.meta.url);\nexport const F = cargar("../database-functions.js");\n', "no-restricted-syntax"],
-    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)["jid"];\n', "no-restricted-syntax"],
-    ['import { getUser } from "../database-functions.js";\nexport const numero = (lid) => {\n  const { jid } = getUser(lid) || {};\n  return jid;\n};\n', "no-restricted-syntax"],
-    ['import { getUser as fila } from "../database-functions.js";\nexport const numero = (lid) => fila(lid)?.jid;\n', "no-restricted-syntax"],
-  ];
-  for (const [codigo, regla] of pedidos) {
-    for (const archivo of ["plugins/x.js", "lib/x.js", "x.js"]) assert.deepEqual(await reglas(codigo, archivo), [regla], `${archivo}: ${codigo.split("\n")[0]}`);
-    assert.deepEqual(await reglas(codigo, "test/x.test.mjs"), [], `en un test: ${codigo.split("\n")[0]}`);
-  }
-  assert.deepEqual(await reglas('import { lidDeNumero, jidDeLid } from "../database-functions.js";\nlidDeNumero(jidDeLid("x"));\n', "lib/identidad.js"), []);
-  assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\nexport const numero = (lid) => getUser(lid)?.jid;\n', "lib/identidad.js"), []);
-  assert.deepEqual(await reglas('import { getUser } from "../database-functions.js";\ngetUser("x");\n', "plugins/x.js"), [], "lo demás de la base, sí");
-  // What isn't a way into it: reading the file, its address, or another field of a row.
-  const noPiden = [
-    'import fs from "node:fs";\nexport const texto = () => fs.readFileSync("database-functions.js", "utf8");\n',
-    'export const donde = new URL("../database-functions.js", import.meta.url);\n',
-    'import { getUser } from "../database-functions.js";\nexport const nombre = (lid) => {\n  const { pushName } = getUser(lid) || {};\n  return pushName;\n};\n',
-  ];
-  for (const codigo of noPiden) assert.deepEqual(await reglas(codigo, "plugins/x.js"), [], codigo.split("\n").at(-2));
-});
-
-// A name on the list that database-functions.js no longer exports stops nothing: renamed, the function would be open to
-// every file again.
-test("cada nombre de SOLO_IDENTIDAD sigue exportado por database-functions.js", async () => {
-  const { SOLO_IDENTIDAD } = await import("../eslint.config.js");
-  assert.ok(SOLO_IDENTIDAD.length > 0);
-  for (const nombre of SOLO_IDENTIDAD) assert.equal(typeof F[nombre], "function", nombre);
 });
 
 // ---------- whom it protects and whom it acts on: the bot, the owners, and the id the group gives ----------

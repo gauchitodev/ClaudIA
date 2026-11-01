@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { EventEmitter } from "node:events";
-import { prepararBase, fijarSaldo, mazoDe } from "./helpers.mjs";
+import { prepararBase, fijarSaldo, mazoDe, nodosQue } from "./helpers.mjs";
 
 // The casino's games live in memory and charge up front: a restart in the middle used to swallow the stakes.
 // lib/cierre.js refunds whatever is in play on the way out.
@@ -83,7 +83,9 @@ test("cierre: al apagar con Ctrl+C devuelve y sale; con un error, devuelve igual
   }
 });
 
-test("consistencia: main.js engancha la devolución al apagarse", () => {
+// Once, as the process starts: at the top of main.js, inside nothing. Read as code (nodosQue).
+test("consistencia: main.js engancha la devolución al apagarse", async () => {
   const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
-  assert.match(main, /^instalarDevolucionAlCerrar\(\);$/m, "sin esto, reiniciar el bot vuelve a llevarse lo apostado");
+  const llamadas = await nodosQue('Program > ExpressionStatement > CallExpression[callee.name="instalarDevolucionAlCerrar"]', main);
+  assert.equal(llamadas.length, 1, "sin esto, reiniciar el bot vuelve a llevarse lo apostado");
 });

@@ -64,6 +64,35 @@ export async function nodosQue(selector, codigo) {
   return nodos;
 }
 
+// Of a node nodosQue found, the handler it's in among those main.js gives client.ev.on("…", handler): the function
+// passed as the second argument, or null.
+export function manejadorDe(nodo) {
+  for (let n = nodo.parent; n; n = n.parent) if (n.type.includes("Function") && n.parent?.callee?.property?.name === "on" && n.parent.arguments[1] === n) return n;
+  return null;
+}
+
+// Whether a node is the client as main.js names it: bare (a global there), or off globalThis.
+export const esElCliente = (nodo) => nodo?.name === "client" || (nodo?.object?.name === "globalThis" && nodo.property?.name === "client");
+
+// Whether a node is inside another one, of the same tree.
+export function dentroDe(nodo, otro) {
+  for (let n = nodo; n; n = n.parent) if (n === otro) return true;
+  return false;
+}
+
+// Whether a call inside a handler gets each thing the event brings: its second argument is the variable of a for…of
+// over the handler's parameter (or over that parameter || []).
+export function recorreElEvento(llamada) {
+  const manejador = manejadorDe(llamada);
+  const evento = manejador?.params[0]?.name;
+  for (let n = llamada.parent; n && n !== manejador; n = n.parent) {
+    if (n.type !== "ForOfStatement") continue;
+    const recorre = n.right.type === "LogicalExpression" ? n.right.left : n.right;
+    if (recorre.name === evento && n.left.declarations?.[0]?.id.name === llamada.arguments[1]?.name) return true;
+  }
+  return false;
+}
+
 // Sets the balance to exactly n (moverCoins takes negatives; ganarCoins ignores amounts <= 0).
 export function fijarSaldo(F, chat, usuario, n) {
   const diferencia = n - F.getSaldoCoins(chat, usuario);

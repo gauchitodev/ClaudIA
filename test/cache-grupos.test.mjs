@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { clienteFalso, G, esperar } from "./helpers.mjs";
+import { clienteFalso, G, esperar, nodosQue, recorreElEvento, esElCliente } from "./helpers.mjs";
 
 // The cache is what keeps Baileys from asking WhatsApp for the participant list on every message the bot sends to a
 // group. clienteFalso() has no groupMetadata, so it's added here counting the queries, the way test/moderacion
@@ -321,23 +321,30 @@ function lineasQueCoinciden(regex) {
   return encontradas;
 }
 
-test("consistencia: main.js le sigue pasando cachedGroupMetadata al socket", () => {
+test("consistencia: main.js le sigue pasando cachedGroupMetadata al socket", async () => {
   // Without it, Baileys asks WhatsApp for the participant list on EVERY message the bot sends to a group
   // (messages-send.js:501-507), which is the shortest road to a ratelimit. It's one line in a big options object:
-  // exactly the kind of thing a merge eats without anyone noticing.
+  // exactly the kind of thing a merge eats without anyone noticing. Read as code (nodosQue): in the options the socket
+  // is made with, and out of this module.
   const main = fs.readFileSync(path.join(RAIZ, "main.js"), "utf8");
-  const opciones = main.slice(main.indexOf("const connectionOptions"), main.indexOf("globalThis.client = makeWASocket"));
-  assert.ok(opciones.length > 200, "no se encontró el bloque de connectionOptions: el escaneo no está andando");
-  assert.match(opciones, /cachedGroupMetadata:/, "falta cachedGroupMetadata en las connectionOptions de main.js");
-  assert.match(opciones, /metadataDe\(/, `cachedGroupMetadata tiene que salir de ${MODULO}`);
+  const nodos = await nodosQue('Property[key.name="cachedGroupMetadata"], CallExpression[callee.name="makeWASocket"], Property[key.name="cachedGroupMetadata"] CallExpression[callee.name="metadataDe"]', main);
+  const opcion = nodos.find((n) => n.type === "Property");
+  assert.ok(opcion, "falta cachedGroupMetadata en las opciones del socket de main.js");
+  const [opciones, nombre] = [opcion.parent, opcion.parent.parent.type === "VariableDeclarator" ? opcion.parent.parent.id.name : null];
+  const socket = nodos.filter((n) => n.callee?.name === "makeWASocket");
+  assert.ok(socket.some((s) => s.arguments[0] === opciones || (nombre && s.arguments[0]?.name === nombre)), "cachedGroupMetadata no está en las opciones con que se hace el socket");
+  assert.ok(nodos.some((n) => n.callee?.name === "metadataDe"), `cachedGroupMetadata tiene que salir de ${MODULO}`);
 });
 
-test("consistencia: main.js le avisa al cache de los cambios de grupo y de chat", () => {
+test("consistencia: main.js le avisa al cache de los cambios de grupo y de chat", async () => {
   // Without these two the cache only learns about a change when its copy expires: a settings change, or disappearing
-  // messages turned on, would take up to VIDA_MS to show. Another pair of lines a merge could eat without a sound.
+  // messages turned on, would take up to VIDA_MS to show. Another pair of lines a merge could eat without a sound. Each
+  // change the event brings, with the client, read as code (nodosQue).
   const main = fs.readFileSync(path.join(RAIZ, "main.js"), "utf8");
-  assert.match(main, /ev\.on\("groups\.update"[\s\S]{0,200}aplicarCambioDeGrupo\(/, "falta el aviso de groups.update");
-  assert.match(main, /ev\.on\("chats\.update"[\s\S]{0,200}aplicarCambioDeChat\(/, "falta el aviso de chats.update");
+  for (const [evento, funcion] of [["groups.update", "aplicarCambioDeGrupo"], ["chats.update", "aplicarCambioDeChat"]]) {
+    const llamadas = await nodosQue(`CallExpression[callee.property.name="on"][arguments.0.value="${evento}"] CallExpression[callee.name="${funcion}"]`, main);
+    assert.ok(llamadas.some((llamada) => esElCliente(llamada.arguments[0]) && recorreElEvento(llamada)), `falta el aviso de ${evento}`);
+  }
 });
 
 test("consistencia: la metadata de grupos tiene un solo dueño", () => {
