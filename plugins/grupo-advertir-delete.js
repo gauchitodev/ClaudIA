@@ -1,4 +1,4 @@
-import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
+import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS, quitarUltimaAdvertencia } from "../database-functions.js";
 import { destinatarioActual, esElBot } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
@@ -27,6 +27,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (advertencias === 0) return client.sendText(m.chat, "No tiene advertencias en este grupo.", m);
 
   setAdvertencias(quien, m.chat, advertencias - 1);
+  // In their record (.antecedentes), the newest one still open is the one taken away, with who did it and when.
+  quitarUltimaAdvertencia(quien, m.chat, { quitadaPor: m.sender });
   // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
   await client.sendText(m.chat, txt.advertirDeleteSuccess(quien, advertencias - 1, MAX_ADVERTENCIAS), m, { mentions: [quien] });
 };

@@ -70,6 +70,8 @@ function juntarFilas(base, en, de) {
     base
       .prepare(`UPDATE users SET inGroup = ?, banned = ?, pushName = ?, apodo = ?, memoria = ?, timestamp = ? WHERE lid = ?`)
       .run(JSON.stringify(gruposA), a.banned || b.banned ? 1 : 0, a.pushName || b.pushName, a.apodo || b.apodo, a.memoria || b.memoria, Math.max(a.timestamp || 0, b.timestamp || 0) || null, en);
+    // The record of the warnings (.antecedentes) goes where their count goes.
+    base.prepare(`UPDATE antecedentes SET usuario = ? WHERE usuario = ?`).run(en, de);
     base.prepare(`DELETE FROM users WHERE lid = ?`).run(de);
   })();
   return true;
@@ -88,6 +90,7 @@ export function juntarFilasDeDispositivo(base) {
       if (juntarFilas(base, suya, lid)) juntadas++;
     } else {
       base.prepare(`UPDATE users SET lid = ? WHERE lid = ?`).run(suya, lid);
+      base.prepare(`UPDATE antecedentes SET usuario = ? WHERE usuario = ?`).run(suya, lid);
       pasadas++;
     }
   }
@@ -289,6 +292,9 @@ function atarAlLid(numero, lid) {
      ON CONFLICT(chat, usuario) DO UPDATE SET rol = excluded.rol, dadoPor = excluded.dadoPor, fecha = excluded.fecha WHERE excluded.rol = 'admin'`,
   ).run(lid, numero);
   db.prepare(`DELETE FROM roles_grupo WHERE usuario = ?`).run(numero);
+  // And the record of the warnings given under the number (.antecedentes), as the role: left there, the number's next
+  // owner would have shown it.
+  db.prepare(`UPDATE antecedentes SET usuario = ? WHERE usuario = ?`).run(lid, numero);
 }
 
 // What .inactivos noted under a number goes to whoever it's someone's: the person whose own number it was, who changed
@@ -410,6 +416,74 @@ export function advertidos(chat = null) {
   return lista.sort((a, b) => b.warn - a.warn);
 }
 
+// ===================== The record of each one's warnings (.antecedentes), per group =====================
+// The count above only says how many are standing: the reason, who gave each one and when were lost once the message
+// scrolled away, and on the third one the count went back to 0. Kept under the row the count is kept in, the one
+// getUser reads: by LID, that one; by number, the one the number stands for (lidDeNumero). So the record and the count
+// are always about the same person; the rows' moves take it along (juntarFilas, atarAlLid), and deleteUser takes it
+// away.
+const filaDelAntecedente = (usuario) => (usuario.endsWith("@lid") ? usuario : lidDeNumero(usuario) || usuario);
+
+// A warning .adv gave: its id, for marking it as the one that got them removed (marcarExpulsion).
+export function anotarAdvertencia(usuario, chat, { motivo = "", dadoPor = "", fecha = Date.now() } = {}) {
+  const sql = `INSERT INTO antecedentes (chat, usuario, tipo, motivo, dadoPor, fecha) VALUES (?, ?, 'advertencia', ?, ?, ?)`;
+  return Number(db.prepare(sql).run(chat, filaDelAntecedente(usuario), motivo, dadoPor, fecha).lastInsertRowid);
+}
+
+export function marcarExpulsion(id) {
+  db.prepare(`UPDATE antecedentes SET expulso = 1 WHERE id = ?`).run(id);
+}
+
+// The warnings of someone in a group, oldest first, each with how it stands (estado): "quitada" by .unwarn, "expulso"
+// if it was the one that got them removed, "cerrada" if one after it did, and the rest still open ("abierta").
+function advertenciasAnotadas(fila, chat) {
+  const todas = db.prepare(`SELECT * FROM antecedentes WHERE chat = ? AND usuario = ? AND tipo = 'advertencia' ORDER BY id`).all(chat, fila);
+  let abiertas = [];
+  for (const a of todas) {
+    if (a.quitadaEn != null) a.estado = "quitada";
+    else if (a.expulso) {
+      for (const antes of abiertas) [antes.estado, antes.cerradaEn] = ["cerrada", a.fecha];
+      [abiertas, a.estado] = [[], "expulso"];
+    } else {
+      a.estado = "abierta";
+      abiertas.push(a);
+    }
+  }
+  return todas;
+}
+
+// .unwarn: the newest warning still open is the one taken away. False when none is: the count may have some from
+// before the record.
+export function quitarUltimaAdvertencia(usuario, chat, { quitadaPor = "", fecha = Date.now() } = {}) {
+  const abierta = advertenciasAnotadas(filaDelAntecedente(usuario), chat).findLast((a) => a.estado === "abierta");
+  if (!abierta) return false;
+  db.prepare(`UPDATE antecedentes SET quitadaPor = ?, quitadaEn = ? WHERE id = ?`).run(quitadaPor, fecha, abierta.id);
+  return true;
+}
+
+// Someone's record in a group: the last `limite` warnings, newest first, and the totals. The count is what says how
+// many are standing (vigentes): of the open ones, the newest that many are; any older open one no longer counts (a
+// merge of two rows keeps the higher count, not the sum), and when the count has more, those are from before the
+// record (deAntes).
+export function antecedentesDe(usuario, chat, { limite = 30 } = {}) {
+  const todas = advertenciasAnotadas(filaDelAntecedente(usuario), chat);
+  const vigentes = advertenciasDe(usuario, chat);
+  const abiertas = todas.filter((a) => a.estado === "abierta");
+  for (const [i, a] of abiertas.entries()) a.estado = i >= abiertas.length - vigentes ? "vigente" : "noCuenta";
+  return { total: todas.length, expulsiones: todas.filter((a) => a.estado === "expulso").length, vigentes, deAntes: Math.max(0, vigentes - abiertas.length), ultimas: todas.slice(-limite).reverse() };
+}
+
+// .clearantecedentes: the whole record of someone in a group, and the warnings standing, which the record no longer
+// accounts for. How many of each it took.
+export function borrarAntecedentes(usuario, chat) {
+  return db.transaction(() => {
+    const borrados = db.prepare(`DELETE FROM antecedentes WHERE chat = ? AND usuario = ?`).run(chat, filaDelAntecedente(usuario)).changes;
+    const vigentes = advertenciasDe(usuario, chat);
+    if (vigentes) setAdvertencias(usuario, chat, 0);
+    return { borrados, vigentes };
+  })();
+}
+
 // update a chat's data
 export function updateChat(remoteJid, data) {
   return updateRow("chats", "remoteJid", remoteJid, data);
@@ -502,7 +576,13 @@ export function deleteUser(lid) {
   const numero = jidDeLid(lid);
   return db.transaction(() => {
     const borrada = db.prepare(`DELETE FROM users WHERE lid = ?`).run(lid);
-    if (numero?.endsWith("@s.whatsapp.net") && !db.prepare(`SELECT 1 FROM users WHERE jid = ? AND lid LIKE '%@lid'`).get(numero)) db.prepare(`DELETE FROM users WHERE lid = ?`).run(numero);
+    // The record of their warnings goes with the row (.antecedentes): left behind, whoever came to have that key next
+    // would have found it, and the one kept under a number may be reached by the number's next owner.
+    db.prepare(`DELETE FROM antecedentes WHERE usuario = ?`).run(lid);
+    if (numero?.endsWith("@s.whatsapp.net") && !db.prepare(`SELECT 1 FROM users WHERE jid = ? AND lid LIKE '%@lid'`).get(numero)) {
+      db.prepare(`DELETE FROM users WHERE lid = ?`).run(numero);
+      db.prepare(`DELETE FROM antecedentes WHERE usuario = ?`).run(numero);
+    }
     return borrada;
   })();
 }

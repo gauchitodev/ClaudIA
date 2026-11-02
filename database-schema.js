@@ -464,6 +464,27 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // Each person's record in a group (.antecedentes): every warning .adv gave, with its reason, who gave it and when;
+  // who took it away with .unwarn and when; and whether it was the one that got them removed (expulso). The count that
+  // removes them stays in users.inGroup (warn): this tells what happened. With a type (tipo), for other sanctions to
+  // come in without another migration.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS antecedentes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      motivo TEXT DEFAULT "",
+      dadoPor TEXT DEFAULT "",
+      fecha INTEGER NOT NULL,
+      quitadaPor TEXT,
+      quitadaEn INTEGER,
+      expulso INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_antecedentes_persona ON antecedentes (chat, usuario, id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_antecedentes_usuario ON antecedentes (usuario)`);
+
   // Marketplace: posts (#vendo / #compro) numbered per group, keyword alerts and ratings between people
   db.exec(`
     CREATE TABLE IF NOT EXISTS publicaciones (

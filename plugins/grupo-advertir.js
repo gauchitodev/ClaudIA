@@ -1,4 +1,4 @@
-import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS } from "../database-functions.js";
+import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS, anotarAdvertencia, marcarExpulsion } from "../database-functions.js";
 import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 
@@ -26,16 +26,24 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   if (!quien) return client.sendText(m.chat, "No tengo registro de esa persona todavía: que escriba algo en el grupo y probá de nuevo.", m);
 
   const advertencias = advertenciasDe(quien, m.chat) + 1;
+  // Into their record (.antecedentes), with the reason, who gave it and when: the count alone forgot all three. Noted
+  // where the count changes, so neither goes without the other if a send or the removal fails before it.
+  const anotar = () => anotarAdvertencia(quien, m.chat, { motivo: razon, dadoPor: m.sender });
 
   if (advertencias >= MAX_ADVERTENCIAS) {
     await client.sendText(m.chat, txt.advertirKick(quien), m, { mentions: [quien] });
     // Removal uses the id the group lists the person under, and the count is cleared only if WhatsApp accepted.
     const { ok, status } = await expulsar(client, m.chat, participante?.id || lid || quien);
-    if (ok) return setAdvertencias(quien, m.chat, 0);
+    const anotada = anotar();
+    if (ok) {
+      marcarExpulsion(anotada);
+      return setAdvertencias(quien, m.chat, 0);
+    }
     setAdvertencias(quien, m.chat, advertencias);
     return client.sendText(m.chat, `No me dejaron echarlo (error ${status}). Le quedan anotadas las ${advertencias} advertencias.`, m);
   }
 
+  anotar();
   setAdvertencias(quien, m.chat, advertencias);
   // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
   await client.sendText(m.chat, txt.advertirSuccess(quien, razon, advertencias, MAX_ADVERTENCIAS), m, { mentions: [quien] });
