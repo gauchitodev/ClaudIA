@@ -17,13 +17,16 @@ before(async () => {
   for (const n of [111, 222, 333, 444, 555]) F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: String(n) });
 });
 let k = 0;
-const msg = (sender, text, quoted = null) => ({ chat: G, sender, text, isGroup: true, key: { id: `K${++k}` }, quoted });
+// A test that numbers or counts what's published goes in a group of its own (chat), and one that counts someone's
+// ratings, with someone of its own: the posts are numbered per group and the ratings are the person's in every group,
+// and run in another order (node --test --test-randomize), a test found what another left, or nothing.
+const msg = (sender, text, quoted = null, chat = G) => ({ chat, sender, text, isGroup: true, key: { id: `K${++k}` }, quoted });
 // A quoted message as lib/wa-socket.js builds it: its id, who sent it and its text (the caption, if it's a photo).
 const cita = (sender, text, extra = {}) => ({ id: `Q${++k}`, sender, text, fromMe: false, isBaileys: false, ...extra });
 const cliente = () => globalThis.client;
 const ultimo = () => ultimoEnviado().msg.text;
-const correr = (sender, command, text = "", { quoted = null, ...extra } = {}) =>
-  Cmd.run(msg(sender, text, quoted), { client: cliente(), command, args: text.trim() ? text.trim().split(/\s+/) : [], text, isMod: false, ...extra });
+const correr = (sender, command, text = "", { quoted = null, chat = G, ...extra } = {}) =>
+  Cmd.run(msg(sender, text, quoted, chat), { client: cliente(), command, args: text.trim() ? text.trim().split(/\s+/) : [], text, isMod: false, ...extra });
 
 test("compraventa: detección de hashtag y precio", () => {
   assert.deepEqual(C.detectarPublicacion("#vendo bici rodado 26 $ 4.000 Pocitos"), { tipo: "vendo", texto: "bici rodado 26 $ 4.000 Pocitos" });
@@ -39,82 +42,95 @@ test("compraventa: detección de hashtag y precio", () => {
 });
 
 test("compraventa: publicar por hashtag, catálogo, búsqueda, detalle y alertas", async () => {
-  await correr("333@lid", "avisame", "heladera");
+  const chat = "compraventa-publicar@g.us";
+  const en = (sender, command, text = "") => correr(sender, command, text, { chat });
+  const pasa = (sender, text) => Hook.before(msg(sender, text, null, chat), { client: cliente() });
+  await en("333@lid", "avisame", "heladera");
   assert.match(ultimo(), /te menciono cuando alguien publique algo con "heladera"/);
-  await Hook.before(msg("111@lid", "#vendo bici rodado 26 $ 4.000 Pocitos"), { client: cliente() });
+  await pasa("111@lid", "#vendo bici rodado 26 $ 4.000 Pocitos");
   assert.match(ultimo(), /🏷️ \*Vendo #1\* registrada\. Precio: \$ 4\.000\./);
-  const p1 = F.getPublicacion(G, 1);
+  const p1 = F.getPublicacion(chat, 1);
   assert.deepEqual([p1.tipo, p1.texto, p1.precio, p1.estado, p1.usuario], ["vendo", "bici rodado 26 $ 4.000 Pocitos", "$ 4.000", "activa", "111@lid"]);
-  await Hook.before(msg("222@lid", "#compro heladera chica que ande"), { client: cliente() });
+  await pasa("222@lid", "#compro heladera chica que ande");
   const enviados = globalThis.enviados;
   assert.match(enviados[enviados.length - 2].msg.text, /🔎 \*Compro #2\* registrada\./);
   assert.match(ultimo(), /🔔 @333: apareció algo que buscabas\. Compro #2: heladera chica que ande/);
   assert.deepEqual(ultimoEnviado().msg.mentions, ["333@lid"]);
-  await Hook.before(msg("111@lid", "#vendo mesa de luz"), { client: cliente() });
+  await pasa("111@lid", "#vendo mesa de luz");
   assert.match(ultimo(), /Vendo #3\* registrada\. Se ve con \.vendo[\s\S]*no le pusiste precio/);
-  await Hook.before(msg("111@lid", "che, alguien sabe algo?"), { client: cliente() });
+  await pasa("111@lid", "che, alguien sabe algo?");
   assert.match(ultimo(), /no le pusiste precio/, "sin hashtag no pasa nada");
-  await correr("111@lid", "vendo");
+  await en("111@lid", "vendo");
   assert.match(ultimo(), /🏷️ \*EN VENTA\* \(2\)\n\*#3\* mesa de luz — 111\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — 111/);
   assert.deepEqual(ultimoEnviado().msg.mentions, [], "el listado nombra, no etiqueta");
-  await correr("111@lid", "compro");
+  await en("111@lid", "compro");
   assert.match(ultimo(), /🔎 \*SE BUSCA\* \(1\)\n\*#2\* heladera chica que ande — 222/);
-  await correr("111@lid", "catalogo");
+  await en("111@lid", "catalogo");
   assert.match(ultimo(), /EN VENTA[\s\S]*SE BUSCA/);
-  await correr("111@lid", "buscar", "Bici");
+  await en("111@lid", "buscar", "Bici");
   assert.match(ultimo(), /Resultados para "Bici"\* \(1\)\n🏷️ \*#1\* bici/);
-  await correr("111@lid", "buscar", "lavarropas");
+  await en("111@lid", "buscar", "lavarropas");
   assert.match(ultimo(), /Nada activo con "lavarropas"\. Con \.avisame lavarropas/);
-  await correr("111@lid", "catalogo", "1");
+  await en("111@lid", "catalogo", "1");
   assert.match(ultimo(), /🏷️ \*Vendo #1\* · activa\nbici rodado 26 \$ 4\.000 Pocitos\nPrecio: \$ 4\.000 · Publicó @111 hace/);
-  await correr("111@lid", "catalogo", "99");
+  await en("111@lid", "catalogo", "99");
   assert.match(ultimo(), /No hay ninguna publicación #99/);
-  await correr("222@lid", "vendo", "silla de oficina $ 2.500");
+  await en("222@lid", "vendo", "silla de oficina $ 2.500");
   assert.match(ultimo(), /Vendo #4\* registrada\. Precio: \$ 2\.500/);
-  await correr("222@lid", "mias");
+  await en("222@lid", "mias");
   assert.match(ultimo(), /Tus publicaciones activas\* \(2\)/);
-  await correr("333@lid", "avisame");
+  await en("333@lid", "avisame");
   assert.match(ultimo(), /Tus alertas: heladera\./);
-  await correr("333@lid", "avisame", "quitar heladera");
+  await en("333@lid", "avisame", "quitar heladera");
   assert.match(ultimo(), /saqué la alerta "heladera"/);
-  await correr("333@lid", "avisame", "ab");
+  await en("333@lid", "avisame", "ab");
   assert.match(ultimo(), /al menos 3 letras/);
-  for (const w of ["uno", "dos", "tres", "cuatro", "cinco"]) await correr("333@lid", "avisame", w);
-  await correr("333@lid", "avisame", "seis");
+  for (const w of ["uno", "dos", "tres", "cuatro", "cinco"]) await en("333@lid", "avisame", w);
+  await en("333@lid", "avisame", "seis");
   assert.match(ultimo(), /Ya tenés 5 alertas/);
 });
 
 test("compraventa: estados, permisos y vencimiento", async () => {
-  await correr("222@lid", "vendido", "1");
+  const chat = "compraventa-estados@g.us";
+  const en = (sender, command, text = "", extra = {}) => correr(sender, command, text, { chat, ...extra });
+  // The posts of the test before, in a group of their own: #1 and #3 are 111's, #2 and #4 are 222's.
+  for (const [quien, tipo, texto] of [["111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos"], ["222@lid", "compro", "heladera chica que ande"], ["111@lid", "vendo", "mesa de luz"], ["222@lid", "vendo", "silla de oficina $ 2.500"]]) C.publicar(chat, quien, tipo, texto);
+  await en("222@lid", "vendido", "1");
   assert.match(ultimo(), /La #1 no es tuya/);
-  await correr("222@lid", "vendido", "1", { isMod: true });
+  await en("222@lid", "vendido", "1", { isMod: true });
   assert.match(ultimo(), /la #1 quedó como concretada/);
-  assert.equal(F.getPublicacion(G, 1).estado, "vendida");
-  await correr("111@lid", "reservado", "1");
+  assert.equal(F.getPublicacion(chat, 1).estado, "vendida");
+  await en("111@lid", "reservado", "1");
   assert.match(ultimo(), /ya está ✅ concretada\. Con \.sigue 1 la volvés a activar/);
-  await correr("111@lid", "sigue", "1");
-  assert.equal(F.getPublicacion(G, 1).estado, "activa");
-  await correr("111@lid", "reservado", "1");
-  assert.equal(F.getPublicacion(G, 1).estado, "reservada");
-  await correr("111@lid", "vendo");
+  await en("111@lid", "sigue", "1");
+  assert.equal(F.getPublicacion(chat, 1).estado, "activa");
+  await en("111@lid", "reservado", "1");
+  assert.equal(F.getPublicacion(chat, 1).estado, "reservada");
+  await en("111@lid", "vendo");
   assert.match(ultimo(), /🔒 \*#1\*/);
-  await correr("111@lid", "baja", "3");
-  assert.equal(F.getPublicacion(G, 3).estado, "cerrada");
-  await correr("111@lid", "baja", "x");
+  await en("111@lid", "baja", "3");
+  assert.equal(F.getPublicacion(chat, 3).estado, "cerrada");
+  await en("111@lid", "baja", "x");
   assert.match(ultimo(), /¿Cuál\? Respondé a la publicación y escribí \.baja, o poné el número/);
   const ahora = Date.now();
-  F.actualizarPublicacion(G, 4, { actualizada: ahora - 8 * DIA });
-  assert.equal(await C.chequearPublicaciones(ahora), 1);
-  assert.match(ultimo(), /❓ @222, ¿sigue en pie tu vendo #4 \(silla de oficina \$ 2\.500\)\?/);
-  assert.ok(F.getPublicacion(G, 4).aviso > 0);
-  assert.equal(await C.chequearPublicaciones(ahora + DIA), 0, "todavía no venció el plazo para contestar");
-  assert.equal(await C.chequearPublicaciones(ahora + 3 * DIA), 1);
-  assert.equal(F.getPublicacion(G, 4).estado, "vencida");
-  assert.match(ultimo(), /⌛ Di de baja la #4 de @222 por falta de respuesta/);
-  await correr("222@lid", "sigue", "4");
-  assert.deepEqual([F.getPublicacion(G, 4).estado, F.getPublicacion(G, 4).aviso], ["activa", 0]);
-  for (let i = 0; i < 10; i++) await correr("333@lid", "vendo", `cosa ${i} $ 100`);
-  await correr("333@lid", "vendo", "una más $ 100");
+  F.actualizarPublicacion(chat, 4, { actualizada: ahora - 8 * DIA });
+  // What each pass sends to this group: a pass goes over every group, and another test's posts may be due as well.
+  const aEsteGrupo = () => globalThis.enviados.filter((e) => e.chat === chat).map((e) => e.msg.text);
+  globalThis.enviados = [];
+  await C.chequearPublicaciones(ahora);
+  assert.equal(aEsteGrupo().length, 1);
+  assert.match(aEsteGrupo()[0], /❓ @222, ¿sigue en pie tu vendo #4 \(silla de oficina \$ 2\.500\)\?/);
+  assert.ok(F.getPublicacion(chat, 4).aviso > 0);
+  await C.chequearPublicaciones(ahora + DIA);
+  assert.equal(aEsteGrupo().length, 1, "todavía no venció el plazo para contestar");
+  await C.chequearPublicaciones(ahora + 3 * DIA);
+  assert.equal(F.getPublicacion(chat, 4).estado, "vencida");
+  assert.equal(aEsteGrupo().length, 2);
+  assert.match(aEsteGrupo()[1], /⌛ Di de baja la #4 de @222 por falta de respuesta/);
+  await en("222@lid", "sigue", "4");
+  assert.deepEqual([F.getPublicacion(chat, 4).estado, F.getPublicacion(chat, 4).aviso], ["activa", 0]);
+  for (let i = 0; i < 10; i++) await en("333@lid", "vendo", `cosa ${i} $ 100`);
+  await en("333@lid", "vendo", "una más $ 100");
   assert.match(ultimo(), /Ya tenés 10 publicaciones activas/);
 });
 
@@ -134,13 +150,16 @@ test("compraventa: calificaciones y reputación", async () => {
   assert.match(ultimo(), /van de 1 a 5/);
   await cal("111@lid", "5 sin mencion");
   assert.match(ultimo(), /¿A quién\?/);
-  await cal("111@lid", "@999 5");
+  await cal("111@lid", "@314159 5"); // nobody: another test makes 999
   assert.match(ultimo(), /No conozco a esa persona/);
   await Cal.run(msg("222@lid", "@111"), { client: cliente(), command: "reputacion", args: ["@111"], text: "@111" });
   assert.match(ultimo(), /⭐ Reputación de @111: \*3,5 de 5 \(2 calificaciones\)\*\n⭐⭐ "me arrepentí" — @333\n⭐⭐⭐⭐⭐ "buen vendedor, rápido" — @222/);
   await Cal.run(msg("333@lid", ""), { client: cliente(), command: "reputacion", args: [], text: "" });
   assert.match(ultimo(), /Tu reputación: todavía sin calificaciones/);
-  assert.match(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /⭐ Reputación: 3,5 de 5 \(2 calificaciones\)\n🏷️ 1 publicación activa/);
+  // The profile, in a group where 111 has one post up: the reputation is the same in every group.
+  const chat = "compraventa-reputacion@g.us";
+  C.publicar(chat, "111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos");
+  assert.match(Pf.textoPerfil(chat, "111@lid", F.getUser("111@lid")).texto, /⭐ Reputación: 3,5 de 5 \(2 calificaciones\)\n🏷️ 1 publicación activa/);
 });
 
 test("compraventa: reglas y plantilla", async () => {
@@ -200,43 +219,49 @@ test("compraventa: el horario del grupo cierra y abre solo", async () => {
 
 test("compraventa: los admins corrigen calificaciones maliciosas", async () => {
   const run = (sender, text, extra = {}) => Cal.run(msg(sender, text), { client: cliente(), command: "calificaciones", args: text.trim() ? text.trim().split(/\s+/) : [], text, isAdmin: false, isOwner: false, ...extra });
-  // 111 has two ratings from this group (from 222 and 333); a third one made in another group
-  const otra = F.guardarCalificacion("otro@g.us", "444@lid", "111@lid", 1, "estafador", 0);
+  // 131 has two ratings from this group (from 222 and 333) and a third one made in another group: someone of its own,
+  // as another test rates 111, and the ratings' numbers as they came out (they're numbered across every group).
+  const PARA = "131@lid";
+  F.initDataDB({ chat: G, sender: PARA, senderJid: "", pushName: "131" });
+  F.guardarCalificacion(G, "222@lid", PARA, 5, "buen vendedor, rápido", 0);
+  F.guardarCalificacion(G, "333@lid", PARA, 2, "me arrepentí", 0);
+  const otra = F.guardarCalificacion("otro@g.us", "444@lid", PARA, 1, "estafador", 0);
   assert.equal(otra.actualizada, false);
-  await run("222@lid", "@111");
+  const [n1, n2, n3] = ["222@lid", "333@lid", "444@lid"].map((de) => db.prepare("SELECT id FROM calificaciones WHERE de = ? AND para = ?").get(de, PARA).id);
+  await run("222@lid", "@131");
   const lista = ultimo();
-  assert.match(lista, /⭐ Calificaciones de @111 \(3, promedio 2,7 de 5 \(3 calificaciones\)\):/);
+  assert.match(lista, /⭐ Calificaciones de @131 \(3, promedio 2,7 de 5 \(3 calificaciones\)\):/);
   // whoever rated goes by name: tagging the whole list notified each of them every time someone looked
-  assert.match(lista, /\*#3\* ⭐ "estafador" — 444 · hace .* · en otro grupo/);
-  assert.match(lista, /\*#2\* ⭐⭐ "me arrepentí" — 333 · /);
-  assert.deepEqual(ultimoEnviado().msg.mentions, ["111@lid"], "solo se arroba a quien se consulta");
+  assert.match(lista, new RegExp(`\\*#${n3}\\* ⭐ "estafador" — 444 · hace .* · en otro grupo`));
+  assert.match(lista, new RegExp(`\\*#${n2}\\* ⭐⭐ "me arrepentí" — 333 · `));
+  assert.deepEqual(ultimoEnviado().msg.mentions, [PARA], "solo se arroba a quien se consulta");
   assert.match(lista, /Admins: \.calificaciones borrar N/);
   // an ordinary person can't delete someone else's
-  await run("222@lid", "borrar 2");
+  await run("222@lid", `borrar ${n2}`);
   assert.match(ultimo(), /Solo un admin del grupo, quien la hizo, o el owner puede borrar/);
   // an admin of this group can't touch one made in another group
-  await run("222@lid", "borrar 3", { isAdmin: true });
-  assert.match(ultimo(), /La #3 se hizo en otro grupo/);
+  await run("222@lid", `borrar ${n3}`, { isAdmin: true });
+  assert.match(ultimo(), new RegExp(`La #${n3} se hizo en otro grupo`));
   // ... but can edit and delete the ones from here
-  await run("222@lid", "editar 2 4 se arregló", { isAdmin: true });
-  assert.match(ultimo(), /✏️ La calificación #2 de @333 a @111 quedó en ⭐⭐⭐⭐ "se arregló"\. @111 ahora tiene 3,3 de 5/);
-  assert.deepEqual([F.getCalificacion(2).estrellas, F.getCalificacion(2).comentario], [4, "se arregló"]);
-  await run("222@lid", "editar 2 9", { isAdmin: true });
+  await run("222@lid", `editar ${n2} 4 se arregló`, { isAdmin: true });
+  assert.match(ultimo(), new RegExp(`✏️ La calificación #${n2} de @333 a @131 quedó en ⭐⭐⭐⭐ "se arregló"\\. @131 ahora tiene 3,3 de 5`));
+  assert.deepEqual([F.getCalificacion(n2).estrellas, F.getCalificacion(n2).comentario], [4, "se arregló"]);
+  await run("222@lid", `editar ${n2} 9`, { isAdmin: true });
   assert.match(ultimo(), /van de 1 a 5/);
   await run("222@lid", "borrar 99", { isAdmin: true });
   assert.match(ultimo(), /No hay ninguna calificación #99/);
   await run("222@lid", "borrar x", { isAdmin: true });
   assert.match(ultimo(), /¿Cuál\? Poné el número/);
   // the owner can handle one from another group
-  await run("222@lid", "borrar 3", { isOwner: true });
-  assert.match(ultimo(), /🗑️ Borré la calificación #3 \(⭐ de @444 a @111\)\. @111 ahora tiene 4,5 de 5 \(2 calificaciones\)/);
-  assert.equal(F.getCalificacion(3), null);
+  await run("222@lid", `borrar ${n3}`, { isOwner: true });
+  assert.match(ultimo(), new RegExp(`🗑️ Borré la calificación #${n3} \\(⭐ de @444 a @131\\)\\. @131 ahora tiene 4,5 de 5 \\(2 calificaciones\\)`));
+  assert.equal(F.getCalificacion(n3), null);
   // whoever made it can delete their own
-  await run("333@lid", "borrar 2");
-  assert.match(ultimo(), /Borré la calificación #2/);
-  await run("333@lid", "borrar 1");
+  await run("333@lid", `borrar ${n2}`);
+  assert.match(ultimo(), new RegExp(`Borré la calificación #${n2}`));
+  await run("333@lid", `borrar ${n1}`);
   assert.match(ultimo(), /Solo un admin del grupo/);
-  await run("111@lid", "");
+  await run(PARA, "");
   assert.match(ultimo(), /⭐ Tus calificaciones \(1, promedio 5,0 de 5/);
 });
 
@@ -249,58 +274,60 @@ test("compraventa: publicar respondiendo un mensaje que trae el número de su au
 });
 
 test("compraventa: publicar respondiendo a un mensaje", async () => {
+  const chat = "compraventa-respondiendo@g.us";
+  const en = (sender, command, text = "", extra = {}) => correr(sender, command, text, { chat, ...extra });
   // The case that started all this: a photo with the description in its caption, and its owner posts it by replying.
   const foto = cita("444@lid", "ropero de pino, $ 3.000, Malvín");
-  await correr("444@lid", "vendo", "", { quoted: foto });
-  const suyas = F.publicacionesDe(G, "444@lid");
+  await en("444@lid", "vendo", "", { quoted: foto });
+  const suyas = F.publicacionesDe(chat, "444@lid");
   assert.equal(suyas.length, 1);
   assert.equal(suyas[0].texto, "ropero de pino, $ 3.000, Malvín");
   assert.equal(suyas[0].precio, "$ 3.000");
   assert.equal(suyas[0].messageId, foto.id, "la publicación apunta a la foto, no al mensaje del comando");
 
   // a mod posts someone else's photo: it's filed under their name, and the hashtag isn't repeated in the text
-  await correr("111@lid", "vendo", "", { quoted: cita("555@lid", "#vendo heladera Consul, $ 6.000"), isMod: true });
-  const de555 = F.publicacionesDe(G, "555@lid");
+  await en("111@lid", "vendo", "", { quoted: cita("555@lid", "#vendo heladera Consul, $ 6.000"), isMod: true });
+  const de555 = F.publicacionesDe(chat, "555@lid");
   assert.equal(de555.length, 1);
   assert.equal(de555[0].texto, "heladera Consul, $ 6.000");
   assert.match(ultimo(), /Queda a nombre de @555/);
 
   // an ordinary person can't post someone else's
-  await correr("222@lid", "vendo", "", { quoted: cita("555@lid", "mesa ratona $ 900") });
+  await en("222@lid", "vendo", "", { quoted: cita("555@lid", "mesa ratona $ 900") });
   assert.match(ultimo(), /solo quien lo mandó, o un moderador/);
-  assert.equal(F.publicacionesDe(G, "555@lid").length, 1, "no se creó nada");
+  assert.equal(F.publicacionesDe(chat, "555@lid").length, 1, "no se creó nada");
 
   // a photo with no description can't be posted
-  await correr("444@lid", "vendo", "", { quoted: cita("444@lid", "") });
+  await en("444@lid", "vendo", "", { quoted: cita("444@lid", "") });
   assert.match(ultimo(), /no tiene descripción/);
 
   // replying to one of the bot's messages does NOT post: it shows the catalogue, which is what the person expected
-  await correr("444@lid", "vendo", "", { quoted: cita("bot@lid", "🏷️ *EN VENTA* (4)", { fromMe: true }) });
+  await en("444@lid", "vendo", "", { quoted: cita("bot@lid", "🏷️ *EN VENTA* (4)", { fromMe: true }) });
   assert.match(ultimo(), /EN VENTA/);
 
   // the same message isn't posted twice (it already went through the #vendo hook, or through another mod)
-  await correr("444@lid", "vendo", "", { quoted: foto });
+  await en("444@lid", "vendo", "", { quoted: foto });
   assert.match(ultimo(), /ya es la publicación/);
 
   // .vender, the way people say it, does the same as .vendo
-  await correr("666@lid", "vender", "", { quoted: cita("666@lid", "silla de pino $ 500") });
-  const de666 = F.publicacionesDe(G, "666@lid");
+  await en("666@lid", "vender", "", { quoted: cita("666@lid", "silla de pino $ 500") });
+  const de666 = F.publicacionesDe(chat, "666@lid");
   assert.equal(de666.length, 1);
   assert.equal(de666[0].tipo, "vendo", "se publica como venta, no con un tipo nuevo");
   assert.equal(de666[0].texto, "silla de pino $ 500");
 
   // .compro too
-  await correr("555@lid", "compro", "", { quoted: cita("555@lid", "monitor 24 pulgadas") });
-  assert.equal(F.publicacionesDe(G, "555@lid").find((p) => p.tipo === "compro")?.texto, "monitor 24 pulgadas");
+  await en("555@lid", "compro", "", { quoted: cita("555@lid", "monitor 24 pulgadas") });
+  assert.equal(F.publicacionesDe(chat, "555@lid").find((p) => p.tipo === "compro")?.texto, "monitor 24 pulgadas");
 
   // regression: replying to nothing and with no text still gives the catalogue
-  await correr("444@lid", "vendo");
+  await en("444@lid", "vendo");
   assert.match(ultimo(), /EN VENTA/);
 
   // regression: replying AND with text, it posts yours under your name (as always)
-  await correr("111@lid", "vendo", "silla gamer $ 5.000", { quoted: cita("555@lid", "cualquier cosa") });
+  await en("111@lid", "vendo", "silla gamer $ 5.000", { quoted: cita("555@lid", "cualquier cosa") });
   assert.ok(
-    F.publicacionesDe(G, "111@lid").some((p) => p.texto === "silla gamer $ 5.000"),
+    F.publicacionesDe(chat, "111@lid").some((p) => p.texto === "silla gamer $ 5.000"),
     "el texto tipeado manda sobre el citado",
   );
 });
@@ -338,14 +365,18 @@ test("compraventa: cerrar respondiendo a la publicación", async () => {
 });
 
 test("compraventa: .catalogo lista todo y muestra el detalle de una", async () => {
-  await correr("111@lid", "catalogo");
+  const chat = "compraventa-catalogo@g.us";
+  const en = (text = "") => correr("111@lid", "catalogo", text, { chat });
+  C.publicar(chat, "111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos");
+  C.publicar(chat, "222@lid", "compro", "heladera chica que ande");
+  await en();
   assert.match(ultimo(), /EN VENTA[\s\S]*SE BUSCA/);
   assert.match(ultimo(), /Detalle: \.catalogo N/, "el pie ya no nombra .publicacion");
-  await correr("111@lid", "catalogo", "1");
+  await en("1");
   assert.match(ultimo(), /\*Vendo #1\*/);
-  await correr("111@lid", "catalogo", "99");
+  await en("99");
   assert.match(ultimo(), /No hay ninguna publicación #99/);
-  await correr("111@lid", "catalogo", "bici");
+  await en("bici");
   assert.match(ultimo(), /EN VENTA/, "lo que no es un número muestra el catálogo entero");
 });
 
@@ -405,14 +436,16 @@ test("compraventa: el «¿sigue en pie?» se contesta renovando, también una re
 
 test("compraventa: reactivar una publicación respeta el tope de activas", () => {
   const V = "tope@g.us";
-  F.initDataDB({ chat: V, sender: "888@lid", senderJid: "", pushName: "Nico" });
-  const numeros = Array.from({ length: C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA }, (_, i) => C.publicar(V, "888@lid", "vendo", `cosa ${i} $ 100`).numero);
-  assert.ok(C.cambiarEstado(V, numeros[0], "888@lid", false, "baja").ok);
-  assert.ok(C.publicar(V, "888@lid", "vendo", "otra cosa $ 100").ok, "con una menos, se puede publicar otra");
-  assert.equal(C.cambiarEstado(V, numeros[0], "888@lid", false, "sigue").error, `La #${numeros[0]} no se puede reactivar: ya tenés ${C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA} publicaciones activas. Cerrá alguna con .vendido N o .baja N.`);
+  // Someone of its own: initDataDB keeps the name a row already has, and another test makes 888 with another one.
+  const NICO = "880@lid";
+  F.initDataDB({ chat: V, sender: NICO, senderJid: "", pushName: "Nico" });
+  const numeros = Array.from({ length: C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA }, (_, i) => C.publicar(V, NICO, "vendo", `cosa ${i} $ 100`).numero);
+  assert.ok(C.cambiarEstado(V, numeros[0], NICO, false, "baja").ok);
+  assert.ok(C.publicar(V, NICO, "vendo", "otra cosa $ 100").ok, "con una menos, se puede publicar otra");
+  assert.equal(C.cambiarEstado(V, numeros[0], NICO, false, "sigue").error, `La #${numeros[0]} no se puede reactivar: ya tenés ${C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA} publicaciones activas. Cerrá alguna con .vendido N o .baja N.`);
   assert.match(C.cambiarEstado(V, numeros[0], "999@lid", true, "sigue").error, /Nico ya tiene 10 publicaciones activas/, "tampoco un moderador");
   assert.equal(F.getPublicacion(V, numeros[0]).estado, "cerrada");
-  assert.equal(F.contarPublicacionesActivas(V, "888@lid"), C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA);
+  assert.equal(F.contarPublicacionesActivas(V, NICO), C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA);
 });
 
 test("compraventa: solo se califica a alguien del grupo", async () => {

@@ -557,6 +557,9 @@ test("a un admin de WhatsApp o a un dueño anotados no se los echa cuando escrib
 test("el aviso de que lo saqué lo nombra, sin su número ni su LID", async () => {
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G);
   F.initDataDB({ chat: G, sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", pushName: "Pedro" });
+  // initDataDB keeps the name a row already has: another test makes 111 with another one, and run first, the notice
+  // named them by it.
+  F.updateUser("111@lid", { pushName: "Pedro" });
   await Manejador.before(mensaje({ sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
   assert.equal(ultimo(), "*[⚠️] Saqué a Pedro: estaba en la lista negra.*\n\n*[❗] Razón:* spam");
 

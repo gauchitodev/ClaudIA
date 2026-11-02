@@ -252,7 +252,10 @@ test("al que contesta desde su número le pregunta a WhatsApp solo si algo esper
   await correr("aceptar", { sender: b.X, command: "aceptar", texto: `@${digitos(R2)}`, mentionedJid: [R2], participants: grupoB });
   assert.deepEqual([Par.parejaDe(b.X)?.pareja, deB.length], [R2, 1], "por su número");
 
-  // Nothing waits on a LID: a challenge in another group, and an adoption request that expired.
+  // Nothing waits on a LID: a challenge in another group, and an adoption request that expired. What other tests leave
+  // pending goes first: another test's adoption request, run before, made this one ask.
+  limpiarDuelos();
+  db.exec("DELETE FROM solicitudes_adopcion");
   const OTRO_GRUPO = "otro-grupo@g.us";
   fijarSaldo(F, OTRO_GRUPO, R2, 1000);
   D.desafiar(OTRO_GRUPO, R2, unaLid(959), 20, "dado");
