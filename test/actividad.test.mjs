@@ -87,18 +87,37 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.$/);
 });
 
+// In a group of its own, with the week it sums up: it summed up the messages, the trivia and the day's question of the
+// tests above, and run before them, or after only some, it found what they hadn't done yet.
 test("recap semanal", async () => {
-  const rec = await R.armarRecap(G);
+  const Tr = await import("../lib/trivia.js");
+  const chat = "actividad-recap@g.us";
+  F.initDataDB({ sender: "u@lid", senderJid: "", pushName: "U", chat }); // the group's row, which updateChat needs
+  F.updateChat(chat, { recapSemanal: true });
+  for (let i = 0; i < 3; i++) F.sumarMensajeDiario(chat, "u", A.claveDia());
+  // b wins a lightning trivia and u answers the day's question, each paid by its own module as the recap reads them.
+  // The lightning trivia is on just to launch it: on, the trivia test above scheduled them for this group too.
+  const mediodia = new Date();
+  mediodia.setHours(12, 0, 0, 0);
+  F.updateChat(chat, { triviaRelampago: true });
+  await T.lanzarTriviaRelampago(globalThis.client, chat, mediodia);
+  F.updateChat(chat, { triviaRelampago: false });
+  assert.equal(Tr.responderTrivia({ chat, sender: "b", text: `${Tr.rondaDe(chat).pregunta.correcta.toUpperCase()})` }).reaccion, "✅");
+  F.guardarPreguntaDia(chat, A.claveDia(), "¿Qué comieron el finde?", "pregunta-del-recap");
+  assert.equal(P.responderPreguntaDelDia({ chat, sender: "u", text: "me gustó el asado del finde", quoted: { id: "pregunta-del-recap" } })?.premio, 3);
+
+  const rec = await R.armarRecap(chat);
   assert.match(rec.texto, /Mensajes de la semana: \*\d+\*/);
   assert.match(rec.texto, /Trivias relámpago: @b ×1/);
   assert.match(rec.texto, /Respuestas a la pregunta del día: 1/);
   const ahora = new Date();
   A.ACTIVIDAD.DIA_RECAP = ahora.getDay();
   A.ACTIVIDAD.HORA_RECAP = 0;
-  const antes = globalThis.enviados.length;
+  const aca = () => globalThis.enviados.filter((e) => e.chat === chat).length; // a pass goes over every group
+  const antes = aca();
   await R.chequearRecapSemanal();
   await R.chequearRecapSemanal();
-  assert.equal(globalThis.enviados.length, antes + 1);
+  assert.equal(aca(), antes + 1);
 });
 
 // ---------- group activity by hour (.actividad and .podar) ----------
@@ -173,22 +192,25 @@ test("el conteo por hora incluye comandos y mensajes de una palabra", async () =
   assert.equal(A.mensajeCuenta("jaja"), false);
 });
 
+// In a group of its own: the rows it left in H showed up in the panel's test, which expects nothing recorded there at
+// first.
 test(".podar saca el detalle viejo y deja el reciente", async () => {
   const Podar = (await import("../plugins/owner-podar.js")).default;
+  const C = "podar@g.us";
   const ahora = en(20, 15).getTime();
   const viejo = A.claveDia(new Date(ahora - 100 * DIA));
   const justoAlBorde = A.claveDia(new Date(ahora - A.ACTIVIDAD.HORARIA_DIAS * DIA));
   const reciente = A.claveDia(new Date(ahora - 5 * DIA));
 
-  F.sumarMensajeHora(H, viejo, 10);
-  F.sumarMensajeHora(H, viejo, 11);
-  F.sumarMensajeHora(H, justoAlBorde, 12);
-  F.sumarMensajeHora(H, reciente, 13);
+  F.sumarMensajeHora(C, viejo, 10);
+  F.sumarMensajeHora(C, viejo, 11);
+  F.sumarMensajeHora(C, justoAlBorde, 12);
+  F.sumarMensajeHora(C, reciente, 13);
 
   assert.equal(A.podarActividad(ahora), 2, "solo lo anterior a los 90 días");
-  assert.equal(F.mensajesPorDia(H, [viejo]).length, 0);
-  assert.equal(F.mensajesPorDia(H, [justoAlBorde])[0].total, 1, "el día 90 justo se conserva");
-  assert.equal(F.mensajesPorDia(H, [reciente])[0].total, 1);
+  assert.equal(F.mensajesPorDia(C, [viejo]).length, 0);
+  assert.equal(F.mensajesPorDia(C, [justoAlBorde])[0].total, 1, "el día 90 justo se conserva");
+  assert.equal(F.mensajesPorDia(C, [reciente])[0].total, 1);
 
   assert.equal(A.podarActividad(ahora), 0, "correrlo de nuevo no borra nada");
 

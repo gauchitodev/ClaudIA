@@ -39,6 +39,7 @@ test("rangos: la antigüedad sale de la primera actividad registrada si la entra
 });
 
 test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
+  F.initDataDB(persona(111)); // run first, nobody had made 111's row, and fijar wrote on none
   fijar(111, { messageCount: 50, desde: Date.now() - 3 * DIA });
   const r = R.rangoDe(G, "111@lid", F.getUser("111@lid"));
   assert.deepEqual([r.rango.clave, r.siguiente.clave, r.faltanDias, r.faltanMensajes], ["nuevo", "habitue", 4, 50]);
@@ -61,22 +62,26 @@ test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
   assert.match(R.textoRango(G, "111@lid", F.getUser("111@lid")).texto, /Rango de @111:\* 👑 \*Leyenda\*[\s\S]*Es el rango máximo/);
 });
 
+// With people of its own, 444 just in and 555 a legend: it went by 222 and 111 as the tests above leave them.
 test("rangos: los comandos y el hook de mensajes", async () => {
   const cliente = globalThis.client;
-  await P.run({ chat: G, sender: "222@lid", isGroup: true }, { client: cliente, command: "rango", text: "" });
+  for (const n of [444, 555]) F.initDataDB(persona(n));
+  F.getUser("444@lid", G); // with a chat it starts their time in the group, now
+  fijar(555, { messageCount: 10000, desde: Date.now() - 400 * DIA, rango: "leyenda" });
+  await P.run({ chat: G, sender: "444@lid", isGroup: true }, { client: cliente, command: "rango", text: "" });
   assert.match(ultimoEnviado().msg.text, /🎖️ \*Tu rango:\* 🌱 \*Nuevo\*/);
-  await P.run({ chat: G, sender: "222@lid", isGroup: true }, { client: cliente, command: "rango", text: "@111" });
-  assert.match(ultimoEnviado().msg.text, /Rango de @111:\* 👑 \*Leyenda\*/);
-  await P.run({ chat: G, sender: "222@lid", isGroup: true }, { client: cliente, command: "rangos", text: "" });
+  await P.run({ chat: G, sender: "444@lid", isGroup: true }, { client: cliente, command: "rango", text: "@555" });
+  assert.match(ultimoEnviado().msg.text, /Rango de @555:\* 👑 \*Leyenda\*/);
+  await P.run({ chat: G, sender: "444@lid", isGroup: true }, { client: cliente, command: "rangos", text: "" });
   assert.match(ultimoEnviado().msg.text, /RANGOS DEL GRUPO/);
-  await P.run({ chat: G, sender: "222@lid", isGroup: true }, { client: cliente, command: "rango", text: "@999" });
+  await P.run({ chat: G, sender: "444@lid", isGroup: true }, { client: cliente, command: "rango", text: "@999" });
   assert.match(ultimoEnviado().msg.text, /No tengo datos/);
   // the hook announces the promotion in the group
-  fijar(222, { messageCount: 500, desde: Date.now() - 31 * DIA, rango: "habitue" });
+  fijar(444, { messageCount: 500, desde: Date.now() - 31 * DIA, rango: "habitue" });
   const enviados = globalThis.enviados.length;
-  await Hook.before({ chat: G, sender: "222@lid", isGroup: true, message: {} }, { client: cliente, user: F.getUser("222@lid") });
+  await Hook.before({ chat: G, sender: "444@lid", isGroup: true, message: {} }, { client: cliente, user: F.getUser("444@lid") });
   assert.equal(globalThis.enviados.length, enviados + 1);
-  assert.match(ultimoEnviado().msg.text, /🪑 @222 subió a \*De la casa\*/);
-  await Hook.before({ chat: G, sender: "222@lid", isGroup: true, message: {} }, { client: cliente, user: F.getUser("222@lid") });
+  assert.match(ultimoEnviado().msg.text, /🪑 @444 subió a \*De la casa\*/);
+  await Hook.before({ chat: G, sender: "444@lid", isGroup: true, message: {} }, { client: cliente, user: F.getUser("444@lid") });
   assert.equal(globalThis.enviados.length, enviados + 1, "sin ascenso no manda nada");
 });

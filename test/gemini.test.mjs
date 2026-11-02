@@ -100,19 +100,27 @@ test("un 429 de una búsqueda no le saca el modelo a la charla", async () => {
   assert.equal(G.geminiEnPausa.size, 0);
 });
 
+// Seven hours on: the owner's notice goes once every six hours (lib/avisos.js), and .resumen's test, run first, had
+// sent it already.
 test("«por hoy» y el aviso al owner, solo cuando todos llevan una hora o más frenados", async () => {
-  const antes = globalThis.enviados.length;
-  respuestas = todosCon(429);
-  let r = await IA.preguntarIA("hola");
-  assert.deepEqual([r.ok, r.sinCuota, r.porHoy], [false, true, false], "un tirón: en un minuto vuelve");
-  assert.ok(G.vuelveGeminiEn() > 55 * 1000 && G.vuelveGeminiEn() <= MIN);
-  assert.equal(globalThis.enviados.length, antes, "no se avisa al owner");
+  const reloj = Date.now;
+  Date.now = () => reloj() + 7 * HORA;
+  try {
+    const antes = globalThis.enviados.length;
+    respuestas = todosCon(429);
+    let r = await IA.preguntarIA("hola");
+    assert.deepEqual([r.ok, r.sinCuota, r.porHoy], [false, true, false], "un tirón: en un minuto vuelve");
+    assert.ok(G.vuelveGeminiEn() > 55 * 1000 && G.vuelveGeminiEn() <= MIN);
+    assert.equal(globalThis.enviados.length, antes, "no se avisa al owner");
 
-  alargarPausas(2 * HORA);
-  r = await IA.preguntarIA("hola");
-  assert.deepEqual([r.sinCuota, r.porHoy], [true, true]);
-  assert.equal(ultimoEnviado().chat, "59899111222@s.whatsapp.net");
-  assert.match(ultimoEnviado().msg.text, /^🤖 Se quedó sin cuota la IA/);
+    alargarPausas(2 * HORA);
+    r = await IA.preguntarIA("hola");
+    assert.deepEqual([r.sinCuota, r.porHoy], [true, true]);
+    assert.equal(ultimoEnviado().chat, "59899111222@s.whatsapp.net");
+    assert.match(ultimoEnviado().msg.text, /^🤖 Se quedó sin cuota la IA/);
+  } finally {
+    Date.now = reloj;
+  }
 });
 
 test(".ia: en un tirón pide probar en un rato; «por hoy» solo con la cuota del día", async () => {

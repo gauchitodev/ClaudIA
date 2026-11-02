@@ -27,13 +27,14 @@ const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsa
 const mensaje = (n) => ({ chat: G, sender: `${n}@lid`, isGroup: true, message: { conversation: "hola" }, mentionedJid: [], quoted: null });
 
 // A reaction, a deletion or an edit isn't a message: counted as one, reacting or deleting a lot climbed the ranks.
+// Someone of its own: another test takes 222 to 101 messages, and run first, this one found them counted.
 test("datos por grupo: las reacciones, los borrados y las ediciones no cuentan como mensajes", async () => {
-  F.initDataDB(persona(222));
-  const contar = (mtype) => Conteo.before({ chat: G, sender: "222@lid", isGroup: true, message: { [mtype]: {} }, mtype }, { client: globalThis.client, user: F.getUser("222@lid", G) });
+  F.initDataDB(persona(555));
+  const contar = (mtype) => Conteo.before({ chat: G, sender: "555@lid", isGroup: true, message: { [mtype]: {} }, mtype }, { client: globalThis.client, user: F.getUser("555@lid", G) });
   for (const mtype of ["reactionMessage", "protocolMessage", "editedMessage", "pollUpdateMessage"]) await contar(mtype);
-  assert.equal(F.getUser("222@lid").inGroup[G].messageCount, 0);
+  assert.equal(F.getUser("555@lid").inGroup[G].messageCount, 0);
   for (const mtype of ["conversation", "stickerMessage", "imageMessage"]) await contar(mtype);
-  assert.equal(F.getUser("222@lid").inGroup[G].messageCount, 3);
+  assert.equal(F.getUser("555@lid").inGroup[G].messageCount, 3);
 });
 
 test("datos por grupo: contar un mensaje no deshace un .silenciar ni un .adv dados mientras tanto", async () => {

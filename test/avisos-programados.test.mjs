@@ -44,7 +44,9 @@ function fallarEnvios(n) {
   };
   return { intentos, restaurar: () => (client.sendMessage = real) };
 }
-const enviadosCon = (regex) => globalThis.enviados.filter((e) => regex.test(e.msg?.text || "")).length;
+// What reached G with that text: the day's question also goes to a group of its own in another test, and run first,
+// it counted here.
+const enviadosCon = (regex) => globalThis.enviados.filter((e) => e.chat === G && regex.test(e.msg?.text || "")).length;
 const hoy = new Date();
 const cumpleDeHoy = `${hoy.getDate()}/${hoy.getMonth() + 1}`;
 

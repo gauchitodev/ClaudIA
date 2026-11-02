@@ -1,4 +1,4 @@
-import { test, before } from "node:test";
+import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
 
@@ -28,11 +28,45 @@ before(async () => {
   P = await import("../lib/parejas.js");
   Pf = await import("../lib/perfil.js");
   globalThis.txt = (await import("../lib/strings.js")).default; // the couple plugins use the global texts
-  for (let n = 1; n <= 14; n++) {
-    F.initDataDB(persona(n));
-    fijarSaldo(F, G, L(n), 100);
-  }
+  for (let n = 1; n <= 14; n++) F.initDataDB(persona(n));
 });
+// Each test starts with no couples, families nor requests, and everyone with 100 coins, and puts up the families it
+// looks at: they were one story, each test on what the one before left, and in another order they found other families
+// or none (node --test --test-randomize).
+beforeEach(() => {
+  for (const tabla of ["parejas", "solicitudes_pareja", "exparejas", "familia_hijos", "solicitudes_adopcion", "apellidos"]) {
+    globalThis.db.prepare(`DELETE FROM ${tabla}`).run();
+  }
+  for (let n = 1; n <= 14; n++) fijarSaldo(F, G, L(n), 100);
+});
+// 1+2 have 3 and 4; 3+7 have 8; 4+9 have 10; 5+6 have 11 (another family)
+// (the cap is one adoption per person per day, so each goes on a different day from those parents' previous one)
+const arbol = () => {
+  casar(1, 2);
+  adoptar(1, 3, T0 + 8 * DIA);
+  casar(5, 6);
+  adoptar(2, 4, T0 + 10 * DIA);
+  casar(3, 7);
+  adoptar(3, 8, T0 + 11 * DIA);
+  casar(4, 9);
+  adoptar(4, 10, T0 + 11 * DIA);
+  adoptar(5, 11, T0 + 11 * DIA);
+};
+// And then 3 and 7 choose Rodríguez, 1 and 2 Pérez, and 1 and 2 adopt 12: what the surnames' test leaves.
+const conApellidos = () => {
+  arbol();
+  assert.equal(Fa.elegirApellido(L(3), "Rodríguez").ok, true);
+  assert.equal(Fa.elegirApellido(L(1), "Pérez").ok, true);
+  adoptar(1, 12, T0 + 30 * DIA);
+};
+// And then 12 emancipates, 1 disinherits 4 and 2 disinherits 3, and 1 and 2 adopt 3 again: what the next test leaves.
+const desheredados = () => {
+  conApellidos();
+  assert.equal(Fa.emanciparse(L(12)).ok, true);
+  assert.equal(Fa.desheredar(L(1), L(4)).ok, true);
+  assert.equal(Fa.desheredar(L(2), L(3)).ok, true);
+  adoptar(1, 3, T0 + 40 * DIA);
+};
 
 test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () => {
   assert.deepEqual(Fa.pedirAdopcion(G, L(1), L(3), T0), { ok: false, motivo: "sinCasar" });
@@ -88,14 +122,7 @@ test("adoptar: solo casados, con pedido, respuesta, trámite y tope diario", () 
 });
 
 test("el árbol: parentescos calculados, incesto y ciclos", () => {
-  // 1+2 have 3 and 4; 3+7 have 8; 4+9 have 10; 5+6 have 11 (another family)
-  // (the cap is one adoption per person per day, so each goes on a different day from those parents' previous one)
-  adoptar(2, 4, T0 + 10 * DIA);
-  casar(3, 7);
-  adoptar(3, 8, T0 + 11 * DIA);
-  casar(4, 9);
-  adoptar(4, 10, T0 + 11 * DIA);
-  adoptar(5, 11, T0 + 11 * DIA);
+  arbol();
 
   const r8 = Fa.parientesDe(L(8));
   assert.deepEqual([r8.padres, r8.abuelos, r8.tios, r8.primos, r8.hermanos, r8.conyuge], [[L(3), L(7)], [L(1), L(2)], [L(4)], [L(10)], [], null]);
@@ -129,6 +156,7 @@ test("el árbol: parentescos calculados, incesto y ciclos", () => {
 });
 
 test("apellido: lo elige el matrimonio y lo heredan los que llevaban el mismo", () => {
+  arbol();
   assert.deepEqual(Fa.elegirApellido(L(12), "Pérez"), { ok: false, motivo: "sinCasar" });
   assert.deepEqual(Fa.elegirApellido(L(3), ""), { ok: false, motivo: "invalido" });
   assert.deepEqual(Fa.elegirApellido(L(3), "@Rodríguez"), { ok: false, motivo: "invalido" });
@@ -176,6 +204,7 @@ test("apellido: lo elige el matrimonio y lo heredan los que llevaban el mismo", 
 });
 
 test("emancipar y desheredar: se pierden los padres y el apellido de la familia", () => {
+  conApellidos();
   assert.deepEqual(Fa.emanciparse(L(12)), { ok: true, padres: [L(1), L(2)], apellidoPerdido: "Pérez" });
   assert.equal(Fa.padresDe(L(12)), null);
   assert.equal(Fa.apellidoDe(L(12)), "");
@@ -194,6 +223,7 @@ test("emancipar y desheredar: se pierden los padres y el apellido de la familia"
 });
 
 test("textos: .familia, .familias vacío y la línea del perfil", () => {
+  desheredados();
   assert.equal(
     Fa.textoFamilia(L(8)),
     ["👨‍👩‍👧‍👦 *Familia Pérez* · Persona 8", "👨‍👩‍👧 Padres: Persona 3 y Persona 7", "🧓 Abuelos: Persona 1 y Persona 2"].join("\n"),
@@ -212,6 +242,7 @@ test("textos: .familia, .familias vacío y la línea del perfil", () => {
 });
 
 test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .emancipar", async () => {
+  desheredados();
   const client = globalThis.client;
   const correr = (P, sender, text = "", command = P.cmd[0], mentioned = []) => P.run({ chat: G, sender, isGroup: true, mentionedJid: mentioned }, { client, text, usedPrefix: ".", command });
   // the last message with text (some plugins send a reaction after the text)

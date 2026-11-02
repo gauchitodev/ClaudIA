@@ -27,7 +27,8 @@ beforeEach(() => {
   expulsiones = [];
   statusExpulsion = "200";
   globalThis.enviados = [];
-  for (const n of [111, 222]) for (const chat of [G, H]) F.setAdvertencias(`${n}@lid`, chat, 0);
+  // No warnings anywhere: unwarn's test leaves its moderators with some, and run first, the list counted them.
+  for (const a of F.advertidos()) F.setAdvertencias(a.lid, a.chat, 0);
 });
 
 // The group lists people by LID and carries the number of whoever shares it.

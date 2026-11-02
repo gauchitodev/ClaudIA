@@ -10,8 +10,8 @@ before(async () => {
   M = await import("../lib/mercados.js");
   T = await import("../lib/tiempo.js");
 });
-const saldo = (u) => F.getSaldoCoins(G, u);
-const cargar = (u, n) => fijarSaldo(F, G, u, n);
+const saldo = (u, chat = G) => F.getSaldoCoins(chat, u);
+const cargar = (u, n, chat = G) => fijarSaldo(F, chat, u, n);
 
 test("tiempo: parseo de momentos y textos", () => {
   const H = 3600e3;
@@ -76,42 +76,46 @@ test("lotería: una semana sin un solo mensaje no deja sin sortear la anterior",
   assert.ok(F.periodoCerrado(C, "loteria", conBoletos) && F.periodoCerrado(C, "loteria", quieta));
 });
 
+// In a group of its own, by the number its market comes out with: another test opens one first in G, and this one
+// played and resolved that one as #1, and found it open in the list.
 test("mercados: crear, jugar, resolver a pozo, anular y vencer", () => {
-  for (const u of ["a", "b", "c", "d"]) cargar(u, 200);
-  assert.ok(!M.crearMercadoDesdeTexto(G, "admin", "T | A | en 2h").ok);
-  assert.ok(!M.crearMercadoDesdeTexto(G, "admin", "T | A | a | en 2h").ok);
-  assert.ok(!M.crearMercadoDesdeTexto(G, "admin", "T | A | B | ayer").ok);
-  const c = M.crearMercadoDesdeTexto(G, "admin", "Peñarol vs Nacional | Peñarol | Empate | Nacional | en 2h");
-  assert.ok(c.ok && /Mercado #1/.test(c.mensaje));
+  const chat = "apuestas-mercados@g.us";
+  for (const u of ["a", "b", "c", "d"]) cargar(u, 200, chat);
+  assert.ok(!M.crearMercadoDesdeTexto(chat, "admin", "T | A | en 2h").ok);
+  assert.ok(!M.crearMercadoDesdeTexto(chat, "admin", "T | A | a | en 2h").ok);
+  assert.ok(!M.crearMercadoDesdeTexto(chat, "admin", "T | A | B | ayer").ok);
+  const c = M.crearMercadoDesdeTexto(chat, "admin", "Peñarol vs Nacional | Peñarol | Empate | Nacional | en 2h");
+  const n = c.id;
+  assert.ok(c.ok && c.mensaje.includes(`Mercado #${n}:`));
   assert.equal(F.contarPendientesPorTipo().length, 2, "cierre y anulación agendados");
-  assert.ok(M.jugar(G, "a", 1, "Peñarol", 60).ok && M.jugar(G, "b", 1, "3", 40).ok && M.jugar(G, "c", 1, "peñ", 20).ok && M.jugar(G, "a", 1, "1", 40).ok);
-  assert.match(M.jugar(G, "a", 1, "Nacional", 10).error, /cambiar de bando/);
-  assert.match(M.jugar(G, "a", 1, "Peñarol", 5).error, /Máximo 100/);
-  assert.match(M.textoMercado(F.getMercado(1)), /1\. Peñarol — 120 UruCoins · paga x1\.33/);
-  assert.match(M.resolver(G, "admin", 1, "Peñarol").error, /siguen abiertas/);
-  assert.match(M.resolver(G, "a", 1, "anulado").error, /no podés resolverlo vos/);
-  F.actualizarMercado(1, { cierra_en: Date.now() - 1000 });
-  assert.ok(!M.jugar(G, "d", 1, "Peñarol", 10).ok);
-  assert.match(M.cerrarMercadoPorTiempo(1).texto, /Cerraron las apuestas/);
-  const res = M.resolver(G, "admin", 1, "Peñarol");
-  assert.equal(saldo("a"), 100 + 133);
-  assert.equal(saldo("c"), 180 + 26);
-  assert.equal(saldo("b"), 160);
+  assert.ok(M.jugar(chat, "a", n, "Peñarol", 60).ok && M.jugar(chat, "b", n, "3", 40).ok && M.jugar(chat, "c", n, "peñ", 20).ok && M.jugar(chat, "a", n, "1", 40).ok);
+  assert.match(M.jugar(chat, "a", n, "Nacional", 10).error, /cambiar de bando/);
+  assert.match(M.jugar(chat, "a", n, "Peñarol", 5).error, /Máximo 100/);
+  assert.match(M.textoMercado(F.getMercado(n)), /1\. Peñarol — 120 UruCoins · paga x1\.33/);
+  assert.match(M.resolver(chat, "admin", n, "Peñarol").error, /siguen abiertas/);
+  assert.match(M.resolver(chat, "a", n, "anulado").error, /no podés resolverlo vos/);
+  F.actualizarMercado(n, { cierra_en: Date.now() - 1000 });
+  assert.ok(!M.jugar(chat, "d", n, "Peñarol", 10).ok);
+  assert.match(M.cerrarMercadoPorTiempo(n).texto, /Cerraron las apuestas/);
+  const res = M.resolver(chat, "admin", n, "Peñarol");
+  assert.equal(saldo("a", chat), 100 + 133);
+  assert.equal(saldo("c", chat), 180 + 26);
+  assert.equal(saldo("b", chat), 160);
   assert.match(res.texto, /1 apuesta perdida \(40 UruCoins\)/);
-  assert.match(M.resolver(G, "admin", 1, "Nacional").error, /ya está resuelto/);
-  const c2 = M.crearMercadoDesdeTexto(G, "admin", "Llueve | Sí | No | Nieva | en 1h");
-  M.jugar(G, "a", c2.id, "Sí", 30);
-  M.jugar(G, "b", c2.id, "No", 30);
-  const antesA = saldo("a");
+  assert.match(M.resolver(chat, "admin", n, "Nacional").error, /ya está resuelto/);
+  const c2 = M.crearMercadoDesdeTexto(chat, "admin", "Llueve | Sí | No | Nieva | en 1h");
+  M.jugar(chat, "a", c2.id, "Sí", 30);
+  M.jugar(chat, "b", c2.id, "No", 30);
+  const antesA = saldo("a", chat);
   F.actualizarMercado(c2.id, { cierra_en: Date.now() - 1000 });
-  assert.match(M.resolver(G, "a", c2.id, "Nieva", { esOwner: true }).texto, /Nadie le había jugado/);
-  assert.equal(saldo("a"), antesA + 30);
-  const c3 = M.crearMercadoDesdeTexto(G, "admin", "Clásico | Peñarol | Nacional | en 1h");
-  M.jugar(G, "c", c3.id, "Peñarol", 25);
-  const antesC = saldo("c");
+  assert.match(M.resolver(chat, "a", c2.id, "Nieva", { esOwner: true }).texto, /Nadie le había jugado/);
+  assert.equal(saldo("a", chat), antesA + 30);
+  const c3 = M.crearMercadoDesdeTexto(chat, "admin", "Clásico | Peñarol | Nacional | en 1h");
+  M.jugar(chat, "c", c3.id, "Peñarol", 25);
+  const antesC = saldo("c", chat);
   assert.match(M.anularMercadoVencido(c3.id).texto, /ningún admin cargó/);
-  assert.equal(saldo("c"), antesC + 25);
-  assert.match(M.textoListaMercados(G), /No hay mercados abiertos/);
+  assert.equal(saldo("c", chat), antesC + 25);
+  assert.match(M.textoListaMercados(chat), /No hay mercados abiertos/);
 });
 
 test("mercados: una opción que es solo un número no se confunde con el número de opción", () => {

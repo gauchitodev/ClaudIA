@@ -135,7 +135,8 @@ test("lista negra: a quien saca no le contesta Claudia, ni le publica el #vendo"
   assert.equal(m.borrado, true);
   assert.deepEqual(client.acciones, ["remove 777@lid"]);
   assert.equal(consultasIA, antes, "Claudia no le contestó");
-  assert.equal(F.publicacionesActivas(G).length, 0, "la publicación no quedó");
+  // Theirs: another test publishes in this group, and run first, its post counted here.
+  assert.equal(F.publicacionesActivas(G).filter((p) => p.usuario === "777@lid").length, 0, "la publicación no quedó");
   assert.equal(contextoChat.get(G)?.some((e) => e.usuario === "777@lid") ?? false, false, "ni quedó en la memoria de Claudia");
 });
 

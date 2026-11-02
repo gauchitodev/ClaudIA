@@ -9,6 +9,17 @@ before(async () => {
 });
 const OTRO = "otro@g.us";
 const conteo = (parcial = {}) => ({ ...Object.fromEntries(Object.keys(L.OFICIOS).map((k) => [k, 0])), ...parcial });
+// The trades count people in every group (afiliadosPorOficio), so the tests that look at those counts start with nobody
+// working anywhere and put to work whoever they need: run after the tests that quit and change jobs, they counted those
+// people too, and the ones after the count test needed the people it put to work.
+const sinLaburantes = () => globalThis.db.prepare("DELETE FROM laburos").run();
+// Who the count test puts to work: a is a tambero in G and OTRO, b in OTRO, and c a DJ in G.
+const laburantes = () => {
+  sinLaburantes();
+  for (const [chat, quien, oficio] of [[G, "a@lid", "tambero"], [OTRO, "a@lid", "tambero"], [OTRO, "b@lid", "tambero"], [G, "c@lid", "dj"]]) {
+    assert.ok(L.tomarLaburo(chat, quien, oficio).ok, `${quien} de ${oficio} en ${chat}`);
+  }
+};
 
 test("laburos: el sueldo sube en los oficios con poca gente y nunca baja en los llenos", () => {
   assert.equal(L.factorSueldo("tambero", conteo()), 1, "sin nadie laburando, sueldo base");
@@ -28,6 +39,7 @@ test("laburos: el sueldo sube en los oficios con poca gente y nunca baja en los 
 });
 
 test("laburos: la gente se cuenta en todos los grupos y una persona cuenta una vez por oficio", () => {
+  sinLaburantes();
   assert.ok(L.tomarLaburo(G, "a@lid", "tambero").ok);
   assert.ok(L.tomarLaburo(OTRO, "a@lid", "tambero").ok, "el laburo sigue siendo por grupo");
   assert.equal(L.afiliadosPorOficio().tambero, 1, "la misma persona en dos grupos cuenta una vez");
@@ -41,6 +53,7 @@ test("laburos: la gente se cuenta en todos los grupos y una persona cuenta una v
 });
 
 test("laburos: .cobrar paga el sueldo del oficio por el evento del día", () => {
+  laburantes();
   // tambero is crowded, so it pays the base wage (25) times the event: 0.5 / 1 / 1.5 / 2
   const antes = F.getSaldoCoins(G, "a@lid");
   const r = L.cobrar(G, "a@lid");
@@ -53,6 +66,7 @@ test("laburos: .cobrar paga el sueldo del oficio por el evento del día", () => 
 });
 
 test("laburos: niveles por cobros, con bonus por nivel y aviso al subir", () => {
+  laburantes();
   assert.deepEqual([2, 3, 4, 10].map(L.cobrosParaNivel), [3, 7, 12, 63]);
   assert.deepEqual([0, 2, 3, 6, 7, 62, 63, 500].map(L.nivelDe), [1, 1, 2, 2, 3, 9, 10, 10]);
   assert.ok(Math.abs(L.factorNivel(10) - 1.45) < 1e-9);

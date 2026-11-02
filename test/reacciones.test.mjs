@@ -24,23 +24,29 @@ before(async () => {
   ({ mesDe } = await import("../lib/hashtags.js"));
 });
 
+// These two in groups of their own: they look at the whole month's ranking of their group, which the reactions of the
+// other tests in G changed, and the next one went by this one's for whoever had received.
 test("entre personas: recibidas y UruCoins para quien escribió, dadas y UruCoins para quien reaccionó", () => {
-  contar(reaccion("111@lid", "222@lid"));
-  assert.deepEqual([F.getSaldoCoins(G, "111@lid"), F.getSaldoCoins(G, "222@lid")], [COINS.REACCION_RECIBIDA, COINS.REACCION_EMITIDA]);
-  const { masVotado, masActivo } = F.obtenerRankingMensual(G, mesDe());
+  const chat = "reacciones-personas@g.us";
+  contar(reaccion("111@lid", "222@lid", { chat }));
+  assert.deepEqual([F.getSaldoCoins(chat, "111@lid"), F.getSaldoCoins(chat, "222@lid")], [COINS.REACCION_RECIBIDA, COINS.REACCION_EMITIDA]);
+  const { masVotado, masActivo } = F.obtenerRankingMensual(chat, mesDe());
   assert.deepEqual([masVotado, masActivo], [[{ usuario: "111@lid", recibidas: 1 }], [{ usuario: "222@lid", emitidas: 1 }]]);
 });
 
 test("a un mensaje de Claudia: para la iniciativa es una respuesta, quien reaccionó cobra y ella no", () => {
-  F.registrarIntervencion({ chat: G, tipo: "comentario", mensajeId: "CL1", texto: "qué calor" });
-  contar(reaccion(BOT, "333@lid", { fromMe: true, id: "CL1" }));
-  contar(reaccion(BOT_JID, "333@lid", { fromMe: true })); // a group that lists her by number
-  assert.equal(F.getSaldoCoins(G, BOT) + F.getSaldoCoins(G, BOT_JID), 0, "Claudia no cobra");
-  assert.equal(F.getSaldoCoins(G, "333@lid"), 2 * COINS.REACCION_EMITIDA, "quien reaccionó, sí");
-  const { masVotado, masActivo } = F.obtenerRankingMensual(G, mesDe());
-  assert.equal(masVotado.length, 1, "ella no suma recibidas");
+  const chat = "reacciones-claudia@g.us";
+  F.registrarIntervencion({ chat, tipo: "comentario", mensajeId: "CL1", texto: "qué calor" });
+  contar(reaccion(BOT, "333@lid", { fromMe: true, id: "CL1", chat }));
+  contar(reaccion(BOT_JID, "333@lid", { fromMe: true, chat })); // a group that lists her by number
+  assert.equal(F.getSaldoCoins(chat, BOT) + F.getSaldoCoins(chat, BOT_JID), 0, "Claudia no cobra");
+  assert.equal(F.getSaldoCoins(chat, "333@lid"), 2 * COINS.REACCION_EMITIDA, "quien reaccionó, sí");
+  const { masVotado, masActivo } = F.obtenerRankingMensual(chat, mesDe());
+  assert.deepEqual(masVotado, [], "ella no suma recibidas, y acá nadie más recibió");
+  // Nor are they noted under her ids: the ranking leaves her out anyway (sinClaudia), and it didn't show them.
+  assert.deepEqual([BOT, BOT_JID].map((id) => F.puestoRankingMensual(mesDe(), chat, id)), [null, null], "ni le quedan anotadas");
   assert.deepEqual(masActivo.find((r) => r.usuario === "333@lid"), { usuario: "333@lid", emitidas: 2 });
-  assert.equal(F.intervencionesDesde(G, 0).find((i) => i.mensajeId === "CL1").reaccionada, 1);
+  assert.equal(F.intervencionesDesde(chat, 0).find((i) => i.mensajeId === "CL1").reaccionada, 1);
 });
 
 // Baileys sets fromMe on the key when the reacted message is hers; if the key comes without it, her ids are enough, by

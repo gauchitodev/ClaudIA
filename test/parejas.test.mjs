@@ -1,4 +1,4 @@
-import { test, before } from "node:test";
+import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso } from "./helpers.mjs";
 
@@ -10,6 +10,11 @@ before(async () => {
   P = await import("../lib/parejas.js");
   T = await import("../lib/tiempo.js");
   for (const n of [1, 2, 3, 4]) F.initDataDB(persona(n));
+});
+// Each test starts with no couples, requests nor exes: they all play with 1 to 4, and what one left (an ex, a couple,
+// or the migration's 1 and 2 married and 3 asking 4) another one, run after it, found.
+beforeEach(() => {
+  for (const tabla of ["parejas", "solicitudes_pareja", "exparejas"]) globalThis.db.prepare(`DELETE FROM ${tabla}`).run();
 });
 
 test("parejas: pedir, aceptar y terminar; un pedido pendiente no es una pareja", () => {

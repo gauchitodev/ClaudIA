@@ -15,14 +15,16 @@ before(async () => {
 });
 const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
 
+// Someone of its own: the next test gives 111 coins, a job and the rest, and run first, this one found them.
 test("perfil: ficha mínima de alguien sin nada", () => {
-  F.initDataDB(persona(111));
-  const r = Pf.textoPerfil(G, "111@lid", F.getUser("111@lid"), true);
+  F.initDataDB(persona(555));
+  const r = Pf.textoPerfil(G, "555@lid", F.getUser("555@lid"), true);
   assert.equal(r.texto, "👤 *Tu perfil*\n\n🌱 Nuevo · en el grupo desde hoy\n🪙 0 UruCoins\n💼 Sin laburo (.laburos)\n🔥 Sin racha diaria");
-  assert.deepEqual(r.mentions, ["111@lid"]);
+  assert.deepEqual(r.mentions, ["555@lid"]);
 });
 
 test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, cumple, mensajes, ítems y apodo", () => {
+  F.initDataDB(persona(111)); // run first, nobody had made 111's row
   F.initDataDB(persona(222));
   fijarSaldo(F, G, "111@lid", 120);
   fijarSaldo(F, G, "222@lid", 300);
@@ -86,15 +88,19 @@ test("perfil: la racha de otra persona habla de ella, no a quien mira", () => {
   assert.equal(linea(true), "🔥 Racha diaria: cortada (tu mejor: 2 días)");
 });
 
+// In a group of its own, with 111 and 222 there: it went by the people the tests above make, and their coins.
 test("perfil: el comando resuelve a quién mirar", async () => {
   const cliente = globalThis.client;
-  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "" });
+  const chat = "perfil-comando@g.us";
+  for (const n of [111, 222]) F.initDataDB({ ...persona(n), chat });
+  fijarSaldo(F, chat, "222@lid", 300);
+  await P.run({ chat, sender: "111@lid", isGroup: true }, { client: cliente, text: "" });
   assert.match(ultimoEnviado().msg.text, /^👤 \*Tu perfil\*/);
-  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "@222" });
+  await P.run({ chat, sender: "111@lid", isGroup: true }, { client: cliente, text: "@222" });
   assert.match(ultimoEnviado().msg.text, /^👤 \*Perfil de @222\*/);
   assert.match(ultimoEnviado().msg.text, /300 UruCoins · puesto 1 del grupo/);
-  await P.run({ chat: G, sender: "111@lid", isGroup: true, quoted: { sender: "222@lid" } }, { client: cliente, text: "" });
+  await P.run({ chat, sender: "111@lid", isGroup: true, quoted: { sender: "222@lid" } }, { client: cliente, text: "" });
   assert.match(ultimoEnviado().msg.text, /Perfil de @222/);
-  await P.run({ chat: G, sender: "111@lid", isGroup: true }, { client: cliente, text: "@999" });
+  await P.run({ chat, sender: "111@lid", isGroup: true }, { client: cliente, text: "@999" });
   assert.match(ultimoEnviado().msg.text, /No tengo datos de esa persona/);
 });

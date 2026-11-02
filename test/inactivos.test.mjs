@@ -213,6 +213,9 @@ test("cuenta la charla de antes de la tabla nueva (actividad_diaria)", () => {
 // it had seen each one write: right after the update, whoever sent only stickers, audios or one-word messages (counted,
 // but not when) came out "hace 120 días", tagged, and three days later removable.
 test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado", async () => {
+  // People of its own, with no number: 101 and 102 are the cast's, who have theirs (armarGrupo), and initDataDB keeps
+  // a row that's there already. Run first, this test left them without it, and a later one that goes by the number the
+  // database knows for 101 found none.
   const deAntes = (chat, ...ns) => {
     for (const n of ns) {
       F.initDataDB({ chat, sender: `${n}@lid`, senderJid: "", pushName: `Persona${n}` });
@@ -227,7 +230,7 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
 
   // It keeps track since yesterday: nobody yet, and it says when it can tell.
   const ayer = "inactivos-11@g.us";
-  let participants = deAntes(ayer, 101, 102);
+  let participants = deAntes(ayer, 131, 132);
   F.registrarMensajeGrupo(ayer, ["105@lid"], Date.now() - DIA);
   await Inactivos.run(m(ayer, ""), { client: globalThis.client, participants, text: "" });
   assert.equal(textoEnviado(), "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 1 día. Probá en 14 días.");
@@ -236,12 +239,12 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
   // Since 16 days ago: who sent a sticker 5 days ago stays, and who sent nothing counts from then,
   // not from 4 months back.
   const antes = "inactivos-12@g.us";
-  participants = deAntes(antes, 101, 102);
+  participants = deAntes(antes, 131, 132);
   F.registrarMensajeGrupo(antes, ["105@lid"], Date.now() - 16 * DIA);
-  F.registrarMensajeGrupo(antes, ["101@lid"], Date.now() - 5 * DIA);
+  F.registrarMensajeGrupo(antes, ["131@lid"], Date.now() - 5 * DIA);
   await Inactivos.run(m(antes, ""), { client: globalThis.client, participants, text: "" });
-  assert.deepEqual(ultimoEnviado().msg.mentions, ["102@lid"]);
-  assert.match(textoEnviado(), /@102 — hace 16 días o más/);
+  assert.deepEqual(ultimoEnviado().msg.mentions, ["132@lid"]);
+  assert.match(textoEnviado(), /@132 — hace 16 días o más/);
 });
 
 // The bot coming back to a group after a while: what it noted before doesn't cover the time it wasn't there, and

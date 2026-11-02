@@ -11,6 +11,14 @@ const V = "ventas@g.us"; // a group in buy-and-sell mode; G stays a group of fri
 let k = 0;
 const msg = (chat, sender, text) => ({ chat, sender, text, isGroup: true, key: { id: `K${++k}` } });
 const escribir = (chat, sender, text) => Hook.before(msg(chat, sender, text), { client: globalThis.client, chat: F.getChat(chat) });
+// What .modo compraventa does.
+const MODO_COMPRAVENTA = { games: 0, charla: 0, saludos: 0, monedas: 0, ascensos: 0, recapSemanal: 0 };
+// Everyone in a group of a test's own: a test that counts what's published goes in one, since the posts are numbered
+// in each group, and another test may have published first in G or V.
+const grupoPropio = (chat, ajustes = null) => {
+  for (const n of [111, 222, 333, 444]) F.initDataDB({ chat, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });
+  if (ajustes) F.updateChat(chat, ajustes);
+};
 
 before(async () => {
   ({ F } = await prepararBase("sugerencias"));
@@ -19,7 +27,7 @@ before(async () => {
   for (const n of [111, 222, 333, 444, 555, 666, 777]) {
     for (const chat of [G, V]) F.initDataDB({ chat, sender: `${n}@lid`, senderJid: "", pushName: `Persona ${n}` });
   }
-  F.updateChat(V, { games: 0, charla: 0, saludos: 0, monedas: 0, ascensos: 0, recapSemanal: 0 }); // what .modo compraventa does
+  F.updateChat(V, MODO_COMPRAVENTA);
 });
 
 test("palabras clave: sin acentos, números, plurales ni palabras vacías, y con los sinónimos de acá", () => {
@@ -33,19 +41,21 @@ test("palabras clave: sin acentos, números, plurales ni palabras vacías, y con
 });
 
 test("#busco: recuerda quién vende algo parecido, en la misma confirmación y arrobando a los dos", async () => {
-  await escribir(G, "111@lid", "#vendo bicicleta rodado 26 $ 4.000");
-  await escribir(G, "333@lid", "#vendo heladera bajo mesada $ 6.500");
+  const chat = "sugerencias-busco@g.us";
+  grupoPropio(chat);
+  await escribir(chat, "111@lid", "#vendo bicicleta rodado 26 $ 4.000");
+  await escribir(chat, "333@lid", "#vendo heladera bajo mesada $ 6.500");
   const antes = globalThis.enviados.length;
-  await escribir(G, "222@lid", "#busco bici para mi hijo");
+  await escribir(chat, "222@lid", "#busco bici para mi hijo");
   assert.equal(globalThis.enviados.length - antes, 1, "va en la misma confirmación, no en otro mensaje");
   assert.match(ultimoEnviado().msg.text, /^🔎 \*Compro #3\* registrada\.[\s\S]*\n\n💡 @222, recuerdo que @111 está vendiendo «bicicleta rodado 26 \$ 4\.000» \(#1\)\.\nPara hablarle, respondé a su publicación\.$/);
   assert.deepEqual(ultimoEnviado().msg.mentions, ["222@lid", "111@lid"]);
 
   // never your own, and never one that's no longer for sale
-  await escribir(G, "111@lid", "#busco bici más chica");
+  await escribir(chat, "111@lid", "#busco bici más chica");
   assert.doesNotMatch(ultimoEnviado().msg.text, /💡/);
-  assert.ok(C.cambiarEstado(G, 1, "111@lid", false, "vendido").ok);
-  await escribir(G, "444@lid", "#busco bicicleta");
+  assert.ok(C.cambiarEstado(chat, 1, "111@lid", false, "vendido").ok);
+  await escribir(chat, "444@lid", "#busco bicicleta");
   assert.doesNotMatch(ultimoEnviado().msg.text, /💡/);
 });
 
@@ -79,21 +89,23 @@ test("#vendo: nombra hasta dos interesados, y al resto se lo recuerda cuando vue
 });
 
 test("modo compraventa: lo que se escribe suelto se lee", async () => {
-  await escribir(V, "111@lid", "Hola gente, vendo silla gamer $ 3.000");
+  const chat = "ventas-sueltas@g.us";
+  grupoPropio(chat, MODO_COMPRAVENTA);
+  await escribir(chat, "111@lid", "Hola gente, vendo silla gamer $ 3.000");
   assert.match(ultimoEnviado().msg.text, /^🏷️ \*Vendo #1\* registrada\. Precio: \$ 3\.000\./);
-  assert.equal(F.getPublicacion(V, 1).texto, "silla gamer $ 3.000");
+  assert.equal(F.getPublicacion(chat, 1).texto, "silla gamer $ 3.000");
 
-  await escribir(V, "222@lid", "¿Alguien vende una silla?");
+  await escribir(chat, "222@lid", "¿Alguien vende una silla?");
   assert.equal(
     ultimoEnviado().msg.text,
     "💡 @222, recuerdo que @111 está vendiendo «silla gamer $ 3.000» (#1).\nPara hablarle, respondé a su publicación.\nPara que quede anotado lo que buscás: #busco y qué es.",
   );
-  assert.equal(F.getPublicacion(V, 2), null, "una pregunta no queda anotada como búsqueda");
+  assert.equal(F.getPublicacion(chat, 2), null, "una pregunta no queda anotada como búsqueda");
 
   const antes = globalThis.enviados.length;
-  await escribir(V, "222@lid", "busco una silla");
-  await escribir(V, "222@lid", "busco un unicornio");
-  await escribir(V, "222@lid", "che, alguien sabe algo?");
+  await escribir(chat, "222@lid", "busco una silla");
+  await escribir(chat, "222@lid", "busco un unicornio");
+  await escribir(chat, "222@lid", "che, alguien sabe algo?");
   assert.equal(globalThis.enviados.length, antes, "lo ya sugerido no se repite, y si no hay nada parecido no dice nada");
 });
 

@@ -14,6 +14,9 @@ const DIA = 24 * 3600e3;
 const AHORA = new Date(2031, 0, 15, 15, 30); // a fixed afternoon, so neither the clock nor the time zone gets in the way
 const dia = (n) => new Date(AHORA.getTime() - n * DIA);
 const G1 = "uno@g.us";
+// What every group and the private chats counted is the whole bot's, and so is the first day counted: the tests that
+// look at those totals start with nothing counted. Run after the others, they took in what those counted too.
+const sinUsos = () => globalThis.db.prepare("DELETE FROM usos_comandos").run();
 
 before(async () => {
   ({ F } = await prepararBase("usos"));
@@ -23,6 +26,7 @@ before(async () => {
 });
 
 test("usos: se cuentan por grupo y día, los privados juntos, y el comando en minúsculas", () => {
+  sinUsos();
   U.registrarUso(G1, "Audio", AHORA);
   U.registrarUso(G1, "audio", AHORA);
   U.registrarUso(G1, "s", dia(1));
@@ -56,6 +60,12 @@ test(".usos: en un grupo, lo de ese grupo; en general, todo junto y dónde", asy
   const client = globalThis.client;
   client.chats = { [G1]: { id: G1, subject: "Los Uno" } };
   client.user.lid = "59899000001@lid";
+  // Two .audio and a .s in G1, and a .clima from each of two private chats: what the first test counts, which this
+  // one went by.
+  sinUsos();
+  for (const [chat, comando, cuando] of [[G1, "audio", AHORA], [G1, "audio", AHORA], [G1, "s", dia(1)], ["59899111222@s.whatsapp.net", "clima", AHORA], ["123@lid", "clima", AHORA]]) {
+    U.registrarUso(chat, comando, cuando);
+  }
   U.registrarUso(G1, "59899000001", AHORA); // the AI by mention: the command is the bot's own number
 
   const grupo = (await U.textoUsos(client, { chat: G1, ahora: AHORA })).texto;

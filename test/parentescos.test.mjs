@@ -123,11 +123,20 @@ test(".listaparejas: las del grupo, por nombre y sin arrobar, las casadas primer
 });
 
 // Every ex and the current partner got tagged each time someone looked: now only whoever it's about is.
+// With people of its own, whose couple it ends after: the drawing above is the other tests', and .listaparejas, which
+// counts every couple there is, found one more when this test ran first.
 test(".ex: nombra a los ex y a la pareja actual sin arrobarlos; solo arroba a quien se consulta", async () => {
   const Ex = (await import("../plugins/pareja-exs.js")).default;
-  P.fijarPareja(L(13), L(5), T0 - DIA); // 13 broke up with 14, and now goes out with 5
-  await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(13)], quoted: null }, { client: globalThis.client, text: "@13", usedPrefix: ".", command: "ex" });
-  const { text, mentions } = ultimoEnviado().msg;
-  assert.equal(text, "*Historial de relaciones de @13:*\n\nPersona 14\n\n*Pareja actual:* Persona 5");
-  assert.deepEqual(mentions, [L(13)]);
+  for (const n of [40, 41, 42]) F.initDataDB({ chat: G, sender: L(n), senderJid: "", pushName: `Persona ${n}` });
+  P.fijarPareja(L(40), L(41), T0 - 60 * DIA);
+  P.terminarPareja(L(40));
+  P.fijarPareja(L(40), L(42), T0 - DIA); // 40 broke up with 41, and now goes out with 42
+  try {
+    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: globalThis.client, text: "@40", usedPrefix: ".", command: "ex" });
+    const { text, mentions } = ultimoEnviado().msg;
+    assert.equal(text, "*Historial de relaciones de @40:*\n\nPersona 41\n\n*Pareja actual:* Persona 42");
+    assert.deepEqual(mentions, [L(40)]);
+  } finally {
+    P.terminarPareja(L(40));
+  }
 });
