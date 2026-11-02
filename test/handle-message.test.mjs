@@ -238,6 +238,43 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
 });
 
+// .modoadmin leaves the bot to the owner, the admins and the mods, but for .notagall and .sitagall (fueraDelModoAdmin):
+// a preference about oneself, and with the mode on nobody else could get out of the calls to everyone, nor back in.
+// Any other command from someone with no rank still gets nothing, and so does theirs if a plugin that doesn't stay
+// outside shares it. A group of its own, with its row: updateChat writes only on a row that's there.
+test(".modoadmin: .notagall y .sitagall le andan a cualquiera; el resto, solo a los admins y moderadores", async () => {
+  const MODO = "120363000000000051@g.us";
+  const HUGO = "300000000000071@lid";
+  const corrieron = [];
+  const espia = (cmd) => ({ cmd: [cmd], run: async () => corrieron.push(`.${cmd}`) });
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Modo admin", participants: [{ id: ANA, admin: "admin" }, ...[BETO, HUGO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
+  const nombres = { [ANA]: "Ana", [BETO]: "Beto", [HUGO]: "Hugo" };
+  for (const [quien, nombre] of Object.entries(nombres)) F.initDataDB({ chat: MODO, sender: quien, senderJid: "", pushName: nombre });
+  F.updateChat(MODO, { adminMode: 1 });
+  F.setRolGrupo(MODO, HUGO, "mod");
+  const { noRecibeLlamados } = await import("../lib/menciones-generales.js");
+  // What the command ran and what the bot sent. Each one writes under their own name: the message renames whoever sends
+  // it, everywhere, and with another name Ana wasn't Ana anymore for the test of .id that comes later.
+  const pide = async (sender, texto) => {
+    [globalThis.enviados, corrieron.length] = [[], 0];
+    const key = { remoteJid: MODO, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: sender };
+    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
+    return [...corrieron, ...globalThis.enviados.map((e) => e.msg?.text)];
+  };
+  globalThis.plugins = { "grupo-notagall.js": carpeta["grupo-notagall.js"], "espia.js": espia("probar") };
+  assert.match((await pide(BETO, ".notagall")).join("\n"), /^🔕 Listo/, "alguien sin rol se sale");
+  assert.equal(noRecibeLlamados(MODO, [BETO]), true);
+  assert.match((await pide(BETO, ".sitagall")).join("\n"), /^🔔 Listo/, "y vuelve");
+  assert.equal(noRecibeLlamados(MODO, [BETO]), false);
+  assert.deepEqual(await pide(BETO, ".probar"), [], "otro comando, nada");
+  assert.deepEqual(await pide(BETO, ".noexiste"), [], "ni el aviso de que no existe");
+  assert.deepEqual(await pide(ANA, ".probar"), [".probar"], "un admin de WhatsApp, sí");
+  assert.deepEqual(await pide(HUGO, ".probar"), [".probar"], "un moderador del bot, también");
+  globalThis.plugins["otro-notagall.js"] = espia("notagall");
+  assert.deepEqual(await pide(BETO, ".notagall"), [], "con otro plugin del mismo comando que no se queda afuera, ninguno");
+});
+
 // A group that lists people by number (addressingMode "pn"): Baileys lists its participants by number (id), with the
 // LID apart (lid), and a message brings the number in key.participant and, when the server sends it, the LID in
 // participantAlt. Looking at the id alone, the bot didn't see itself as admin there (commands that need it refused, and

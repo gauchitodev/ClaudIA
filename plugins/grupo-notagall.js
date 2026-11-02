@@ -3,11 +3,13 @@ import { idsDeParticipante } from "../lib/identidad.js";
 import { noRecibeLlamados } from "../lib/menciones-generales.js";
 
 // .notagall / .sitagall: out of this group's calls to everyone (.tagall, .ht, a poll's call to vote, Claudia's .tagall)
-// and back in (lib/menciones-generales.js). Anyone can: it's a preference about oneself, so it needs no admin. Mentions
-// aimed at someone (@persona, .llamar) still arrive, and an admin can force a notice to everyone with .tagall -f.
+// and back in (lib/menciones-generales.js). Anyone can, in a group with .modoadmin too: it's a preference about
+// oneself, so it needs no admin. Mentions aimed at someone (@persona, .llamar) still arrive, and an admin can force a
+// notice to everyone with .tagall -f.
 const plugin = {};
 plugin.cmd = ["notagall", "sitagall"];
 plugin.onlyGroup = true;
+plugin.fueraDelModoAdmin = true; // handle-message.js lets it through .modoadmin
 
 plugin.run = async (m, { client, command }) => {
   const salir = command === "notagall";

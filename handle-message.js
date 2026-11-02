@@ -29,6 +29,13 @@ function saludar(client, m, text, chat) {
   client.sendMessage(m.chat, { text: elegirAlAzar(RESPUESTAS_SALUDO) }, { quoted: m }).catch(console.error);
 }
 
+// A command stays outside .modoadmin when every plugin that answers to it says so: one that shares the command and
+// doesn't say so isn't let through along with it.
+function fueraDelModoAdmin(command) {
+  const suyos = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
+  return suyos.length > 0 && suyos.every((plugin) => plugin.fueraDelModoAdmin);
+}
+
 // Handles an incoming message from msgQueue in main.js
 export async function handleMessage(nMsg) {
   if (!nMsg) return;
@@ -143,12 +150,18 @@ export async function handleMessage(nMsg) {
     // check banchat
     if (chat.isBanned && !isOwner) return;
 
-    // check admin mode
-    if (chat.adminMode && !isOwner && !isMod && m.isGroup) return;
-
     // check whether the message starts with a valid prefix
     const usedPrefix = globalThis.prefix.find((p) => m.text.startsWith(p));
     if (!usedPrefix) return;
+
+    // get the command and its arguments
+    args = m.text.slice(usedPrefix.length).trim().split(/\s+/);
+    const command = args.shift().toLowerCase();
+
+    // Admin mode: the bot is for the owner, the admins and the mods, but for the commands that stay outside it
+    // (fueraDelModoAdmin). .notagall and .sitagall are a preference about oneself: with the mode on, nobody else could
+    // get out of the calls to everyone, nor back in.
+    if (chat.adminMode && !isOwner && !isMod && m.isGroup && !fueraDelModoAdmin(command)) return;
 
     // user banned from the bot
     if (user.banned) {
@@ -158,9 +171,6 @@ export async function handleMessage(nMsg) {
       return;
     }
 
-    // get the command and its arguments
-    args = m.text.slice(usedPrefix.length).trim().split(/\s+/);
-    const command = args.shift().toLowerCase();
     if (!command) return;
     // ignore commands that are just dots
     if (/^\.+$/.test(command)) return;
