@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import Database from "better-sqlite3";
 import { prepararBase, G, fijarSaldo, ultimoEnviado, esperar, clienteFalso, nodosQue } from "./helpers.mjs";
-import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
+import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFalso, mensaje, unaLid, unNumero, digitos, COMANDOS_QUE_NOMBRAN, POR_SU_NOMBRE } from "./identidad-escenarios.mjs";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own (".addowner no espera la ronda
 // entera"), loading it took most of that limit. It was loaded already only because a plugin these tests import loads
@@ -504,26 +504,6 @@ test(".llamar @número arroba a quien tiene ahora el número", async (t) => {
 // carries the mention itself (mentions), which is what tags them there: with the "@" in the text alone, nobody was
 // tagged, and only that passed. The three of POR_SU_NOMBRE name them by their name instead. Each one runs with a sender
 // of its own, so what one leaves behind (a request, a duel) doesn't reach the next.
-const COMANDOS_QUE_NOMBRAN = [
-  // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
-  ["fun-besar", "besar"],
-  ["pareja-elegir", "pareja"],
-  ["pareja-aceptar", "aceptar"],
-  ["pareja-rechazar", "rechazar"],
-  ["pareja-exs", "ex"],
-  ["coins-regalar", "regalar", " 20", "saldo"],
-  ["coins-economia", "ajustar", " 50", null, { isOwner: true }],
-  ["perfil", "perfil"],
-  ["coins-duelo", "duelo", " 20", "saldo"],
-  ["fun-calcular-juegos", "love"],
-  ["familia-adoptar", "adoptar", "", "casamiento"],
-  ["calificar", "calificar", " 5 buena gente"],
-  ["familia-familia", "familia"],
-  ["familia-emancipar", "desheredar"],
-  ["rango", "rango"],
-  ["familia-parentesco", "parentesco"],
-];
-const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco"];
 test("los comandos que nombran a alguien van a quien tiene el número ahora, y lo arroban por su LID, o lo nombran", async (t) => {
   const Par = await import("../lib/parejas.js");
   const D = await import("../lib/duelos.js");
@@ -581,57 +561,6 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       assert.deepEqual(sinMencion.length, 0, `lo arroba en el texto de un sendMessage sin la mención, que es lo que le llega: ${caso}`);
     }
     assert.equal(consultas.length, forma === "porNumeroSinLid" ? COMANDOS_QUE_NOMBRAN.length : 0, `${forma}: le pregunta a WhatsApp solo si el grupo no empareja el número`);
-  }
-});
-
-// Someone the bot knows by their number alone (soloPorNumero), whose LID WhatsApp gives has no row: the commands go to
-// the number (comoLoConoce), and every message that names them with "@" carries the mention. The "@" in the text alone,
-// through sendText, came out as "<digits>@lid" (parseMention), which is nobody, and WhatsApp tagged nobody: .besar,
-// .love, the couple's commands, .setpareja, .setmarry, .adv, .unwarn and .rd. .rd goes last, as it erases them.
-const ARROBAN_POR_EL_NUMERO = [
-  ...COMANDOS_QUE_NOMBRAN.filter(([, command]) => !POR_SU_NOMBRE.includes(command)),
-  ["grupo-advertir", "adv", " spam", null, { isWaAdmin: true }],
-  ["grupo-advertir", "adv", " spam", "unaParaSalir", { isWaAdmin: true }], // the one that removes them
-  ["grupo-advertir-delete", "unwarn", "", null, { isWaAdmin: true }], // one of the warnings .adv gave
-  ["pareja-set-pareja", "setpareja", " @OTRO"],
-  ["pareja-set-marry", "setmarry", " @OTRO"],
-  ["owner-restaurar-usuario", "rd", "", null, { isOwner: true }],
-];
-test("a quien el bot conoce solo por su número lo arroban con la mención: el «@» del texto solo no le llegaba", async (t) => {
-  const Par = await import("../lib/parejas.js");
-  const D = await import("../lib/duelos.js");
-  t.after(() => {
-    for (const d of D.duelos.values()) clearTimeout(d.timeout);
-    D.duelos.clear();
-  });
-  const [uno, otro] = [soloPorNumero(500), soloPorNumero(501)];
-  const { X } = uno;
-  usyncFalso(t, { [X]: uno.L, [otro.X]: otro.L });
-  const participants = [...uno.porNumeroSinLid, ...otro.porNumeroSinLid];
-  let n = 510;
-  for (const [archivo, command, resto = "", necesita = null, extra = {}] of ARROBAN_POR_EL_NUMERO) {
-    const [A, B] = [unaLid(++n, 1), unaLid(n, 2)];
-    F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
-    if (necesita === "saldo") fijarSaldo(F, G, A, 1000);
-    if (necesita === "casamiento") {
-      fijarSaldo(F, G, A, 1000);
-      F.initDataDB({ chat: G, sender: B, senderJid: "", pushName: "Cónyuge" });
-      Par.fijarPareja(A, B);
-      Par.fijarCasamiento(A, B);
-    }
-    if (necesita === "unaParaSalir") F.setAdvertencias(X, G, F.MAX_ADVERTENCIAS - 1);
-    const texto = `@${digitos(X)}${resto.replace("@OTRO", `@${digitos(otro.X)}`)}`;
-    const m = mensaje({ sender: A, text: `.${command} ${texto}`, mentionedJid: resto.includes("@OTRO") ? [X, otro.X] : [X] });
-    globalThis.enviados = [];
-    const plugin = (await import(`../plugins/${archivo}.js`)).default;
-    await plugin.run(m, { client: cliente(), text: texto, args: texto.split(" "), command, usedPrefix: ".", participants, chat: {}, ...extra });
-    const nombran = globalThis.enviados.map((e) => e.msg).filter((msg) => (msg?.text ?? msg?.caption ?? "").includes(`@${digitos(X)}`));
-    const caso = `.${command}: ${globalThis.enviados.map((e) => e.msg?.text ?? e.msg?.caption).join(" | ")}`;
-    assert.ok(nombran.length, `no lo nombra: ${caso}`);
-    assert.ok(
-      nombran.every((msg) => msg.mentions?.includes(X)),
-      `lo nombra sin la mención: ${caso}`,
-    );
   }
 });
 
@@ -733,19 +662,6 @@ test("dosPersonasActual le pregunta a WhatsApp por los números que el grupo no 
   }
   assert.ok(consultas.length > 0);
   assert.deepEqual(Par.dosPersonas(mensaje({ mentionedJid: [a.X, b.X] }), "", participants), [a.VIEJO, b.VIEJO], "sin preguntar, la suposición de la base");
-});
-
-test(".setpareja y .setmarry le pasan el grupo: forman y casan a quienes tienen los números ahora", async () => {
-  const Par = await import("../lib/parejas.js");
-  const plugin = async (archivo) => (await import(`../plugins/${archivo}.js`)).default;
-  const [a, b] = [numeroReciclado(165), numeroReciclado(166)];
-  const participants = [...a.porNumero, ...b.porNumero];
-  const m = mensaje({ sender: unaLid(167), mentionedJid: [a.X, b.X] });
-  const texto = `@${digitos(a.X)} @${digitos(b.X)}`;
-  await (await plugin("pareja-set-pareja")).run(m, { client: cliente(), text: texto, participants });
-  assert.equal(Par.parejaDe(a.NUEVO)?.pareja, b.NUEVO, ".setpareja");
-  await (await plugin("pareja-set-marry")).run(m, { client: cliente(), text: texto, participants });
-  assert.ok(Par.parejaDe(a.NUEVO)?.casadosDesde > 0, ".setmarry");
 });
 
 // The saint is the second owner in config.toml: by the LID the group lists their number with, the same way the person
@@ -943,24 +859,6 @@ test("el anti-link, .suicidarse, .aa y .ad actúan sobre la id del grupo, y avis
     assert.deepEqual(pedidos, [[X, accion]], nombre);
     assert.equal(ultimoEnviado()?.msg.text, aviso, nombre);
   }
-});
-
-// The owner as config.toml has them may come with "+" and spaces: the mention was no id at all. And the removal goes by
-// the id the group lists the person under, saying so when WhatsApp refuses, as the others.
-test("el anti-mención de estados menciona al owner por su LID, saca con la id del grupo y avisa si no puede", async (t) => {
-  const { X, NUEVO, porNumero } = numeroReciclado(147);
-  const o = owner(t, 148, { comoEnConfig: "+598 99 000 148" });
-  const pedidos = [];
-  cliente().groupParticipantsUpdate = async (chat, ids, accion) => (pedidos.push([ids[0], accion]), ids.map(() => ({ status: "403" })));
-  t.after(() => delete cliente().groupParticipantsUpdate);
-  globalThis.enviados = [];
-  const Estados = (await import("../plugins/grupo-anti-group-mention-status.js")).default;
-  const m = { ...mensaje({ sender: NUEVO, senderJid: X }), message: { groupStatusMentionMessage: { message: { protocolMessage: {} } } } };
-  await Estados.before(m, { client: cliente(), participants: porNumero, isMod: false, isOwner: false, isBotAdmin: true, chat: { antiStatus: true } });
-  assert.deepEqual(globalThis.enviados[0]?.msg.mentions, [NUEVO, o.LID]);
-  await esperar(3100); // the removal comes three seconds after the warning
-  assert.deepEqual(pedidos, [[X, "remove"]]);
-  assert.equal(ultimoEnviado().msg.text, "No pude sacarlo (error 403).");
 });
 
 test(".adminbot sin la lista del grupo dice que no pudo verla, y no da el rol", async () => {

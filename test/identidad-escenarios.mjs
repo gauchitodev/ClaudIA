@@ -1,7 +1,7 @@
 // Identity scenarios for the tests: a number that changed hands, a row from before LIDs, a device's row, an owner,
 // the bot listed each way, and what WhatsApp answers about a number. Each builder takes a number of its own (n): a test
 // file shares one database, and two scenarios with the same ids would see each other's rows. They write to the
-// database prepararBase (helpers.mjs) publishes.
+// database prepararBase (helpers.mjs) publishes. And the commands that name someone.
 import { G } from "./helpers.mjs";
 
 export const unaLid = (n, k = 1) => `3${String(n).padStart(6, "0")}${String(k).padStart(8, "0")}@lid`;
@@ -96,3 +96,27 @@ export function usyncFalso(t, mapa, client = globalThis.client) {
 
 // A group message, with what the plugins read of it.
 export const mensaje = ({ chat = G, sender, senderJid = "", text = "", mentionedJid = [], quoted } = {}) => ({ chat, sender, senderJid, text, mentionedJid, quoted, isGroup: true, react: async () => {}, delete: async () => {} });
+
+// The commands that name someone, each with what it needs, which two files go over: identidad.test.mjs, that they go to
+// whoever has the number now, and identidad-lentos.test.mjs, that their "@" carries the mention for someone the bot
+// knows by their number alone. The three of POR_SU_NOMBRE name them by their name instead.
+export const COMANDOS_QUE_NOMBRAN = [
+  // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
+  ["fun-besar", "besar"],
+  ["pareja-elegir", "pareja"],
+  ["pareja-aceptar", "aceptar"],
+  ["pareja-rechazar", "rechazar"],
+  ["pareja-exs", "ex"],
+  ["coins-regalar", "regalar", " 20", "saldo"],
+  ["coins-economia", "ajustar", " 50", null, { isOwner: true }],
+  ["perfil", "perfil"],
+  ["coins-duelo", "duelo", " 20", "saldo"],
+  ["fun-calcular-juegos", "love"],
+  ["familia-adoptar", "adoptar", "", "casamiento"],
+  ["calificar", "calificar", " 5 buena gente"],
+  ["familia-familia", "familia"],
+  ["familia-emancipar", "desheredar"],
+  ["rango", "rango"],
+  ["familia-parentesco", "parentesco"],
+];
+export const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco"];
