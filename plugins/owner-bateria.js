@@ -1,9 +1,10 @@
 import { leerBateria, estadoBateria, SIN_BATERIA } from "../lib/bateria.js";
 
 // .bat: the battery of the phone or tablet the bot runs on (see lib/bateria.js). .estado has the same in one line.
+// For the admins (WhatsApp's or the bot's) and the owner, who counts as one anywhere (permisosDe, lib/roles.js).
 const plugin = {};
 plugin.cmd = ["bat", "bateria"];
-plugin.onlyOwner = true;
+plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client }) => {
   const b = await leerBateria();

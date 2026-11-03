@@ -164,8 +164,9 @@ test("batería: los estados en castellano, vengan de Termux:API o de los archivo
   assert.equal(B.estadoBateria(undefined), "");
 });
 
-test(".bat: solo para el owner, con porcentaje, estado y temperatura", async () => {
-  assert.equal(Bat.onlyOwner, true);
+test(".bat: para los admins y el owner, con porcentaje, estado y temperatura", async () => {
+  // onlyAdmin lets the owner through anywhere, in private too (permisosDe counts them as an admin).
+  assert.deepEqual([Bat.onlyAdmin, Bat.onlyOwner], [true, undefined]);
   simular({ termux: { status: "CHARGING", temperature: 31.04, percentage: 80 } });
   await Bat.run({ chat: "owner@s.whatsapp.net" }, { client: globalThis.client });
   assert.equal(ultimoEnviado().msg.text, "🔋 Batería: *80%* (cargando ⚡)\n🌡️ Temperatura: 31.0 °C");
