@@ -39,9 +39,9 @@ before(async () => {
 });
 
 // "${usedPrefix}command" in the general menu, ".command" written literally in the others. The dot has to come after
-// a space, a · or a parenthesis so a sentence's full stop isn't mistaken for one, and what follows has to start with
-// a letter so prices aren't swallowed ("$ 4.500").
-const FORMAS = [/\$\{usedPrefix\}([\wáéíóúñ]+)/g, /(?:^|[\s·(/])\.([a-záéíóúñ][\wáéíóúñ]*)/g];
+// a space, a · or a parenthesis so a sentence's full stop isn't mistaken for one, and what follows has to bring a
+// letter, after the digits if it starts with some (.4enlinea), so prices and decimals aren't swallowed ("$ 4.500").
+const FORMAS = [/\$\{usedPrefix\}([\wáéíóúñ]+)/g, /(?:^|[\s·(/])\.(\d*[a-záéíóúñ][\wáéíóúñ]*)/g];
 
 test("todo comando nombrado en un menú existe en algún plugin", () => {
   const faltan = [];
@@ -78,6 +78,16 @@ test("la última entrada del historial de Claudia nombra solo comandos que exist
   const nombrados = [...`${ultima.titulo}\n${ultima.puntos.join("\n")}`.matchAll(FORMAS[1])].map(([, cmd]) => cmd.toLowerCase());
   const faltan = [...new Set(nombrados)].filter((cmd) => !comandos.has(cmd)).map((cmd) => `.${cmd}`);
   assert.deepEqual(faltan, [], `la ${ultima.version} del historial nombra comandos que no existen: ${faltan.join(", ")}`);
+});
+
+// .4enlinea starts with a digit: the checks above have to see it, in the menus and in the manual, and still take no
+// price or decimal for a command. lib/menu.js reads the commands a line names with the same shape.
+test("los chequeos ven un comando que empieza con un número, y no un precio", async () => {
+  const texto = "jugá con .4enlinea (o .del4enlinea), no por $ 4.500 ni por .5 más";
+  assert.deepEqual([...texto.matchAll(FORMAS[1])].map(([, cmd]) => cmd), ["4enlinea", "del4enlinea"]);
+  const M = await import("../lib/menu.js");
+  const [entrada] = M.entradasDelMenu(".", [{ lineas: `▸ .ttt – \`${texto}\``, para: "todos" }]);
+  assert.deepEqual(entrada.nombrados, ["ttt", "4enlinea", "del4enlinea"]);
 });
 
 // Two plugins sharing a command both run (handle-message.js doesn't stop at the first): almost always an oversight.

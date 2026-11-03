@@ -1,4 +1,5 @@
 import TicTacToe from "../lib/ttt.js";
+import { juegaCuatroEnLinea } from "../lib/cuatro-en-linea.js";
 
 const plugin = {};
 plugin.cmd = ["ttt"];
@@ -10,6 +11,9 @@ plugin.run = async (m, { client, text, chat }) => {
 
   if (text) return client.sendText(m.chat, "[❗] NO ES NECESARIO PONER NOMBRE A LA SALA.\n\nSOLAMENTE PONER:\n* .ttt", m);
 
+  // The 4 en línea takes plain numbers as moves too: someone in both games would play each number in the two at once
+  // (plugins/fun-4enlinea.js asks the same of the tic-tac-toe).
+  if (juegaCuatroEnLinea(m.sender)) return client.sendText(m.chat, "Estás jugando al 4 en línea: terminá esa partida primero.", m);
   client.game = client.game ? client.game : {};
   if (Object.values(client.game).find((room) => room.id.startsWith("tictactoe") && [room.game.playerX, room.game.playerO].includes(m.sender))) return client.sendText(m.chat, txt.tttSalaExistente, m);
   // It only joins rooms waiting in THIS chat: someone from another group used to be able to walk into the game.
