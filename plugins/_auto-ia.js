@@ -11,6 +11,7 @@ import { fechaDe } from "../lib/memoria-corta.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
+import { sinPermisoEn } from "../lib/menu.js";
 import { tipear } from "../lib/ritmo.js";
 import { laburoDe } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
@@ -180,8 +181,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // ---------- build the prompt ----------
     const partes = [];
 
-    // what Claudia knows about herself and the bot (the full manual only if the message asks about features)
-    partes.push(conocimientoPara(m.text));
+    // What Claudia knows about herself and the bot (the full manual only if the message asks about features), and which
+    // of its commands this person can't use, so she doesn't recommend them.
+    const quien = { isOwner, isAdmin, isMod };
+    partes.push(conocimientoPara(m.text, { quien, sinPermiso: (manual) => sinPermisoEn(manual, quien) }));
 
     // What came before this message: it goes separately, and others may have come in after it while the hooks ran.
     const contexto = textoContexto(m.chat, m.id ?? m.key?.id);

@@ -72,6 +72,39 @@ test("pedido a Claudia: un admin sí, y un moderador sigue pudiendo pedir un tag
   assert.match(tagall.textos[1], /@111 @555/, "la mención a todos salió");
 });
 
+// Asked how to do something, she has the whole manual in front of her, the admins' commands included. Told who asks and
+// which of them they can't use (sinPermisoEn, lib/menu.js), she doesn't recommend those: she recommended a .tagall or
+// a .kick to anyone.
+test("pedido a Claudia: le dice quién pregunta y qué comandos no puede usar, para no recomendárselos", async () => {
+  const fetchAntes = globalThis.fetch;
+  let prompt = "";
+  globalThis.fetch = async (url, opciones) => {
+    prompt = JSON.parse(opciones.body).contents[0].parts.at(-1).text;
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ comando: "ninguno", respuesta: "Eso lo hace un admin." }) }] } }] }) };
+  };
+  const fuera = () => prompt.match(/No puede usar estos comandos[^:]*: (.*?)\. No se los recomiendes/)?.[1].split(", ") ?? [];
+  const PREGUNTA = "claudia, ¿cómo hago para mencionar a todos?";
+  try {
+    await pedir(PREGUNTA, { isAdmin: false, isMod: false });
+    assert.match(prompt, /Quien te escribe no es admin ni moderador del grupo/);
+    assert.ok([".tagall", ".llamar", ".kick"].every((cmd) => fuera().includes(cmd)), fuera().join(" "));
+    assert.ok(!fuera().includes(".notagall"), "lo que puede usar cualquiera no está");
+
+    await pedir(PREGUNTA, MODERADOR);
+    assert.match(prompt, /Quien te escribe es moderador del bot en este grupo, no admin/);
+    assert.ok(!fuera().includes(".tagall") && fuera().includes(".llamar"), fuera().join(" "));
+
+    await pedir(PREGUNTA, { ...ADMIN, isOwner: true });
+    assert.match(prompt, /Quien te escribe es el owner del bot/);
+    assert.deepEqual(fuera(), []);
+
+    await pedir("claudia, ¿cómo estás?", { isAdmin: false, isMod: false });
+    assert.doesNotMatch(prompt, /Quien te escribe/, "sin una pregunta sobre comandos no va el manual, ni esto");
+  } finally {
+    globalThis.fetch = fetchAntes;
+  }
+});
+
 // ---------- replies to a game's message ----------
 // Trivia, riddles, flags and unscramble are answered by quoting the bot's question, and so is today's question. Claudia
 // took each answer as spoken to her, with the game's question in her prompt: she chatted back to every one, and

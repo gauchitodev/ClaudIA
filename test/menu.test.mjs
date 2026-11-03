@@ -198,3 +198,19 @@ test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-mess
     assert.ok(fuente.includes(condicion), `handle-message ya no chequea «${condicion}»: revisá puedeCorrerAca en lib/menu.js`);
   }
 });
+
+// Claudia's manual names every command, the admins' included: those that whoever asks can't use aren't recommended to
+// them (plugins/_auto-ia.js). Out of reach is what's in a topic they don't see, unless another topic they see names it,
+// and what a plugin keeps for a role they don't have; a few anyone can use in part (.roles lists, .iniciativa says how
+// it's going) stay in.
+test("sinPermisoEn: lo que nombra un texto y no puede usar quien pregunta, según su rol", () => {
+  // .reglas and .antecedentes head lines of the admins' topic (.reglas set, .antecedentes @persona), and a topic for
+  // everyone has them too.
+  const texto = "Probá .tagall, .notagall, .kick, .horariojuegos, .casino, .adminbot, .roles, .calificaciones, .iniciativa, .reglas, .antecedentes, .4enlinea, .addowner o .menu.";
+  assert.deepEqual(M.sinPermisoEn(texto, {}), ["tagall", "kick", "horariojuegos", "casino", "adminbot", "addowner"]);
+  // A moderator has the moderators' commands, not the ones a plugin keeps for admins or for the owner.
+  const deModeracion = "Probá .tagall, .kick, .horariojuegos, .llamar o .addowner.";
+  assert.deepEqual(M.sinPermisoEn(deModeracion, { isMod: true }), ["horariojuegos", "llamar", "addowner"]);
+  assert.deepEqual(M.sinPermisoEn(deModeracion, { isMod: true, isAdmin: true }), ["addowner"]);
+  assert.deepEqual(M.sinPermisoEn(`${texto} ${deModeracion}`, { isMod: true, isAdmin: true, isOwner: true }), []);
+});
