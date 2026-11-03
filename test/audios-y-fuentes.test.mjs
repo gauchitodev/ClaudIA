@@ -67,13 +67,15 @@ const textoDe = (pedido) => pedido.contents[0].parts.at(-1).text;
 
 test("nota de voz respondiéndole: la escucha, contesta y la deja en el hilo con lo que decía", async () => {
   clasificacion = { comando: "ninguno", respuesta: "Uh, qué garrón lo del auto", resumenAudio: "cuenta que se le rompió el auto" };
-  const textos = await mandar({ mtype: "audioMessage", msg: { seconds: 8, mimetype: "audio/ogg; codecs=opus" }, download: async () => AUDIO, quoted: { id: "CL-1", fromMe: true, text: "¿Cómo andan?" } });
+  const enviado = Math.floor(Date.now() / 1000) - 40; // she got to it 40 seconds after it was sent
+  const textos = await mandar({ mtype: "audioMessage", msg: { seconds: 8, mimetype: "audio/ogg; codecs=opus" }, download: async () => AUDIO, quoted: { id: "CL-1", fromMe: true, text: "¿Cómo andan?" }, messageTimestamp: enviado });
   assert.deepEqual(textos, ["Uh, qué garrón lo del auto"]);
   assert.equal(pedidos.length, 1);
   assert.deepEqual(audioDe(pedidos[0]), { mime_type: "audio/ogg", data: AUDIO.toString("base64") });
   assert.match(textoDe(pedidos[0]), /te responde con un audio a este mensaje tuyo: "¿Cómo andan\?"/);
   const hilo = contextoChat.get(C);
   assert.ok(hilo.some((x) => x.texto === "🎤 (audio) cuenta que se le rompió el auto" && x.nombre === "Ana"));
+  assert.equal(hilo.find((x) => x.esAudio).fecha, enviado * 1000, "donde se mandó, no donde lo terminó de escuchar");
 });
 
 // A voice note isn't in her memory until she has heard it, and the prompt left out the last message stored, taking it

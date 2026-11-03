@@ -258,7 +258,7 @@ test("avisos al owner: van al primer owner con número, aunque el primero esté 
 
 test("memoria corta y memoria del grupo", () => {
   for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
-  assert.equal(CC.contextoChat.get("c").length, 200);
+  assert.equal(CC.contextoChat.get("c").length, 250, "lo de las últimas 6 horas queda todo");
   assert.equal(CC.textoContexto("c", false).split("\n").length, 14);
   assert.match(Mem.recordar(G, "u", "que Fulano siempre llega tarde").mensaje, /Anotado \(#1\): Fulano siempre llega tarde/);
   assert.match(Mem.recordar(G, "u", "x").error, /¿Qué tengo que recordar/);
@@ -407,6 +407,11 @@ test("atraso: main.js marca la llegada de cada tanda y handle-message filtra con
   const handle = fs.readFileSync(path.join(raiz, "handle-message.js"), "utf8");
   const filtro = 'IfStatement[test.left.callee.name="atrasoDeLlegada"][test.operator=">"][test.right.value=60] ReturnStatement > CallExpression[callee.name="anotarPresencia"] > ObjectExpression > Property[key.name="antesDelNumero"][value.value=true]';
   assert.equal((await nodosQue(filtro, handle)).length, 1, "handle-message dejó de filtrar por el atraso de llegada");
+  // What's cut there, and the commands from while it was off, still go into Claudia's memory (lib/memoria-corta.js).
+  const atrasado = 'IfStatement[test.left.callee.name="atrasoDeLlegada"][test.operator=">"][test.right.value=60] CallExpression[callee.name="guardarAtrasado"]';
+  const apagado = 'IfStatement[test.left.left.property.name="_upsertType"][test.left.right.value="append"] CallExpression[callee.name="guardarAtrasado"]';
+  assert.equal((await nodosQue(atrasado, handle)).length, 1, "lo atrasado dejó de ir a la memoria");
+  assert.equal((await nodosQue(apagado, handle)).length, 1, "los comandos de cuando estaba apagado dejaron de ir a la memoria");
 });
 
 test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo", async () => {

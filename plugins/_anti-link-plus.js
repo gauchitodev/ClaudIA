@@ -1,9 +1,6 @@
-// Anti-links de Instagram, TikTok y Telegram.
-// Each pattern demands the full domain with the slash: "tiktok.com/..." yes, "hablemos de tiktok" no.
-// (The previous version had /t.me/ unescaped, which also caught "time", "tome", "tame"...)
-const isLinkTikTok = /\b(?:www\.|vm\.|vt\.)?tiktok\.com\/\S+/i;
-const isLinkTelegram = /\b(?:t\.me|telegram\.(?:me|org|dog))\/\S+/i;
-const isLinkInstagram = /\b(?:www\.)?instagram\.com\/\S+/i;
+// Anti-links de Instagram, TikTok y Telegram. Each pattern (lib/enlaces.js) demands the full domain with the slash:
+// "tiktok.com/..." yes, "hablemos de tiktok" no.
+import { LINK_TIKTOK, LINK_TELEGRAM, LINK_INSTAGRAM } from "../lib/enlaces.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
@@ -14,9 +11,9 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
   const mentions = [m.sender, ...groupAdmins.map((v) => v.id)];
 
   let aviso = null;
-  if (chat.antiInstagram && isLinkInstagram.test(m.text)) aviso = txt.allAntiLinkInstagram(m.sender);
-  else if (chat.antiTiktok && isLinkTikTok.test(m.text)) aviso = txt.allAntiLinkTikTok(m.sender);
-  else if (chat.antiTelegram && isLinkTelegram.test(m.text)) aviso = txt.allAntiLinkTelegram(m.sender);
+  if (chat.antiInstagram && LINK_INSTAGRAM.test(m.text)) aviso = txt.allAntiLinkInstagram(m.sender);
+  else if (chat.antiTiktok && LINK_TIKTOK.test(m.text)) aviso = txt.allAntiLinkTikTok(m.sender);
+  else if (chat.antiTelegram && LINK_TELEGRAM.test(m.text)) aviso = txt.allAntiLinkTelegram(m.sender);
 
   if (!aviso) return;
   if (chat.antiDelete) return client.sendText(m.chat, txt.allAntiLinkDelete, m, { mentions });

@@ -1,20 +1,6 @@
-// General anti-links: it deletes messages containing any link.
-// It used to parse every word as if it were a domain, so "no.se" (Sweden), "si.no" (Norway) or "bueno.al" (Albania)
-// — written without a space after the dot — counted as links.
-// Now the word has to LOOK like a link: http/www, or a domain with a known suffix.
-import { parse } from "tldts";
-
-const TERMINACIONES = /\.(com|net|org|io|co|app|gg|tv|xyz|info|dev|link|ly|to|uy|ar|cl|br|mx|tk|ml|lat)(\/|$)/i;
-
-function detectarLink(palabra) {
-  const w = palabra.replace(/^[("'<[¡¿]+|[)"'>\].,;:!?¡¿]+$/g, ""); // strips surrounding punctuation
-  if (!w) return null;
-  const explicito = /^(https?:\/\/|www\.)/i.test(w);
-  const pareceDominio = /^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(w) && TERMINACIONES.test(w);
-  if (!explicito && !pareceDominio) return null;
-  const info = parse(w);
-  return info.isIcann && info.domainWithoutSuffix ? info.domainWithoutSuffix : null;
-}
+// General anti-links: it deletes messages containing any link. What looks like one (and what "no.se" or "si.no"
+// doesn't) is in lib/enlaces.js.
+import { detectarLink } from "../lib/enlaces.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)

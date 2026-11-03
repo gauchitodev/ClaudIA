@@ -185,7 +185,6 @@ test("lo que escribe la IA no arroba a nadie: charla, .ia y .resumen", async () 
   assert.equal(menciones(ultimoEnviado().msg.text), 0, ".ia");
 
   for (let i = 10; i > 0; i--) CC.recordarMensaje(FAMILIA, "Beto", `mensaje ${i} de la charla`, false, { fecha: Date.now() - i * 60e3 });
-  globalThis.resumenCooldown?.delete(FAMILIA);
   respuestaIA = `Se habló de todo. ${lista}`;
   await Resumen.run({ chat: FAMILIA, isGroup: true, sender: ANA }, { client, args: [] });
   assert.match(ultimoEnviado().msg.text, /^📝 \*Resumen/);

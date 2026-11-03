@@ -1,9 +1,7 @@
 // Anti-links de grupos y canales de WhatsApp.
-// It only fires on a real link (chat.whatsapp.com/CODE); writing "grupo de whatsapp" doesn't count.
+// It only fires on a real link (chat.whatsapp.com/CODE, lib/enlaces.js); writing "grupo de whatsapp" doesn't count.
 import { expulsar, idDelAutor } from "../lib/identidad.js";
-
-const groupLinkRegex = /chat\.whatsapp\.com\/[A-Za-z0-9]{6,}/i;
-const channelLinkRegex = /whatsapp\.com\/channel\/[A-Za-z0-9]{6,}/i;
+import { LINK_GRUPO, LINK_CANAL } from "../lib/enlaces.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
@@ -11,8 +9,8 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
   if (isMod || isOwner) return;
   if (!m.isGroup || !m.text) return;
   const groupAdmins = participants.filter((p) => p.admin);
-  const isGroupLink = groupLinkRegex.test(m.text);
-  const isChannelLink = channelLinkRegex.test(m.text);
+  const isGroupLink = LINK_GRUPO.test(m.text);
+  const isChannelLink = LINK_CANAL.test(m.text);
 
   if (chat.antiGroups && isGroupLink) {
     if (!isBotAdmin) return client.sendText(m.chat, txt.antiGroups, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });

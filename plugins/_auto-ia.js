@@ -7,6 +7,7 @@ import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
+import { fechaDe } from "../lib/memoria-corta.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
@@ -299,9 +300,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     const pideFuentes = datos.fuentes === true;
     const resumenAudio = typeof datos.resumenAudio === "string" ? datos.resumenAudio.trim().slice(0, 200) : "";
 
-    // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on.
+    // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on. Where
+    // it was sent, not where she got through hearing it: what was said meanwhile came after it.
     if (notaDeVoz && resumenAudio) {
-      recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true });
+      recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
     }
 
     if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);

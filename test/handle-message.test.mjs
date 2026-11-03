@@ -704,3 +704,136 @@ test("quien escribe desde un número que cambió de dueño no tiene el rol del q
   assert.deepEqual(corrieron, []);
   assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text).filter(Boolean), [globalThis.txt.onlyMod]);
 });
+
+// ---------- what came while the bot was down ----------
+// A message that arrives more than 60 seconds late isn't answered, run or seen by any hook, but in a group it's part of
+// what was said: it goes into Claudia's memory where it was said (lib/memoria-corta.js), unless the moderation, which
+// never sees it, would have deleted it. Deletions and edits from back then apply all the same.
+const TARDE = "120363000000000082@g.us";
+const NOMBRES = { [ANA]: "Ana", [BETO]: "Beto" };
+const ahoraS = () => Math.floor(Date.now() / 1000);
+function tarde(client, sender, message, { hace = 300, chat = TARDE, upsert = "notify", messageTimestamp = ahoraS() - hace } = {}) {
+  const id = `TARDE${String(++numero).padStart(6, "0")}`;
+  const key = { remoteJid: chat, fromMe: false, id, ...(chat.endsWith("@g.us") && { participant: sender }) };
+  return { id, hecho: handleMessage.call(client, { key, message, messageTimestamp, pushName: NOMBRES[sender] || "Alguien", _upsertType: upsert, _llegada: Date.now() }) };
+}
+const enLaMemoria = (chat = TARDE) => (contextoChat.get(chat) || []).map((e) => e.texto);
+
+test("lo atrasado entra en la memoria con la hora en que se mandó, sin pasar por los hooks, sin contestarse ni correr", async () => {
+  const oyeron = [];
+  const corrieron = [];
+  globalThis.plugins = {
+    "_memoria-corta.js": carpeta["_memoria-corta.js"],
+    "zz-espia.js": { before: async (m) => oyeron.push(m.text) },
+    "zz-perfil.js": { cmd: ["perfil"], run: async () => corrieron.push("perfil") },
+  };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  globalThis.enviados = [];
+  await tarde(client, ANA, { conversation: "ya volviste?" }, { hace: 0 }).hecho;
+  const enviado = ahoraS() - 300; // read once: a second ticking over before the check would move it
+  const atrasado = tarde(client, BETO, { conversation: "lo que dije mientras no estabas" }, { messageTimestamp: enviado });
+  await atrasado.hecho;
+  // A command from while it was off comes as "append": into the memory as the command it was, and not run.
+  await tarde(client, BETO, { conversation: ".perfil" }, { hace: 20, upsert: "append" }).hecho;
+  assert.deepEqual(enLaMemoria(), ["lo que dije mientras no estabas", ".perfil", "ya volviste?"], "cada uno donde se dijo");
+  const entrada = contextoChat.get(TARDE).find((e) => e.id === atrasado.id);
+  assert.equal(entrada.fecha, enviado * 1000);
+  assert.equal(entrada.nombre, "Beto");
+  const { fueComando } = await import("../lib/contexto-chat.js");
+  assert.deepEqual(contextoChat.get(TARDE).map(fueComando), [false, true, false]);
+  assert.deepEqual([oyeron, corrieron, globalThis.enviados.length], [["ya volviste?"], [], 0], "ningún hook lo vio, nada corrió, nada se mandó");
+});
+
+test("un borrado o una edición atrasados se aplican en la memoria; la edición de otro no", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  const borrar = tarde(client, ANA, { conversation: "esto lo voy a borrar" }, { hace: 0 });
+  const editar = tarde(client, ANA, { conversation: "esto lo edito" }, { hace: 0 });
+  await borrar.hecho;
+  await editar.hecho;
+  await tarde(client, ANA, { protocolMessage: { type: 0, key: { remoteJid: TARDE, fromMe: false, id: borrar.id, participant: ANA } } }).hecho;
+  await tarde(client, BETO, { protocolMessage: { type: 14, key: { remoteJid: TARDE, fromMe: false, id: editar.id, participant: ANA }, editedMessage: { conversation: "lo que Beto quisiera" } } }).hecho;
+  assert.deepEqual(enLaMemoria(), ["esto lo edito"], "lo borrado se fue, y la edición de otro no cuenta");
+  await tarde(client, ANA, { protocolMessage: { type: 14, key: { remoteJid: TARDE, fromMe: false, id: editar.id, participant: ANA }, editedMessage: { conversation: "así queda" } } }).hecho;
+  assert.deepEqual(enLaMemoria(), ["así queda"]);
+});
+
+test("lo atrasado que la moderación habría borrado no entra en la memoria, y tampoco se borra", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  const [CARLA, DANI] = ["300000000000084@lid", "300000000000085@lid"];
+  for (const [quien, nombre] of [[CARLA, "Carla"], [DANI, "Dani"]]) F.initDataDB({ chat: TARDE, sender: quien, senderJid: "", pushName: nombre });
+  F.getUser(CARLA, TARDE);
+  F.updateUserInGroup(CARLA, TARDE, { mute: true });
+  F.addToBlacklist("59899000085@s.whatsapp.net", "estafa", "owner", TARDE, DANI);
+  globalThis.enviados = [];
+  try {
+    const diez = Array.from({ length: 10 }, (_, i) => `30000000000009${i}@lid`);
+    for (const mensaje of [{ conversation: "miren esto https://sitio-prohibido.com/x" }, { conversation: "entren: chat.whatsapp.com/ABCDEFGH12" }, { conversation: "mi canal t.me/micanal" }, { conversation: "vean sitio.uy" }, { extendedTextMessage: { text: "vengan todos", contextInfo: { mentionedJid: diez } } }]) {
+      await tarde(client, ANA, mensaje).hecho;
+    }
+    await tarde(client, CARLA, { conversation: "estoy silenciada" }).hecho;
+    await tarde(client, DANI, { conversation: "estoy en la lista negra" }).hecho;
+    await tarde(client, BETO, { conversation: "no.se si.no, hablemos de tiktok" }).hecho;
+    assert.deepEqual(enLaMemoria(), ["no.se si.no, hablemos de tiktok"], "solo lo que ninguna moderación habría tocado");
+    assert.equal(globalThis.enviados.length, 0, "no borró ni avisó nada: eso, para lo que llega a tiempo");
+  } finally {
+    F.updateUserInGroup(CARLA, TARDE, { mute: false });
+    F.removeFromBlacklist("59899000085@s.whatsapp.net", TARDE);
+  }
+});
+
+test("lo atrasado de un privado no se guarda, pero un borrado atrasado sí se aplica", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  const privado = ANA;
+  contextoChat.delete(privado);
+  const dicho = tarde(client, ANA, { conversation: "hola Claudia" }, { chat: privado, hace: 0 });
+  await dicho.hecho;
+  await tarde(client, ANA, { conversation: "¿estás?" }, { chat: privado }).hecho;
+  assert.deepEqual(enLaMemoria(privado), ["hola Claudia"]);
+  await tarde(client, ANA, { protocolMessage: { type: 0, key: { remoteJid: privado, fromMe: false, id: dicho.id } } }, { chat: privado }).hecho;
+  assert.deepEqual(enLaMemoria(privado), []);
+});
+
+test("lo que borra alguien silenciado igual sale de la memoria", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  const EMA = "300000000000086@lid";
+  F.initDataDB({ chat: TARDE, sender: EMA, senderJid: "", pushName: "Ema" });
+  const dicho = tarde(client, EMA, { conversation: "algo que después borro" }, { hace: 0 });
+  await dicho.hecho;
+  assert.deepEqual(enLaMemoria(), ["algo que después borro"]);
+  F.getUser(EMA, TARDE);
+  F.updateUserInGroup(EMA, TARDE, { mute: true });
+  try {
+    await tarde(client, EMA, { protocolMessage: { type: 0, key: { remoteJid: TARDE, fromMe: false, id: dicho.id, participant: EMA } } }, { hace: 0 }).hecho;
+    assert.deepEqual(enLaMemoria(), [], "silenciada después de escribir: su borrado no pasaba por ningún hook");
+  } finally {
+    F.updateUserInGroup(EMA, TARDE, { mute: false });
+  }
+});
+
+test("lo atrasado con la hora como Long de protobuf entra con la hora correcta", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  const enviado = ahoraS() - 600;
+  const { id, hecho } = tarde(client, ANA, { conversation: "con Long" }, { messageTimestamp: { low: enviado, high: 0, unsigned: true, toNumber: () => enviado } });
+  await hecho;
+  assert.equal(contextoChat.get(TARDE).find((e) => e.id === id)?.fecha, enviado * 1000);
+});
+
+test("un mensaje con la hora adelantada entra en la memoria como de ahora", async () => {
+  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  const client = cliente();
+  contextoChat.delete(TARDE);
+  const { id, hecho } = tarde(client, ANA, { conversation: "del futuro" }, { messageTimestamp: ahoraS() + 3600 });
+  await hecho;
+  const fecha = contextoChat.get(TARDE).find((e) => e.id === id)?.fecha;
+  assert.ok(fecha <= Date.now() && fecha > Date.now() - 60 * 1000, "el reloj del servidor puede ir adelantado al de la tablet");
+});

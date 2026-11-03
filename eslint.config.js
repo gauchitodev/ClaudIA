@@ -25,7 +25,7 @@ export const EN_GLOBALTHIS = {
   // A plugin's state, which outlives a reload of the plugin (autoIaCooldown is shared with lib/vistazos.js).
   estadoDePlugins: [
     ...["autoIaAvisoFalla", "autoIaCooldown", "avisoATodos", "avisoUbicacionCooldown", "blGroupListCache", "esperaIa"],
-    ...["listaNegraMostrada", "resumenCooldown", "vistazoAdminCooldown"],
+    ...["listaNegraMostrada", "vistazoAdminCooldown"],
   ],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");

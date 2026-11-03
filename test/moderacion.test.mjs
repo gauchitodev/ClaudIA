@@ -711,3 +711,32 @@ test(".adv por número no se come los dígitos del motivo", async () => {
   await correr(Warn, "+5989911111 3 veces seguidas", "advertir");
   assert.equal(F.advertenciasDe("111@lid", G), antes + 1);
 });
+
+// lib/enlaces.js: what the anti-links take for a link, in one place. tieneEnlace sees all of it, so what came while
+// the bot was down and a link would have deleted stays out of Claudia's memory (lib/memoria-corta.js), and still not
+// "no.se".
+test("enlaces: tieneEnlace ve todo lo que borran los anti-links, y no las palabras con un punto", async () => {
+  const E = await import("../lib/enlaces.js");
+  for (const texto of [
+    "mirá https://sitio-prohibido.com/x",
+    "http://algo.raro.invalido",
+    "www.cualquiera.zzz",
+    "entren a sitio.uy",
+    "(ejemplo.com)",
+    "chat.whatsapp.com/ABCDEFGH12",
+    "whatsapp.com/channel/ABCDEFGH12",
+    "vm.tiktok.com/ZMabc",
+    "mi canal t.me/micanal",
+    "instagram.com/alguien",
+  ]) {
+    assert.equal(E.tieneEnlace(texto), true, texto);
+  }
+  for (const texto of ["no.se", "si.no", "bueno.al", "hablemos de tiktok", "time tome tame", "", null]) assert.equal(E.tieneEnlace(texto), false, String(texto));
+  // The same patterns the anti-links use: each one they'd take, tieneEnlace takes.
+  assert.equal(E.detectarLink("www.ejemplo.com"), "ejemplo");
+  assert.equal(E.detectarLink("no.se"), null);
+  for (const [patron, texto] of [[E.LINK_GRUPO, "chat.whatsapp.com/ABCDEFGH12"], [E.LINK_CANAL, "whatsapp.com/channel/ABCDEFGH12"], [E.LINK_TIKTOK, "tiktok.com/@x"], [E.LINK_TELEGRAM, "telegram.dog/x"], [E.LINK_INSTAGRAM, "instagram.com/x"]]) {
+    assert.ok(patron.test(texto) && patron.test(texto), `${texto}: sin la "g", test() da lo mismo dos veces`);
+    assert.equal(E.tieneEnlace(texto), true);
+  }
+});

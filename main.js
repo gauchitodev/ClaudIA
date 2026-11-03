@@ -15,6 +15,7 @@ import { metadataDe, aplicarCambioDeGrupo, aplicarCambioDeChat, vaciar } from ".
 import { procesarTanda } from "./lib/tandas.js";
 import { confirmarOwnersCadaTanto } from "./lib/identidad.js";
 import { alCambiarParticipantes } from "./lib/participantes.js";
+import { recuperarMemoria } from "./lib/relevo-memoria.js";
 import qrcode from "qrcode-terminal";
 const handler = await import("./handle-message.js");
 
@@ -201,6 +202,11 @@ async function resolverCanal() {
     console.error("[canal] no se pudo resolver el link del canal:", e.message);
   }
 }
+
+// Claudia's short-term memory, back from start-process.js's copy when this is a restart (lib/relevo-memoria.js). Before
+// anything that writes to it: the database, the timers, the plugins and the connection.
+const memoria = await recuperarMemoria();
+if (memoria.restaurada) console.log(`🧠 Memoria de los chats recuperada: ${memoria.mensajes} mensajes.`);
 
 // database-functions.js keeps the connection, and whatever else needs it imports it from there.
 loadDatabase();

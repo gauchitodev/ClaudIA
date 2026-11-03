@@ -9,6 +9,7 @@ import { registrarUso } from "./lib/usos.js";
 import { hooksEnOrden } from "./load-functions.js";
 import { buscarEnGrupo, identidadesDe, esOwnerConfirmado } from "./lib/identidad.js";
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
+import { guardarAtrasado, aplicarAMemoria } from "./lib/memoria-corta.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -55,11 +56,19 @@ export async function handleMessage(nMsg) {
     // ==========================================
     // A message that reached the bot more than 60 seconds after it was sent is dropped (the bot was offline, or the
     // connection stalled). Measured at arrival, not now: waiting behind the rest of its batch doesn't make it stale.
-    // It's still a sign of life for .inactivos (anotarPresencia), like the two cuts below.
-    if (atrasoDeLlegada(m) > 60) return anotarPresencia(m, { antesDelNumero: true });
+    // It's still a sign of life for .inactivos (anotarPresencia), like the two cuts below, and part of what was said:
+    // it goes into Claudia's memory where it was said, for .resumen, unless the moderation would have deleted it
+    // (guardarAtrasado, lib/memoria-corta.js).
+    if (atrasoDeLlegada(m) > 60) {
+      guardarAtrasado(m);
+      return anotarPresencia(m, { antesDelNumero: true });
+    }
 
-    // Keeps the bot from answering command messages from while it was offline.
-    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) return anotarPresencia(m, { antesDelNumero: true });
+    // Keeps the bot from answering command messages from while it was offline. Into the memory, as the command it was.
+    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) {
+      guardarAtrasado(m);
+      return anotarPresencia(m, { antesDelNumero: true });
+    }
 
     // Someone who's neither a LID nor a number (Meta AI writes as …@bot) has no row to keep it under: by "" getUser
     // found someone else's, one without a number, and every answer of Meta AI went to their message count. A group
@@ -79,9 +88,15 @@ export async function handleMessage(nMsg) {
 
     // autoRead msg
     if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
-    // Muted user
+    // Muted user. What they take back still leaves Claudia's memory: muted after writing, their deletion never got
+    // there, since no hook sees their messages.
     if (user.inGroup[m.chat]?.mute && m.message) {
       anotarPresencia(m);
+      try {
+        aplicarAMemoria(m, { guardar: false });
+      } catch (e) {
+        console.error("[memoria corta] ERROR:", e); // the deletion below goes out all the same
+      }
       return m.delete();
     }
 
