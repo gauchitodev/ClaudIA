@@ -1,6 +1,6 @@
 import { apostarCarrera, textoCarrera, CARRERA } from "../lib/carrera.js";
 import { textoLimitesCasino } from "../lib/casino.js";
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 
 const plugin = {};
 plugin.cmd = ["carrera", "caballos"];
@@ -24,7 +24,7 @@ plugin.run = async (m, { client, args, chat }) => {
   const r = apostarCarrera(m.chat, m.sender, cantidad, args.slice(1).join(" "), async ({ cuadros, resultado }) => {
     for (const cuadro of cuadros) {
       await client.sendMessage(m.chat, { text: cuadro });
-      await esperar(2500);
+      await pausa(2500);
     }
     await client.sendMessage(m.chat, { text: resultado.texto, mentions: resultado.mentions });
   });

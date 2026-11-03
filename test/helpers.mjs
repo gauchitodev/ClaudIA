@@ -43,6 +43,9 @@ export async function prepararBase(nombre = "prueba") {
   globalThis.cerebrasApiKey = "";
   globalThis.botConectado = true;
   globalThis.client = clienteFalso();
+  // The plugins' pauses for show (lib/pausas.js) pass at once, after a turn of the event loop as a timer would give:
+  // waited out, they were most of what the slowest files took. A test that checks one sets its own.
+  (await import("../lib/pausas.js"))._dep.esperar = () => new Promise((r) => setImmediate(r));
   const F = await import("../database-functions.js");
   globalThis.db = F.loadDatabase();
   return { F, dir };

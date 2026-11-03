@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 import { responderCasamiento } from "../lib/parejas.js";
 import { responderAdopcion, textoRespuestaAdopcion, porAdoptar } from "../lib/familia.js";
 import { comoLoEsperan } from "../lib/identidad.js";
@@ -22,10 +22,10 @@ plugin.run = async (m, { client, participants }) => {
     return; // no pending proposal: ".si" is a common word, better to say nothing
   }
   const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(m.sender, r.pareja), m);
-  await esperar(700);
+  await pausa(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });
-    await esperar(700);
+    await pausa(700);
   }
 };
 

@@ -433,6 +433,15 @@ test("consistencia: ningún plugin deja archivos multimedia en la raíz del repo
   assert.deepEqual(enLaRaiz, [], `los temporales van en ./tmp/, que el .gitignore tapa:\n${enLaRaiz.join("\n")}`);
 });
 
+// The plugins' pauses for show (lib/pausas.js) pass at once in the tests (test/helpers.mjs), and for real everywhere
+// else: a copy of the module of its own, which prepararBase didn't touch.
+test("las pausas de los plugins esperan de verdad fuera de los tests", async () => {
+  const { pausa } = await import("../lib/pausas.js?sin-tocar");
+  const desde = performance.now();
+  await pausa(60);
+  assert.ok(performance.now() - desde >= 50, "la pausa no esperó");
+});
+
 // ---------- tanda 5d: files and the owner's commands ----------
 
 // A link that didn't answer with the file went out as a ".bin" with the error page inside, and a failed sticker as an

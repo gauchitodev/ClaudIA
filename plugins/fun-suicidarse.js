@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 import { expulsar, idDelAutor } from "../lib/identidad.js";
 
 const plugin = {};
@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 plugin.run = async (m, { client, text, isOwner, participants }) => {
   if (isOwner) return;
   await client.sendMessage(m.chat, { text: `*@${m.sender.split("@")[0]} ACABA DE EJECUTAR SU ELIMINACIÓN😐*`, mentions: [m.sender] }, { quoted: m });
-  await esperar(1500);
+  await pausa(1500);
   const { ok, status } = await expulsar(client, m.chat, idDelAutor(m, participants));
   if (!ok) await client.sendText(m.chat, `No pude sacarte (error ${status}).`, m);
 };

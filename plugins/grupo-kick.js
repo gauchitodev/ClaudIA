@@ -1,7 +1,7 @@
 import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { sacarInactivos } from "../lib/inactivos.js";
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 
 const plugin = {};
 plugin.cmd = ["k", "kick", "rifle", "andate", "morite", "chau"];
@@ -41,9 +41,9 @@ plugin.run = async (m, { client, participants, text, groupMetadata, usedPrefix, 
     if (impedimento) return client.sendText(m.chat, `No lo puedo sacar: ${impedimento}`, m);
 
     await m.quoted?.delete();
-    await esperar(300);
+    await pausa(300);
     await m.delete();
-    await esperar(1000);
+    await pausa(1000);
 
     // Removal uses the id the group lists the person under, and WhatsApp's answer is checked: handing the number to
     // a LID-addressed group throws no error, it returns a status nobody used to read.

@@ -97,9 +97,9 @@ export function usyncFalso(t, mapa, client = globalThis.client) {
 // A group message, with what the plugins read of it.
 export const mensaje = ({ chat = G, sender, senderJid = "", text = "", mentionedJid = [], quoted } = {}) => ({ chat, sender, senderJid, text, mentionedJid, quoted, isGroup: true, react: async () => {}, delete: async () => {} });
 
-// The commands that name someone, each with what it needs, which two files go over: identidad.test.mjs, that they go to
-// whoever has the number now, and identidad-lentos.test.mjs, that their "@" carries the mention for someone the bot
-// knows by their number alone. The three of POR_SU_NOMBRE name them by their name instead.
+// The commands that name someone, each with what it needs, which identidad.test.mjs goes over twice: that they go to
+// whoever has the number now, and that their "@" carries the mention for someone the bot knows by their number alone.
+// The three of POR_SU_NOMBRE name them by their name instead.
 export const COMANDOS_QUE_NOMBRAN = [
   // [plugin, command, what follows the mention, what the sender needs, more of what the handler passes]
   ["fun-besar", "besar"],

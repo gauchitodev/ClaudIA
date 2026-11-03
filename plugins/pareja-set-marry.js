@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 import { fijarCasamiento, dosPersonasActual, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
 
 // .setmarry @a @b [| 3 días]: the owner marries a couple, with however long they've been married.
@@ -18,10 +18,10 @@ plugin.run = async (m, { client, text, participants }) => {
 
   // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
   const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(a, b), m, { mentions: [a, b] });
-  await esperar(700);
+  await pausa(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });
-    await esperar(700);
+    await pausa(700);
   }
 };
 

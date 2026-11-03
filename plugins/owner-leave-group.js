@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 
 const plugin = {};
 plugin.cmd = ["leave"];
@@ -8,7 +8,7 @@ plugin.onlyOwner = true;
 plugin.run = async (m, { client }) => {
   if (!m.isGroup) return client.sendText(m.chat, "No es un grupo", m);
   await client.sendText(m.chat, txt.leaveGroup, null);
-  await esperar(2000);
+  await pausa(2000);
   await client.groupLeave(m.chat);
 };
 

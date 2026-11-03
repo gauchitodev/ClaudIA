@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 
 const plugin = {};
 plugin.cmd = ["ap", "aprobar", "pendientes"];
@@ -29,7 +29,7 @@ plugin.run = async (m, { client, command }) => {
       }
       const jids = participants.map((p) => p.jid);
       await client.groupRequestParticipantsUpdate(groupId, jids, "approve");
-      await esperar(2000);
+      await pausa(2000);
       m.react("✅");
     }
   } catch (error) {

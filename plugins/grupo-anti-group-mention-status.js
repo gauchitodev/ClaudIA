@@ -1,4 +1,5 @@
 import { expulsar, idDelAutor, lidDe } from "../lib/identidad.js";
+import { pausa } from "../lib/pausas.js";
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, participants, isMod, isOwner, isBotAdmin, chat }) => {
@@ -10,7 +11,8 @@ plugin.before = async (m, { client, participants, isMod, isOwner, isBotAdmin, ch
     const numero = String(globalThis.owners?.[0] ?? "").replace(/[^0-9]/g, "");
     const owner = numero ? lidDe(`${numero}@s.whatsapp.net`, participants) : null;
     await client.sendText(m.chat, "No mencionar al grupo en tus estados!!", m, { mentions: [m.sender, owner].filter(Boolean) });
-    setTimeout(async () => {
+    // Three seconds after the warning, without holding up the message meanwhile: not awaited, as the timer it was.
+    pausa(3000).then(async () => {
       try {
         const { ok, status } = await expulsar(client, m.chat, idDelAutor(m, participants));
         if (!ok) await client.sendText(m.chat, `No pude sacarlo (error ${status}).`, m);
@@ -18,7 +20,7 @@ plugin.before = async (m, { client, participants, isMod, isOwner, isBotAdmin, ch
       } catch (e) {
         console.error("[anti-mención-estado] no se pudo expulsar/borrar:", e.message);
       }
-    }, 3000);
+    });
   }
 
   return;

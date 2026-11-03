@@ -1,4 +1,4 @@
-import { setTimeout as esperar } from "node:timers/promises";
+import { pausa } from "../lib/pausas.js";
 
 const linkRegex = /chat.whatsapp.com\/([0-9A-Za-z]{20,24})/i;
 
@@ -11,7 +11,7 @@ plugin.run = async (m, { client, text }) => {
   const [_, code] = link.match(linkRegex) || [];
   if (!code) return client.sendText(m.chat, txt.joinGroupNull, m);
   client.sendText(m.chat, txt.joinGroupSuccess, m);
-  await esperar(5000);
+  await pausa(5000);
   await client.groupAcceptInvite(code);
 };
 
