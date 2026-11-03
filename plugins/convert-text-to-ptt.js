@@ -1,11 +1,16 @@
 import { sintetizar } from "../lib/tts.js";
 import { conNombres } from "../lib/menciones.js";
+import { esAudio } from "../lib/audios.js";
 
 const plugin = {};
 plugin.cmd = ["tts"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args }) => {
+  // Only for text, typed or in the message it replies to. Replying to an audio, someone's voice note, it answered it
+  // with an audio of whatever was typed, and with nothing typed asked for a text as if the audio's could be read.
+  // esAudio (lib/audios.js) tells a view-once one too.
+  if (esAudio(m.quoted)) return client.sendText(m.chat, txt.textToPTTAudio, m);
   const defaultLang = "es";
   // The language is given with "-xx" up front (e.g. .tts -en hello). Any two-letter word ("no", "de", "la", "es")
   // used to be taken as the language, and the audio came out in Norwegian, German or Latin.
