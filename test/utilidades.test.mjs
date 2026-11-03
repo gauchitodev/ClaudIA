@@ -155,6 +155,72 @@ test("cumpleaños del 29/02: en los años sin 29 se festeja el 28", async () => 
   assert.match(de2028[0], /\b28 años\b/);
 });
 
+// .setcumple: an admin notes someone else's birthday with .cumple's checks, the answers speaking of that person, and
+// what's noted is theirs as if they had noted it. On a day of its own, in a group of its own.
+test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y queda como si lo hubiera anotado esa persona", () => {
+  const Z = "cumple-admin@g.us";
+  const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
+  const anotar = (quien, texto) => C.anotarCumpleDe(Z, quien, texto, ahora);
+  assert.equal(anotar("ana@lid", "").error, "Poné la fecha, con el año: .setcumple @persona 14/03/1995 (día/mes/año). Para borrarlo: .setcumple @persona borrar");
+  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .setcumple @persona 14/03/1995 (día/mes/año).");
+  assert.equal(anotar("ana@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .setcumple @persona 14/03/1995");
+  assert.equal(anotar("ana@lid", "29/02/1990").error, "Esa fecha no existe.");
+  assert.equal(anotar("ana@lid", "03/11/2026").error, "Esa fecha todavía no llegó: fijate el año.");
+  assert.equal(anotar("ana@lid", "14/03/24").error, "Con ese año tendría 2 años: fijate el año.");
+  assert.equal(anotar("ana@lid", "02/11/1905").error, "Con ese año tendría 121 años: fijate el año.");
+  assert.equal(anotar("ana@lid", "borrar").error, "Esa persona no tenía cumple anotado.");
+  assert.equal(F.getCumple(Z, "ana@lid"), null, "nada de eso se anotó");
+  assert.deepEqual(anotar("ana@lid", "14/03/1990"), { ok: true, mensaje: "🎂 Anotado: el cumple de @ana es el 14 de marzo de 1990. Ese día le mando el saludo en el grupo por sus 37.", mentions: ["ana@lid"] });
+  // Hers: she sees it with .cumple as her own.
+  assert.equal(C.registrarCumple(Z, "ana@lid", "", ahora).mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 14/03/1995 · para borrarlo: .cumple borrar");
+  // Over what someone noted themselves, two digits for the year as .cumple takes them, and then deleted.
+  assert.ok(C.registrarCumple(Z, "beto@lid", "05/11/1995", ahora).ok);
+  assert.match(anotar("beto@lid", "5.11.96").mensaje, /^🎂 Anotado: el cumple de @beto es el 5 de noviembre de 1996\. .* por sus 30\.$/);
+  assert.deepEqual(F.getCumple(Z, "beto@lid"), { dia: 5, mes: 11, anio: 1996 });
+  assert.deepEqual(anotar("beto@lid", "quitar"), { ok: true, mensaje: "🗑️ Listo, borré el cumple de @beto.", mentions: ["beto@lid"] });
+  assert.equal(F.getCumple(Z, "beto@lid"), null);
+  assert.deepEqual(C.textoCumples(Z, ahora).texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "14/03 @ana — en 132 días (cumple 37)"]);
+});
+
+// .setcumple as the admins write it: the person mentioned, before or after the date, or the author of the message it
+// replies to; never the bot, nor someone the bot knows nothing of. Only the answers that note or delete tag them. With
+// a client of its own: other tests here swap the global one.
+test("cumpleaños: .setcumple @persona o respondiendo un mensaje suyo; ni a la bot ni a quien no conoce", async () => {
+  const Z = "cumple-setcumple@g.us";
+  const P = (await import("../plugins/cumple-set.js")).default;
+  assert.ok(P.onlyAdmin && P.onlyGroup, "solo los admins, y en un grupo");
+  const enviados = [];
+  const client = { user: { lid: "bot@lid", jid: "bot@s.whatsapp.net" }, sendText: async (chat, text, quoted, opciones) => enviados.push(opciones?.mentions ? { text, mentions: opciones.mentions } : { text }) };
+  for (const [lid, nombre] of [["7001@lid", "Admin"], ["7002@lid", "Ana"], ["7003@lid", "Beto"]]) F.initDataDB({ chat: Z, sender: lid, senderJid: "", pushName: nombre });
+  const participants = ["7001@lid", "7002@lid", "7003@lid", "bot@lid"].map((id) => ({ id, admin: id === "7001@lid" ? "admin" : null }));
+  const correr = async (text, { mencion = [], citado = null } = {}) => {
+    const antes = enviados.length;
+    const m = { chat: Z, sender: "7001@lid", senderJid: "", text, mentionedJid: mencion, quoted: citado && { sender: citado }, isGroup: true };
+    await P.run(m, { client, text, args: text.split(" "), command: "setcumple", usedPrefix: ".", participants, isAdmin: true, isWaAdmin: true });
+    assert.equal(enviados.length, antes + 1, "contesta una vez");
+    return enviados.at(-1);
+  };
+  assert.match((await correr("14/03/1990")).text, /^❌ ¿De quién\? Mencioná a la persona .* o respondé un mensaje suyo: \.setcumple @persona 14\/03\/1995$/);
+  const anotado = await correr("@7002 14/03/1990", { mencion: ["7002@lid"] });
+  assert.match(anotado.text, /^🎂 Anotado: el cumple de @7002 es el 14 de marzo de 1990\. Ese día le mando el saludo en el grupo por sus \d+\.$/);
+  assert.deepEqual(anotado.mentions, ["7002@lid"]);
+  assert.deepEqual(F.getCumple(Z, "7002@lid"), { dia: 14, mes: 3, anio: 1990 });
+  // The date before the mention, and replying to one of their messages.
+  await correr("15/04/1991 @7002", { mencion: ["7002@lid"] });
+  assert.deepEqual(F.getCumple(Z, "7002@lid"), { dia: 15, mes: 4, anio: 1991 });
+  await correr("20/05/1992", { citado: "7003@lid" });
+  assert.deepEqual(F.getCumple(Z, "7003@lid"), { dia: 20, mes: 5, anio: 1992 });
+  // A date it won't take says why, tagging nobody, and leaves what there was.
+  assert.deepEqual(await correr("@7002 15/04", { mencion: ["7002@lid"] }), { text: "❌ Poné también el año: .setcumple @persona 14/03/1995 (día/mes/año)." });
+  assert.deepEqual(F.getCumple(Z, "7002@lid"), { dia: 15, mes: 4, anio: 1991 });
+  // Not the bot, replying to one of her messages, nor an "@" with digits typed by hand that match nobody.
+  assert.deepEqual(await correr("20/05/1992", { citado: "bot@lid" }), { text: "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo." });
+  assert.deepEqual(await correr("@7099 20/05/1992"), { text: "❌ No tengo datos de esa persona todavía: cuando escriba algo en el grupo, se lo podés anotar." });
+  assert.equal(F.getCumple(Z, "7099@lid"), null);
+  assert.deepEqual(await correr("@7003 borrar", { mencion: ["7003@lid"] }), { text: "🗑️ Listo, borré el cumple de @7003.", mentions: ["7003@lid"] });
+  assert.equal(F.getCumple(Z, "7003@lid"), null);
+});
+
 test("backup con la copia real de SQLite, rotación y envío semanal", async () => {
   const archivo = await B.hacerBackup();
   assert.ok(fs.existsSync(archivo) && !fs.existsSync(`${archivo}.tmp`));

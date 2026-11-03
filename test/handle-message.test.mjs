@@ -238,6 +238,34 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
 });
 
+// .setcumple (plugins/cumple-set.js) is for every admin too, as .id: the group's WhatsApp admins, the bot's and the
+// owner. A moderator, or anyone else, gets the admins-only notice, and the birthday noted stays. A group of its own.
+test(".setcumple: lo usan los admins de WhatsApp y del bot y el owner; un moderador y el resto, no", async () => {
+  const CUMPLES = "120363000000000061@g.us";
+  const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
+  const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
+  globalThis.plugins = { "cumple-set.js": carpeta["cumple-set.js"] };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Cumples", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
+  F.setRolGrupo(CUMPLES, CARLA, "admin");
+  F.setRolGrupo(CUMPLES, DANI, "mod");
+  // Beto's, as each one notes it. The owner's message carries their number too (participantAlt), as in .id's.
+  const anota = async (sender, fecha, alt = null) => {
+    globalThis.enviados = [];
+    const key = { remoteJid: CUMPLES, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: sender, ...(alt && { participantAlt: alt }) };
+    await handleMessage.call(client, { key, message: { conversation: `.setcumple @300000000000003 ${fecha}` }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text).join("\n");
+  };
+  const anotado = (fecha) => new RegExp(`^🎂 Anotado: el cumple de @300000000000003 es el ${fecha}\\. `);
+  assert.match(await anota(ANA, "14/03/1990"), anotado("14 de marzo de 1990"), "un admin de WhatsApp");
+  assert.match(await anota(CARLA, "15/04/1991"), anotado("15 de abril de 1991"), "un admin del bot");
+  assert.match(await anota(DUENO, "16/05/1992", "59899111222@s.whatsapp.net"), anotado("16 de mayo de 1992"), "el owner");
+  assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 16, mes: 5, anio: 1992 });
+  assert.equal(await anota(DANI, "17/06/1993"), globalThis.txt.onlyAdmin, "un moderador, no");
+  assert.equal(await anota(BETO, "18/07/1994"), globalThis.txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
+  assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 16, mes: 5, anio: 1992 }, "queda el que había");
+});
+
 // .modoadmin leaves the bot to the owner, the admins and the mods, but for .notagall and .sitagall (fueraDelModoAdmin):
 // a preference about oneself, and with the mode on nobody else could get out of the calls to everyone, nor back in.
 // Any other command from someone with no rank still gets nothing, and so does theirs if a plugin that doesn't stay
