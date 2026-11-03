@@ -107,7 +107,7 @@ test("el saludo de cumpleaños usa solo lo de ese grupo, y la IA no ve los dígi
   respuestaIA = "@MENCION ¡Feliz cumple! Te saluda @59899000002";
   F.setCumple(OTROS, ANA, hoy.getDate(), hoy.getMonth() + 1);
   await Cumple.chequearCumpleanos(hoy);
-  assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. /, "en otro grupo no sabe nada de Ana");
+  assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. Escribí /, "en otro grupo no sabe nada de Ana, ni cuántos cumple sin el año");
   assert.doesNotMatch(prompts.at(-1), /555/, "ni los dígitos de su id");
   assert.match(prompts.at(-1), /con el texto exacto "@MENCION"/);
   assert.deepEqual(ultimoEnviado().msg, { text: "@555 ¡Feliz cumple! Te saluda 59899000002", mentions: [ANA] });
@@ -116,6 +116,23 @@ test("el saludo de cumpleaños usa solo lo de ese grupo, y la IA no ve los dígi
   await Cumple.chequearCumpleanos(hoy);
   assert.match(prompts.at(-1), /charlas anteriores en este grupo: tiene un perro que se llama Toto/);
   F.borrarCumple(SUYO, ANA);
+});
+
+// With the year, which .cumple asks for, the AI is told how many they turn, to say it; the birthdays noted before it
+// have no age to tell. In a group of its own, and the digits of the id still out of it.
+test("el saludo de cumpleaños le dice a la IA cuántos cumple, si se anotó con el año", async () => {
+  const CHAT = "cumple-anios@g.us";
+  Cumple.CUMPLE.HORA_SALUDO = 0;
+  const hoy = new Date();
+  hoy.setHours(10, 0, 0, 0);
+  respuestaIA = "@MENCION ¡Feliz cumple!";
+  // 28 years back, a 29 February is still a date that exists.
+  F.setCumple(CHAT, ANA, hoy.getDate(), hoy.getMonth() + 1, hoy.getFullYear() - 28);
+  await Cumple.chequearCumpleanos(hoy);
+  assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. Cumple 28 años: decilo en el saludo\. Escribí /);
+  assert.doesNotMatch(prompts.at(-1), /555/);
+  assert.deepEqual(ultimoEnviado().msg, { text: "@555 ¡Feliz cumple!", mentions: [ANA] });
+  F.borrarCumple(CHAT, ANA);
 });
 
 // A group of its own as well: it erases what it knows, and other tests read it.

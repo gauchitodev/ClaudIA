@@ -120,6 +120,27 @@ test("migra publicaciones sin la columna mensajeBot y encuentra la publicación 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// The year came after the birthdays (.cumple asks for it now): the ones noted before stay, without it, and are still
+// greeted, without the age (lib/cumpleanos.js).
+test("migra cumpleaños sin la columna anio: los anotados siguen, sin el año", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-cumple-anio-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE cumpleanos (chat TEXT NOT NULL, usuario TEXT NOT NULL, dia INTEGER NOT NULL, mes INTEGER NOT NULL, fecha INTEGER NOT NULL, PRIMARY KEY (chat, usuario))`);
+  vieja.prepare(`INSERT INTO cumpleanos (chat, usuario, dia, mes, fecha) VALUES (?, ?, 14, 3, ?)`).run(G, "111@lid", 1700000000000);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  globalThis.db = F.loadDatabase();
+  assert.ok(db.prepare(`PRAGMA table_info(cumpleanos)`).all().some((c) => c.name === "anio"), "se agregó la columna anio");
+  assert.deepEqual(F.getCumple(G, "111@lid"), { dia: 14, mes: 3, anio: null }, "el anotado sigue, sin el año");
+  assert.deepEqual(F.cumplesDeHoy(14, 3), [{ chat: G, usuario: "111@lid", dia: 14, mes: 3, anio: null }]);
+  F.setCumple(G, "111@lid", 14, 3, 1990);
+  assert.deepEqual(F.getCumple(G, "111@lid"), { dia: 14, mes: 3, anio: 1990 });
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("migra las advertencias globales al formato por grupo", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-warn-"));
   process.chdir(dir);

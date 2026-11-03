@@ -1009,15 +1009,16 @@ export function contarPendientesPorTipo() {
 
 // ===================== Birthdays =====================
 
-export function setCumple(chat, usuario, dia, mes) {
+// The year is null on the ones noted before .cumple asked for it (database-schema.js).
+export function setCumple(chat, usuario, dia, mes, anio = null) {
   db.prepare(
-    `INSERT INTO cumpleanos (chat, usuario, dia, mes, fecha) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(chat, usuario) DO UPDATE SET dia = excluded.dia, mes = excluded.mes, fecha = excluded.fecha`,
-  ).run(chat, usuario, dia, mes, Date.now());
+    `INSERT INTO cumpleanos (chat, usuario, dia, mes, anio, fecha) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(chat, usuario) DO UPDATE SET dia = excluded.dia, mes = excluded.mes, anio = excluded.anio, fecha = excluded.fecha`,
+  ).run(chat, usuario, dia, mes, anio, Date.now());
 }
 
 export function getCumple(chat, usuario) {
-  return db.prepare(`SELECT dia, mes FROM cumpleanos WHERE chat = ? AND usuario = ?`).get(chat, usuario) || null;
+  return db.prepare(`SELECT dia, mes, anio FROM cumpleanos WHERE chat = ? AND usuario = ?`).get(chat, usuario) || null;
 }
 
 export function borrarCumple(chat, usuario) {
@@ -1025,11 +1026,11 @@ export function borrarCumple(chat, usuario) {
 }
 
 export function cumplesDeChat(chat) {
-  return db.prepare(`SELECT usuario, dia, mes FROM cumpleanos WHERE chat = ? ORDER BY mes ASC, dia ASC`).all(chat);
+  return db.prepare(`SELECT usuario, dia, mes, anio FROM cumpleanos WHERE chat = ? ORDER BY mes ASC, dia ASC`).all(chat);
 }
 
 export function cumplesDeHoy(dia, mes) {
-  return db.prepare(`SELECT chat, usuario FROM cumpleanos WHERE dia = ? AND mes = ?`).all(dia, mes);
+  return db.prepare(`SELECT chat, usuario, dia, mes, anio FROM cumpleanos WHERE dia = ? AND mes = ?`).all(dia, mes);
 }
 
 // ===================== Activity: daily streak, daily question, recap =====================

@@ -48,7 +48,8 @@ function fallarEnvios(n) {
 // it counted here.
 const enviadosCon = (regex) => globalThis.enviados.filter((e) => e.chat === G && regex.test(e.msg?.text || "")).length;
 const hoy = new Date();
-const cumpleDeHoy = `${hoy.getDate()}/${hoy.getMonth() + 1}`;
+// With the year, which .cumple asks for: 28 years back, a 29 February is still a date that exists.
+const cumpleDeHoy = `${hoy.getDate()}/${hoy.getMonth() + 1}/${hoy.getFullYear() - 28}`;
 
 test("cumpleaños: si el saludo no se pudo mandar, sale en la pasada siguiente, y una sola vez", async () => {
   Cu.registrarCumple(G, "598@lid", cumpleDeHoy);

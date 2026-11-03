@@ -37,22 +37,94 @@ test("recordatorios", async () => {
 
 test("cumpleaños", async () => {
   assert.match(C.registrarCumple(G, "a", "").error, /Anotá tu cumple/);
-  assert.ok(C.registrarCumple(G, "a", "14/03").ok);
-  assert.match(C.registrarCumple(G, "a", "").mensaje, /14 de marzo/);
-  assert.ok(C.registrarCumple(G, "b", "29-02").ok);
-  assert.ok(!C.registrarCumple(G, "d", "31/04").ok && !C.registrarCumple(G, "d", "hola").ok);
+  assert.ok(C.registrarCumple(G, "a", "14/03/1990").ok);
+  assert.match(C.registrarCumple(G, "a", "").mensaje, /14 de marzo de 1990/);
+  assert.ok(C.registrarCumple(G, "b", "29-02-1992").ok);
+  assert.ok(!C.registrarCumple(G, "d", "31/04/1990").ok && !C.registrarCumple(G, "d", "hola").ok);
   assert.equal(C.diasHasta(2, 9, new Date(2026, 8, 2)), 0);
   assert.equal(C.diasHasta(1, 9, new Date(2026, 8, 2)), 364);
   assert.equal(C.textoCumples(G).mentions.length, 2);
   assert.ok(C.registrarCumple(G, "b", "borrar").ok);
   const hoy = new Date();
-  C.registrarCumple(G, "598@lid", `${hoy.getDate()}/${hoy.getMonth() + 1}`);
+  // 28 years back, a 29 February is still a date that exists.
+  assert.ok(C.registrarCumple(G, "598@lid", `${hoy.getDate()}/${hoy.getMonth() + 1}/${hoy.getFullYear() - 28}`).ok);
   C.CUMPLE.HORA_SALUDO = 0;
-  const antes = globalThis.enviados.length;
+  // 598's greetings alone: chequearCumpleanos greets every group, and on the day of another birthday noted in this
+  // file ("a"'s 14/03 above, or one of the next tests' in a group of their own), it counted here too.
+  const suyos = () => globalThis.enviados.filter((e) => e.msg?.mentions?.includes("598@lid"));
+  const antes = suyos().length;
   await C.chequearCumpleanos();
   await C.chequearCumpleanos();
-  assert.equal(globalThis.enviados.length, antes + 1);
-  assert.match(ultimoEnviado().msg.text, /@598/);
+  const saludos = suyos().slice(antes);
+  assert.equal(saludos.length, 1, "una sola vez, aunque pase dos veces");
+  assert.match(saludos[0].msg.text, /@598\b.*\b28 años\b/);
+});
+
+// The year is a must: with it, the greeting, .cumples and the profile say the age. It used to be read and dropped, so
+// "14/03/1990" ended up as 14/03 alone. On a day of its own, in a group of its own.
+test("cumpleaños: el año es obligatorio, y .cumple y .cumples dicen la edad", () => {
+  const Z = "cumple-anio@g.us";
+  const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
+  const anotar = (quien, texto) => C.registrarCumple(Z, quien, texto, ahora);
+  assert.equal(anotar("ana@lid", "").error, "Anotá tu cumple con .cumple 14/03/1995 (día/mes/año)");
+  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .cumple 14/03/1995 (día/mes/año).");
+  assert.equal(F.getCumple(Z, "ana@lid"), null, "sin el año no se anota");
+  assert.equal(anotar("ana@lid", "14/03/1990").mensaje, "🎂 Anotado: tu cumple es el 14 de marzo de 1990. Ese día te saludo en el grupo por tus 37.");
+  assert.equal(anotar("ana@lid", "").mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 14/03/1995 · para borrarlo: .cumple borrar");
+  // Two digits: the last year ending in them that isn't past this one.
+  assert.match(anotar("beto@lid", "5-11-95").mensaje, /el 5 de noviembre de 1995\. .* por tus 31\.$/);
+  assert.match(anotar("beto@lid", "05.11.05").mensaje, /de 2005\. .* por tus 21\.$/);
+  assert.match(anotar("beto@lid", "05/11/27").mensaje, /de 1927\. .* por tus 99\.$/);
+  // On the day itself, the age they turn today.
+  assert.match(anotar("caro@lid", "02/11/2000").mensaje, /por tus 26\.$/);
+  // Dates that don't exist or haven't come yet, and years that make no age to believe.
+  assert.equal(anotar("dani@lid", "29/02/1990").error, "Esa fecha no existe.");
+  assert.ok(anotar("dani@lid", "29/02/1992").ok, "1992 sí tuvo 29 de febrero");
+  assert.equal(anotar("eva@lid", "03/11/2026").error, "Esa fecha todavía no llegó: fijate el año.");
+  assert.equal(anotar("eva@lid", "14/03/24").error, "Con ese año tendrías 2 años: fijate el año.");
+  assert.equal(anotar("eva@lid", "01/11/2025").error, "Con ese año tendrías 1 año: fijate el año.");
+  assert.equal(anotar("eva@lid", "03/11/2021").error, "Con ese año tendrías 4 años: fijate el año.");
+  assert.equal(anotar("eva@lid", "02/11/1905").error, "Con ese año tendrías 121 años: fijate el año.");
+  assert.equal(anotar("eva@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .cumple 14/03/1995");
+  assert.equal(F.getCumple(Z, "eva@lid"), null, "nada de eso se anotó");
+  assert.ok(anotar("eva@lid", "02/11/2021").ok, "5 años, recién cumplidos");
+  assert.ok(anotar("eva@lid", "03/11/1905").ok, "120 años, y mañana 121");
+  assert.ok(anotar("eva@lid", "borrar").ok);
+  // Noted before the year was asked for: it stays, and .cumple asks for the year.
+  F.setCumple(Z, "fede@lid", 10, 1);
+  assert.equal(anotar("fede@lid", "").mensaje, "🎂 Tu cumple está anotado el 10 de enero, pero sin el año: volvé a anotarlo con el año (.cumple 14/03/1995) y ese día digo cuántos cumplís. Para borrarlo: .cumple borrar");
+  const r = C.textoCumples(Z, ahora);
+  assert.deepEqual(r.texto.split("\n"), [
+    "🎂 *Cumpleaños del grupo*",
+    "02/11 @caro — ¡es hoy! 🎉 (cumple 26)",
+    "05/11 @beto — en 3 días (cumple 99)",
+    "10/01 @fede — en 69 días (le falta el año)",
+    "29/02 @dani — en 118 días (cumple 35)",
+    "14/03 @ana — en 132 días (cumple 37)",
+  ]);
+  assert.deepEqual(r.mentions, ["caro@lid", "beto@lid", "fede@lid", "dani@lid", "ana@lid"]);
+});
+
+// The greeting says how many they turn. The ones noted before the year was asked for are greeted as before, without
+// the age. In a group of its own: chequearCumpleanos greets every group, and only this one's are looked at.
+test("cumpleaños: el saludo dice cuántos cumple, y sin el año saluda igual", async () => {
+  const Z = "cumple-saludo@g.us";
+  C.CUMPLE.HORA_SALUDO = 0;
+  assert.ok(C.registrarCumple(Z, "1403@lid", "14/03/1990", new Date(2026, 10, 2)).ok);
+  F.setCumple(Z, "1503@lid", 15, 3);
+  const saludos = async (fecha) => {
+    const antes = globalThis.enviados.length;
+    await C.chequearCumpleanos(fecha);
+    return globalThis.enviados.slice(antes).filter((e) => e.chat === Z).map((e) => e.msg);
+  };
+  const conAnio = await saludos(new Date(2027, 2, 14, 10));
+  assert.equal(conAnio.length, 1);
+  assert.match(conAnio[0].text, /@1403\b.*\b37 años\b/);
+  assert.deepEqual(conAnio[0].mentions, ["1403@lid"]);
+  const sinAnio = await saludos(new Date(2027, 2, 15, 10));
+  assert.equal(sinAnio.length, 1);
+  assert.match(sinAnio[0].text, /@1503\b/);
+  assert.doesNotMatch(sinAnio[0].text, /\d+ años/);
 });
 
 test("cumpleaños del 29/02: en los años sin 29 se festeja el 28", async () => {
@@ -60,17 +132,27 @@ test("cumpleaños del 29/02: en los años sin 29 se festeja el 28", async () => 
   assert.equal(C.diasHasta(29, 2, new Date(2027, 1, 28)), 0, "2027 no tiene 29 de febrero");
   assert.equal(C.diasHasta(29, 2, new Date(2027, 2, 1)), 365, "el 1/3 ya falta para el de 2028");
   assert.equal(C.diasHasta(29, 2, new Date(2028, 1, 28)), 1, "2028 sí lo tiene");
+  // And they turn a year older on the 28th, the day they're greeted.
+  assert.equal(C.edad({ dia: 29, mes: 2, anio: 2000 }, new Date(2027, 1, 27)), 26);
+  assert.equal(C.edad({ dia: 29, mes: 2, anio: 2000 }, new Date(2027, 1, 28)), 27);
+  assert.equal(C.edad({ dia: 29, mes: 2, anio: 2000 }, new Date(2028, 1, 28)), 27);
+  assert.equal(C.edad({ dia: 29, mes: 2, anio: 2000 }, new Date(2028, 1, 29)), 28);
+  assert.equal(C.edad({ dia: 29, mes: 2, anio: null }, new Date(2028, 1, 29)), null, "sin el año, no se sabe");
   const Z = "bisiesto@g.us";
-  assert.ok(C.registrarCumple(Z, "2902@lid", "29/02").ok);
+  assert.ok(C.registrarCumple(Z, "2902@lid", "29/02/2000").ok);
   C.CUMPLE.HORA_SALUDO = 0;
   const saludos = async (fecha) => {
     const antes = globalThis.enviados.length;
     await C.chequearCumpleanos(fecha);
-    return globalThis.enviados.slice(antes).filter((e) => e.chat === Z).length;
+    return globalThis.enviados.slice(antes).filter((e) => e.chat === Z).map((e) => e.msg.text);
   };
-  assert.equal(await saludos(new Date(2027, 1, 28, 12)), 1, "2027: el 28");
-  assert.equal(await saludos(new Date(2028, 1, 28, 12)), 0, "2028: el 28 todavía no");
-  assert.equal(await saludos(new Date(2028, 1, 29, 12)), 1, "2028: el 29");
+  const de2027 = await saludos(new Date(2027, 1, 28, 12));
+  assert.equal(de2027.length, 1, "2027: el 28");
+  assert.match(de2027[0], /\b27 años\b/);
+  assert.deepEqual(await saludos(new Date(2028, 1, 28, 12)), [], "2028: el 28 todavía no");
+  const de2028 = await saludos(new Date(2028, 1, 29, 12));
+  assert.equal(de2028.length, 1, "2028: el 29");
+  assert.match(de2028[0], /\b28 años\b/);
 });
 
 test("backup con la copia real de SQLite, rotación y envío semanal", async () => {

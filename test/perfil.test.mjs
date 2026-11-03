@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
 
-let F, A, H, L, Pf, P, Pj;
+let F, A, H, L, Pf, P, Pj, MESES;
 const DIA = 24 * 60 * 60 * 1000;
 before(async () => {
   ({ F } = await prepararBase("perfil"));
@@ -10,6 +10,7 @@ before(async () => {
   H = await import("../lib/hashtags.js");
   L = await import("../lib/laburos.js");
   Pf = await import("../lib/perfil.js");
+  ({ MESES } = await import("../lib/cumpleanos.js"));
   Pj = await import("../lib/parejas.js");
   P = (await import("../plugins/perfil.js")).default;
 });
@@ -64,6 +65,19 @@ test("perfil: ficha completa con coins, laburo, racha, ranking, duelos, pareja, 
   // if the relationship ended, it isn't shown
   Pj.terminarPareja("222@lid");
   assert.doesNotMatch(Pf.textoPerfil(G, "111@lid", F.getUser("111@lid")).texto, /Pareja/);
+});
+
+// With the year, which .cumple asks for, the profile says the age; the birthdays noted before it have none to say. In a
+// group of its own, on a birthday that is today: 28 years back, a 29 February is still a date that exists.
+test("perfil: el cumple anotado con el año dice la edad", () => {
+  const CHAT = "perfil-cumple@g.us";
+  const hoy = new Date();
+  F.initDataDB({ ...persona(444), chat: CHAT });
+  F.setCumple(CHAT, "444@lid", hoy.getDate(), hoy.getMonth() + 1);
+  const linea = () => Pf.textoPerfil(CHAT, "444@lid", F.getUser("444@lid"), true).texto.split("\n").find((l) => l.startsWith("🎂"));
+  assert.equal(linea(), `🎂 Cumple: ${hoy.getDate()} de ${MESES[hoy.getMonth()]}`, "sin el año, sin la edad");
+  F.setCumple(CHAT, "444@lid", hoy.getDate(), hoy.getMonth() + 1, hoy.getFullYear() - 28);
+  assert.equal(linea(), `🎂 Cumple: ${hoy.getDate()} de ${MESES[hoy.getMonth()]} · 28 años`);
 });
 
 // .notagall (lib/menciones-generales.js): the profile says it, to whoever opted out and to anyone looking.

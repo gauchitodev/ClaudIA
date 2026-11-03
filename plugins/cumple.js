@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["cumple", "cumples", "cumpleanos", "cumpleaños"];
 plugin.onlyGroup = true;
 
-// .cumple 14/03 records your own · .cumple shows it · .cumple borrar · .cumples lists the group's
+// .cumple 14/03/1995 records yours, with the year · .cumple shows it · .cumple borrar · .cumples lists the group's
 plugin.run = async (m, { client, text, command }) => {
   if (command !== "cumple") {
     const r = textoCumples(m.chat);

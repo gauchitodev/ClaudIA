@@ -328,7 +328,8 @@ export function ponerAlDia(db) {
     )
   `);
 
-  // Birthdays: day and month per person and group (Claudia says happy birthday in the group they signed up in)
+  // Birthdays: day, month and year per person and group (Claudia says happy birthday in the group they signed up in,
+  // and how many they turn)
   db.exec(`
     CREATE TABLE IF NOT EXISTS cumpleanos (
       chat TEXT NOT NULL,
@@ -336,9 +337,16 @@ export function ponerAlDia(db) {
       dia INTEGER NOT NULL,
       mes INTEGER NOT NULL,
       fecha INTEGER NOT NULL,
+      anio INTEGER,
       PRIMARY KEY (chat, usuario)
     )
   `);
+  // Migration: the year, on birthday tables that already exist. .cumple asks for it now; the ones noted before have
+  // none (null), and they're still greeted, without saying how many they turn, until they note it again with it.
+  if (!db.prepare(`PRAGMA table_info(cumpleanos)`).all().some((c) => c.name === "anio")) {
+    db.exec(`ALTER TABLE cumpleanos ADD COLUMN anio INTEGER`);
+    console.log("🟢 Migración: columna 'anio' agregada a cumpleanos");
+  }
 
   // Activity: messages per person and day (daily streak and recap), streaks, and each group's daily question
   db.exec(`
