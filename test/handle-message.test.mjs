@@ -837,3 +837,39 @@ test("un mensaje con la hora adelantada entra en la memoria como de ahora", asyn
   const fecha = contextoChat.get(TARDE).find((e) => e.id === id)?.fecha;
   assert.ok(fecha <= Date.now() && fecha > Date.now() - 60 * 1000, "el reloj del servidor puede ir adelantado al de la tablet");
 });
+
+// .horariojuegos stops the casino and starting a tic-tac-toe or a 4 en línea (plugin.conHorario). Not their moves,
+// which their hooks take: a game that started before closing time is played out. Nor giving up or cancelling, which
+// live in plugins of their own: a table left open at closing time can always be cleared.
+test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las jugadas, ni rendirse ni cancelar", async (t) => {
+  const C4 = await import("../lib/cuatro-en-linea.js");
+  const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js"];
+  globalThis.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  const client = cliente();
+  // An hour that starts two hours from now never includes now.
+  const desde = (new Date().getHours() + 2) % 24;
+  const cerrado = `${String(desde).padStart(2, "0")}:00-${String((desde + 1) % 24).padStart(2, "0")}:00`;
+  t.after(() => {
+    F.updateChat(GRUPO, { horarioJuegos: "" });
+    C4.salas.clear();
+  });
+  const mandar = async (quien, texto) => {
+    globalThis.enviados = [];
+    await llega(client, quien, texto).hecho;
+    return globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
+  };
+
+  await mandar(ANA, ".4enlinea");
+  await mandar(BETO, ".4enlinea");
+  F.updateChat(GRUPO, { horarioJuegos: cerrado });
+  assert.match(await mandar(ANA, ".ttt"), /^🕒 Acá los juegos van de /);
+  for (const texto of [".ttt", ".4enlinea", ".4enlinea 100"]) assert.equal(await mandar(BETO, texto), "🕒", texto);
+  assert.match(await mandar(ANA, "4"), /Turno de @300000000000003 🟡/, "la partida empezada sigue");
+  assert.match(await mandar(BETO, ".rendirse"), /^🏳️ @300000000000003 se rindió/);
+  assert.equal(await mandar(ANA, ".delttt"), globalThis.txt.tttDelNull("."));
+
+  F.updateChat(GRUPO, { horarioJuegos: "" });
+  await mandar(ANA, ".4enlinea");
+  F.updateChat(GRUPO, { horarioJuegos: cerrado });
+  assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
+});

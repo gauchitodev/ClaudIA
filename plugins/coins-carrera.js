@@ -6,7 +6,7 @@ const plugin = {};
 plugin.cmd = ["carrera", "caballos"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // the .horariojuegos schedule stops only these
+plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
 plugin.onlyGroup = true;
 
 // .carrera <amount> <number or name>: the first bet opens the race; 45 s later it runs for everyone.

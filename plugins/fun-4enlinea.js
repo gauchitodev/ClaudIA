@@ -1,73 +1,77 @@
-// .4enlinea: 4 en línea between two people from the group (lib/cuatro-en-linea.js has the board and the rooms).
-//   .4enlinea      opens a table (the first), or sits you down against whoever is waiting (the second)
-//   .rendir        you give up and the other wins
-//   .del4enlinea   drops the game (the ones playing it, or an admin)
-// Each move is a plain message with the column number (1 to 7). One room per chat, dropped after 10 minutes without
-// moves. Switched off with .juegos like the other games. No UruCoins, like the tic-tac-toe: two who agree can play a
-// game out in 7 moves, over and over.
-import { salas, salaVigente, soltar, dibujar, tableroVacio, FICHA } from "../lib/cuatro-en-linea.js";
+// .4enlinea: 4 en línea between two from the group (lib/cuatro-en-linea.js has the board, the rooms and the bets).
+//   .4enlinea       opens a table (the first), or sits you down against whoever is waiting (the second)
+//   .4enlinea 100   the same, for 100 UruCoins each: the second writes the amount too, and the winner takes both
+//   .rendirse       you give up and the other wins (plugins/fun-rendirse.js, shared with the blackjack)
+//   .del4enlinea    drops the game (plugins/fun-4enlinea-del.js)
+// Each move is a plain message with the column number (1 to 7). One room per chat. Switched off with .juegos like the
+// other games, and outside the group's game hours (.horariojuegos) none starts. Free, it pays nothing, like the
+// tic-tac-toe: two who agree can play a game out in 7 moves, over and over. With a bet the pot is the two players' own
+// coins, as in a duel, and it follows the casino's switches.
+import { salaVigente, abrirMesa, sentarse, anotarJugada, terminar, soltar, dibujar, FICHA, textoLimitesCuatroEnLinea } from "../lib/cuatro-en-linea.js";
+import { frenoDelCasino } from "../lib/casino.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 const plugin = {};
-plugin.cmd = ["4enlinea", "4enlínea", "del4enlinea", "rendir"];
+plugin.cmd = ["4enlinea", "4enlínea"];
 plugin.juego = true;
+plugin.conHorario = true;
 plugin.onlyGroup = true;
 
 const mencion = (id) => `@${String(id).split("@")[0]}`;
 
-const turnoDe = (sala) => `Turno de ${mencion(sala.turno === 1 ? sala.j1 : sala.j2)} ${FICHA[sala.turno]}\nEscribí un número del 1 al 7. Para abandonar: .rendir`;
+const turnoDe = (sala) => `Turno de ${mencion(sala.turno === 1 ? sala.j1 : sala.j2)} ${FICHA[sala.turno]}\nEscribí un número del 1 al 7. Para abandonar: .rendirse`;
+
+function textoMesa(sala) {
+  if (!sala.apuesta) return `🔴 *4 en línea*\n${mencion(sala.j1)} espera rival.\n\nPara jugar contra esa persona escribí .4enlinea\nPara cancelar: .del4enlinea (se borra sola a los 10 minutos)`;
+  return `🔴 *4 en línea* por *${sala.apuesta} UruCoins* cada uno\n${mencion(sala.j1)} espera rival.\n\nPara jugar contra esa persona escribí .4enlinea ${sala.apuesta} (ponés ${sala.apuesta}, y el que gana se lleva ${sala.apuesta * 2}).\nPara cancelar: .del4enlinea (si en 10 minutos no se sienta nadie, te los devuelvo)`;
+}
 
 // The board goes out quoting the move. A reply to it is a move, or a word about the game, and not a message for Claudia
 // (lib/mensajes-de-juego.js): otherwise a number from the one whose turn it isn't, quoting it, gets her chatting back.
 async function mandar(client, m, sala, linea, ganadoras = []) {
-  const jugadores = `${FICHA[1]} ${mencion(sala.j1)}  vs  ${FICHA[2]} ${mencion(sala.j2)}`;
+  const jugadores = `${FICHA[1]} ${mencion(sala.j1)}  vs  ${FICHA[2]} ${mencion(sala.j2)}${sala.apuesta ? `\n💰 ${sala.apuesta * 2} UruCoins en juego` : ""}`;
   const enviado = await client.sendMessage(m.chat, { text: `${jugadores}\n\n${dibujar(sala.tablero, ganadoras)}\n\n${linea}`, mentions: [sala.j1, sala.j2] }, { quoted: m });
   marcarMensajeDeJuego(enviado?.key?.id, m.chat);
 }
 
-plugin.run = async (m, { client, command, isAdmin }) => {
+plugin.run = async (m, { client, text, chat }) => {
   try {
-    const sala = salaVigente(m.chat);
-    const juega = Boolean(sala && (sala.j1 === m.sender || sala.j2 === m.sender));
-
-    if (command === "del4enlinea") {
-      if (!sala) return client.sendText(m.chat, "No hay ninguna partida de 4 en línea en este grupo.", m);
-      // isAdmin counts the owner too (permisosDe, lib/roles.js).
-      if (!juega && !isAdmin) return client.sendText(m.chat, "Solo los que juegan o un admin pueden cancelar la partida.", m);
-      salas.delete(m.chat);
-      return client.sendText(m.chat, "Partida de 4 en línea cancelada.", m);
-    }
-
-    if (command === "rendir") {
-      if (!juega) return client.sendText(m.chat, "No estás jugando al 4 en línea.", m);
-      if (sala.estado !== "JUGANDO") return client.sendText(m.chat, "Todavía no empezó: si querés dejar la mesa, usá .del4enlinea.", m);
-      salas.delete(m.chat);
-      const rival = sala.j1 === m.sender ? sala.j2 : sala.j1;
-      return client.sendMessage(m.chat, { text: `🏳️ ${mencion(m.sender)} se rindió. ¡Ganó ${mencion(rival)}! 🎉`, mentions: [m.sender, rival] }, { quoted: m });
-    }
+    // A bet is a whole number of UruCoins; nothing is a free game.
+    const pedido = String(text || "").trim();
+    const apuesta = pedido ? (/^\d+$/.test(pedido) ? Number(pedido) : NaN) : null;
+    if (Number.isNaN(apuesta)) return client.sendText(m.chat, `Para jugar por UruCoins: .4enlinea 100 (${textoLimitesCuatroEnLinea()}). Sin nada, se juega por diversión.`, m);
 
     // The tic-tac-toe takes the same plain numbers as moves, so nobody plays both at once (.ttt asks the same).
     const juegaTTT = Object.values(client.game || {}).some((room) => room.id?.startsWith("tictactoe") && room.game && [room.game.playerX, room.game.playerO].includes(m.sender));
     if (juegaTTT) return client.sendText(m.chat, "Estás jugando al ta-te-ti: terminá esa partida primero.", m);
 
+    const sala = salaVigente(m.chat);
+    if (sala?.estado === "JUGANDO") return client.sendMessage(m.chat, { text: `Ya hay una partida en este grupo: ${mencion(sala.j1)} vs ${mencion(sala.j2)}. Esperá a que termine.`, mentions: [sala.j1, sala.j2] }, { quoted: m });
+    if (sala?.j1 === m.sender) return client.sendText(m.chat, "Ya estás esperando rival, esperá a que alguien se sume.", m);
+
+    // With a bet, the casino's switches (.casino off, .horariojuegos, .monedas off) before charging anything; free,
+    // the game goes on without them.
+    if (apuesta !== null) {
+      const freno = frenoDelCasino(m, chat);
+      if (freno) return freno(client);
+    }
+
     if (!sala) {
-      salas.set(m.chat, { j1: m.sender, j2: "", estado: "ESPERANDO", tablero: tableroVacio(), turno: 1, ultimo: Date.now() });
-      return client.sendMessage(m.chat, { text: `🔴 *4 en línea*\n${mencion(m.sender)} espera rival.\n\nPara jugar contra esa persona escribí .4enlinea\nPara cancelar: .del4enlinea (se borra sola a los 10 minutos)`, mentions: [m.sender] }, { quoted: m });
+      const avisar = (texto, mentions) => client.sendMessage(m.chat, { text: texto, mentions });
+      const r = abrirMesa(m.chat, m.sender, apuesta, avisar);
+      if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
+      return client.sendMessage(m.chat, { text: textoMesa(r.sala), mentions: [m.sender] }, { quoted: m });
     }
-    if (sala.estado === "ESPERANDO") {
-      if (sala.j1 === m.sender) return client.sendText(m.chat, "Ya estás esperando rival, esperá a que alguien se sume.", m);
-      sala.j2 = m.sender;
-      sala.estado = "JUGANDO";
-      sala.ultimo = Date.now();
-      return await mandar(client, m, sala, turnoDe(sala));
-    }
-    return client.sendMessage(m.chat, { text: `Ya hay una partida en este grupo: ${mencion(sala.j1)} vs ${mencion(sala.j2)}. Esperá a que termine.`, mentions: [sala.j1, sala.j2] }, { quoted: m });
+    const r = sentarse(m.chat, m.sender, apuesta);
+    if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
+    return await mandar(client, m, r.sala, turnoDe(r.sala));
   } catch (e) {
     console.error("[4enlinea] ERROR:", e);
   }
 };
 
-// The moves are plain messages ("4" drops a disc in column 4), from whoever is playing and only on their turn.
+// The moves are plain messages ("4" drops a disc in column 4), from whoever is playing and only on their turn. They're
+// taken outside the game hours too: a game that started before closing time is played out.
 plugin.before = async (m, { client, chat }) => {
   try {
     if (!m.text || !m.isGroup) return;
@@ -84,17 +88,17 @@ plugin.before = async (m, { client, chat }) => {
 
     const jugada = soltar(sala.tablero, parseInt(texto, 10) - 1, ficha);
     if (!jugada.ok) return client.sendText(m.chat, "Esa columna está llena, probá con otra.", m);
-    sala.ultimo = Date.now();
 
     if (jugada.ganador) {
-      salas.delete(m.chat);
-      return await mandar(client, m, sala, `🏆 ¡Ganó ${mencion(m.sender)} ${FICHA[ficha]}! 🎉`, jugada.celdas);
+      const plata = terminar(m.chat, m.sender);
+      return await mandar(client, m, sala, `🏆 ¡Ganó ${mencion(m.sender)} ${FICHA[ficha]}! 🎉${plata}`, jugada.celdas);
     }
     if (jugada.empate) {
-      salas.delete(m.chat);
-      return await mandar(client, m, sala, "🤝 ¡Empate! El tablero se llenó.");
+      const plata = terminar(m.chat, null);
+      return await mandar(client, m, sala, `🤝 ¡Empate! El tablero se llenó.${plata}`);
     }
     sala.turno = ficha === 1 ? 2 : 1;
+    anotarJugada(sala);
     await mandar(client, m, sala, turnoDe(sala));
   } catch (e) {
     console.error("[4enlinea] ERROR:", e);

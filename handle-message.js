@@ -2,6 +2,7 @@ import { smsg } from "./lib/wa-socket.js";
 import { elegirAlAzar } from "./lib/azar.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
+import { CASINO_APAGADO } from "./lib/casino.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
@@ -248,25 +249,28 @@ export async function handleMessage(nMsg) {
         continue;
       }
 
-      // Games (plugin.juego): turned off with .juegos, or outside the group's hours (.horariojuegos). Each game
-      // plugin used to check chat.games on its own; here it's stopped once for all of them.
+      // Games (plugin.juego): turned off with .juegos. Each game plugin used to check chat.games on its own; here it's
+      // stopped once for all of them.
       if (plugin.juego && !chat.games) {
         rechazar(() => client.sendText(m.chat, txt.disabledGames, m));
         continue;
       }
 
-      // Casino (plugin.casino): its own switch, separate from .juegos. Lets you turn off just the betting
-      // —roulette, slots, blackjack, duels, races, lottery and markets— leaving the rest running.
+      // Casino (plugin.casino): its own switch, separate from .juegos. Lets you turn off just the betting —roulette,
+      // slots, blackjack, duels, races, lottery, markets and the 4 en línea's bets— leaving the rest running.
       if (plugin.casino && m.isGroup && chat.casino === 0) {
-        rechazar(() => client.sendText(m.chat, "🎰 El casino está apagado en este grupo. Un admin lo prende con .casino on", m));
+        rechazar(() => client.sendText(m.chat, CASINO_APAGADO, m));
         continue;
       }
 
-      // The .horariojuegos schedule stops ONLY the casino (plugin.casino). The rest of the games —trivia, hangman,
-      // flags, canvas, raffles— run at any hour.
+      // The .horariojuegos schedule stops the casino (plugin.casino) and the board games (plugin.conHorario: the
+      // tic-tac-toe and the 4 en línea). It stops starting one: their moves are plain messages that their hooks take,
+      // so a game already going is played out, and cancelling and giving up live in plugins of their own. The rest of
+      // the games —trivia, hangman, flags, canvas, raffles— run at any hour. Plugins that are a casino only sometimes
+      // (a .4enlinea with a bet) check the same switches with frenoDelCasino (lib/casino.js).
       // correspondeAvisar() marks the group as already notified, so it goes inside the notice and not here: if the
       // command ends up running through another plugin, the 10-minute notice isn't spent.
-      if (plugin.casino && m.isGroup && !juegosAbiertos(chat)) {
+      if ((plugin.casino || plugin.conHorario) && m.isGroup && !juegosAbiertos(chat)) {
         rechazar(() => (correspondeAvisar(m.chat) ? client.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
         continue;
       }

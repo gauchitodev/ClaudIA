@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["ruleta"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // the .horariojuegos schedule stops only these
+plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
 plugin.onlyGroup = true;
 
 // .ruleta <amount> <bet>: the first bet opens the table; for a few seconds everyone bets, and then the ball drops

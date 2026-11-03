@@ -1,14 +1,15 @@
-import { repartir, pedir, plantarse, doblar, dividir, seguro, rendirse, estadoMano, BLACKJACK } from "../lib/blackjack.js";
+import { repartir, pedir, plantarse, doblar, dividir, seguro, estadoMano, BLACKJACK } from "../lib/blackjack.js";
 import { textoLimitesCasino } from "../lib/casino.js";
 
 const plugin = {};
-plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro", "rendirse", "rendirme"];
+// .rendirse and .rendirme are plugins/fun-rendirse.js's, shared with the 4 en línea: it sends them to lib/blackjack.js.
+plugin.cmd = ["blackjack", "bj", "pedir", "plantarse", "plantarme", "doblar", "dividir", "seguro"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // the .horariojuegos schedule stops only these
+plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
 plugin.onlyGroup = true;
 
-const ACCIONES = { pedir, plantarse, plantarme: plantarse, doblar, dividir, seguro, rendirse, rendirme: rendirse };
+const ACCIONES = { pedir, plantarse, plantarme: plantarse, doblar, dividir, seguro };
 
 plugin.run = async (m, { client, args, command, chat }) => {
 

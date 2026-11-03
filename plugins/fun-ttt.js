@@ -4,6 +4,8 @@ import { juegaCuatroEnLinea } from "../lib/cuatro-en-linea.js";
 const plugin = {};
 plugin.cmd = ["ttt"];
 plugin.juego = true;
+// Outside the group's game hours (.horariojuegos) no game starts; .delttt is a plugin of its own and works always.
+plugin.conHorario = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

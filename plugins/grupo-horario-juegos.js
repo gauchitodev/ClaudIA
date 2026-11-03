@@ -13,9 +13,9 @@ plugin.run = async (m, { client, text, chat }) => {
 
   if (!pedido) {
     const h = horarioDe(chat);
-    if (!h) return client.sendText(m.chat, `🕒 Este grupo no tiene horario de juegos: andan a cualquier hora (mientras estén activados con .juegos).\n\nPara ponerle uno: .horariojuegos 20:00-23:00${avisoApagados}`, m);
+    if (!h) return client.sendText(m.chat, `🕒 Este grupo no tiene horario de juegos: el casino, el ta-te-ti y el 4 en línea andan a cualquier hora (mientras estén activados con .juegos).\n\nPara ponerle uno: .horariojuegos 20:00-23:00${avisoApagados}`, m);
     const estado = juegosAbiertos(chat) ? "ahora están abiertos" : "ahora están cerrados";
-    return client.sendText(m.chat, `🕒 Los juegos en este grupo van ${textoHorario(h)}; ${estado}.\n\n.horariojuegos off lo saca, .horariojuegos 21:00-00:00 lo cambia.${avisoApagados}`, m);
+    return client.sendText(m.chat, `🕒 En este grupo, el casino, el ta-te-ti y el 4 en línea van ${textoHorario(h)}; ${estado}.\n\n.horariojuegos off lo saca, .horariojuegos 21:00-00:00 lo cambia.${avisoApagados}`, m);
   }
 
   if (/^(off|no|quitar|sacar|borrar|siempre)$/.test(pedido)) return client.sendText(m.chat, quitarHorario(m.chat).mensaje, m);

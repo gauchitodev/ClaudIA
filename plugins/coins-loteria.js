@@ -4,7 +4,7 @@ const plugin = {};
 plugin.cmd = ["loteria", "lotería", "boleto", "boletos"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // the .horariojuegos schedule stops only these
+plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
 plugin.onlyGroup = true;
 
 // .loteria → the pot's state · .loteria 2 → buys 2 tickets · .boleto → buys 1

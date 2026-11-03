@@ -45,6 +45,7 @@ Se ganan: reaccionando (+1), que te reaccionen (+2), mandando una entrada de las
 ▸ .mines 20 3 — grilla de 5x5 con minas: destapás con .destapar B3, cada segura sube el multiplicador y .retirar cobra; una mina y perdés
 ▸ .duelo @alguien 20 [dado|carta|pelea] — uno contra uno, el ganador se lleva todo; el otro responde .acepto o .rechazo
 ▸ .pelea @alguien 20 — pelea por turnos con .golpe, .patada, .cubrirse y .curar hasta que uno cae
+▸ .4enlinea 20 — 4 en línea por UruCoins: el otro se sienta con .4enlinea 20 y el que gana se lleva los 40; .rendirse abandona (y pierde)
 ▸ .carrera 20 3 — abre la carrera; en 45 s apuestan todos a uno de cinco caballos con cuotas que cambian, y se corre
 ▸ .loteria — estado del pozo · .loteria 2 — comprá boletos (10 c/u, máximo 5 por semana); el sorteo sale al empezar la semana
 
