@@ -46,7 +46,7 @@ const DE_AUDIO = new Set(["nota de voz con viewOnce", "V2Extension"]);
 const RESTRINGIDO = /solo lo pueden usar los admins/;
 
 // Like the messages Baileys hands over: a protobuf decoded from bytes.
-const decodificado = (o) => proto.Message.decode(proto.Message.encode(proto.Message.fromObject(o)).finish());
+const decodificado = (o) => proto.Message.decode(proto.Message.encode(o).finish());
 
 function cliente() {
   const c = { user: { lid: "bot@lid", id: "bot@s.whatsapp.net", jid: "bot@s.whatsapp.net" }, chats: { [G]: { subject: "Grupo" } }, textos: [], archivos: [], mensajes: [], descargas: 0, guardado: null };

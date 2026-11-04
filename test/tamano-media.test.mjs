@@ -30,7 +30,7 @@ before(async () => {
 const MB = 1024 * 1024;
 // A local address that refuses the connection: if something ever downloaded for real, it would fail fast.
 const DESCARGA = { url: "https://127.0.0.1:9/media", directPath: "/v/x", mediaKey: "bWVkaWFrZXk=" };
-const decodificado = (o) => proto.Message.decode(proto.Message.encode(proto.Message.fromObject(o)).finish());
+const decodificado = (o) => proto.Message.decode(proto.Message.encode(o).finish());
 
 function cliente(archivo = Buffer.alloc(0)) {
   const c = { user: { lid: "bot@lid", id: "bot@s.whatsapp.net", jid: "bot@s.whatsapp.net" }, chats: {}, textos: [], descargas: 0 };

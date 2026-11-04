@@ -42,7 +42,8 @@ async function startBot() {
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
     },
     markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true,
+    // No link previews, so no generateHighQualityLinkPreview either: Baileys builds them with link-preview-js, left out
+    // on purpose, since with it the tablet would fetch every link the bot sends, outside lib/descarga-segura.js.
     syncFullHistory: false,
     shouldSyncHistoryMessage: () => false,
     getMessage: () => null,
