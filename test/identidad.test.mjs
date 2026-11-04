@@ -535,9 +535,9 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
     },
   });
   // Each form with numbers of its own: from desde to desde + COMANDOS_QUE_NOMBRAN.length, so a command more pushes the
-  // next form on (porNumero was at 117 until .aura). In the group that lists people by number alone, WhatsApp says who
+  // next form on (porNumero was at 118 until .genero). In the group that lists people by number alone, WhatsApp says who
   // has it.
-  for (const [forma, desde] of [["porLid", 100], ["porNumero", 118], ["porNumeroSinLid", 300]]) {
+  for (const [forma, desde] of [["porLid", 100], ["porNumero", 119], ["porNumeroSinLid", 300]]) {
     let n = desde;
     const escenario = numeroReciclado(n);
     const { X, VIEJO, NUEVO } = escenario;
@@ -639,7 +639,9 @@ test("las otras respuestas de .besar y de pareja también arroban con la menció
     ["rechaza", "rechazar", ({ A, P }) => Par.pedirPareja(P, A, G)],
   ];
   const visto = {};
-  let n = 530;
+  // From 550: the test above counts from 510, one number per command of ARROBAN_POR_EL_NUMERO, and a command more pushes
+  // it on (it reached 530 until .genero).
+  let n = 550;
   for (const [caso, command, preparar] of casos) {
     const [p, q] = [soloPorNumero(++n), soloPorNumero(++n)];
     usyncFalso(t, { [p.X]: p.L, [q.X]: q.L });

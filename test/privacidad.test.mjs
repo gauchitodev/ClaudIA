@@ -133,6 +133,17 @@ test("el saludo de cumpleaños le dice a la IA cuántos cumple, si se anotó con
   assert.doesNotMatch(prompts.at(-1), /555/);
   assert.deepEqual(ultimoEnviado().msg, { text: "@555 ¡Feliz cumple!", mentions: [ANA] });
   F.borrarCumple(CHAT, ANA);
+  // How they asked to be addressed (.genero, lib/genero.js) goes to the AI too; in a group of its own.
+  const CON_GENERO = "cumple-genero@g.us";
+  F.updateUser(ANA, { genero: "mujer" });
+  F.setCumple(CON_GENERO, ANA, hoy.getDate(), hoy.getMonth() + 1);
+  try {
+    await Cumple.chequearCumpleanos(hoy);
+    assert.match(prompts.at(-1), /^Hoy es el cumpleaños de Ana\. Ana es mujer: tratala en femenino\. Escribí /);
+  } finally {
+    F.updateUser(ANA, { genero: "" });
+    F.borrarCumple(CON_GENERO, ANA);
+  }
 });
 
 // A group of its own as well: it erases what it knows, and other tests read it.

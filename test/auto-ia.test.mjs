@@ -100,6 +100,17 @@ test("pedido a Claudia: le dice quién pregunta y qué comandos no puede usar, p
 
     await pedir("claudia, ¿cómo estás?", { isAdmin: false, isMod: false });
     assert.doesNotMatch(prompt, /Quien te escribe/, "sin una pregunta sobre comandos no va el manual, ni esto");
+
+    // How they asked to be addressed (.genero, lib/genero.js): told only when it's set; otherwise she goes by the name.
+    assert.doesNotMatch(prompt, /tratala en femenino|tratalo en masculino/);
+    F.initDataDB({ chat: C, sender: "555@lid", senderJid: "", pushName: "Ana" });
+    F.updateUser("555@lid", { genero: "mujer" });
+    try {
+      await pedir("claudia, ¿cómo estás?", { isAdmin: false, isMod: false });
+      assert.match(prompt, /Ana es mujer: tratala en femenino\./);
+    } finally {
+      F.updateUser("555@lid", { genero: "" });
+    }
   } finally {
     globalThis.fetch = fetchAntes;
   }

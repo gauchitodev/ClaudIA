@@ -119,5 +119,6 @@ export const COMANDOS_QUE_NOMBRAN = [
   ["familia-emancipar", "desheredar"],
   ["rango", "rango"],
   ["familia-parentesco", "parentesco"],
+  ["genero", "genero", " mujer", null, { isAdmin: true }],
 ];
 export const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco"];

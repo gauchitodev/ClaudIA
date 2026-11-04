@@ -4,6 +4,7 @@ import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
+import { tratoPara } from "../lib/genero.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
@@ -215,6 +216,10 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     if (user?.apodo) {
       partes.push(`Esta persona te pidió que le digas "${user.apodo}" — usá ese apodo cuando le hables.`);
     }
+
+    // How they asked to be addressed (.genero, lib/genero.js); with nothing set, she goes by the name, as always.
+    const trato = tratoPara(m.sender, nombre);
+    if (trato) partes.push(trato);
 
     const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
     if (notaDeVoz) {

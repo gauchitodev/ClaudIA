@@ -27,7 +27,8 @@ export function ponerAlDia(db) {
       warn INTEGER DEFAULT 0, -- obsoleta: las advertencias son por grupo y viven en inGroup[chat].warn
       memoria TEXT DEFAULT "",
       timestamp INTEGER,
-      apodo TEXT DEFAULT ""
+      apodo TEXT DEFAULT "",
+      genero TEXT DEFAULT "" -- "hombre", "mujer" or nothing, as .genero sets it (lib/genero.js)
     )
   `);
 
@@ -36,6 +37,10 @@ export function ponerAlDia(db) {
   if (!columnasUsers.some((c) => c.name === "memoria")) {
     db.exec(`ALTER TABLE users ADD COLUMN memoria TEXT DEFAULT ""`);
     console.log("🟢 Migración: columna 'memoria' agregada a la tabla users");
+  }
+  if (!columnasUsers.some((c) => c.name === "genero")) {
+    db.exec(`ALTER TABLE users ADD COLUMN genero TEXT DEFAULT ""`);
+    console.log("🟢 Migración: columna 'genero' agregada a la tabla users");
   }
   // Looking someone up by number (users.jid) used to scan the whole table, and a few things do it for each member of a
   // group (lib/identidad.js, .inactivos).
