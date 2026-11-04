@@ -194,3 +194,14 @@ test("la lista de advertidos con «numeros»: el número de cada uno, también e
   assert.match(ultimo(), /│ Fulano \*\(2\/3\)\*/);
   assert.doesNotMatch(ultimo(), /5989911111/);
 });
+
+// The list used to be the owner's everywhere, and in no menu: now the moderators and the admins, who give and take the
+// warnings, see their group's. From a private chat it's still the owner's alone, with no code of its own: the roles are
+// a group's (lib/roles.js), so in a private chat nobody else is a moderator.
+test(".listaadv la ven los moderadores y los admins en el grupo, y por privado solo el owner", async () => {
+  const { permisosDe } = await import("../lib/roles.js");
+  assert.deepEqual([Lista.onlyMod, Lista.onlyOwner, Lista.onlyGroup], [true, undefined, undefined]);
+  const privado = "59899111222@s.whatsapp.net";
+  assert.equal(permisosDe(privado, "100@lid").isMod, false, "un admin de un grupo no es moderador en privado");
+  assert.equal(permisosDe(privado, "100@lid", { esOwner: true }).isMod, true);
+});

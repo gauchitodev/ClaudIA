@@ -2,9 +2,12 @@ import { advertidos, MAX_ADVERTENCIAS, getUser } from "../database-functions.js"
 import { identidadesDe } from "../lib/identidad.js";
 import { nombreDe, modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 
+// Who has warnings: in a group, that group's, for the moderators and the admins, who give and take them (.advertir,
+// .unwarn); from a private chat, every group's, for the owner alone, since the roles are a group's (lib/roles.js,
+// permisosDe) and in a private chat nobody else is a moderator. It used to be the owner's everywhere, and in no menu.
 const plugin = {};
 plugin.cmd = ["listaadv", "listaadvertidos", "advertidos"];
-plugin.onlyOwner = true;
+plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text }) => {
   const { modo } = modoDeNombre(text);
@@ -15,7 +18,7 @@ plugin.run = async (m, { client, text }) => {
   // They're named without being tagged: a list of warned people has no business notifying each of them. In the owner's
   // private chat, someone without a name shows their number, or failing that their LID, since "alguien" wouldn't say
   // who; in a group the whole group reads the list, and there it stays "alguien" (.id tells the owner who it is),
-  // unless the owner asked for "numeros" (lib/menciones.js), which names everyone by their number.
+  // unless whoever asked wrote "numeros" (lib/menciones.js), which names everyone by their number.
   const quien = (lid) => {
     const u = getUser(lid);
     if (m.isGroup || (u?.apodo || u?.pushName || "").trim()) return nombreDe(lid);
