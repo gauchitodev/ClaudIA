@@ -22,8 +22,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     const razon = elegirAlAzar(["SER TAN PUTA", "SER TAN LIND@😍", "SER TAN IMBECIL🙄", "SER TAN PAJER@🤣", "ACOSADOR🤢", "INFIEL", "GAY🏳️‍🌈🌈", "TROLA", "CARGAR TANTA BELLEZA😍", "SER TAN FE@🤮", "COMER TANTAS VERGAS🍆"]);
     const imagen = await superponer(pp, "https://i.ibb.co/1tKmnxRy/5856a83e4f6ae202fedf276d.png", { opacidad: 0.8 });
     await client.sendFile(m.chat, imagen, `${Date.now()}.jpg`, txt.carcelMsg(years, razon), m);
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    // If their photo or the layer doesn't come down, or the image doesn't go, that's said: it used to be just the ⏳.
+    console.error(`[${command}] no pude armar la foto:`, e?.message || e);
+    return client.sendText(m.chat, "No pude armar la foto; probá de nuevo en un rato.", m);
   }
 };
 

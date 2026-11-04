@@ -5,7 +5,7 @@ import { prepararBase, G } from "./helpers.mjs";
 
 // The effects on someone's profile photo (.gay, .trans, .bi, .cárcel, .licenciahot, .simp) and .gpu, when the bot can't
 // see that photo: lib/foto-perfil.js gave a grey generic avatar instead, and the effects went on it as if it were that
-// person's photo.
+// person's photo. And when the image doesn't come out: the effects stayed at the ⏳, saying nothing.
 const EFECTOS = [
   ["fun-canvas-gay", "gay"],
   ["fun-canvas-trans", "trans"],
@@ -23,32 +23,38 @@ const SIN_FOTO = {
   },
   "WhatsApp no contesta a tiempo": async () => undefined,
 };
+const NO_SALIO = "No pude armar la foto; probá de nuevo en un rato.";
 
 let Foto;
 const bajadas = [];
+let noBaja = () => false;
 before(async () => {
   await prepararBase("foto-perfil");
   globalThis.txt = (await import("../lib/strings.js")).default;
   Foto = await import("../lib/foto-perfil.js");
   const cuadrado = await new Jimp({ width: 64, height: 64, color: 0xff0000ff }).getBuffer("image/png");
-  // Neither the photo nor the flags come from the internet: every image asked for is the same red square.
+  // Neither the photo nor the flags come from the internet: every image asked for is the same red square, unless
+  // noBaja says that one answers 404.
   (await import("../lib/canvas.js"))._dep.pedirHttp = async (url) => {
     bajadas.push(url);
+    if (noBaja(url)) return { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) };
     return { ok: true, status: 200, arrayBuffer: async () => cuadrado.buffer.slice(cuadrado.byteOffset, cuadrado.byteOffset + cuadrado.byteLength) };
   };
 });
 
 // A plugin run on "@111", with WhatsApp answering for the photo as fotoDe says: what it sent, reacted and downloaded.
-async function correr(archivo, command, fotoDe) {
+// noBajan picks the images that don't come down, and mandar stands for sendFile.
+async function correr(archivo, command, fotoDe, { noBajan = () => false, mandar } = {}) {
   const P = (await import(`../plugins/${archivo}.js`)).default;
   const r = { textos: [], archivos: [], reacciones: [] };
   const client = {
     sendText: async (chat, texto, citado) => (r.textos.push({ texto, citado }), { key: { id: "T" } }),
-    sendFile: async (chat, archivo, nombre, caption) => (r.archivos.push({ archivo, caption }), {}),
+    sendFile: mandar || (async (chat, archivo, nombre, caption) => (r.archivos.push({ archivo, caption }), {})),
     profilePictureUrl: async (jid) => fotoDe(jid),
   };
   r.m = { chat: G, sender: "555@lid", react: (e) => r.reacciones.push(e), mentionedJid: ["111@lid"], quoted: null };
   bajadas.length = 0;
+  noBaja = noBajan;
   await P.run(r.m, { client, text: "@111", usedPrefix: ".", command, participants: [{ id: "111@lid" }, { id: "555@lid" }] });
   r.bajadas = [...bajadas];
   return r;
@@ -77,6 +83,36 @@ test("con la foto visible, el efecto sale sobre esa foto", async () => {
     assert.ok(Buffer.isBuffer(r.archivos[0].archivo), `.${command}: la que armó`);
     assert.equal(r.bajadas.length, 2, `.${command}: su foto y la capa`);
     assert.ok(r.bajadas.includes(FOTO), `.${command}: sobre su foto`);
+  }
+});
+
+test("si no baja su foto o la capa, o la imagen no sale, los efectos lo dicen", async () => {
+  const casos = {
+    "no baja su foto": { noBajan: (url) => url === FOTO },
+    "no baja la capa": { noBajan: (url) => url !== FOTO },
+    "la imagen no sale": {
+      mandar: async () => {
+        throw new Error("Connection Closed");
+      },
+    },
+  };
+  const errorReal = console.error;
+  const errores = [];
+  console.error = (...partes) => errores.push(partes.join(" "));
+  try {
+    for (const [archivo, command] of EFECTOS) {
+      for (const [como, opciones] of Object.entries(casos)) {
+        const r = await correr(archivo, command, async () => FOTO, opciones);
+        const caso = `.${command}, ${como}`;
+        assert.deepEqual(r.textos.map((t) => t.texto), [NO_SALIO], caso);
+        assert.equal(r.textos[0].citado, r.m, `${caso}: citando el pedido`);
+        assert.deepEqual(r.reacciones, ["⏳"], caso);
+        assert.deepEqual(r.archivos, [], `${caso}: sin imagen`);
+        assert.ok(errores.at(-1)?.startsWith(`[${command}] no pude armar la foto: `), `${caso}: queda en el log`);
+      }
+    }
+  } finally {
+    console.error = errorReal;
   }
 });
 

@@ -20,7 +20,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     const imagen = await banderaCircular(pp, "https://openclipart.org/image/800px/345534");
     await client.sendFile(m.chat, imagen, `${Date.now()}.png`, "🏳️‍⚧️", m);
   } catch (e) {
-    console.error(e);
+    // If their photo or the layer doesn't come down, or the image doesn't go, that's said: it used to be just the ⏳.
+    console.error(`[${command}] no pude armar la foto:`, e?.message || e);
+    return client.sendText(m.chat, "No pude armar la foto; probá de nuevo en un rato.", m);
   }
 };
 

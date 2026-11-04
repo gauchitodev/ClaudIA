@@ -19,8 +19,10 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   try {
     const imagen = await superponer(pp, "https://na.wargaming.net/clans/media/clans/emblems/cl_960/1000001960/emblem_195x195.png", { opacidad: 0.8 });
     await client.sendFile(m.chat, imagen, `${Date.now()}.jpg`, "SSSSSIMPPPPPP", m);
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    // If their photo or the layer doesn't come down, or the image doesn't go, that's said: it used to be just the ⏳.
+    console.error(`[${command}] no pude armar la foto:`, e?.message || e);
+    return client.sendText(m.chat, "No pude armar la foto; probá de nuevo en un rato.", m);
   }
 };
 
