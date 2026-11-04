@@ -184,23 +184,61 @@ test("apellido: lo elige el matrimonio y lo heredan los que llevaban el mismo", 
       "",
       "1. *Pérez* · 9 personas",
       "Persona 1 💍 Persona 2",
-      "└ Persona 3 💍 Persona 7",
-      "   └ Persona 8",
-      "└ Persona 4 💍 Persona 9",
-      "   └ Persona 10",
+      "├ Persona 3 💍 Persona 7 · Rodríguez",
+      "│  └ Persona 8",
+      "├ Persona 4 💍 Persona 9",
+      "│  └ Persona 10",
       "└ Persona 12",
       "",
-      "2. *Persona 5 y Persona 6* (sin apellido) · 3 personas",
-      "Persona 5 💍 Persona 6",
+      "2. *Persona 5 💍 Persona 6* · 3 personas · sin apellido",
       "└ Persona 11",
       "",
-      "3. *Rodríguez* · 3 personas",
+      "3. *Rodríguez* · 3 personas · rama de Pérez",
       "Persona 3 💍 Persona 7",
       "└ Persona 8",
     ].join("\n"),
   );
   // Only the families with someone in the group asking: with just 11 there, only theirs.
-  assert.match(Fa.textoFamilias((lid) => lid === L(11)), /^👨‍👩‍👧‍👦 \*Familias del grupo\*\n\n1\. \*Persona 5 y Persona 6\* \(sin apellido\) · 3 personas\nPersona 5 💍 Persona 6\n└ Persona 11$/);
+  assert.match(Fa.textoFamilias((lid) => lid === L(11)), /^👨‍👩‍👧‍👦 \*Familias del grupo\*\n\n1\. \*Persona 5 💍 Persona 6\* · 3 personas · sin apellido\n└ Persona 11$/);
+});
+
+// The tree with its branches drawn: a child with siblings below hangs from ├ and the last from └, a │ runs down the
+// side while a branch goes on, and the surnames chosen apart from the parents' (not the ones inherited down a branch)
+// go on their branch. A family founded by children of two families says so, by surname first.
+test("textoFamilias: las ramas dibujadas, el apellido propio en la rama y de qué familias es rama", () => {
+  conApellidos();
+  // 8 (Rodríguez) marries 13 and they adopt 14, who inherits Rodríguez; 11 (from 5 and 6) marries 12 (Pérez) and they
+  // choose Gómez.
+  casar(8, 13);
+  adoptar(8, 14, T0 + 40 * DIA);
+  casar(11, 12);
+  assert.deepEqual(Fa.elegirApellido(L(11), "Gómez"), { ok: true, apellido: "Gómez", conyuge: L(12) });
+  assert.equal(
+    Fa.textoFamilias(),
+    [
+      "👨‍👩‍👧‍👦 *Familias*",
+      "",
+      "1. *Pérez* · 12 personas",
+      "Persona 1 💍 Persona 2",
+      "├ Persona 3 💍 Persona 7 · Rodríguez",
+      "│  └ Persona 8 💍 Persona 13",
+      "│     └ Persona 14",
+      "├ Persona 4 💍 Persona 9",
+      "│  └ Persona 10",
+      "└ Persona 12 💍 Persona 11 · Gómez",
+      "",
+      "2. *Rodríguez* · 5 personas · rama de Pérez",
+      "Persona 3 💍 Persona 7",
+      "└ Persona 8 💍 Persona 13",
+      "   └ Persona 14",
+      "",
+      "3. *Persona 5 💍 Persona 6* · 4 personas · sin apellido",
+      "└ Persona 11 💍 Persona 12 · Gómez",
+      "",
+      "4. *Gómez* · 2 personas · rama de Pérez y de la familia de Persona 5 y Persona 6",
+      "Persona 11 💍 Persona 12",
+    ].join("\n"),
+  );
 });
 
 test("emancipar y desheredar: se pierden los padres y el apellido de la familia", () => {
