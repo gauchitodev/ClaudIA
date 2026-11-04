@@ -282,3 +282,31 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
     Gem.geminiEnPausa.clear();
   }
 });
+
+// The AI asked which river is the longest in the world: the Nile or the Amazon, depending on how it's measured, so
+// whoever answered the other one lost. The question is asked for with the rule against that.
+test("trivia: a la IA se le pide una pregunta sin discusión, que no dependa de cómo se mida", async () => {
+  const C = "regla@g.us";
+  const cuerpos = [];
+  const fetchReal = globalThis.fetch;
+  const logReal = console.log;
+  globalThis.geminiApiKey = "clave";
+  console.log = () => {};
+  globalThis.fetch = async (url, opciones) => {
+    cuerpos.push(String(opciones?.body || ""));
+    const p = { pregunta: "¿Pregunta de la IA?", opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A" };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(p) }] } }] }) };
+  };
+  try {
+    Tr.triviaConIa.delete(C);
+    assert.equal((await Tr.generarPregunta(C)).pregunta, "¿Pregunta de la IA?");
+    assert.equal(cuerpos.length, 1);
+    assert.match(cuerpos[0], /Escribí UNA pregunta de trivia de /);
+    assert.match(cuerpos[0], /un hecho establecido y sin discusión: nada que dependa de cómo se mida o de qué fuente se mire/);
+    assert.match(cuerpos[0], /el río más largo del mundo, que según el criterio es el Nilo o el Amazonas/);
+  } finally {
+    globalThis.fetch = fetchReal;
+    console.log = logReal;
+    globalThis.geminiApiKey = "";
+  }
+});
