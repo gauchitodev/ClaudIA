@@ -20,7 +20,7 @@ before(async () => {
   Par = await import("../lib/parejas.js");
   Fam = await import("../lib/familia.js");
   D = await import("../lib/duelos.js");
-  const archivos = { silenciar: "grupo-silenciar", banuser: "owner-banuser", rd: "owner-restaurar-usuario", pareja: "pareja-elegir", aceptar: "pareja-aceptar", rechazar: "pareja-rechazar", duelo: "coins-duelo", adoptar: "familia-adoptar", si: "pareja-casamiento-aceptar", no: "pareja-casamiento-rechazar" };
+  const archivos = { silenciar: "grupo-silenciar", banuser: "owner-banuser", rd: "owner-restaurar-usuario", pareja: "pareja-elegir", aceptar: "pareja-aceptar", rechazar: "pareja-rechazar", duelo: "coins-duelo", aura: "fun-aura", adoptar: "familia-adoptar", si: "pareja-casamiento-aceptar", no: "pareja-casamiento-rechazar" };
   for (const [k, archivo] of Object.entries(archivos)) P[k] = (await import(`../plugins/${archivo}.js`)).default;
 });
 
@@ -204,6 +204,44 @@ test("quien escribe desde su número acepta el duelo que le pidieron por su LID,
   assert.ok(/Estás en otra pelea/.test(otraPelea) && D.duelos.has(`${G}|${L}`), otraPelea);
   const rechaza = await contesta("rechazo");
   assert.deepEqual([F.getSaldoCoins(G, R3), D.duelos.size], [1000, 0], rechaza);
+});
+
+// The aura duel the same way (lib/aura.js): challenged by the LID, they answer from the number and play the duel by it,
+// and their reactions, from either id, aren't votes in it. And from the number, naming their own LID is challenging
+// themselves: the group lists both as one participant (.duelo still lets it through).
+test("quien escribe desde su número acepta el duelo de aura que le pidieron por su LID, y no vota en el suyo", async (t) => {
+  const Aura = await import("../lib/aura.js");
+  const R = await import("../lib/reacciones.js");
+  t.after(() => Aura.olvidarDuelosDeAura());
+  const { X, L, porNumeroSinLid } = conDosFilas(935);
+  const R1 = unaLid(936);
+  usyncFalso(t, { [X]: L });
+  const grupo = [...porNumeroSinLid, { id: R1, admin: null }];
+  await correr("aura", { sender: R1, command: "aura", texto: `@${digitos(X)}`, mentionedJid: [X], participants: grupo });
+  assert.equal(Aura.desafios.get(G)?.retado, L, "lo desafían por la LID");
+  const votacion = await correr("aura", { sender: X, command: "aura", texto: "si", participants: grupo });
+  assert.match(votacion, new RegExp(`🔴 @${digitos(X)}\\n`), votacion);
+  const id = Aura.votaciones[G].mensajeId;
+  const vota = (participant, participantAlt) => R.contarReaccion(cliente(), { key: { remoteJid: G, id, participant: "bot@lid", fromMe: true }, reaction: { text: "🔴", key: { participant, participantAlt } } });
+  vota(X, L);
+  vota(L);
+  vota(X);
+  assert.equal(Aura.votaciones[G].votos.size, 0, "desde ninguno de sus ids");
+  Aura.olvidarDuelosDeAura();
+  const aSiMismo = await correr("aura", { sender: X, command: "aura", texto: `@${digitos(L)}`, mentionedJid: [L], participants: [{ id: X, lid: L, admin: null }] });
+  assert.equal(aSiMismo, "❌ Desafiarte a vos mismo no cuenta 😅");
+
+  // In a group that lists them by the LID alone, the number they answered from is only in their answer: from it, their
+  // reactions aren't votes either.
+  const otro = conDosFilas(937);
+  usyncFalso(t, { [otro.X]: otro.L });
+  const porLidSolo = [{ id: otro.L, admin: null }, { id: R1, admin: null }];
+  await correr("aura", { sender: R1, command: "aura", texto: `@${digitos(otro.L)}`, mentionedJid: [otro.L], participants: porLidSolo });
+  await correr("aura", { sender: otro.X, command: "aura", texto: "si", participants: porLidSolo });
+  const boleta = Aura.votaciones[G]?.mensajeId;
+  assert.ok(boleta, "lo aceptó desde su número");
+  R.contarReaccion(cliente(), { key: { remoteJid: G, id: boleta, participant: "bot@lid", fromMe: true }, reaction: { text: "🔴", key: { participant: otro.X } } });
+  assert.equal(Aura.votaciones[G].votos.size, 0);
 });
 
 // The child is the LID, as everything done to them when they're named.

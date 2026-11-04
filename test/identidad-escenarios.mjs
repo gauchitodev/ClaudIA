@@ -111,6 +111,7 @@ export const COMANDOS_QUE_NOMBRAN = [
   ["coins-economia", "ajustar", " 50", null, { isOwner: true }],
   ["perfil", "perfil"],
   ["coins-duelo", "duelo", " 20", "saldo"],
+  ["fun-aura", "aura"],
   ["fun-calcular-juegos", "love"],
   ["familia-adoptar", "adoptar", "", "casamiento"],
   ["calificar", "calificar", " 5 buena gente"],

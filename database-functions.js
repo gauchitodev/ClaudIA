@@ -680,6 +680,32 @@ export function obtenerRankingMensual(chat, mes) {
   return { masVotado, masActivo };
 }
 
+// ===================== Aura (lib/aura.js) =====================
+// Claudia never plays an aura duel, so these need no sinClaudia().
+
+// An aura duel with a winner: they add "aura" to the month and one duel won, the loser one lost; both or neither.
+export function anotarDueloDeAura(mes, chat, ganador, perdedor, aura, ahora = Date.now()) {
+  db.transaction(() => {
+    db.prepare(`INSERT INTO aura_mensual (mes, chat, usuario, aura, ganados, ultima_victoria) VALUES (?, ?, ?, ?, 1, ?) ON CONFLICT(mes, chat, usuario) DO UPDATE SET aura = aura + excluded.aura, ganados = ganados + 1, ultima_victoria = excluded.ultima_victoria`).run(mes, chat, ganador, aura, ahora);
+    db.prepare(`INSERT INTO aura_mensual (mes, chat, usuario, perdidos) VALUES (?, ?, ?, 1) ON CONFLICT(mes, chat, usuario) DO UPDATE SET perdidos = perdidos + 1`).run(mes, chat, perdedor);
+  })();
+}
+
+// The month's aura ranking of a group, most first; a tie goes to whoever got there first.
+export function topAura(chat, mes, n = 10) {
+  return db.prepare(`SELECT usuario, aura FROM aura_mensual WHERE chat = ? AND mes = ? AND aura > 0 ORDER BY aura DESC, ultima_victoria ASC LIMIT ?`).all(chat, mes, n);
+}
+
+// Someone's aura in a group: the month's and their place in it (null with none), and every month's, with the duels
+// won and lost.
+export function auraDe(chat, mes, usuario) {
+  const fila = db.prepare(`SELECT aura, ultima_victoria FROM aura_mensual WHERE chat = ? AND mes = ? AND usuario = ?`).get(chat, mes, usuario);
+  const delMes = fila?.aura || 0;
+  const puesto = delMes > 0 ? db.prepare(`SELECT COUNT(*) + 1 AS puesto FROM aura_mensual WHERE chat = ? AND mes = ? AND (aura > ? OR (aura = ? AND ultima_victoria < ?))`).get(chat, mes, delMes, delMes, fila.ultima_victoria).puesto : null;
+  const suma = db.prepare(`SELECT COALESCE(SUM(aura), 0) AS aura, COALESCE(SUM(ganados), 0) AS ganados, COALESCE(SUM(perdidos), 0) AS perdidos FROM aura_mensual WHERE chat = ? AND usuario = ?`).get(chat, usuario);
+  return { delMes, puesto, total: suma.aura, ganados: suma.ganados, perdidos: suma.perdidos };
+}
+
 // The owners' numbers as ids, from config.toml as it writes them: with "+" and spaces, they're just the digits.
 export const numerosDeOwners = () => (globalThis.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
 

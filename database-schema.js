@@ -200,6 +200,21 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The aura duels' results (lib/aura.js), by month: the aura each one won and the duels won and lost. The ballot and
+  // its votes live in memory and aren't kept. ultima_victoria (ms) breaks ties in the ranking: whoever got there first.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS aura_mensual (
+      mes TEXT NOT NULL,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      aura INTEGER DEFAULT 0,
+      ganados INTEGER DEFAULT 0,
+      perdidos INTEGER DEFAULT 0,
+      ultima_victoria INTEGER DEFAULT 0,
+      PRIMARY KEY (mes, chat, usuario)
+    )
+  `);
+
   // UruCoins: balance per person and per group (each group has its own economy)
   db.exec(`
     CREATE TABLE IF NOT EXISTS urucoins (

@@ -507,9 +507,11 @@ test(".llamar @número arroba a quien tiene ahora el número", async (t) => {
 test("los comandos que nombran a alguien van a quien tiene el número ahora, y lo arroban por su LID, o lo nombran", async (t) => {
   const Par = await import("../lib/parejas.js");
   const D = await import("../lib/duelos.js");
+  const Aura = await import("../lib/aura.js");
   t.after(() => {
     for (const d of D.duelos.values()) clearTimeout(d.timeout);
     D.duelos.clear();
+    Aura.olvidarDuelosDeAura();
   });
   const preparar = {
     saldo: (A) => fijarSaldo(F, G, A, 1000),
@@ -532,8 +534,10 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
       },
     },
   });
-  // Each form with numbers of its own. In the group that lists people by number alone, WhatsApp says who has it.
-  for (const [forma, desde] of [["porLid", 100], ["porNumero", 117], ["porNumeroSinLid", 300]]) {
+  // Each form with numbers of its own: from desde to desde + COMANDOS_QUE_NOMBRAN.length, so a command more pushes the
+  // next form on (porNumero was at 117 until .aura). In the group that lists people by number alone, WhatsApp says who
+  // has it.
+  for (const [forma, desde] of [["porLid", 100], ["porNumero", 118], ["porNumeroSinLid", 300]]) {
     let n = desde;
     const escenario = numeroReciclado(n);
     const { X, VIEJO, NUEVO } = escenario;
@@ -543,6 +547,7 @@ test("los comandos que nombran a alguien van a quien tiene el número ahora, y l
     F.updateUser(NUEVO, { pushName: deNUEVO });
     for (const [archivo, command, resto = "", necesita = null, extra = {}] of COMANDOS_QUE_NOMBRAN) {
       const [A, B] = [unaLid(++n, 1), unaLid(n, 2)];
+      Aura.olvidarDuelosDeAura(); // one aura duel per group, and every form runs in G
       F.initDataDB({ chat: G, sender: A, senderJid: "", pushName: "Quien pide" });
       if (necesita) preparar[necesita](A, B);
       const texto = `@${digitos(X)}${resto}`;
@@ -580,9 +585,12 @@ const ARROBAN_POR_EL_NUMERO = [
 test("a quien el bot conoce solo por su número lo arroban con la mención: el «@» del texto solo no le llegaba", async (t) => {
   const Par = await import("../lib/parejas.js");
   const D = await import("../lib/duelos.js");
+  const Aura = await import("../lib/aura.js");
+  Aura.olvidarDuelosDeAura(); // what the test before left in G
   t.after(() => {
     for (const d of D.duelos.values()) clearTimeout(d.timeout);
     D.duelos.clear();
+    Aura.olvidarDuelosDeAura();
   });
   const [uno, otro] = [soloPorNumero(500), soloPorNumero(501)];
   const { X } = uno;
