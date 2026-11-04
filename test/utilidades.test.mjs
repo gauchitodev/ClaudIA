@@ -161,7 +161,7 @@ test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y qu
   const Z = "cumple-admin@g.us";
   const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
   const anotar = (quien, texto) => C.anotarCumpleDe(Z, quien, texto, ahora);
-  assert.equal(anotar("ana@lid", "").error, "Poné la fecha, con el año: .setcumple @persona 14/03/1995 (día/mes/año). Para borrarlo: .setcumple @persona borrar");
+  assert.equal(anotar("ana@lid", "").error, "Poné la fecha, con el año: .setcumple @persona 14/03/1995 (día/mes/año). Para borrarlo: .delcumple @persona");
   assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .setcumple @persona 14/03/1995 (día/mes/año).");
   assert.equal(anotar("ana@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .setcumple @persona 14/03/1995");
   assert.equal(anotar("ana@lid", "29/02/1990").error, "Esa fecha no existe.");
@@ -177,7 +177,7 @@ test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y qu
   assert.ok(C.registrarCumple(Z, "beto@lid", "05/11/1995", ahora).ok);
   assert.match(anotar("beto@lid", "5.11.96").mensaje, /^🎂 Anotado: el cumple de @beto es el 5 de noviembre de 1996\. .* por sus 30\.$/);
   assert.deepEqual(F.getCumple(Z, "beto@lid"), { dia: 5, mes: 11, anio: 1996 });
-  assert.deepEqual(anotar("beto@lid", "quitar"), { ok: true, mensaje: "🗑️ Listo, borré el cumple de @beto.", mentions: ["beto@lid"] });
+  assert.deepEqual(anotar("beto@lid", "quitar"), { ok: true, mensaje: "🗑️ Listo, borré el cumple de @beto (5 de noviembre).", mentions: ["beto@lid"] });
   assert.equal(F.getCumple(Z, "beto@lid"), null);
   assert.deepEqual(C.textoCumples(Z, ahora).texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "14/03 @ana — en 132 días (cumple 37)"]);
 });
@@ -217,8 +217,125 @@ test("cumpleaños: .setcumple @persona o respondiendo un mensaje suyo; ni a la b
   assert.deepEqual(await correr("20/05/1992", { citado: "bot@lid" }), { text: "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo." });
   assert.deepEqual(await correr("@7099 20/05/1992"), { text: "❌ No tengo datos de esa persona todavía: cuando escriba algo en el grupo, se lo podés anotar." });
   assert.equal(F.getCumple(Z, "7099@lid"), null);
-  assert.deepEqual(await correr("@7003 borrar", { mencion: ["7003@lid"] }), { text: "🗑️ Listo, borré el cumple de @7003.", mentions: ["7003@lid"] });
+  assert.deepEqual(await correr("@7003 borrar", { mencion: ["7003@lid"] }), { text: "🗑️ Listo, borré el cumple de @7003 (20 de mayo).", mentions: ["7003@lid"] });
   assert.equal(F.getCumple(Z, "7003@lid"), null);
+});
+
+// .delcumple as the admins write it: the person mentioned, the author of the message it answers, or their number, with
+// or without the "+", spaced or not. The number is how whoever left the group is named, since WhatsApp no longer offers
+// them when typing @: it's whoever WhatsApp says has it now, and failing an answer, whoever the database knows by it.
+// With a client of its own: other tests here swap the global one.
+test("cumpleaños: .delcumple por mención, respondiendo o con el número, también el de quien ya no está", async (t) => {
+  const Z = "cumple-delcumple@g.us";
+  const P = (await import("../plugins/cumple-del.js")).default;
+  const { usyncFalso } = await import("./identidad-escenarios.mjs");
+  assert.ok(P.onlyAdmin && P.onlyGroup, "solo los admins, y en un grupo");
+  const enviados = [];
+  const client = { user: { lid: "bot@lid", jid: "bot@s.whatsapp.net" }, sendText: async (chat, text, quoted, opciones) => enviados.push(opciones?.mentions ? { text, mentions: opciones.mentions } : { text }) };
+  // Ana and Beto are in the group; Caro and Dani left it, with their numbers on their rows.
+  const gente = [["7101@lid", "Admin", ""], ["7102@lid", "Ana", ""], ["7103@lid", "Beto", ""], ["7104@lid", "Caro", "59899000104@s.whatsapp.net"], ["7105@lid", "Dani", "59899000105@s.whatsapp.net"]];
+  for (const [lid, nombre, jid] of gente) F.initDataDB({ chat: Z, sender: lid, senderJid: jid, pushName: nombre });
+  for (const [lid] of gente.slice(1)) F.setCumple(Z, lid, 14, 3, 1990);
+  const participants = ["7101@lid", "7102@lid", "7103@lid", "bot@lid"].map((id) => ({ id, admin: id === "7101@lid" ? "admin" : null }));
+  const correr = async (text, { mencion = [], citado = null } = {}) => {
+    const antes = enviados.length;
+    const m = { chat: Z, sender: "7101@lid", senderJid: "", text, mentionedJid: mencion, quoted: citado && { sender: citado }, isGroup: true };
+    await P.run(m, { client, text, args: text.split(" "), command: "delcumple", usedPrefix: ".", participants, isAdmin: true, isWaAdmin: true });
+    assert.equal(enviados.length, antes + 1, "contesta una vez");
+    return enviados.at(-1);
+  };
+  const borrado = (n) => ({ text: `🗑️ Listo, borré el cumple de @${n} (14 de marzo).`, mentions: [`${n}@lid`] });
+
+  assert.deepEqual(await correr(""), { text: "❌ ¿De quién? Mencioná a la persona, respondé un mensaje suyo o poné su número (así se borra el de quien ya no está en el grupo): .delcumple @persona o .delcumple +598 99 123 456" });
+  assert.deepEqual(await correr("@7102", { mencion: ["7102@lid"] }), borrado(7102));
+  assert.equal(F.getCumple(Z, "7102@lid"), null);
+  assert.deepEqual(await correr("@7102", { mencion: ["7102@lid"] }), { text: "❌ Esa persona no tenía cumple anotado." });
+  assert.deepEqual(await correr("", { citado: "7103@lid" }), borrado(7103), "respondiendo un mensaje suyo");
+  // Caro left: by her number, which WhatsApp says is hers.
+  const consultas = usyncFalso(t, { "59899000104@s.whatsapp.net": "7104@lid" }, client);
+  assert.deepEqual(await correr("59899000104"), borrado(7104), "el número solo");
+  assert.equal(consultas.length, 1, "le preguntó a WhatsApp de quién es");
+  F.setCumple(Z, "7104@lid", 14, 3, 1990);
+  // With the + and spaced, answering a message of Claudia's: the number typed wins over the message it answers.
+  assert.deepEqual(await correr("+598 99 000 104", { citado: "bot@lid" }), borrado(7104), "con el + y espaciado");
+  // With WhatsApp not answering, whoever the database knows by the number: Dani.
+  delete client.executeUSyncQuery;
+  assert.deepEqual(await correr("598-99-000-105"), borrado(7105));
+  // Claudia, answering her message with no number; a number as it's dialed at home; and digits too few to be one.
+  assert.deepEqual(await correr("", { citado: "bot@lid" }), { text: "❌ Esa soy yo: mencioná a la persona, respondé un mensaje suyo o poné su número." });
+  assert.deepEqual(await correr("099 000 105"), { text: "❌ Poné el número con el código del país: .delcumple +598 99 123 456" });
+  assert.match((await correr("12")).text, /^❌ ¿De quién\?/);
+  assert.deepEqual(gente.map(([lid]) => F.getCumple(Z, lid)), [null, null, null, null, null]);
+
+  // Eva noted hers when the group showed her by her number, and again by her LID: both go, whichever she's named by.
+  const EVA = ["7106@lid", "59899000106@s.whatsapp.net"];
+  F.initDataDB({ chat: Z, sender: EVA[0], senderJid: EVA[1], pushName: "Eva" });
+  for (const id of EVA) F.setCumple(Z, id, 14, 3, 1990);
+  participants.push({ id: EVA[0], phoneNumber: EVA[1] });
+  assert.deepEqual(await correr("@7106", { mencion: [EVA[0]] }), borrado(7106));
+  assert.deepEqual(EVA.map((id) => F.getCumple(Z, id)), [null, null]);
+  // Fede left, and the number on his row is Gabi's now, who's in the group by it: Gabi's birthday isn't Fede's.
+  const GABI = "59899000107@s.whatsapp.net";
+  F.initDataDB({ chat: Z, sender: "7107@lid", senderJid: GABI, pushName: "Fede" });
+  F.initDataDB({ chat: Z, sender: GABI, senderJid: "", pushName: "Gabi" });
+  F.setCumple(Z, "7107@lid", 14, 3, 1990);
+  F.setCumple(Z, GABI, 9, 9, 1999);
+  participants.push({ id: GABI });
+  assert.deepEqual(await correr("@7107"), borrado(7107));
+  assert.deepEqual(F.getCumple(Z, GABI), { dia: 9, mes: 9, anio: 1999 }, "el de Gabi sigue");
+});
+
+// Whoever isn't in the group anymore goes apart in .cumples, with the day alone: they're not greeted, and an admin
+// deletes theirs with .delcumple. The plugin hands over the group's list; with none (empty), nobody is set apart, since
+// everyone would be.
+test("cumpleaños: .cumples muestra aparte a los que ya no están en el grupo", async () => {
+  const Z = "cumple-idos@g.us";
+  const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
+  F.setCumple(Z, "7201@lid", 5, 11, 1995);
+  F.setCumple(Z, "7202@lid", 14, 3, 1990);
+  F.setCumple(Z, "7203@lid", 10, 1);
+  const r = C.textoCumples(Z, ahora, (lid) => lid === "7201@lid");
+  assert.deepEqual(r.texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "05/11 @7201 — en 3 días (cumple 31)", "", "🚪 *Ya no están en el grupo* (no los saludo; un admin borra su cumple con .delcumple)", "10/01 @7203", "14/03 @7202"]);
+  assert.deepEqual(r.mentions, ["7201@lid", "7203@lid", "7202@lid"]);
+  assert.equal(C.textoCumples(Z, ahora, () => false).texto.split("\n")[1], "Nadie de los que están anotó su cumple todavía. Anotá el tuyo con .cumple 14/03/1995");
+
+  const P = (await import("../plugins/cumple.js")).default;
+  const enviados = [];
+  const client = { sendMessage: async (chat, contenido) => enviados.push(contenido) };
+  const pedir = async (participants) => {
+    await P.run({ chat: Z, sender: "7201@lid", isGroup: true }, { client, text: "", command: "cumples", participants });
+    return enviados.at(-1).text;
+  };
+  const idos = await pedir([{ id: "7201@lid" }, { id: "bot@lid" }]);
+  assert.match(idos, /\n\n🚪 \*Ya no están en el grupo\* .*\n10\/01 @7203\n14\/03 @7202$/);
+  assert.doesNotMatch(await pedir([]), /Ya no están/, "sin la lista del grupo, todos juntos");
+});
+
+// The greeting skips whoever left: it tagged someone who was gone. Their birthday stays noted. With no list of the
+// group (WhatsApp didn't give one, and there's no copy), they're greeted as before. Each in a group of its own, its
+// list as lib/cache-grupos.js keeps it.
+test("cumpleaños: el saludo no va para quien ya no está en el grupo, y sin la lista del grupo saluda igual", async () => {
+  const { guardar } = await import("../lib/cache-grupos.js");
+  const [Z, SIN_LISTA, VACIA] = ["120363000000000301@g.us", "120363000000000302@g.us", "120363000000000303@g.us"];
+  C.CUMPLE.HORA_SALUDO = 0;
+  for (const lid of ["7301@lid", "7302@lid"]) F.setCumple(Z, lid, 20, 6, 1990);
+  F.setCumple(SIN_LISTA, "7303@lid", 20, 6, 1990);
+  F.setCumple(VACIA, "7304@lid", 20, 6, 1990);
+  guardar(globalThis.client, Z, { id: Z, subject: "Cumples", participants: [{ id: "7301@lid" }, { id: "bot@lid" }] });
+  guardar(globalThis.client, VACIA, { id: VACIA, subject: "Sin gente", participants: [] }); // a list that came empty
+  const antes = globalThis.enviados.length;
+  const errorReal = console.error;
+  console.error = () => {}; // lib/cache-grupos.js says it couldn't get SIN_LISTA's list
+  try {
+    await C.chequearCumpleanos(new Date(2027, 5, 20, 10));
+  } finally {
+    console.error = errorReal;
+  }
+  const saludos = globalThis.enviados.slice(antes);
+  assert.deepEqual(saludos.filter((e) => e.chat === Z).map((e) => e.msg.mentions), [["7301@lid"]], "solo a quien está");
+  assert.deepEqual(F.getCumple(Z, "7302@lid"), { dia: 20, mes: 6, anio: 1990 }, "el de quien se fue sigue anotado");
+  assert.deepEqual(saludos.filter((e) => e.chat === SIN_LISTA).map((e) => e.msg.mentions), [["7303@lid"]], "sin la lista, saluda igual");
+  assert.deepEqual(saludos.filter((e) => e.chat === VACIA).map((e) => e.msg.mentions), [["7304@lid"]], "y con una vacía, también");
 });
 
 test("backup con la copia real de SQLite, rotación y envío semanal", async () => {

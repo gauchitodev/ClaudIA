@@ -266,6 +266,35 @@ test(".setcumple: lo usan los admins de WhatsApp y del bot y el owner; un modera
   assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 16, mes: 5, anio: 1992 }, "queda el que había");
 });
 
+// .delcumple (plugins/cumple-del.js) is for the admins, as .setcumple: a moderator, or anyone else, gets the
+// admins-only notice, and the birthday stays. A group of its own.
+test(".delcumple: lo usan los admins de WhatsApp y del bot y el owner; un moderador y el resto, no", async () => {
+  const CUMPLES = "120363000000000062@g.us";
+  const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
+  const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
+  globalThis.plugins = { "cumple-del.js": carpeta["cumple-del.js"] };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Cumples", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
+  F.setRolGrupo(CUMPLES, CARLA, "admin");
+  F.setRolGrupo(CUMPLES, DANI, "mod");
+  // Beto's, as each one deletes it. The owner's message carries their number too (participantAlt), as in .setcumple's.
+  const borra = async (sender, alt = null) => {
+    globalThis.enviados = [];
+    const key = { remoteJid: CUMPLES, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: sender, ...(alt && { participantAlt: alt }) };
+    await handleMessage.call(client, { key, message: { conversation: ".delcumple @300000000000003" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text).join("\n");
+  };
+  for (const [quien, alt, cual] of [[ANA, null, "un admin de WhatsApp"], [CARLA, null, "un admin del bot"], [DUENO, "59899111222@s.whatsapp.net", "el owner"]]) {
+    F.setCumple(CUMPLES, BETO, 14, 3, 1990);
+    assert.equal(await borra(quien, alt), "🗑️ Listo, borré el cumple de @300000000000003 (14 de marzo).", cual);
+    assert.equal(F.getCumple(CUMPLES, BETO), null, cual);
+  }
+  F.setCumple(CUMPLES, BETO, 14, 3, 1990);
+  assert.equal(await borra(DANI), globalThis.txt.onlyAdmin, "un moderador, no");
+  assert.equal(await borra(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
+  assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 14, mes: 3, anio: 1990 }, "queda el que había");
+});
+
 // .modoadmin leaves the bot to the owner, the admins and the mods, but for .notagall and .sitagall (fueraDelModoAdmin):
 // a preference about oneself, and with the mode on nobody else could get out of the calls to everyone, nor back in.
 // Any other command from someone with no rank still gets nothing, and so does theirs if a plugin that doesn't stay

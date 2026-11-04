@@ -2,8 +2,8 @@ import { anotarCumpleDe } from "../lib/cumpleanos.js";
 import { lidMencionadoActual, filaDe, esElBot } from "../lib/identidad.js";
 
 // .setcumple @persona 14/03/1995, or replying to one of their messages: an admin notes someone's birthday, or changes
-// it, with .cumple's checks (lib/cumpleanos.js) · .setcumple @persona borrar deletes it. The person is who .perfil
-// reads them as, so the profile, .cumples and the greeting go by what's noted here.
+// it, with .cumple's checks (lib/cumpleanos.js). .delcumple deletes it, and so does "borrar" in place of the date. The
+// person is who .perfil reads them as, so the profile, .cumples and the greeting go by what's noted here.
 const plugin = {};
 plugin.cmd = ["setcumple"];
 plugin.onlyGroup = true;
