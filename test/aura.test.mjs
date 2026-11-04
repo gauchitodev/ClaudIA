@@ -333,6 +333,14 @@ test(".aura muestra el ranking del mes por nombre, sin arrobar, con la corona, e
   assert.match(texto(await ranking(5)), /\n\nVos: nada este mes · \*1\.000\* en total · 1 duelo ganado y 0 perdidos\.$/);
   assert.match(texto(await ranking(6)), /\n\nVos: todavía no ganaste ni perdiste ningún duelo de aura\.$/);
   assert.match(texto(await ranking(6, { quoted: { sender: BOT } })), /^✨ \*Ranking de aura/, "respondiendo a Claudia, también el ranking");
+  // With "nombres" or "numeros" (lib/menciones.js): by WhatsApp name with the nickname in brackets, or by number.
+  F.updateUser(lid(2), { apodo: "Dos" });
+  assert.match(texto(await ranking(6)), /\n👑 Dos — \*2\.000\*/);
+  assert.match(texto(await ranking(6, { texto: "nombres" })), /\n👑 Persona 2 \(Dos\) — \*2\.000\* \(el aura del mes\)\n2\. Persona 3 — \*1\.000\*/);
+  const [porNumero] = await ranking(6, { texto: "numeros" });
+  assert.match(porNumero.text, /\n👑 \+59899000002 \(Dos\) — \*2\.000\* \(el aura del mes\)\n2\. \+59899000003 \(Persona 3\) — \*1\.000\*/);
+  assert.ok(!porNumero.mentions?.length, "sin arrobar");
+  F.updateUser(lid(2), { apodo: "" });
   // Ten at most.
   for (let n = 10; n <= 20; n++) F.anotarDueloDeAura(mes, C, lid(n), lid(9), 3000, ahora - 1000 + n);
   const largo = texto(await ranking(6));
@@ -343,5 +351,5 @@ test(".aura muestra el ranking del mes por nombre, sin arrobar, con la corona, e
 
 test("el menú lo ofrece entre los juegos, con el premio que da lib/aura.js", () => {
   const juegos = seccionesDelMenu(".").find((s) => s.clave === "juegos");
-  assert.match(juegos.lineas, /\n▸ \.aura @mención ✨ – `Duelo de aura: si acepta \(\.aura si\), el grupo vota con 🔵 o 🔴 y el que gana suma 1\.000 de aura del mes\. \.aura sola muestra el ranking; \.noaura te saca de los duelos y \.siaura te vuelve a poner\.`\n/);
+  assert.match(juegos.lineas, /\n▸ \.aura @mención ✨ – `Duelo de aura: si acepta \(\.aura si\), el grupo vota con 🔵 o 🔴 y el que gana suma 1\.000 de aura del mes\. \.aura sola muestra el ranking \(con nombres o numeros al final, por nombre de WhatsApp o por número\); \.noaura te saca de los duelos y \.siaura te vuelve a poner\.`\n/);
 });

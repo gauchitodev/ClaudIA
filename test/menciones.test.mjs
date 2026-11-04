@@ -41,3 +41,37 @@ test("de punta a punta: .regalar @teléfono le llega a esa persona", async () =>
   assert.match(ultimoEnviado().msg.text, /Le regalaste \*30 UruCoins\*/);
   assert.equal(F.getSaldoCoins(G, LID), 30);
 });
+
+// Naming by WhatsApp name or by phone number, for the lists that name people without tagging them (.familias, .baltop,
+// .ranking…): the nickname from the shop can be anything, and a tree or a ranking didn't say who was who.
+test("nombreDe por nombre o por número: la palabra del comando, los paréntesis, y solo mientras se arma el texto", async () => {
+  const M = await import("../lib/menciones.js");
+  const OTRO = "222222222222222@lid";
+  F.updateUser(LID, { apodo: "Tito", pushName: "Carlos" });
+  F.updateUser(OTRO, { apodo: "", pushName: "Ana" });
+  F.updateUser("a@lid", { apodo: "Pepe", pushName: "" });
+  // the word, wherever it goes, with or without its accent, and the text without it
+  assert.deepEqual(M.modoDeNombre("@40 nombres"), { modo: "nombres", texto: "@40" });
+  assert.deepEqual(M.modoDeNombre("Números @40"), { modo: "numeros", texto: "@40" });
+  assert.deepEqual(M.modoDeNombre("nombre"), { modo: "nombres", texto: "" });
+  assert.deepEqual(M.modoDeNombre("@40"), { modo: "apodo", texto: "@40" });
+  assert.deepEqual(M.modoDeNombre(""), { modo: "apodo", texto: "" });
+  assert.deepEqual(M.modoDeNombre("sinnombres"), { modo: "apodo", texto: "sinnombres" });
+  // as always: the nickname, or the name
+  assert.deepEqual([LID, OTRO, "a@lid"].map(M.nombreDe), ["Tito", "Ana", "Pepe"]);
+  // by name: the WhatsApp name, with the nickname in brackets when they have one; without a name, the nickname
+  assert.deepEqual(M.nombrandoPor("nombres", () => [LID, OTRO, "a@lid"].map(M.nombreDe)), ["Carlos (Tito)", "Ana", "Pepe"]);
+  // by number: the one they're known by, with what they're called; without a number the bot knows, it says so
+  assert.deepEqual(M.nombrandoPor("numeros", () => [LID, OTRO, "a@lid"].map(M.nombreDe)), [`+${TEL} (Tito)`, "+59899333444 (Ana)", "Pepe (sin número)"]);
+  // Claudia is Claudia, number or not
+  assert.equal(M.nombrandoPor("numeros", () => M.nombreDe(globalThis.client.user.lid)), "Claudia");
+  // the mode holds through the awaits of the text being built, and not past it, nor over another built in the meantime
+  const lento = M.nombrandoPor("numeros", async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    return M.nombreDe(LID);
+  });
+  assert.equal(M.nombrandoPor("nombres", () => M.nombreDe(LID)), "Carlos (Tito)");
+  assert.equal(M.nombreDe(LID), "Tito");
+  assert.equal(await lento, `+${TEL} (Tito)`);
+  assert.equal(M.nombrandoPor("apodo", () => M.nombreDe(LID)), "Tito");
+});

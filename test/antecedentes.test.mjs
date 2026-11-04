@@ -258,3 +258,28 @@ test("el registro de una fila de dispositivo pasa a la de su LID", () => {
   assert.deepEqual(deQuien, [[L, "del dispositivo"], [M, "del que pasa a ser su LID"]]);
   otra.close();
 });
+
+// With "nombres" or "numeros" (lib/menciones.js): whoever the record is of and whoever gave each warning, by WhatsApp
+// name with the nickname in brackets, or by number (which these, known by their LID alone, haven't got); the word goes
+// next to the mention, or alone for one's own.
+test(".antecedentes nombres / numeros: por nombre de WhatsApp o por número", async () => {
+  const C = "ant-nombres@g.us";
+  const gente = grupo(C, ["9241@lid", "Fulano"]);
+  F.updateUser(MOD, { apodo: "Jefe" });
+  try {
+    await a(hora(12, 18, 42), () => advertir(C, gente, "9241@lid", "spam"));
+    assert.deepEqual(renglones((await verDe(C, gente, "9241@lid")).text), ["• 12/10/2026 18:42 — «spam» (de Jefe) ⚠️ vigente"]);
+    const porNombre = await verDe(C, gente, "9241@lid", { text: "@9241 nombres" });
+    assert.equal(porNombre.text.split("\n")[0], "📋 *Antecedentes de Fulano en este grupo*");
+    assert.deepEqual(renglones(porNombre.text), ["• 12/10/2026 18:42 — «spam» (de Mod (Jefe)) ⚠️ vigente"]);
+    const porNumero = await verDe(C, gente, "9241@lid", { text: "numeros @9241" });
+    assert.equal(porNumero.text.split("\n")[0], "📋 *Antecedentes de Fulano (sin número) en este grupo*");
+    assert.deepEqual(renglones(porNumero.text), ["• 12/10/2026 18:42 — «spam» (de Jefe (sin número)) ⚠️ vigente"]);
+    assert.equal(porNumero.mentions, undefined);
+    const propio = await correr(Ant, C, gente, { text: "nombres", sender: "9241@lid", isMod: false, isWaAdmin: false });
+    assert.equal(propio.text.split("\n")[0], "📋 *Tus antecedentes en este grupo*");
+    assert.deepEqual(renglones(propio.text), ["• 12/10/2026 18:42 — «spam» (de Mod (Jefe)) ⚠️ vigente"]);
+  } finally {
+    F.updateUser(MOD, { apodo: "" });
+  }
+});

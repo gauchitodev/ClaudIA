@@ -166,3 +166,22 @@ test(".inventario y .racha @persona muestran los de esa persona, sin arrobarla",
   await pedir("a@lid", { text: "@Pica" }, Racha);
   assert.equal(ultimoEnviado().msg.text, "🔥 No sé de quién querés ver la racha: elegí a la persona de la lista que aparece al escribir @, o respondé un mensaje suyo con .racha.");
 });
+
+// With "nombres" or "numeros" (lib/menciones.js): everyone by their WhatsApp name, with the nickname in brackets, or by
+// their number.
+test(".baltop nombres y .baltop numeros: por nombre de WhatsApp o por número, sin arrobar", async () => {
+  const T = "top-nombres@g.us";
+  const RICA = "300000000000031@lid";
+  F.initDataDB({ chat: G, sender: RICA, senderJid: "59899000031@s.whatsapp.net", pushName: "Rica" });
+  F.updateUser(RICA, { apodo: "La Capa" });
+  fijarSaldo(F, T, RICA, 500);
+  const top = async (text) => {
+    await Top.run({ chat: T, sender: RICA, text, isGroup: true }, { client: globalThis.client, text, user: {} });
+    return ultimoEnviado().msg;
+  };
+  assert.match((await top("")).text, /\n1\. La Capa — \*500\*\n/);
+  assert.match((await top("nombres")).text, /\n1\. Rica \(La Capa\) — \*500\*\n/);
+  const porNumero = await top("numeros");
+  assert.match(porNumero.text, /\n1\. \+59899000031 \(La Capa\) — \*500\*\n/);
+  assert.equal(porNumero.mentions, undefined, "sin arrobar");
+});

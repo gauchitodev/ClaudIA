@@ -136,6 +136,11 @@ test(".ex: nombra a los ex y a la pareja actual sin arrobarlos; solo arroba a qu
     const { text, mentions } = ultimoEnviado().msg;
     assert.equal(text, "*Historial de relaciones de @40:*\n\nPersona 41\n\n*Pareja actual:* Persona 42");
     assert.deepEqual(mentions, [L(40)]);
+    // With "numeros" next to the mention (lib/menciones.js): the exes by their number, which these, known by their LID
+    // alone, haven't got; whoever it's about is still the only one tagged.
+    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: globalThis.client, text: "@40 numeros", usedPrefix: ".", command: "ex" });
+    assert.equal(ultimoEnviado().msg.text, "*Historial de relaciones de @40:*\n\nPersona 41 (sin número)\n\n*Pareja actual:* Persona 42 (sin número)");
+    assert.deepEqual(ultimoEnviado().msg.mentions, [L(40)]);
   } finally {
     P.terminarPareja(L(40));
   }

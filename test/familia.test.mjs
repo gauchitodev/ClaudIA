@@ -333,6 +333,23 @@ test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .
   assert.match(ultimoEnviado().msg.text, /\n\d\. \*Sosa\* · 3 personas\nPersona 13 💍 Persona 14\n└ Persona 12(\n|$)/);
   await Familia.run({ chat: G, sender: L(12), isGroup: true, mentionedJid: [] }, { client, text: "", usedPrefix: ".", command: "familias", participants: [{ id: "otro@lid" }] });
   assert.match(ultimoEnviado().msg.text, /Todavía no hay ninguna/, "nadie de esas familias está en el grupo");
+  // With "nombres" or "numeros" (lib/menciones.js): everyone by their WhatsApp name, with the nickname in brackets, or
+  // by their number; the word goes next to a mention too, and nobody gets tagged.
+  F.updateUser(L(13), { apodo: "Tito" });
+  try {
+    const familias = (text) => Familia.run({ chat: G, sender: L(12), isGroup: true, mentionedJid: [] }, { client, text, usedPrefix: ".", command: "familias", participants: participantes });
+    await familias("");
+    assert.match(ultimoEnviado().msg.text, /\n\d\. \*Sosa\* · 3 personas\nTito 💍 Persona 14\n└ Persona 12(\n|$)/, "con apodo, el apodo");
+    await familias("nombres");
+    assert.match(ultimoEnviado().msg.text, /\n\d\. \*Sosa\* · 3 personas\nPersona 13 \(Tito\) 💍 Persona 14\n└ Persona 12(\n|$)/);
+    await familias("numeros");
+    assert.match(ultimoEnviado().msg.text, /\n\d\. \*Sosa\* · 3 personas\n\+13 \(Tito\) 💍 \+14 \(Persona 14\)\n└ \+12 \(Persona 12\)(\n|$)/);
+    assert.equal(ultimoEnviado().msg.mentions, undefined, "sin arrobar");
+    await Familia.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(12)] }, { client, text: "@12 numeros", usedPrefix: ".", command: "familia", participants: participantes });
+    assert.equal(ultimoEnviado().msg.text, "👨‍👩‍👧‍👦 *Familia Sosa* · +12 (Persona 12)\n👨‍👩‍👧 Padres: +13 (Tito) y +14 (Persona 14)");
+  } finally {
+    F.updateUser(L(13), { apodo: "" });
+  }
 
   // kisses and dating within the family: no
   await correr(Besar, L(12), "@13", "besar", [L(13)]);

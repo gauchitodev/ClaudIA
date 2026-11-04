@@ -1,6 +1,6 @@
 import { topCoins, puestoCoins, getSaldoCoins, totalEnCirculacion } from "../database-functions.js";
 import { etiquetaLaburo } from "../lib/laburos.js";
-import { nombreDe } from "../lib/menciones.js";
+import { nombreDe, modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 
 const TOP_N = 10;
 
@@ -10,15 +10,19 @@ plugin.economia = true;
 plugin.onlyGroup = true;
 
 // The group's richest (this used to live inside .coins). If you don't make the top, it tells you your place.
-// It uses names and no mentions: tagging ten people per query filled their phones with notifications.
-plugin.run = async (m, { client }) => {
+// It uses names and no mentions: tagging ten people per query filled their phones with notifications. With "nombres"
+// or "numeros", everyone by their WhatsApp name or by their number (lib/menciones.js).
+plugin.run = async (m, { client, text }) => {
+  const { modo } = modoDeNombre(text);
   const top = topCoins(m.chat, TOP_N);
   if (top.length === 0) return client.sendText(m.chat, "💰 Acá nadie tiene UruCoins todavía. Se ganan reaccionando, con los hashtags y ganando juegos.", m);
 
-  const lineas = top.map((r, i) => {
-    const laburo = etiquetaLaburo(m.chat, r.usuario);
-    return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo})` : ""} — *${r.saldo}*`;
-  });
+  const lineas = nombrandoPor(modo, () =>
+    top.map((r, i) => {
+      const laburo = etiquetaLaburo(m.chat, r.usuario);
+      return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo})` : ""} — *${r.saldo}*`;
+    }),
+  );
 
   const pie = [];
   if (!top.some((r) => r.usuario === m.sender)) {

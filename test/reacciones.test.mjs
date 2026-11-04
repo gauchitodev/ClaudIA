@@ -108,6 +108,16 @@ test(".ranking: «1 reacción» en singular, y por nombre, sin arrobar a nadie",
   assert.match(text, /1\. Ana — 1 reacción\n/);
   assert.match(text, /1\. Beto — 2 reacciones dadas$/);
   assert.equal(mentions, undefined);
+  // With "nombres" or "numeros" (lib/menciones.js): by WhatsApp name with the nickname in brackets, or by number, which
+  // Ana, known by her LID alone, hasn't got.
+  F.updateUser("111@lid", { apodo: "Anita" });
+  await Ranking.run({ chat: R2, isGroup: true }, { client: clienteFalso() });
+  assert.match(ultimoEnviado().msg.text, /1\. Anita — 1 reacción\n/);
+  await Ranking.run({ chat: R2, isGroup: true }, { client: clienteFalso(), text: "nombres" });
+  assert.match(ultimoEnviado().msg.text, /1\. Ana \(Anita\) — 1 reacción\n/);
+  await Ranking.run({ chat: R2, isGroup: true }, { client: clienteFalso(), text: "numeros" });
+  assert.match(ultimoEnviado().msg.text, /1\. Anita \(sin número\) — 1 reacción\n/);
+  assert.equal(ultimoEnviado().msg.mentions, undefined);
 });
 
 // Her own reactions by her number, as a group that lists people by number brings them: they count for nothing, as by

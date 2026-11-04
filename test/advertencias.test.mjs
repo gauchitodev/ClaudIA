@@ -180,3 +180,17 @@ test("unwarn: nadie se saca sus propias advertencias, y un moderador no se las s
   await correr(Unwarn, "@301", { mentionedJid: ["301@lid"] });
   assert.equal(F.advertenciasDe("301@lid", G), 1);
 });
+
+// With "numeros" (lib/menciones.js), the owner asked for the numbers: everyone by theirs, in a group too, with what
+// they're called in brackets; "nombres" names them by their WhatsApp name.
+test("la lista de advertidos con «numeros»: el número de cada uno, también en un grupo", async () => {
+  F.setAdvertencias("111@lid", G, 2);
+  F.setAdvertencias("222@lid", H, 1);
+  await Lista.run(m("numeros"), { client: globalThis.client, text: "numeros" });
+  assert.match(ultimo(), /│ \+5989911111 \(Fulano\) \*\(2\/3\)\*/);
+  await Lista.run(m("numeros", { chat: H }), { client: globalThis.client, text: "numeros" });
+  assert.match(ultimo(), /│ \+5989911222 \(alguien\) \*\(1\/3\)\*/);
+  await Lista.run(m("nombres"), { client: globalThis.client, text: "nombres" });
+  assert.match(ultimo(), /│ Fulano \*\(2\/3\)\*/);
+  assert.doesNotMatch(ultimo(), /5989911111/);
+});
