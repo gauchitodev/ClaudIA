@@ -14,6 +14,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   const pp = await obtenerFotoPerfil(client, who);
+  // Without a photo the bot can see there's nothing to put the effect on: it used to go on a grey generic avatar.
+  if (!pp) return client.sendText(m.chat, txt.defaultNoPP, m);
   m.react("⏳");
   try {
     const years = elegirAlAzar(["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"]);

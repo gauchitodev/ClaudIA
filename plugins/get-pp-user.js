@@ -1,4 +1,4 @@
-import { obtenerFotoPerfil, AVATAR_DEFAULT } from "../lib/foto-perfil.js";
+import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 import { destinatarioActual } from "../lib/identidad.js";
 
 const plugin = {};
@@ -12,9 +12,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const { objetivo: who, mencionado } = await destinatarioActual(client, m, text, participants);
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
-  // obtenerFotoPerfil translates the @lid to the real number; if it returns the generic avatar, no picture is visible.
+  // obtenerFotoPerfil translates the @lid to the real number; null means no picture is visible.
   const pp = await obtenerFotoPerfil(client, who);
-  if (!pp || pp === AVATAR_DEFAULT) return client.sendText(m.chat, txt.defaultNoPP, m);
+  if (!pp) return client.sendText(m.chat, txt.defaultNoPP, m);
   // The picture is the answer: if it doesn't come down (sendFile throws, lib/wa-socket.js), that's said instead of
   // nothing.
   await client.sendFile(m.chat, pp, "pp.jpg", null, m).catch((e) => {

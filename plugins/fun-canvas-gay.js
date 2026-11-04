@@ -13,6 +13,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   if (!mencionado) return client.sendText(m.chat, txt.defaultWho(usedPrefix, command), m);
 
   const pp = await obtenerFotoPerfil(client, who);
+  // Without a photo the bot can see there's nothing to put the effect on: it used to go on a grey generic avatar.
+  if (!pp) return client.sendText(m.chat, txt.defaultNoPP, m);
   m.react("⏳");
   try {
     const imagen = await superponer(pp, "https://vectorflags.s3.amazonaws.com/flags/org-lgbt-square-01.png", { opacidad: 0.3 });
