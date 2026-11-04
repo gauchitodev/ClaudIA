@@ -10,6 +10,7 @@
 import { salaVigente, abrirMesa, sentarse, anotarJugada, terminar, soltar, dibujar, FICHA, textoLimitesCuatroEnLinea } from "../lib/cuatro-en-linea.js";
 import { frenoDelCasino } from "../lib/casino.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["4enlinea", "4enlínea"];
@@ -38,7 +39,8 @@ plugin.run = async (m, { client, text, chat }) => {
   try {
     // A bet is a whole number of UruCoins; nothing is a free game.
     const pedido = String(text || "").trim();
-    const apuesta = pedido ? (/^\d+$/.test(pedido) ? Number(pedido) : NaN) : null;
+    // Written as people write it here (lib/comandos.js): "1.000" is a thousand.
+    const apuesta = pedido ? (leerEntero(pedido) ?? NaN) : null;
     if (Number.isNaN(apuesta)) return client.sendText(m.chat, `Para jugar por UruCoins: .4enlinea 100 (${textoLimitesCuatroEnLinea()}). Sin nada, se juega por diversión.`, m);
 
     // The tic-tac-toe takes the same plain numbers as moves, so nobody plays both at once (.ttt asks the same).

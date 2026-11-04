@@ -7,7 +7,10 @@ plugin.botAdmin = true;
 // Admins only, not moderators: mentioning the whole group ten times in a row is the closest thing to spam the bot does.
 plugin.onlyAdmin = true;
 
-plugin.run = async (m, { client, isOwner, text, participants, chat }) => {
+plugin.run = async (m, { client, isOwner, text: unaLinea, textoCompleto, participants, chat }) => {
+  // The text as it was typed, line breaks included (textoCompleto, lib/comandos.js); whoever calls it directly may
+  // pass just text.
+  const text = textoCompleto ?? unaLinea;
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);
   // Forcing a notice past the opt-outs is .tagall's, once: not a burst of ten.
   if (separarForzado(text).forzar) return client.sendText(m.chat, "❌ El -f va con .tagall: la ráfaga de .tagall2 no se fuerza.", m);

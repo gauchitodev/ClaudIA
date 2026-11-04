@@ -1,6 +1,7 @@
 import { desafiar, aceptar, rechazar, retadosEn, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
 import { COINS } from "../lib/urucoins.js";
 import { lidMencionadoActual, comoLoEsperan } from "../lib/identidad.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
@@ -36,7 +37,9 @@ plugin.run = async (m, { client, args, text, command, chat, participants }) => {
       );
     }
     const retado = await lidMencionadoActual(client, m, text, participants); // the old regex swallowed the amount that came after the mention
-    const cantidad = parseInt(args.find((a) => /^\d+$/.test(a)), 10);
+    // The first word that is an amount, written as people write it here (lib/comandos.js): "1.000 por 2 cafés" is a
+    // thousand, and it took 2.
+    const cantidad = args.map((a) => leerEntero(a)).find((n) => n !== null) ?? NaN;
     const tipo = command === "pelea" ? "pelea" : args.find((a) => /^(dado|dados|carta|cartas|pelea|peleas|piñas|pinas)$/i.test(a)) || "dado";
     r = desafiar(m.chat, m.sender, retado, cantidad, tipo, avisar);
   }

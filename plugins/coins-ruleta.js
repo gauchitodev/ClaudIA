@@ -1,4 +1,5 @@
 import { apostarRuleta, textoMesaRuleta, textoLimitesCasino, CASINO } from "../lib/casino.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["ruleta"];
@@ -10,8 +11,9 @@ plugin.onlyGroup = true;
 // .ruleta <amount> <bet>: the first bet opens the table; for a few seconds everyone bets, and then the ball drops
 // once for every bet. .ruleta with nothing shows the open table or the help.
 plugin.run = async (m, { client, args, chat }) => {
-  const cantidad = parseInt(args[0], 10);
-  if (!args[0] || Number.isNaN(cantidad)) {
+  // The amount as people write it here (lib/comandos.js): "1.000" is a thousand, and parseInt read it as 1.
+  const cantidad = leerEntero(args[0]);
+  if (cantidad === null) {
     const mesa = textoMesaRuleta(m.chat);
     if (mesa) return client.sendMessage(m.chat, { text: mesa.texto, mentions: mesa.mentions }, { quoted: m });
     return client.sendText(

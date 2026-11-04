@@ -873,3 +873,59 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   F.updateChat(GRUPO, { horarioJuegos: cerrado });
   assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
 });
+
+// ---------- what a command is (lib/comandos.js) ----------
+// The prefix with the name right against it: "...pero bueno" was the command "..pero", and the bot answered that it
+// doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.
+test("el despachador: a lo que no es un comando no le contesta, y a lo que parece uno y no existe, sí", async () => {
+  const corrieron = [];
+  globalThis.plugins = { "probar.js": { cmd: ["probar"], run: async (m, { text, textoCompleto, command }) => corrieron.push({ command, text, textoCompleto }) } };
+  const client = cliente();
+  const mandar = async (texto) => {
+    globalThis.enviados = [];
+    corrieron.length = 0;
+    await llega(client, ANA, texto).hecho;
+    return globalThis.enviados.map((e) => e.msg?.text ?? e.msg?.react?.text);
+  };
+  for (const texto of ["...pero bueno", ". hola", ".\nhola", ".5 kilos más", "@59899000001 hola", "@noexiste", ".foo_bar", "...", "."]) {
+    assert.deepEqual(await mandar(texto), [], JSON.stringify(texto));
+  }
+  assert.deepEqual(await mandar(".noexiste"), [globalThis.txt.noCommandMatch("noexiste")]);
+  assert.deepEqual(await mandar("/noexiste"), [globalThis.txt.noCommandMatch("noexiste")]);
+  // The name cleaned, the words as always, and the text as it was typed for the commands that keep it.
+  await mandar(".PROBAR? uno   dos\ntres");
+  assert.deepEqual(corrieron, [{ command: "probar", text: "uno dos tres", textoCompleto: "uno   dos\ntres" }]);
+});
+
+// Before admin mode and the banned notice: a banned person who wrote "..." or mentioned someone got "ESTÁS BANEADO".
+test("el despachador: a un baneado que escribe «...» o menciona a alguien no le llega el aviso de baneado", async () => {
+  globalThis.plugins = { "probar.js": { cmd: ["probar"], run: async () => {} } };
+  const client = cliente();
+  F.updateUser(BETO, { banned: true, lastmining: 0 });
+  try {
+    for (const texto of ["...", "...pero bueno", `@${ANA.split("@")[0]} hola`]) {
+      globalThis.enviados = [];
+      await llega(client, BETO, texto).hecho;
+      assert.deepEqual(globalThis.enviados, [], texto);
+    }
+    globalThis.enviados = [];
+    await llega(client, BETO, ".probar").hecho;
+    assert.match(globalThis.enviados.map((e) => e.msg?.text).join(), /ESTÁS BANEADO/, "a un comando, sí");
+  } finally {
+    F.updateUser(BETO, { banned: false, lastmining: 0 });
+  }
+});
+
+// Through the dispatcher, the rules keep their lines: they were joined into one, though the plugin kept what it got.
+test("el despachador: un .reglas set en varias líneas se guarda con sus saltos de línea", async () => {
+  globalThis.plugins = { "grupo-reglas.js": carpeta["grupo-reglas.js"] };
+  const client = cliente();
+  F.setRolGrupo(GRUPO, ANA, "admin");
+  try {
+    await llega(client, ANA, ".reglas set 1. Sin spam\n2. Respeto ante todo").hecho;
+    assert.equal(F.getChat(GRUPO).reglas, "1. Sin spam\n2. Respeto ante todo");
+  } finally {
+    F.quitarRolGrupo(GRUPO, ANA);
+    F.updateChat(GRUPO, { reglas: "" });
+  }
+});

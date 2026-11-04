@@ -50,7 +50,10 @@ async function conectado(signal) {
 const plugin = {};
 plugin.cmd = ["avisartodos", "broadcast"];
 
-plugin.run = async (m, { client, text, isOwner }) => {
+plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
+  // The text as it was typed, line breaks included (textoCompleto, lib/comandos.js); whoever calls it directly may
+  // pass just text.
+  const text = textoCompleto ?? unaLinea;
   if (!isOwner) return client.sendText(m.chat, "Este comando es solo para el dueño del bot.", m);
   const enCurso = globalThis.avisoATodos;
   // ".avisartodos cancelar" alone stops the one going out, even halfway through a wait, and says right away how far it

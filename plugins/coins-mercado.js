@@ -1,5 +1,6 @@
 import { jugar, textoListaMercados, textoMercado } from "../lib/mercados.js";
 import { getMercado } from "../database-functions.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["jugar", "mercados", "mercado"];
@@ -21,9 +22,10 @@ plugin.run = async (m, { client, args, command, chat }) => {
 
   // .jugar <id> <option> <amount>: the amount comes last, the option may contain spaces
   const id = parseInt(args[0], 10);
-  const cantidad = parseInt(args[args.length - 1], 10);
+  // The amount as people write it here (lib/comandos.js): "1.000" is a thousand, and parseInt read it as 1.
+  const cantidad = leerEntero(args[args.length - 1]);
   const opcion = args.slice(1, -1).join(" ");
-  if (args.length < 3 || Number.isNaN(id) || Number.isNaN(cantidad) || !opcion) {
+  if (args.length < 3 || Number.isNaN(id) || cantidad === null || !opcion) {
     return client.sendText(m.chat, "Uso: .jugar <número de mercado> <opción> <cantidad>\nEj: .jugar 7 Nacional 20 (o .jugar 7 3 20 usando el número de la opción)", m);
   }
   const r = jugar(m.chat, m.sender, id, opcion, cantidad);

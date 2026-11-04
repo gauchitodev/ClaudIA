@@ -6,7 +6,10 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, text }) => {
+plugin.run = async (m, { client, text: unaLinea, textoCompleto }) => {
+  // The text as it was typed, line breaks included (textoCompleto, lib/comandos.js); whoever calls it directly may
+  // pass just text.
+  const text = textoCompleto ?? unaLinea;
   if (!text) return client.sendText(m.chat, txt.sayText, m);
   await client.sendText(m.chat, text, null);
 };

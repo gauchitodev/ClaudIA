@@ -1,6 +1,7 @@
 import { textoEconomia } from "../lib/economia.js";
 import { getUser, ganarCoins, gastarCoins, getSaldoCoins } from "../database-functions.js";
 import { lidMencionadoActual } from "../lib/identidad.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["economia", "economía", "ajustar"];
@@ -19,7 +20,8 @@ plugin.run = async (m, { client, args, text, command, isOwner, participants }) =
   if (!isOwner) return client.sendText(m.chat, txt.onlyOwner, m);
   const who = await lidMencionadoActual(client, m, text, participants); // the old regex swallowed the amount that came after the mention
   const destinatario = who ? getUser(who) : null;
-  const cantidad = parseInt(args.find((a) => /^-?\d+$/.test(a)), 10);
+  // The first word that is an amount, a minus sign taking coins away (lib/comandos.js): "1.000" is a thousand.
+  const cantidad = args.map((a) => leerEntero(a, { negativos: true })).find((n) => n !== null) ?? NaN;
   if (!destinatario?.lid || Number.isNaN(cantidad) || cantidad === 0) return client.sendText(m.chat, "Uso: .ajustar @persona 50 [motivo] para dar, o .ajustar @persona -50 [motivo] para sacar.", m);
   const motivo = args.filter((a) => !/^-?\d+$/.test(a) && !a.startsWith("@")).join(" ").trim();
 

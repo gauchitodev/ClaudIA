@@ -1,6 +1,7 @@
 import { juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import { esComando } from "../lib/comandos.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
@@ -42,7 +43,8 @@ plugin.before = async (m, { client }) => {
   // The game lives in one chat: whatever the player writes in other groups or in private doesn't count.
   if (m.chat !== juego.chat) return;
   // let commands (.play, etc.) and text-less messages through
-  if (!m.text || globalThis.prefix.some((p) => m.text.startsWith(p))) return;
+  // A command isn't a letter, told the dispatcher's way (lib/comandos.js).
+  if (!m.text || esComando(m.text)) return;
 
   const letra = m.text.toLowerCase().trim();
   // Long messages (ordinary chat) are ignored; it only speaks up if they sent a single non-letter character.

@@ -1,11 +1,13 @@
 import { responderTrivia } from "../lib/trivia.js";
+import { esComando } from "../lib/comandos.js";
 
 // Runs on every message: if a trivia is open in the chat (from .trivia or lightning), it reads the answer.
 const plugin = (m) => m;
 plugin.before = async (m, { client }) => {
   try {
     if (!m.message || m.fromMe || m.isBaileys || !m.text) return;
-    if (globalThis.prefix.some((p) => m.text.startsWith(p))) return;
+    // A command isn't an answer, told the dispatcher's way (lib/comandos.js): "@Ana c" is someone answering.
+    if (esComando(m.text)) return;
     const r = responderTrivia(m);
     if (!r) return;
     // An answer, even one that names her ("c, claudia"): Claudia's chat, which runs after this hook, leaves it alone.

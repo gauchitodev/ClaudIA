@@ -7,7 +7,10 @@ plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;
 
-plugin.run = async (m, { client, text, participants, isAdmin, isOwner, chat }) => {
+plugin.run = async (m, { client, text: unaLinea, textoCompleto, participants, isAdmin, isOwner, chat }) => {
+  // The text as it was typed, line breaks included (textoCompleto, lib/comandos.js); whoever calls it directly may
+  // pass just text.
+  const text = textoCompleto ?? unaLinea;
   // Moderators get here too, and forwarding someone else's view-once to everyone is only for admins
   // (lib/vista-unica.js).
   if (!puedeRecuperarCitado(m, { isAdmin, isOwner })) return client.sendText(m.chat, txt.recoveryOnceRestrict, m);

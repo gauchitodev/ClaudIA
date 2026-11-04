@@ -596,6 +596,25 @@ test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async
   assert.deepEqual(esperas, [(AVISO_TODOS.ESPERA_MIN_MS + AVISO_TODOS.ESPERA_MAX_MS) / 2], "una espera entre grupo y grupo, de 20 a 40 s");
 });
 
+// The notice goes as it was typed, line breaks included (textoCompleto, lib/comandos.js): it went out in a single line.
+test(".avisartodos: el aviso sale con sus saltos de línea", async () => {
+  const { default: P, _dep } = await import("../plugins/avisar-todos.js");
+  F.initDataDB({ chat: "renglones@g.us", sender: "111@lid", senderJid: "" });
+  const esperarReal = _dep.esperar;
+  const clientReal = globalThis.client;
+  _dep.esperar = async () => {};
+  const enviados = [];
+  try {
+    const client = { groupFetchAllParticipating: async () => ({ "renglones@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
+    globalThis.client = client;
+    await P.run({ chat: "59899111222@s.whatsapp.net" }, { client, text: "Hoy arranca el ranking 🏆 Todos a votar", textoCompleto: "Hoy arranca el ranking 🏆\nTodos a votar", isOwner: true });
+  } finally {
+    _dep.esperar = esperarReal;
+    globalThis.client = clientReal;
+  }
+  assert.deepEqual(enviados.find(([chat]) => chat === "renglones@g.us"), ["renglones@g.us", "Hoy arranca el ranking 🏆\nTodos a votar"]);
+});
+
 // Spaced out like that, a notice to fifty groups takes some 25 minutes: one with a typo couldn't be stopped, and a
 // second one sent meanwhile went out alongside it.
 test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, y no sale otro mientras tanto", async () => {

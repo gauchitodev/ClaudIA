@@ -1,5 +1,6 @@
 import { repartir, pedir, plantarse, doblar, dividir, seguro, estadoMano, BLACKJACK } from "../lib/blackjack.js";
 import { textoLimitesCasino } from "../lib/casino.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 // .rendirse and .rendirme are plugins/fun-rendirse.js's, shared with the 4 en línea: it sends them to lib/blackjack.js.
@@ -16,8 +17,9 @@ plugin.run = async (m, { client, args, command, chat }) => {
   let r;
   if (ACCIONES[command]) r = ACCIONES[command](m.chat, m.sender);
   else {
-    const cantidad = parseInt(args[0], 10);
-    if (!args[0] || Number.isNaN(cantidad)) {
+    // The amount as people write it here (lib/comandos.js): "1.000" is a thousand, and parseInt read it as 1.
+    const cantidad = leerEntero(args[0]);
+    if (cantidad === null) {
       const enJuego = estadoMano(m.chat, m.sender);
       if (enJuego) return client.sendText(m.chat, enJuego, m);
       return client.sendText(

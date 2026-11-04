@@ -1,6 +1,7 @@
 import { getUser, transferirCoins, getSaldoCoins } from "../database-functions.js";
 import { contentarPareja } from "../lib/parejas.js";
 import { lidMencionadoActual } from "../lib/identidad.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["regalar", "dar", "transferir"];
@@ -13,7 +14,9 @@ plugin.run = async (m, { client, text, args, participants }) => {
   const destinatario = who ? getUser(who) : null;
 
   // how much: the first number in the arguments that isn't part of the mention
-  const cantidad = parseInt(args.find((a) => /^\d+$/.test(a)), 10);
+  // The first word that is an amount, written as people write it here (lib/comandos.js): "1.000 por 2 cafés" is a
+  // thousand, and it gave 2.
+  const cantidad = args.map((a) => leerEntero(a)).find((n) => n !== null) ?? NaN;
 
   if (!destinatario?.lid || Number.isNaN(cantidad)) {
     return client.sendText(m.chat, "Uso: .regalar @persona 20 (o respondé a un mensaje suyo con .regalar 20)", m);

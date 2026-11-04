@@ -35,7 +35,7 @@ test("reinicio: start-process.js espera entre arranques cuando main.js se cae al
   try {
     fs.mkdirSync(path.join(dir, "lib"));
     fs.copyFileSync(path.join(RAIZ, "start-process.js"), path.join(dir, "start-process.js"));
-    for (const archivo of ["lib/reinicio.js", "lib/relevo-memoria.js", "lib/contexto-chat.js"]) fs.copyFileSync(path.join(RAIZ, archivo), path.join(dir, archivo));
+    for (const archivo of ["lib/reinicio.js", "lib/relevo-memoria.js", "lib/contexto-chat.js", "lib/comandos.js"]) fs.copyFileSync(path.join(RAIZ, archivo), path.join(dir, archivo));
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ type: "module" }));
     fs.writeFileSync(path.join(dir, "main.js"), `import fs from "fs";\nfs.appendFileSync(new URL("./arranques.txt", import.meta.url), "x\\n");\nprocess.exit(1);\n`);
 

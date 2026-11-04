@@ -1,6 +1,7 @@
 import { juegoTerminado } from "../lib/urucoins.js";
 import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
+import { esComando } from "../lib/comandos.js";
 const plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
 plugin.juego = true;
@@ -228,6 +229,8 @@ plugin.before = async (m, { client }) => {
   const juego = banderas[m.chat];
 
   if (!m.quoted || m.quoted.id !== juego.mensajeId) return;
+  // A command quoting the question isn't an answer (lib/comandos.js), as in the riddles (plugins/fun-acertijos.js).
+  if (esComando(m.text)) return;
 
   const respuestaUsuario = normalizar(m.text);
   if (respuestaUsuario === normalizar(juego.pais)) {

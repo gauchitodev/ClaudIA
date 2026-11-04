@@ -1,12 +1,14 @@
 import { agregarEntradaHashtag, contarEntradasUsuarioSemana, ganarCoins } from "../database-functions.js";
 import { HASHTAGS_CONFIG, semanaDe } from "../lib/hashtags.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
+import { esComando } from "../lib/comandos.js";
 
 const plugin = (m) => m;
 
 plugin.before = async (m, { client }) => {
   try {
-    if (!m.isGroup || !m.text) return;
+    // A command with a hashtag in it isn't an entry (lib/comandos.js).
+    if (!m.isGroup || !m.text || esComando(m.text)) return;
     if (m.fromMe || m.isBaileys) return;
     if (m.moderado) return; // deleted by the moderation: it isn't an entry
 

@@ -1,5 +1,6 @@
 import { iniciar, destapar, retirar, estadoPartida, MINES } from "../lib/mines.js";
 import { COINS } from "../lib/urucoins.js";
+import { leerEntero } from "../lib/comandos.js";
 
 // .mines <cantidad> [minas] · .destapar B3 · .retirar
 const plugin = {};
@@ -14,8 +15,9 @@ plugin.run = async (m, { client, args, command }) => {
   if (command === "destapar" || command === "abrir") r = destapar(m.chat, m.sender, args[0]);
   else if (command === "retirar") r = retirar(m.chat, m.sender);
   else {
-    const cantidad = parseInt(args[0], 10);
-    if (!args[0] || Number.isNaN(cantidad)) {
+    // The amount as people write it here (lib/comandos.js): "1.000" is a thousand, and parseInt read it as 1.
+    const cantidad = leerEntero(args[0]);
+    if (cantidad === null) {
       const enJuego = estadoPartida(m.chat, m.sender);
       if (enJuego) return client.sendText(m.chat, enJuego, m);
       return client.sendText(

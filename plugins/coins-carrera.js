@@ -1,6 +1,7 @@
 import { apostarCarrera, textoCarrera, CARRERA } from "../lib/carrera.js";
 import { textoLimitesCasino } from "../lib/casino.js";
 import { pausa } from "../lib/pausas.js";
+import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["carrera", "caballos"];
@@ -11,8 +12,9 @@ plugin.onlyGroup = true;
 
 // .carrera <amount> <number or name>: the first bet opens the race; 45 s later it runs for everyone.
 plugin.run = async (m, { client, args, chat }) => {
-  const cantidad = parseInt(args[0], 10);
-  if (!args[0] || Number.isNaN(cantidad)) {
+  // The amount as people write it here (lib/comandos.js): "1.000" is a thousand, and parseInt read it as 1.
+  const cantidad = leerEntero(args[0]);
+  if (cantidad === null) {
     const abierta = textoCarrera(m.chat);
     if (abierta) return client.sendMessage(m.chat, { text: abierta.texto, mentions: abierta.mentions }, { quoted: m });
     return client.sendText(

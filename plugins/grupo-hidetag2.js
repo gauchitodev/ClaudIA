@@ -7,7 +7,10 @@ plugin.botAdmin = true;
 // Admins only, not moderators: mentioning the whole group ten times in a row is the closest thing to spam the bot does.
 plugin.onlyAdmin = true;
 
-plugin.run = async (m, { client, text, participants, isOwner, chat }) => {
+plugin.run = async (m, { client, text: unaLinea, textoCompleto, participants, isOwner, chat }) => {
+  // The text as it was typed, line breaks included (textoCompleto, lib/comandos.js); whoever calls it directly may
+  // pass just text.
+  const text = textoCompleto ?? unaLinea;
   if (!chat.mentions && !isOwner) return client.sendText(m.chat, txt.mentionsDisabled, m);
   if (!text && !m.quoted) return client.sendText(m.chat, txt.hidetagNull, m);
 

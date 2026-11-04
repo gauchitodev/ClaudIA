@@ -3,6 +3,7 @@ import { elegirAlAzar } from "./lib/azar.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { CASINO_APAGADO } from "./lib/casino.js";
+import { parsearComando, pareceComando, esComando } from "./lib/comandos.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
 import { atrasoDeLlegada } from "./lib/tiempo.js";
@@ -66,7 +67,8 @@ export async function handleMessage(nMsg) {
     }
 
     // Keeps the bot from answering command messages from while it was offline. Into the memory, as the command it was.
-    if (m._upsertType === "append" && globalThis.prefix.find((p) => m.text.startsWith(p))) {
+    // A command as the dispatcher tells it below (lib/comandos.js): "@Juan, ¿venís?" from back then is chat.
+    if (m._upsertType === "append" && esComando(m.text)) {
       guardarAtrasado(m);
       return anotarPresencia(m, { antesDelNumero: true });
     }
@@ -166,13 +168,20 @@ export async function handleMessage(nMsg) {
     // check banchat
     if (chat.isBanned && !isOwner) return;
 
-    // check whether the message starts with a valid prefix
-    const usedPrefix = globalThis.prefix.find((p) => m.text.startsWith(p));
-    if (!usedPrefix) return;
-
-    // get the command and its arguments
-    args = m.text.slice(usedPrefix.length).trim().split(/\s+/);
-    const command = args.shift().toLowerCase();
+    // The command, read the same way as everywhere else (lib/comandos.js): a prefix with the name right against it.
+    // What isn't one stops here, before admin mode and the banned notice: ". hola" and "...pero bueno" are someone
+    // talking, and they got "that command doesn't exist" (a banned person, the banned notice). "@59899… vení" is a
+    // mention unless a plugin declares the word, and a name that doesn't look like a command (".5 kilos") isn't one.
+    const pedido = parsearComando(m.text);
+    if (!pedido) return;
+    const usedPrefix = pedido.prefijo;
+    const command = pedido.comando;
+    args = pedido.args;
+    text = pedido.texto;
+    // The text after the command as it was typed, line breaks included, for the ones that send or keep free text.
+    const { textoCompleto } = pedido;
+    const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
+    if (matchPlugins.length === 0 && (usedPrefix === "@" || !pareceComando(command))) return;
 
     // Admin mode: the bot is for the owner, the admins and the mods, but for the commands that stay outside it
     // (fueraDelModoAdmin). .notagall and .sitagall are a preference about oneself: with the mode on, nobody else could
@@ -187,17 +196,11 @@ export async function handleMessage(nMsg) {
       return;
     }
 
-    if (!command) return;
-    // ignore commands that are just dots
-    if (/^\.+$/.test(command)) return;
-    text = args.join(" ");
-
     // Group blacklist mode (.blon + .bladd): blocked commands run for nobody except the owner.
     if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
-    // Check whether the command exists in any plugin
-    const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
-    if (matchPlugins.length === 0 && usedPrefix !== "@" && !command.includes("_")) return client.sendText(m.chat, txt.noCommandMatch(command), m);
+    // A name that looks like a command, after "." or "/", that no plugin declares.
+    if (matchPlugins.length === 0) return client.sendText(m.chat, txt.noCommandMatch(command), m);
 
     // Run every matching plugin.
     // A missing permission stops ONLY the plugin that asks for it, not the others sharing the command: hence the
@@ -285,7 +288,7 @@ export async function handleMessage(nMsg) {
       // because a command that then fails was still used, and two plugins sharing it are a single use.
       if (!corrioAlguno) registrarUso(m.chat, command);
       corrioAlguno = true;
-      await plugin.run(m, { client: this, text, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
+      await plugin.run(m, { client: this, text, textoCompleto, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
     }
 
     // If no plugin for the command could run, now we say why.

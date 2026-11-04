@@ -1,5 +1,6 @@
 import { updateChat, addManyToChatBlacklist, removeManyFromChatBlacklist, getChatBlacklist, getChat } from "../database-functions.js";
 import { getComandosDeSeccion, getNombresSecciones } from "../lib/secciones.js";
+import { normalizarComando } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["blgrupos", "blsecciones", "blon", "bloff", "bladd", "bldel", "bllist"];
@@ -80,7 +81,10 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
           comandos.forEach((c) => aBloquear.add(c));
           seccionesOk.push(nombreSeccion);
         } else {
-          aBloquear.add(parte.replace(/^[./!#]/, ""));
+          // Cleaned as the dispatcher cleans a typed one (lib/comandos.js), or it's never the one compared: "@sticker"
+          // kept its "@", and ".menu?" its "?". A "!" or "#" in front, as other bots take, goes too.
+          const comando = normalizarComando(parte.replace(/^[!#]/, ""));
+          if (comando) aBloquear.add(comando);
         }
       }
 
@@ -116,7 +120,8 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
           comandos.forEach((c) => aDesbloquear.add(c));
           seccionesOk.push(nombreSeccion);
         } else {
-          aDesbloquear.add(parte.replace(/^[./!#]/, ""));
+          const comando = normalizarComando(parte.replace(/^[!#]/, ""));
+          if (comando) aDesbloquear.add(comando);
         }
       }
 
