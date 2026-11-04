@@ -146,11 +146,14 @@ test(".4enlinea: el primero abre la mesa, el segundo se sienta y cada uno juega 
   await comando(CARLA, "4enlinea");
   assert.match(ultimo().text, /^Ya hay una partida en este grupo: @300000000000021 vs @300000000000022\./);
 
-  // Not their turn, not playing, not a column, or another group: no word, and the number is a message like any other.
+  // Not playing, not a column, or another group: no word, and the number is a message like any other.
   const enviados = globalThis.enviados.length;
-  for (const [quien, texto, chat] of [[BETO, "4"], [CARLA, "4"], [ANA, "8"], [ANA, "0"], [ANA, "44"], [ANA, "4 dale"], [ANA, "4", G2]]) {
+  for (const [quien, texto, chat] of [[CARLA, "4"], [ANA, "8"], [ANA, "0"], [ANA, "44"], [ANA, "4 dale"], [ANA, "4", G2]]) {
     assert.equal((await escribir(quien, texto, { chat })).respuestaDeJuego, undefined, `"${texto}" de ${quien}`);
   }
+  // Not their turn: no word either, but a player's number is the board's, so no other game takes it (a trivia with
+  // numbers for options) and Claudia doesn't chat back.
+  assert.equal((await escribir(BETO, "4")).respuestaDeJuego, true, "fuera de turno");
   assert.equal(globalThis.enviados.length, enviados, "no contestó nada");
   assert.deepEqual(C4.salas.get(G).tablero, C4.tableroVacio());
 

@@ -8,6 +8,9 @@ plugin.before = async (m, { client }) => {
     if (!m.message || m.fromMe || m.isBaileys || !m.text) return;
     // A command isn't an answer, told the dispatcher's way (lib/comandos.js): "@Ana c" is someone answering.
     if (esComando(m.text)) return;
+    // One message, one game: a move or a letter a game played with plain messages took first (a "7" of the 4 en línea,
+    // an "a" of the hangman) isn't an answer. To answer the trivia meanwhile, it's quoted.
+    if (m.respuestaDeJuego) return;
     const r = responderTrivia(m);
     if (!r) return;
     // An answer, even one that names her ("c, claudia"): Claudia's chat, which runs after this hook, leaves it alone.

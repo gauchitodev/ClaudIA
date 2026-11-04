@@ -102,6 +102,7 @@ plugin.run = async (m, { client, chat }) => {
   const acertijo = elegirAlAzar(response);
   // The chat is taken before the riddle goes out, and only this riddle's timer can end it: see lib/juego-rapido.js.
   const abierto = await abrirJuego(acertijos, m.chat, {
+    nombre: "acertijo",
     juego: { pregunta: acertijo.pregunta, respuesta: acertijo.respuesta.toLowerCase() },
     enviar: () => client.sendText(m.chat, `*[🧠] Acertijo:*\n* ${acertijo.pregunta}\n\n*[💡] PISTA:* ${acertijo.pista}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la respuesta..\n*[⏱️]* Tienen 30 segundos para adivinar.`, m),
     alVencer: () => {

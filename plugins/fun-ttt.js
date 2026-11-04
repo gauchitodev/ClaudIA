@@ -1,5 +1,6 @@
 import TicTacToe from "../lib/ttt.js";
 import { juegaCuatroEnLinea } from "../lib/cuatro-en-linea.js";
+import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 const plugin = {};
 plugin.cmd = ["ttt"];
@@ -53,8 +54,9 @@ plugin.run = async (m, { client, text, chat }) => {
 𝙏𝙐𝙍𝙉𝙊 𝘿𝙀 *:* 
 @${room.game.currentTurn.split("@")[0]}
 `.trim();
-    if (room.x !== room.o) await client.sendMessage(room.x, { text: str, mentions: client.parseMention(str) }, { quoted: m });
-    await client.sendMessage(room.o, { text: str, mentions: client.parseMention(str) }, { quoted: m });
+    // The board is a game message: a reply to it is a move, not a message for Claudia (lib/mensajes-de-juego.js).
+    const enviado = await client.sendMessage(m.chat, { text: str, mentions: client.parseMention(str) }, { quoted: m });
+    marcarMensajeDeJuego(enviado?.key?.id, m.chat, { juego: "ttt" });
   } else {
     room = {
       id: `tictactoe-${Date.now()}`,

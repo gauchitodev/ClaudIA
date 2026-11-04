@@ -1,11 +1,13 @@
 import { juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
-import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import { marcarMensajeDeJuego, citaOtroJuego } from "../lib/mensajes-de-juego.js";
 import { esComando } from "../lib/comandos.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
 plugin.botAdmin = true;
+// Its guesses are plain letters: taken before any other game sees them (hooksEnOrden, load-functions.js).
+plugin.jugadas = true;
 
 // Word list for hangman
 const palabras = ["solido", "camino", "flores", "arboles", "ciudad", "puente", "montaña", "valle", "playas", "nubes", "viento", "lluvia", "trueno", "rayos", "nieve", "bosque", "selva", "desierto", "oasis", "lunas", "estrellas", "planeta", "galaxia", "cometa", "orbita", "satelite", "cohete", "avion", "barco", "trenes", "carros", "motos", "bicicleta", "camion", "ruedas", "motor", "frenos", "luces", "ventana", "puerta", "techo", "piso", "muros", "ladrillo", "cemento", "arena", "piedra", "madera", "vidrio", "metal", "plata", "oro", "bronce", "hierro", "acero", "cobre", "alambre", "clavos", "tornillo", "martillo", "sierra", "taladro", "pintura", "brocha", "lienzo", "cuadro", "pincel", "colores", "tinta", "papel", "libro", "hojas", "pluma", "lapiz", "borrador", "cuaderno", "escuela", "maestro", "alumnos", "clase", "leccion", "tarea", "examen", "nota", "grado", "titulo", "fiesta", "musica", "baile", "canto", "guitarra", "piano", "tambor", "flauta", "sonido", "ritmo", "melodia", "armonia", "silencio", "fuente", "laguna", "cascada", "cerros", "prados", "campos", "granja", "animal", "perros", "gatos", "peces", "tigre", "leones", "osos", "lobos", "zorros", "ciervo", "caballo", "burro", "vacas", "ovejas", "gallina", "patos", "cerdo", "conejo", "hormiga", "abeja", "mosca", "grillo", "saltamontes", "mariposa", "escarabajo", "araña", "serpiente", "lagarto", "rana", "sapo", "tortuga", "cocodrilo", "ballena", "pulpo", "medusa", "coral", "ostra", "cangrejo", "islas", "costas", "olas", "mareas", "arena", "roca", "faro", "puerto", "nave", "velero", "remo", "ancla", "buzos", "tesoro", "mapas", "reloj", "hora", "minuto", "semana", "meses", "año", "siglo", "pasado", "futuro", "ayer", "hoy", "mañana", "noche", "dawn", "tarde", "sol", "calor", "hielo", "fuego", "ceniza", "humo", "sombra", "luz", "rayo", "tormenta", "niebla", "charco", "pozo", "riego", "cosecha"];
@@ -19,7 +21,7 @@ plugin.run = async (m, { client, chat }) => {
   const oculta = palabra.replace(/./g, "_ ");
   const intentos = 8;
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat));
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n* ${oculta}\n\nTienes *${intentos}* intentos. Escribe una letra para adivinar.`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat, { juego: "ahorcado" }));
 
   ahorcado[m.sender] = {
     chat: m.chat,
@@ -45,11 +47,17 @@ plugin.before = async (m, { client }) => {
   // let commands (.play, etc.) and text-less messages through
   // A command isn't a letter, told the dispatcher's way (lib/comandos.js).
   if (!m.text || esComando(m.text)) return;
+  // One message, one game: a reply quoting another game's message (a letter quoting the trivia, an answer to a riddle)
+  // is that game's, not a guess.
+  if (citaOtroJuego(m, "ahorcado")) return;
 
   const letra = m.text.toLowerCase().trim();
-  // Long messages (ordinary chat) are ignored; it only speaks up if they sent a single non-letter character.
-  if (letra.length !== 1) return;
+  // Long messages (ordinary chat) are ignored; it only speaks up if they sent a single non-letter character. A digit
+  // is a move of the tic-tac-toe or the 4 en línea, played at the same time: it got "una letra" as well.
+  if (letra.length !== 1 || /^\d$/.test(letra)) return;
   if (!/^[a-záéíóúüñ]$/.test(letra)) return client.sendText(m.chat, txt.ahorcadoLetra, m);
+  // A guess is the hangman's: the trivia doesn't take an "a", and Claudia doesn't chat back.
+  m.respuestaDeJuego = true;
   if (juego.letrasProbadas.includes(letra)) return m.react("❗");
 
   juego.letrasProbadas.push(letra);
@@ -80,7 +88,7 @@ plugin.before = async (m, { client }) => {
     return;
   }
 
-  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat));
+  client.sendText(m.chat, `*[🪢] AHORCADO:*\n\n${juego.oculta.join(" ")}\n\nIntentos restantes: *${juego.intentos}*\nLetras usadas: ${juego.letrasProbadas.join(", ")}`, m).then((enviado) => marcarMensajeDeJuego(enviado?.key?.id, m.chat, { juego: "ahorcado" }));
 };
 
 export default plugin;

@@ -214,6 +214,7 @@ plugin.run = async (m, { client, chat }) => {
   const bandera = elegirAlAzar(banderasLista);
   // The chat is taken before the flag goes out, and only this game's timer can end it: see lib/juego-rapido.js.
   const abierto = await abrirJuego(banderas, m.chat, {
+    nombre: "bandera",
     juego: { pais: bandera.pais.toLowerCase() },
     enviar: () => client.sendText(m.chat, `*[🌍] ADIVINA LA BANDERA:*\n* ${bandera.emoji}\n\n*[❗] RESPONDE A ESTE MENSAJE* con el nombre del país.\n*[⏱️]* 30 segundos para responder.`, m),
     alVencer: () => {

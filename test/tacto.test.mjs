@@ -95,7 +95,7 @@ test("tacto: un tema serio la deja afuera un par de horas, con o sin tildes", ()
 test("tacto: con un juego abierto no mira", () => {
   const C1 = "juego1@g.us";
   assert.equal(T.hayJuegoAbierto(C1, AHORA), false);
-  J.marcarMensajeDeJuego("ACERTIJO-9", C1, AHORA - 2 * MIN);
+  J.marcarMensajeDeJuego("ACERTIJO-9", C1, { juego: "acertijo", ahora: AHORA - 2 * MIN });
   assert.equal(T.hayJuegoAbierto(C1, AHORA), true, "un acertijo de hace dos minutos");
   assert.equal(T.hayJuegoAbierto(C1, AHORA + 4 * MIN), false, "pasados cinco minutos ya no");
 

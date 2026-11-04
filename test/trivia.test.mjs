@@ -36,10 +36,13 @@ test("trivia: el banco está limpio", () => {
 
 test("trivia: entiende la letra de muchas formas y el texto de la opción", () => {
   const ops = PREGUNTA.opciones;
-  for (const t of ["c", "C", "c)", "C)", "(c)", "c.", "Opción C", "c) Tokio", "C) porque sí"]) assert.equal(Tr.parsearRespuesta(t, ops), "c", JSON.stringify(t));
+  for (const t of ["c", "C", "c)", "C)", "(c)", "c.", "Opción C", "c) Tokio", "C) porque sí", "la c", "c tokio", "c, tokio", "la c, porque sí"]) assert.equal(Tr.parsearRespuesta(t, ops), "c", JSON.stringify(t));
   assert.equal(Tr.parsearRespuesta("tokio", ops), "c");
   assert.equal(Tr.parsearRespuesta("  Kioto ", ops), "b");
   for (const t of ["hola", "e", "no se", "", "la capital es tokio"]) assert.equal(Tr.parsearRespuesta(t, ops), null, JSON.stringify(t));
+  // A letter followed by just any words is someone talking: with a round open, it spent their one attempt, and Claudia,
+  // named, said nothing.
+  for (const t of ["a ver claudia", "A ver claudia, ¿qué opinás?", "a qué hora es", "d nada", "...a ver"]) assert.equal(Tr.parsearRespuesta(t, ops), null, JSON.stringify(t));
 });
 
 test("trivia: ronda con un intento por persona, respuesta suelta o citando, y cierre al acertar", async () => {

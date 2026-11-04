@@ -21,6 +21,7 @@ plugin.run = async (m, { client, chat }) => {
 
   // The chat is taken before the word goes out, and only this game's timer can end it: see lib/juego-rapido.js.
   const abierto = await abrirJuego(ordenarPalabra, m.chat, {
+    nombre: "ordenar",
     juego: { palabra },
     enviar: () => client.sendText(m.chat, `*[🔠] Ordena la palabra:*\n* ${desordenada}\n\n*[❗] RESPONDE A ESTE MENSAJE* con la palabra correcta.\n*[⏱️]* Tienen 30 segundos para responder.`, m),
     alVencer: () => {

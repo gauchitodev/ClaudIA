@@ -41,18 +41,25 @@ export async function loadPlugins() {
 // anti-links, the blacklist, the mass mentions) go first, so what they delete reaches no other hook (handle-message.js
 // skips the rest for it, all but the short-term memory); right after them,
 // what has to see each message as soon as it's known to stay (plugin.trasModeracion: Claudia's short-term memory, so a
-// message gets there in the order it came and not after the sends of the hooks before it); Claudia's chat
-// (plugin.alFinal) goes last, so she knows what was deleted and what a game took as an answer. The rest keep the order
-// they were loaded in. It used to be the folder's alphabetical order alone: a trivia answer that named Claudia waited
-// for her to think and type while a later one took the prize, a blacklisted person got her answer before being
-// removed, and #vendo published a post the anti-link had just deleted.
+// message gets there in the order it came and not after the sends of the hooks before it); then the games played with
+// plain messages (plugin.jugadas: the tic-tac-toe, the 4 en línea, the hangman), which take their moves and mark them
+// (m.respuestaDeJuego) before any other game sees them: one message, one game. Claudia's chat (plugin.alFinal) goes
+// last, so she knows what was deleted and what a game took as an answer. The rest keep the order they were loaded
+// in, which hot reloading changes. It used to be the folder's alphabetical order alone: a trivia answer that named
+// Claudia waited for her to think and type while a later one took the prize, a blacklisted person got her answer
+// before being removed, #vendo published a post the anti-link had just deleted, and a "7" was a column of the 4 en
+// línea and an answer to the trivia at once.
 export function hooksEnOrden(plugins) {
   const hooks = Object.values(plugins || {}).filter((plugin) => typeof plugin?.before === "function");
   const moderacion = hooks.filter((plugin) => plugin.moderacion);
   const trasModeracion = hooks.filter((plugin) => plugin.trasModeracion && !moderacion.includes(plugin));
-  const alFinal = hooks.filter((plugin) => plugin.alFinal && !moderacion.includes(plugin) && !trasModeracion.includes(plugin));
-  const resto = hooks.filter((plugin) => !moderacion.includes(plugin) && !trasModeracion.includes(plugin) && !alFinal.includes(plugin));
-  return [...moderacion, ...trasModeracion, ...resto, ...alFinal];
+  const tomados = new Set([...moderacion, ...trasModeracion]);
+  const jugadas = hooks.filter((plugin) => plugin.jugadas && !tomados.has(plugin));
+  for (const plugin of jugadas) tomados.add(plugin);
+  const alFinal = hooks.filter((plugin) => plugin.alFinal && !tomados.has(plugin));
+  for (const plugin of alFinal) tomados.add(plugin);
+  const resto = hooks.filter((plugin) => !tomados.has(plugin));
+  return [...moderacion, ...trasModeracion, ...jugadas, ...resto, ...alFinal];
 }
 
 // Watch plugins for changes

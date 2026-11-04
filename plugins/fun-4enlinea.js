@@ -9,7 +9,7 @@
 // coins, as in a duel, and it follows the casino's switches.
 import { salaVigente, abrirMesa, sentarse, anotarJugada, terminar, soltar, dibujar, FICHA, textoLimitesCuatroEnLinea } from "../lib/cuatro-en-linea.js";
 import { frenoDelCasino } from "../lib/casino.js";
-import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import { marcarMensajeDeJuego, citaOtroJuego } from "../lib/mensajes-de-juego.js";
 import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
@@ -17,6 +17,8 @@ plugin.cmd = ["4enlinea", "4enlínea"];
 plugin.juego = true;
 plugin.conHorario = true;
 plugin.onlyGroup = true;
+// Its moves are plain messages: taken before any other game sees them (hooksEnOrden, load-functions.js).
+plugin.jugadas = true;
 
 const mencion = (id) => `@${String(id).split("@")[0]}`;
 
@@ -32,7 +34,7 @@ function textoMesa(sala) {
 async function mandar(client, m, sala, linea, ganadoras = []) {
   const jugadores = `${FICHA[1]} ${mencion(sala.j1)}  vs  ${FICHA[2]} ${mencion(sala.j2)}${sala.apuesta ? `\n💰 ${sala.apuesta * 2} UruCoins en juego` : ""}`;
   const enviado = await client.sendMessage(m.chat, { text: `${jugadores}\n\n${dibujar(sala.tablero, ganadoras)}\n\n${linea}`, mentions: [sala.j1, sala.j2] }, { quoted: m });
-  marcarMensajeDeJuego(enviado?.key?.id, m.chat);
+  marcarMensajeDeJuego(enviado?.key?.id, m.chat, { juego: "4enlinea" });
 }
 
 plugin.run = async (m, { client, text, chat }) => {
@@ -82,11 +84,15 @@ plugin.before = async (m, { client, chat }) => {
     if (chat && !chat.games) return;
     const texto = m.text.trim();
     if (!/^[1-7]$/.test(texto)) return;
+    // A message quoting another game's message is that game's (lib/mensajes-de-juego.js): a "7" quoting the trivia.
+    if (citaOtroJuego(m, "4enlinea")) return;
+    // A player's number is the board's, theirs to play or not: no other game takes it (a trivia with numbers for
+    // options), and Claudia doesn't chat back.
+    m.respuestaDeJuego = true;
 
     const ficha = m.sender === sala.j1 ? 1 : 2;
     // The other's turn: ignored without a word, as in the tic-tac-toe, because it is just a number in the chat.
     if (sala.turno !== ficha) return;
-    m.respuestaDeJuego = true;
 
     const jugada = soltar(sala.tablero, parseInt(texto, 10) - 1, ficha);
     if (!jugada.ok) return client.sendText(m.chat, "Esa columna está llena, probá con otra.", m);
