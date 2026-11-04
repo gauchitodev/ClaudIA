@@ -78,7 +78,7 @@ test("menú: los temas se encuentran por alias, sin importar acentos, + ni mayú
   assert.match(menu({ pedido: "casino" }), /^🎰 \*Casino y apuestas\*/, "las secciones de .bladd también son temas");
   assert.match(menu({ pedido: "compraventa" }), /^📂 \*Otros menús\*\n[\s\S]*▸ \.menuventas/);
   assert.match(menu({ pedido: "juegos" }), /┈\n\.menu para volver · \.menu todo para verlo todo$/);
-  assert.match(menu({ pedido: "xyz" }), /^🤔 No tengo el tema \*xyz\*\. Los temas son:\n🇺🇾 grupo/);
+  assert.match(menu({ pedido: "xyz" }), /^🤔 No tengo el tema \*xyz\*\. Los temas son:\n🗳️ temáticas/);
 });
 
 test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", () => {
@@ -94,23 +94,26 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
   assert.deepEqual(repetidos(menu({ pedido: "todo", ...OWNER })), ["antecedentes", "reglas"], "solo .antecedentes y .reglas, que están para todos y como .antecedentes @mención y .reglas set para admins");
 });
 
-// The economy and the casino were .menuuru, a menu apart written by hand: .menu todo didn't show them, "lo más usado"
-// couldn't count them and the jobs were in no menu. They're two topics now, and .menuuru shows both.
-test("menú: la economía y el casino son temas, y .menuuru y .menu uru los muestran juntos", async () => {
+// The economy and the casino were .menuuru, a menu apart written by hand for one group: .menu todo didn't show them,
+// "lo más usado" couldn't count them and the jobs were in no menu. They're two topics now, and .menuuru is gone.
+test("menú: la economía y el casino son temas, y ya no hay .menuuru", async () => {
   const coins = menu({ pedido: "coins" });
   assert.match(coins, /^🪙 \*UruCoins\*\n_Se ganan reaccionando \(\+1\) y cuando te reaccionan \(\+2\), ganando juegos \(\+10; hasta 20 premios/);
   for (const cmd of ["bal", "regalar", "tienda", "laburos", "racha", "mitimba"]) assert.match(coins, new RegExp(`\n▸ \\.${cmd} `), `.${cmd}`);
   assert.match(menu({ pedido: "Lotería" }), /^🎰 \*Casino y apuestas\*\n_\.ruleta, \.tragamonedas, \.blackjack, \.mines y \.carrera, escritos solos/);
   assert.match(menu({ pedido: "admins", ...MOD }), /\n▸ \.evento <título> \| <opciones> \| <cierre> 📊 – `Solo admins: [^\n]+\n▸ \.resolver 7 Nacional/);
   assert.match(menu({ pedido: "extras" }), /\n▸ \.recap 📅/);
+  assert.match(menu({ pedido: "casino", bloqueados: new Set(["ruleta"]) }), /\n▸ \.ruleta .+ 🔒\n/);
+  // What the old menu said and the lines didn't: how the markets pay, the refund of .playya, and someone else's items.
+  assert.match(menu({ pedido: "casino" }), /\n▸ \.mercados [^\n]+ Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo\.`\n/);
+  assert.match(coins, /\n▸ \.tienda [^\n]+\.inventario \[@mención\] muestra lo tuyo o lo de otra persona\. \.playya y \.videoya saltan la espera de la música por 15, que se devuelven si la descarga falla\.`\n/);
 
-  const uru = menu({ pedido: "uru" });
-  assert.match(uru, /^🪙 \*UruCoins\*\n[\s\S]+\n┈{16}\n🎰 \*Casino y apuestas\*\n[\s\S]+\n┈{16}\n\.menu para volver · \.menu todo para verlo todo$/);
-  assert.match(menu({ pedido: "uru", bloqueados: new Set(["ruleta"]) }), /\n▸ \.ruleta .+ 🔒\n/, "con el 🔒 de .menu");
-  for (const command of ["menuuru", "juegosuru"]) {
-    await Menu.run({ chat: G, isGroup: true, pushName: "Ana", key: { id: "PEDIDO" } }, { client: globalThis.client, usedPrefix: ".", command, args: [], chat: ABIERTO });
-    assert.equal(globalThis.enviados.at(-2).msg.text, uru, `.${command}`);
-  }
+  // The themes and the ranking, which were "grupo" with Uruguay's flag, have a topic of their own. .menuuru, .juegosuru
+  // and .menu uru are gone: they get what any command or topic that doesn't exist gets.
+  for (const pedido of ["temáticas", "tematicas", "grupo", "ranking"]) assert.match(menu({ pedido }), /^🗳️ \*Temáticas y ranking\*\n▸ #quejadelunes/, pedido);
+  assert.match(menu({ pedido: "uru" }), /^🤔 No tengo el tema \*uru\*/);
+  const deUru = Object.entries(globalThis.plugins).filter(([, p]) => p.cmd?.some((c) => ["menuuru", "juegosuru"].includes(c)));
+  assert.deepEqual(deUru, []);
 
   // The note gives one cap for every game but the hangman: true while lib/urucoins.js keeps it so.
   const { PREMIOS_POR_DIA } = await import("../lib/urucoins.js");
@@ -125,29 +128,27 @@ test("menú: cada plugin de la economía y del casino tiene una línea", () => {
   assert.deepEqual(plugins.filter(([, p]) => !p.cmd.some((c) => nombrados.has(c))).map(([archivo]) => archivo), []);
 });
 
-// .modo compraventa turns off the games and the economy; .casino, the casino alone. The index and .menuuru offered
-// their topics anyway.
+// .modo compraventa turns off the games and the economy; .casino, the casino alone. The index offered their topics
+// anyway.
 test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo piden dice cómo se prende", () => {
   const temas = (opciones) => menu(opciones).split("📂")[1].split("📜")[0];
   const COMPRAVENTA = { ...ABIERTO, games: 0, monedas: 0 };
-  assert.match(temas({}), /🇺🇾 grupo · 🪙 coins · 🎰 casino/);
+  assert.match(temas({}), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
   const enVentas = temas({ datosChat: COMPRAVENTA });
   for (const fuera of ["coins", "casino", "canvas"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
   assert.match(enVentas, /🎮 juegos/, ".besar y .siono andan con los juegos apagados");
   assert.doesNotMatch(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /UruCoins\*|Casino y apuestas|\.ruleta|\.laburos/);
-  assert.match(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🇺🇾 \*Temáticas y ranking\*/);
+  assert.match(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🗳️ \*Temáticas y ranking\*/);
   assert.match(menu({ pedido: "admins", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.evento /, "el tema tiene otros comandos que andan");
   assert.equal(menu({ pedido: "casino", datosChat: COMPRAVENTA }), "🎰 Ese tema está apagado en este grupo: un admin lo prende con .juegos on y .monedas on.");
   assert.equal(menu({ pedido: "monedas", datosChat: COMPRAVENTA }), "🪙 Ese tema está apagado en este grupo: un admin lo prende con .monedas on.");
-  assert.equal(menu({ pedido: "uru", datosChat: COMPRAVENTA }), "🪙 Eso está apagado en este grupo: un admin lo prende con .juegos on y .monedas on.");
   assert.equal(menu({ pedido: "canvas", datosChat: COMPRAVENTA }), "🖼️ Ese tema está apagado en este grupo: un admin lo prende con .juegos on.");
-  assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🇺🇾 grupo · 🎧 descargas/);
+  assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🗳️ temáticas · 🎧 descargas/);
 
-  // With only the casino off, the economy stays, and .menu uru shows it alone.
+  // With only the casino off, the economy stays.
   const SIN_CASINO = { ...ABIERTO, casino: 0 };
-  assert.match(temas({ datosChat: SIN_CASINO }), /🇺🇾 grupo · 🪙 coins · 🎧 descargas/);
+  assert.match(temas({ datosChat: SIN_CASINO }), /🗳️ temáticas · 🪙 coins · 🎧 descargas/);
   assert.equal(menu({ pedido: "casino", datosChat: SIN_CASINO }), "🎰 Ese tema está apagado en este grupo: un admin lo prende con .casino on.");
-  assert.equal(menu({ pedido: "uru", datosChat: SIN_CASINO }), menu({ pedido: "coins" }));
   // A command two plugins answer to runs when one of them does, as in puedeCorrerAca: handle-message runs both.
   const conOtro = { ...globalThis.plugins, otro: { cmd: ["ruleta"] } };
   assert.match(menu({ pedido: "casino", datosChat: SIN_CASINO, plugins: conOtro }), /^🎰 \*Casino y apuestas\*\n/);
@@ -157,7 +158,7 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   // Claudia not being admin hides nothing (the index warns instead), and in private there are no switches.
   assert.equal(temas({ isBotAdmin: false, datosChat: COMPRAVENTA }), enVentas);
   assert.equal(temas({ isBotAdmin: false }), temas({}));
-  assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null }), /🇺🇾 grupo · 🪙 coins · 🎰 casino/);
+  assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null }), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
 });
 
 test("menú: el 🔒 va en todas las respuestas, y lo bloqueado no entra en lo más usado", () => {
