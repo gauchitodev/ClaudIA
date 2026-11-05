@@ -115,7 +115,8 @@ export function ponerAlDia(db) {
       horarioGrupoFalla INTEGER DEFAULT 0,
       antiLiveLocation BOOLEAN DEFAULT 0,
       redes TEXT DEFAULT "{}", -- the group's social links by network, as .redes loads them (lib/redes.js)
-      voz TEXT DEFAULT "" -- when Claudia answers with a voice note: "", "audios" or "siempre" (.voz, lib/voz.js)
+      voz TEXT DEFAULT "", -- when Claudia answers with a voice note: "", "audios" or "siempre" (.voz, lib/voz.js)
+      stickersAuto BOOLEAN DEFAULT 1 -- whether she sends the group's stickers unasked (.respuestastickers, lib/stickers-grupo.js)
     )
   `);
 
@@ -123,7 +124,7 @@ export function ponerAlDia(db) {
   // switches (chat, greetings, coins, promotions), Claudia's initiative, since when the group hours can't be kept
   // (lib/horario-grupo.js) and whether a live location is deleted (.antiubicacion), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""']]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -695,6 +696,17 @@ export function ponerAlDia(db) {
       usado INTEGER NOT NULL DEFAULT 0,
       sacado INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (chat, sha)
+    )
+  `);
+  // What each sticker shows and what it's for, as the AI saw it once (lib/stickers-grupo.js): one row per file, whatever
+  // groups have it. descripcion is null until it's seen; intentos and ultimo_intento space out the retries, and a
+  // sticker the AI refuses to look at stays without one.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stickers_descripcion (
+      sha TEXT PRIMARY KEY,
+      descripcion TEXT,
+      intentos INTEGER NOT NULL DEFAULT 0,
+      ultimo_intento INTEGER NOT NULL DEFAULT 0
     )
   `);
 

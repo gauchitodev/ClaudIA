@@ -41,10 +41,24 @@ after(() => {
   globalThis.fetch = fetchReal;
   console.log = logReal;
 });
+// What "the AI" answers when looking at a sticker (respuestasIA) or choosing one (elecciones): by default it can't (no
+// quota).
+let respuestasIA = [];
+let elecciones = [];
+const pedidosIA = [];
 beforeEach(() => {
   S._dep.random = () => 0.5;
-  Object.assign(S.STICKERS, { MAX_POR_GRUPO: 200, RESPUESTA_PROBABILIDAD: 0.6 });
+  S._dep.esperar = async () => {};
+  respuestasIA = [];
+  elecciones = [];
+  S._dep.preguntar = async (texto, opciones) => {
+    pedidosIA.push({ texto, opciones });
+    const r = opciones?.schema?.properties?.numero ? elecciones.shift() : respuestasIA.shift();
+    return r === undefined ? { ok: false, sinCuota: true } : { ok: true, texto: JSON.stringify(r) };
+  };
+  Object.assign(S.STICKERS, { MAX_POR_GRUPO: 200, RESPUESTA_PROBABILIDAD: 0.6, DESCRIPCIONES_DIA: 40 });
 });
+const describir = (buffer, descripcion) => F.db.prepare(`INSERT INTO stickers_descripcion (sha, descripcion, intentos, ultimo_intento) VALUES (?, ?, 1, 0) ON CONFLICT(sha) DO UPDATE SET descripcion = excluded.descripcion`).run(S.shaDe(buffer), descripcion);
 
 // A minimal webp: "RIFF", the size, "WEBP" and something that tells them apart.
 const webp = (cual) => {
@@ -201,24 +215,160 @@ function cliente(chat) {
   };
 }
 
-test("vistazo: sin stickers guardados ni se le ofrece; con stickers, puede mandar uno", async () => {
+test("vistazo: sin stickers descriptos ni se le ofrece; con ellos, elige uno de la lista", async () => {
   const chat = grupoCharlando();
+  for (const c of ["n1", "n2", "n3"]) S.guardarSticker(chat, "x", webp(c)); // kept, but not looked at yet
   decisiones.push({ motivo: "nada", accion: "nada", mensaje: 0, texto: "" });
   await V.hacerVistazo(cliente(chat), chat, { ahora: AHORA });
   assert.equal(cuerpos.at(-1).generationConfig.responseSchema.properties.sticker, undefined);
 
   const otro = grupoCharlando();
-  for (const c of ["v1", "v2", "v3"]) S.guardarSticker(otro, "x", webp(c));
-  decisiones.push({ motivo: "están en joda", reacciones: [], sticker: true, accion: "nada", mensaje: 0, texto: "" });
+  const lista = { v1: "perro riéndose a carcajadas, para algo muy gracioso", v2: "gato triste llorando", v3: "señor aplaudiendo, aprobación" };
+  for (const [c, d] of Object.entries(lista)) {
+    S.guardarSticker(otro, "x", webp(c));
+    describir(webp(c), d);
+  }
+  decisiones.push({ motivo: "están en joda con el asado", reacciones: [], sticker: 1, accion: "nada", mensaje: 0, texto: "" });
   const client = cliente(otro);
   const informe = await V.hacerVistazo(client, otro, { ahora: AHORA });
-  assert.deepEqual(cuerpos.at(-1).generationConfig.responseSchema.properties.sticker, { type: "boolean" });
-  assert.match(cuerpos.at(-1).contents[0].parts[0].text, /Podés mandar un sticker/);
+  const prompt = cuerpos.at(-1).contents[0].parts[0].text;
+  assert.deepEqual(cuerpos.at(-1).generationConfig.responseSchema.properties.sticker, { type: "integer" });
+  assert.match(prompt, /Stickers del grupo que podés mandar/);
+  assert.match(prompt, /\d\. perro riéndose a carcajadas/);
+  const primero = prompt.match(/1\. (.+)/)[1];
+  const elegido = Object.keys(lista).find((c) => lista[c] === primero);
   assert.equal(client.salidas.length, 1);
-  assert.ok(Buffer.isBuffer(client.salidas[0].contenido.sticker));
+  assert.equal(S.shaDe(client.salidas[0].contenido.sticker), S.shaDe(webp(elegido)), "manda el que eligió, no uno al azar");
   assert.deepEqual(
-    F.intervencionesDesde(otro, 0).map((f) => [f.tipo, f.mensajeId]),
-    [["sticker", "BOT1"]],
+    F.intervencionesDesde(otro, 0).map((f) => [f.tipo, f.mensajeId, f.texto]),
+    [["sticker", "BOT1", primero]],
   );
   assert.match(informe.resumen, /un sticker/);
+
+  // A number that isn't on the list sends nothing.
+  const tercero = grupoCharlando();
+  for (const [c, d] of Object.entries(lista)) {
+    S.guardarSticker(tercero, "x", webp(c));
+    describir(webp(c), d);
+  }
+  decisiones.push({ motivo: "x", reacciones: [], sticker: 9, accion: "nada", mensaje: 0, texto: "" });
+  const c3 = cliente(tercero);
+  await V.hacerVistazo(c3, tercero, { ahora: AHORA });
+  assert.equal(c3.salidas.length, 0);
+});
+
+test(".respuestastickers off: no los manda sola, ni contestando ni en el vistazo; .stickerazar sigue", async () => {
+  const chat = grupoCharlando();
+  for (const c of ["o1", "o2", "o3"]) {
+    S.guardarSticker(chat, "x", webp(c));
+    describir(webp(c), `sticker ${c}`);
+  }
+  F.updateChat(chat, { stickersAuto: false });
+  decisiones.push({ motivo: "nada", accion: "nada", mensaje: 0, texto: "" });
+  await V.hacerVistazo(cliente(chat), chat, { ahora: AHORA });
+  assert.equal(cuerpos.at(-1).generationConfig.responseSchema.properties.sticker, undefined);
+
+  const client = clienteFalso();
+  S._dep.random = () => 0.1;
+  globalThis.autoIaCooldown = new Map();
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(chat, webp("off"), { quoted: { fromMe: true, id: "BOT1" } }), { client, chat: F.getChat(chat), user: {}, isMod: false, isOwner: false });
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 0);
+  assert.equal(S.cuantosStickers(chat), 4, "igual lo guarda");
+
+  await Azar.run({ chat, isGroup: true }, { client });
+  assert.ok(Buffer.isBuffer(globalThis.enviados.at(-1).msg.sticker));
+});
+
+// ---------- choosing with some sense ----------
+
+test("describe los stickers de a uno, con la imagen, con tope por día, y para al primer fallo", async () => {
+  await S.describirPendientes(); // whatever an earlier test left running
+  F.db.exec(`DELETE FROM stickers_grupo; DELETE FROM stickers_descripcion`); // only these three, and none tried today
+  const chat = nuevoGrupo();
+  for (const c of ["d1", "d2", "d3"]) S.guardarSticker(chat, "x", webp(c));
+  pedidosIA.length = 0;
+  respuestasIA = [{ descripcion: "  \"un perro riendo\"  " }];
+  await S.describirPendientes();
+  assert.equal(pedidosIA.length, 2, "el segundo falló (sin cuota) y no siguió con el tercero");
+  assert.deepEqual(pedidosIA[0].opciones.adjuntos.map((a) => a.mimeType), ["image/webp"]);
+  const descriptos = ["d1", "d2", "d3"].map((c) => S.descripcionDe(S.shaDe(webp(c)))).filter(Boolean);
+  assert.deepEqual(descriptos, ["un perro riendo"]);
+
+  // The one that failed waits for its retry; the third goes now, and the day's cap stops the rest.
+  S.STICKERS.DESCRIPCIONES_DIA = 3;
+  respuestasIA = [{ descripcion: "gato" }, { descripcion: "loro" }];
+  pedidosIA.length = 0;
+  await S.describirPendientes();
+  assert.equal(pedidosIA.length, 1, "dos intentos hoy ya, uno más y llegó al tope");
+});
+
+test("contestando un sticker, la IA elige cuál según lo que dijo ella; 0 es ninguno, y sin IA va al azar", async () => {
+  const chat = nuevoGrupo();
+  const lista = { e1: "perro riéndose", e2: "gato enojado", e3: "señor aplaudiendo" };
+  for (const [c, d] of Object.entries(lista)) {
+    S.guardarSticker(chat, "x", webp(c));
+    describir(webp(c), d);
+  }
+  const client = clienteFalso();
+  const permisos = { client, chat: {}, user: {}, isMod: false, isOwner: false };
+  S._dep.random = () => 0.1;
+  const contestar = async (id) => {
+    globalThis.autoIaCooldown = new Map();
+    globalThis.enviados = [];
+    await Hook.before(stickerDe(chat, webp("recibido"), { quoted: { fromMe: true, id, text: "hoy no hay asado, se suspende" } }), permisos);
+    await Hook.enCurso;
+  };
+
+  pedidosIA.length = 0;
+  elecciones = [{ numero: 2 }];
+  await contestar("BOT1");
+  const pedido = pedidosIA.find((p) => p.opciones.schema?.properties?.numero);
+  assert.match(pedido.texto, /hoy no hay asado/);
+  assert.equal(pedido.opciones.adjuntos.length, 1, "ve el sticker que le mandaron");
+  const segundo = pedido.texto.match(/2\. (.+)/)[1];
+  const esperado = Object.keys(lista).find((c) => lista[c] === segundo);
+  assert.equal(S.shaDe(globalThis.enviados[0].msg.sticker), S.shaDe(webp(esperado)));
+
+  // "recibido" got kept as new and its description was attempted: the pause between answers is per group, so a fresh
+  // group each time.
+  const otro = nuevoGrupo();
+  for (const [c, d] of Object.entries(lista)) {
+    S.guardarSticker(otro, "x", webp(c));
+    describir(webp(c), d);
+  }
+  elecciones = [{ numero: 0 }];
+  globalThis.autoIaCooldown = new Map();
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(otro, webp("recibido"), { quoted: { fromMe: true, id: "BOT2", text: "hola" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 0, "ninguno pegaba: no manda nada");
+
+  const tercero = nuevoGrupo();
+  for (const [c, d] of Object.entries(lista)) {
+    S.guardarSticker(tercero, "x", webp(c));
+    describir(webp(c), d);
+  }
+  elecciones = []; // no AI
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(tercero, webp("recibido"), { quoted: { fromMe: true, id: "BOT3", text: "hola" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 1, "sin IA, al azar");
+  assert.notEqual(S.shaDe(globalThis.enviados[0].msg.sticker), S.shaDe(webp("recibido")));
+});
+
+test(".stickerazar <tema> busca en lo que la IA vio de cada uno", async () => {
+  const chat = nuevoGrupo();
+  S.guardarSticker(chat, "x", webp("t1"));
+  describir(webp("t1"), "Perro riéndose a carcajadas, para algo gracioso");
+  S.guardarSticker(chat, "x", webp("t2"));
+  describir(webp("t2"), "gato enojado");
+  const client = clienteFalso();
+  await Azar.run({ chat, isGroup: true }, { client, text: "perro" });
+  assert.equal(S.shaDe(globalThis.enviados.at(-1).msg.sticker), S.shaDe(webp("t1")));
+  await Azar.run({ chat, isGroup: true }, { client, text: "ENOJADO" });
+  assert.equal(S.shaDe(globalThis.enviados.at(-1).msg.sticker), S.shaDe(webp("t2")));
+  await Azar.run({ chat, isGroup: true }, { client, text: "dinosaurio" });
+  assert.match(globalThis.enviados.at(-1).msg.text, /No tengo ninguno de "dinosaurio"/);
 });
