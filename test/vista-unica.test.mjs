@@ -234,6 +234,7 @@ test("consistencia: todo plugin que baja o reenvía un archivo citado pasa por p
     "grupo-hidetag2.js": /plugin\.onlyAdmin = true/,
     "grupo-set-pp.js": /plugin\.onlyAdmin = true/,
     "set-pp-bot.js": /plugin\.onlyOwner = true/,
+    "sticker-sacar.js": /plugin\.onlyAdmin = true/,
     // Only stickers, which can't be sent as view-once.
     "convert-sticker-to-img.js": /\/sticker\/\.test\(mime\)/,
     "sticker-wm.js": /\/webp\/\.test\(mime\)/,

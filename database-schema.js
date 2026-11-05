@@ -681,6 +681,22 @@ export function ponerAlDia(db) {
   // time doesn't count for .inactivos, since nobody else could write then (lib/inactivos.js).
   db.exec(`CREATE TABLE IF NOT EXISTS cierres_grupo (chat TEXT NOT NULL, desde INTEGER NOT NULL, hasta INTEGER)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_cierres_grupo_chat ON cierres_grupo (chat)`);
+  // The stickers people send in each group, which Claudia sends back at random (lib/stickers-grupo.js). The file lives
+  // in database/stickers/<sha>.webp, once even if several groups have it; here, who has it, how many times it came and
+  // when she last used it. sacado: an admin took it out (.sacarsticker), and it isn't kept again if it comes back.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stickers_grupo (
+      chat TEXT NOT NULL,
+      sha TEXT NOT NULL,
+      autor TEXT,
+      veces INTEGER NOT NULL DEFAULT 1,
+      primero INTEGER NOT NULL,
+      ultimo INTEGER NOT NULL,
+      usado INTEGER NOT NULL DEFAULT 0,
+      sacado INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (chat, sha)
+    )
+  `);
 
   // Migration: the nickname Claudia uses for each person (bought in the shop)
   if (!columnasUsers.some((c) => c.name === "apodo")) {
