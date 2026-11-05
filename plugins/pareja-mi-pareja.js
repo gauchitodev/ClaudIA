@@ -1,5 +1,6 @@
 import { parejaDe, solicitudDe, cancelarSolicitud, exParejasDe } from "../lib/parejas.js";
 import { duracionLarga } from "../lib/tiempo.js";
+import { generoDeVarios, concordarPlural } from "../lib/genero.js";
 
 // .mipareja: who you're with, since when, and whether you're married. An unanswered request is voided on lookup.
 const plugin = {};
@@ -19,7 +20,8 @@ plugin.run = async (m, { client }) => {
     const kz = await client.sendText(m.chat, txt.parejaNoTiene(m.sender, exs.length), m);
     return client.sendMessage(m.chat, { react: { text: "🤣", key: kz.key } });
   }
-  const casados = p.casadosDesde > 0 ? `*💍Casados:* ✅\n*⏳Tiempo casados:*\n${duracionLarga(Date.now() - p.casadosDesde)}` : `*💍Casados:* ❌`;
+  // "Casadas" when both are women (.genero, lib/genero.js); otherwise as always.
+  const casados = concordarPlural(p.casadosDesde > 0 ? `*💍Casados:* ✅\n*⏳Tiempo casados:*\n${duracionLarga(Date.now() - p.casadosDesde)}` : `*💍Casados:* ❌`, generoDeVarios([m.sender, p.pareja]));
   const kz = await client.sendText(m.chat, txt.parejaMiPareja(m.sender, p.pareja, duracionLarga(Date.now() - p.desde), casados, exs.length), m);
   client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });
 };

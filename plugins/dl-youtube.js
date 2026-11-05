@@ -15,6 +15,7 @@ import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
 import { elegirAlAzar } from "../lib/azar.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const execFileAsync = promisify(execFile);
 // Swappable in the tests, like lib/ytdlp.js: a fake yt-dlp instead of the real one.
@@ -55,7 +56,7 @@ plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetada
       const newAttempts = user.commandAttempts + 1;
       if (newAttempts > 4) {
         updateUser(m.sender, { banned: true });
-        return client.sendText(m.chat, txt.banSpam, m);
+        return client.sendText(m.chat, concordar(txt.banSpam, generoDe(m.sender)), m);
       }
       return client.sendText(m.chat, `${txt.advSpam(formattedTime, newAttempts)}\n\n🪙 O saltá la espera por ${COINS.SALTAR_COOLDOWN} UruCoins con .${cmdBase}ya`, m);
     }

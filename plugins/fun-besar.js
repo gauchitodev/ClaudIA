@@ -2,6 +2,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { parejaDe, enojarPareja, besoEntrePareja } from "../lib/parejas.js";
 import { parentescoDe } from "../lib/familia.js";
+import { generoDe, generoDeVarios, concordar, concordarPlural } from "../lib/genero.js";
 
 // .besar @x: a virtual kiss, unless either of them is partnered with someone else. A pending couple request doesn't
 // count as a couple. Between partners or spouses the kiss always lands, unless the partner is in a huff: over an
@@ -41,7 +42,9 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   }
   const casados = enPareja && mia.casadosDesde > 0;
   const teks = enPareja ? elegirAlAzar(casados ? ["💍 Beso de casados, como el primer día.", "💍 Un beso para tu marido/mujer. Qué lindo verlos así.", "💍 Beso con anillo puesto. Se nota el amor."] : ["💞 Beso de novios, de esos que no se rechazan.", "💞 Un beso para tu pareja. Ay, el amor.", "💞 Beso entre novios: aceptado sin mirar."]) : elegirAlAzar(["¡Muah! 💋 Beso virtual enviado con cariño.", "¡Besoo enviado! 💋", "¡Hermoso beso virtual para ti! 💋"]);
-  const recibido = `${teks}\n\n*💌Lo recibe:* @${who.split("@")[0]}\n\n*😚De parte de:* @${m.sender.split("@")[0]}`;
+  // "tu marido" or "tu mujer" by the partner's gender, and "casadas", "novias" when both are women (.genero,
+  // lib/genero.js); as always when nothing is set.
+  const recibido = `${concordarPlural(concordar(teks, generoDe(who)), generoDeVarios([m.sender, who]))}\n\n*💌Lo recibe:* @${who.split("@")[0]}\n\n*😚De parte de:* @${m.sender.split("@")[0]}`;
   const rechazado = `@${who.split("@")[0]} rechazó el beso y le corrió la cara a @${m.sender.split("@")[0]} 🤣`;
   const mensaje = enPareja ? recibido : elegirAlAzar([recibido, rechazado]);
   // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).

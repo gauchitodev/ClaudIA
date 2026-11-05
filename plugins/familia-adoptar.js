@@ -2,6 +2,7 @@ import { getUser } from "../database-functions.js";
 import { nombreDe } from "../lib/menciones.js";
 import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { pedirAdopcion, FAMILIA } from "../lib/familia.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 // .adoptar @x: a married couple adopts someone. It stays pending until x answers with .si or .no.
 const plugin = {};
@@ -11,7 +12,8 @@ plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
   const who = await lidMencionadoActual(client, m, text, participants);
-  if (!who || !getUser(who)) return client.sendText(m.chat, `¿A quién? Uso: ${usedPrefix}${command} @persona (o respondé a un mensaje suyo). Hay que estar casado; la otra persona acepta con .si.`, m);
+  // What's said of whoever asks, or of the person named, goes in their gender when set (.genero, lib/genero.js).
+  if (!who || !getUser(who)) return client.sendText(m.chat, concordar(`¿A quién? Uso: ${usedPrefix}${command} @persona (o respondé a un mensaje suyo). Hay que estar casado; la otra persona acepta con .si.`, generoDe(m.sender)), m);
   if (esElBot(who, client)) return client.sendText(m.chat, "A mí no me adopta nadie: yo los adopté a todos ustedes 😌", m);
 
   const r = pedirAdopcion(m.chat, m.sender, who);
@@ -30,7 +32,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
       yaPedida: `Ya se lo pediste a ${nombre}. Tiene que responder con .si o .no.`,
       sinCoins: `El trámite de adopción cuesta ${r.costo} UruCoins y no te alcanza.`,
     };
-    return client.sendText(m.chat, errores[r.motivo] || "No se pudo.", m);
+    const deQuien = { mismo: m.sender, sinCasar: m.sender, esTuPareja: who, antepasado: who, pariente: who }[r.motivo];
+    return client.sendText(m.chat, deQuien ? concordar(errores[r.motivo], generoDe(deQuien)) : errores[r.motivo] || "No se pudo.", m);
   }
   const kz = await client.sendMessage(
     m.chat,

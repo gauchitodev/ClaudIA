@@ -2,6 +2,7 @@ import { superponer } from "../lib/canvas.js";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { destinatarioActual } from "../lib/identidad.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const plugin = {};
 plugin.cmd = ["carcel", "cárcel", "preso", "presa"];
@@ -21,7 +22,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     const years = elegirAlAzar(["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"]);
     const razon = elegirAlAzar(["SER TAN PUTA", "SER TAN LIND@😍", "SER TAN IMBECIL🙄", "SER TAN PAJER@🤣", "ACOSADOR🤢", "INFIEL", "GAY🏳️‍🌈🌈", "TROLA", "CARGAR TANTA BELLEZA😍", "SER TAN FE@🤮", "COMER TANTAS VERGAS🍆"]);
     const imagen = await superponer(pp, "https://i.ibb.co/1tKmnxRy/5856a83e4f6ae202fedf276d.png", { opacidad: 0.8 });
-    await client.sendFile(m.chat, imagen, `${Date.now()}.jpg`, txt.carcelMsg(years, razon), m);
+    // "LINDA", "ACOSADORA" in the prisoner's gender when set (.genero, lib/genero.js).
+    await client.sendFile(m.chat, imagen, `${Date.now()}.jpg`, concordar(txt.carcelMsg(years, razon), generoDe(who)), m);
   } catch (e) {
     // If their photo or the layer doesn't come down, or the image doesn't go, that's said: it used to be just the ⏳.
     console.error(`[${command}] no pude armar la foto:`, e?.message || e);

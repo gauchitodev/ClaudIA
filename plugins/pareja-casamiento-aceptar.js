@@ -1,5 +1,6 @@
 import { pausa } from "../lib/pausas.js";
-import { responderCasamiento } from "../lib/parejas.js";
+import { responderCasamiento, parejaDe } from "../lib/parejas.js";
+import { generoDeVarios, concordarPlural } from "../lib/genero.js";
 import { responderAdopcion, textoRespuestaAdopcion, porAdoptar } from "../lib/familia.js";
 import { comoLoEsperan } from "../lib/identidad.js";
 
@@ -18,10 +19,11 @@ plugin.run = async (m, { client, participants }) => {
   const r = responderCasamiento(m.sender, true);
   if (!r.ok) {
     if (r.motivo === "sinPareja") return client.sendText(m.chat, txt.parejaCasamientoNull, m);
-    if (r.motivo === "yaCasados") return client.sendText(m.chat, txt.parejaCasamientoAlready, m);
+    // "casadas" when both are women (.genero, lib/genero.js); otherwise as always.
+    if (r.motivo === "yaCasados") return client.sendText(m.chat, concordarPlural(txt.parejaCasamientoAlready, generoDeVarios([m.sender, parejaDe(m.sender)?.pareja])), m);
     return; // no pending proposal: ".si" is a common word, better to say nothing
   }
-  const kz = await client.sendText(m.chat, txt.parejaCasamientoSuccess(m.sender, r.pareja), m);
+  const kz = await client.sendText(m.chat, concordarPlural(txt.parejaCasamientoSuccess(m.sender, r.pareja), generoDeVarios([m.sender, r.pareja])), m);
   await pausa(700);
   for (const emoji of ["💗", "❤️‍🔥", "🩵", "💚", "💛", "🩷", "❤️"]) {
     await client.sendMessage(m.chat, { react: { text: emoji, key: kz.key } });

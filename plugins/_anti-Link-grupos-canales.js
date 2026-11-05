@@ -2,6 +2,7 @@
 // It only fires on a real link (chat.whatsapp.com/CODE, lib/enlaces.js); writing "grupo de whatsapp" doesn't count.
 import { expulsar, idDelAutor } from "../lib/identidad.js";
 import { LINK_GRUPO, LINK_CANAL } from "../lib/enlaces.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
@@ -21,7 +22,7 @@ plugin.before = async (m, { client, participants, isMod, isBotAdmin, isOwner, ch
 
     if (chat.antiDelete) return client.sendText(m.chat, txt.antiGroupsDelete, null, { mentions: [m.sender, ...groupAdmins.map((v) => v.id)] });
 
-    client.sendMessage(m.chat, { text: txt.antiGroupsSuccess(m.sender), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
+    client.sendMessage(m.chat, { text: concordar(txt.antiGroupsSuccess(m.sender), generoDe(m.sender)), mentions: [m.sender, ...groupAdmins.map((v) => v.id)] }, { quoted: null });
     m.moderado = true; // Claudia leaves it alone (plugins/_auto-ia.js)
     await m.delete();
     const { ok, status } = await expulsar(client, m.chat, idDelAutor(m, participants));

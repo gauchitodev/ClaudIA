@@ -1,6 +1,7 @@
 import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS, anotarAdvertencia, marcarExpulsion } from "../database-functions.js";
 import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 // Moderation warnings, counted per group: on the third one they're kicked from here. Another group's don't count.
 const plugin = {};
@@ -31,7 +32,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isOwne
   const anotar = () => anotarAdvertencia(quien, m.chat, { motivo: razon, dadoPor: m.sender });
 
   if (advertencias >= MAX_ADVERTENCIAS) {
-    await client.sendText(m.chat, txt.advertirKick(quien), m, { mentions: [quien] });
+    await client.sendText(m.chat, concordar(txt.advertirKick(quien), generoDe(quien)), m, { mentions: [quien] });
     // Removal uses the id the group lists the person under, and the count is cleared only if WhatsApp accepted.
     const { ok, status } = await expulsar(client, m.chat, participante?.id || lid || quien);
     const anotada = anotar();

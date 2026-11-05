@@ -2,6 +2,7 @@ import { getUser } from "../database-functions.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { pedirPareja } from "../lib/parejas.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 // .pareja @x: asks x to be your partner. It stays pending until x answers with .aceptar or .rechazar.
 const plugin = {};
@@ -32,7 +33,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     return;
   }
   // With the mentions: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
-  const kz = await client.sendText(m.chat, txt.parejaPeticion(elegirAlAzar(DECLARACIONES), m.sender, who), m, { mentions: [m.sender, who] });
+  // The declaration in the gender of whoever it's for, when set (.genero, lib/genero.js): "novia", "mía", "chica".
+  const kz = await client.sendText(m.chat, txt.parejaPeticion(concordar(elegirAlAzar(DECLARACIONES), generoDe(who)), m.sender, who), m, { mentions: [m.sender, who] });
   client.sendMessage(m.chat, { react: { text: "😳", key: kz.key } });
 };
 

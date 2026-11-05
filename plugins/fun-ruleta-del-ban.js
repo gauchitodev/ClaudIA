@@ -2,6 +2,7 @@ import { pausa } from "../lib/pausas.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { expulsar, esElBot, identidadDelGrupo } from "../lib/identidad.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const plugin = {};
 plugin.cmd = ["ruletadelban", "ruletaban", "banruleta"];
@@ -20,7 +21,7 @@ plugin.run = async (m, { client, groupMetadata, isOwner, isWaAdmin }) => {
   const user = elegirAlAzar(psmap);
   // Announcement first, then the suspense, then the kick. Not awaiting the announcement let it wait its turn in the
   // queue (lib/envios.js) while the 2 seconds ran, and the kick could land before anyone saw who was chosen.
-  await client.sendText(m.chat, txt.ruletaDelBan(user), m);
+  await client.sendText(m.chat, concordar(txt.ruletaDelBan(user), generoDe(user)), m);
   await pausa(2000);
   // WhatsApp answers with a status instead of failing: it's read, as .kick does (lib/identidad.js).
   const { ok, status } = await expulsar(client, m.chat, user);

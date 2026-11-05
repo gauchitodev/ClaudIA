@@ -1,4 +1,5 @@
 import { lidMencionadoActual, esElBot, lidDe } from "../lib/identidad.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
@@ -14,7 +15,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
   const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
   const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
   const santoLid = santoJid ? lidDe(santoJid, participants, { oElMismo: false }) : null;
-  if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, `0% @${who.split("@")[0]} es un santo 😇`, m, { mentions: [who] });
+  if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, concordar(`0% @${who.split("@")[0]} es un santo 😇`, generoDe(who)), m, { mentions: [who] });
 
   const porcentaje = Math.floor(Math.random() * 101);
   // With the mention: of someone the bot knows by their number alone, the "@" in the text tagged nobody (sendText).
@@ -105,7 +106,8 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
 
   if (command === "love") {
     const getR = Math.floor(Math.random() * 101);
-    const pregunta = getR <= 50 ? "Resultado un poco bajo😔" : "¿Deberías pedirle que sea tu novia/o?😍";
+    // "novia" or "novio" by the gender of whoever it's about, when set (.genero, lib/genero.js).
+    const pregunta = getR <= 50 ? "Resultado un poco bajo😔" : concordar("¿Deberías pedirle que sea tu novia/o?😍", generoDe(who));
     const juego = `*❤️MEDIDOR DE AMOR❤️*\n\n*_El amor de @${who.split("@")[0]} ES DE ${getR}%_*\n\n*_${pregunta}_*`.trim();
     const kz = await decir(juego);
     client.sendMessage(m.chat, { react: { text: "❤️", key: kz.key } });

@@ -4,7 +4,7 @@ import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
-import { tratoPara } from "../lib/genero.js";
+import { tratoPara, generoDe } from "../lib/genero.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
@@ -14,7 +14,7 @@ import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { sinPermisoEn } from "../lib/menu.js";
 import { tipear } from "../lib/ritmo.js";
-import { laburoDe } from "../lib/laburos.js";
+import { laburoDe, nombreDeOficio } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
@@ -209,7 +209,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // their role-play job: Claudia knows it and can tease them about it
     const laburo = laburoDe(m.chat, m.sender);
     if (laburo) {
-      partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${laburo.oficio.nombre.toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
+      partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
     }
 
     // nickname bought in the shop: Claudia addresses them that way

@@ -10,6 +10,7 @@ import { obtenerRankingMensual, entradaMasVotada, marcarPeriodoCerrado, ultimoPe
 import { HASHTAGS_CONFIG, semanaDe, mesDe, semanasAnteriores, mesesAnteriores, semanaEnTexto } from "../lib/hashtags.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
 import { sortearLoteria } from "../lib/loteria.js";
+import { generoDe, concordar } from "../lib/genero.js";
 
 const ultimoChequeo = new Map(); // chat -> { mes, semana } already checked (saves hitting the database on every message)
 
@@ -47,8 +48,9 @@ plugin.before = async (m, { client }) => {
       marcarPeriodoCerrado(m.chat, "mes", mes);
       const { masVotado, masActivo } = obtenerRankingMensual(m.chat, mes);
       const ganadores = [];
-      if (masVotado[0]) ganadores.push({ lid: masVotado[0].usuario, titulo: "❤️ Más votado", detalle: `${masVotado[0].recibidas} reacciones recibidas` });
-      if (masActivo[0]) ganadores.push({ lid: masActivo[0].usuario, titulo: "🔥 Más activo", detalle: `${masActivo[0].emitidas} reacciones dadas` });
+      // "Más votada", "Más activa" in the winner's gender when set (.genero, lib/genero.js).
+      if (masVotado[0]) ganadores.push({ lid: masVotado[0].usuario, titulo: concordar("❤️ Más votado", generoDe(masVotado[0].usuario)), detalle: `${masVotado[0].recibidas} reacciones recibidas` });
+      if (masActivo[0]) ganadores.push({ lid: masActivo[0].usuario, titulo: concordar("🔥 Más activo", generoDe(masActivo[0].usuario)), detalle: `${masActivo[0].emitidas} reacciones dadas` });
 
       if (ganadores.length > 0) {
         let texto = `🏆 *CERRÓ EL RANKING DE ${nombreMes(mes).toUpperCase()}*\n\n`;
