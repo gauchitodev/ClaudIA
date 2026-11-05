@@ -77,17 +77,19 @@ async function empezar({ chat = G, apuesta = "" } = {}) {
   await comando(ANA, "naval", { chat, text: apuesta });
   await comando(BETO, "naval", { chat, text: apuesta });
 }
-// Ana sinks Beto's whole fleet, Beto misses every time; the two take turns. Returns the last shot's cell.
-async function ganaAna() {
+// Ana sinks Beto's whole fleet in salvos of three, Beto misses every time; the two take turns. With ganaAlPrimero, Ana
+// misses once before the last cell, so the last ship falls on the first shot of a salvo whose other two cells are then
+// never fired. Returns the winning cell.
+async function ganaAna({ ganaAlPrimero = false } = {}) {
   const objetivos = flotaRival(ANA).flatMap((b) => b.celdas);
-  const agua = aguas(flotaRival(BETO));
-  let casilla;
-  for (const celda of objetivos) {
-    casilla = nombre(celda);
-    await escribir(ANA, casilla);
-    if (sala()) await escribir(BETO, nombre(agua.next().value));
+  const aguaAna = aguas(flotaRival(ANA));
+  const aguaBeto = aguas(flotaRival(BETO));
+  const tiros = ganaAlPrimero ? [...objetivos.slice(0, 11), aguaAna.next().value, objetivos[11], aguaAna.next().value, aguaAna.next().value] : objetivos;
+  for (let i = 0; i < tiros.length && sala(); i += 3) {
+    await escribir(ANA, tiros.slice(i, i + 3).map(nombre).join(" "));
+    if (sala()) await escribir(BETO, [1, 2, 3].map(() => nombre(aguaBeto.next().value)).join(" "));
   }
-  return casilla;
+  return nombre(objetivos[11]);
 }
 
 test("leerCasilla: B4, b 4 y 4B son la misma casilla; lo que no es una casilla, no", () => {
@@ -96,6 +98,14 @@ test("leerCasilla: B4, b 4 y 4B son la misma casilla; lo que no es una casilla, 
   assert.deepEqual(BN.leerCasilla("a1"), [0, 0]);
   for (const forma of ["", "B", "4", "B9", "I1", "B 44", "BB4", "hola", "B4 C5", "4"]) assert.equal(BN.leerCasilla(forma), null, JSON.stringify(forma));
   assert.equal(BN.nombreDeCasilla([1, 3]), "B4");
+});
+
+test("leerCasillas: una casilla o varias juntas, con espacios, comas o «y»; una casilla dentro de una frase, no", () => {
+  assert.deepEqual(BN.leerCasillas("B4"), [[1, 3]]);
+  assert.deepEqual(BN.leerCasillas("b 4"), [[1, 3]]);
+  for (const forma of ["B4 C5 D6", "b4, c5 y d6", "B4,C5,D6", " b4   5c ; D6 ", "B 4 C 5 D 6", "4 B 5 C 6 D"]) assert.deepEqual(BN.leerCasillas(forma), [[1, 3], [2, 4], [3, 5]], JSON.stringify(forma));
+  assert.deepEqual(BN.leerCasillas("A1 A2 A3 A4"), [[0, 0], [0, 1], [0, 2], [0, 3]], "las que sean: cuántas se pueden tirar lo dice la partida");
+  for (const forma of ["", "hola", "tiro B4", "B4 C5 hola", "B4C5", "B4 I1", "B4 y", "4 B 5", "B4 B", "B45", `${"A1 ".repeat(30)}A1`]) assert.equal(BN.leerCasillas(forma), null, JSON.stringify(forma));
 });
 
 test("colocarFlota: cuatro barcos de 4, 3, 3 y 2, derechos, dentro del mar y sin tocarse ni en diagonal", () => {
@@ -175,9 +185,9 @@ test(".naval: el primero abre la mesa, el segundo se sienta, Claudia ubica las f
 
   await comando(BETO, "naval");
   const inicio = ultimo();
-  assert.match(inicio.text, /^🚢 \*Batalla naval\*\n🔵 @300000000000031 {2}vs {2}🔴 @300000000000032\n\nYa ubiqué las dos flotas a escondidas: acorazado \(4\), crucero \(3\), submarino \(3\), lancha \(2\)\. Los barcos no se tocan entre sí\. Cada turno es un tiro: escribí la casilla, por ejemplo B4\.\n🟦 sin tirar · 🌊 agua · 💥 tocado · 🚢 hundido\n\nTurno de @300000000000031 🔵\. Escribí la casilla \(A1 a H8\)\. Para abandonar: \.rendirse$/);
+  assert.match(inicio.text, /^🚢 \*Batalla naval\*\n🔵 @300000000000031 {2}vs {2}🔴 @300000000000032\n\nYa ubiqué las dos flotas a escondidas: acorazado \(4\), crucero \(3\), submarino \(3\), lancha \(2\)\. Los barcos no se tocan entre sí\. Cada turno son 3 tiros: escribí las casillas \(A1 a H8\) juntas, por ejemplo B4 C5 D6, o de a una\.\n🟦 sin tirar · 🌊 agua · 💥 tocado · 🚢 hundido\n\nTurno de @300000000000031 🔵, 3 tiros: escribí las casillas juntas \(B4 C5 D6\) o de a una\. Para abandonar: \.rendirse$/);
   assert.deepEqual(inicio.mentions, [ANA, BETO]);
-  assert.deepEqual([sala().estado, sala().turno, sala().flotas[1].length, sala().flotas[2].length], ["JUGANDO", 1, 4, 4]);
+  assert.deepEqual([sala().estado, sala().turno, sala().tirosRestantes, sala().flotas[1].length, sala().flotas[2].length], ["JUGANDO", 1, 3, 4, 4]);
   assert.notDeepEqual(sala().flotas[1], sala().flotas[2], "cada uno con su mar");
   assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "naval", "sus mensajes son del juego");
 
@@ -192,53 +202,88 @@ test(".naval: el primero abre la mesa, el segundo se sienta, Claudia ubica las f
   m = await escribir(CARLA, "A1");
   assert.deepEqual([globalThis.enviados.length, m.respuestaDeJuego], [antes, undefined]);
 
-  // Ana misses: her radar, and Beto's turn
-  const agua = aguas(flotaRival(ANA)).next().value;
+  // Ana misses with one shot: her radar, and still her turn, with two shots left
+  const aguaAna = aguas(flotaRival(ANA));
+  const agua = aguaAna.next().value;
   await escribir(ANA, nombre(agua).toLowerCase());
   assert.match(ultimo().text, new RegExp(`^🌊 \\*${nombre(agua)}\\*: agua\\.\n\n\\*Radar de @300000000000031\\* 🔵 · hundió 0 de 4\n🧭1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣\n(🇦|🇧|🇨|🇩|🇪|🇫|🇬|🇭)`));
-  assert.ok(ultimo().text.includes("🌊") && ultimo().text.endsWith("\n\nTurno de @300000000000032 🔴. Escribí la casilla (A1 a H8). Para abandonar: .rendirse"));
+  assert.ok(ultimo().text.includes("🌊") && ultimo().text.endsWith("\n\nA @300000000000031 🔵 le quedan 2 tiros: escribí las casillas juntas (B4 C5) o de a una. Para abandonar: .rendirse"));
   assert.equal(ultimo().text.split("\n").length, 14, "el resultado, el radar con su título y el turno, con sus espacios");
-  assert.deepEqual([sala().turno, F.getNaval(G).tiros[1][`${agua[0]},${agua[1]}`]], [2, "agua"], "guardado el tiro");
+  assert.deepEqual([sala().turno, sala().tirosRestantes, F.getNaval(G).tirosRestantes, F.getNaval(G).tiros[1][`${agua[0]},${agua[1]}`]], [1, 2, 2, "agua"], "guardados el tiro y los que le quedan");
+  // Beto: still not his turn
+  antes = globalThis.enviados.length;
+  await escribir(BETO, "H8");
+  assert.equal(globalThis.enviados.length, antes);
+  // Ana's other two together: a line per shot, and now it's Beto's turn
+  const [agua2, agua3] = [aguaAna.next().value, aguaAna.next().value];
+  await escribir(ANA, `${nombre(agua2)}, ${nombre(agua3)}`);
+  assert.match(ultimo().text, new RegExp(`^🌊 \\*${nombre(agua2)}\\*: agua\\.\n🌊 \\*${nombre(agua3)}\\*: agua\\.\n\n\\*Radar de @300000000000031\\* 🔵 · hundió 0 de 4\n`));
+  assert.ok(ultimo().text.endsWith("\n\nTurno de @300000000000032 🔴, 3 tiros: escribí las casillas juntas (B4 C5 D6) o de a una. Para abandonar: .rendirse"));
+  assert.equal(ultimo().text.split("\n").length, 15);
+  assert.deepEqual([sala().turno, sala().tirosRestantes, Object.keys(sala().tiros[1]).length], [2, 3, 3]);
   // Ana again: not her turn anymore
   antes = globalThis.enviados.length;
   await escribir(ANA, "H8");
   assert.equal(globalThis.enviados.length, antes);
 
-  // Beto hits
+  // Beto's three at once: a miss, and the lancha's two cells, hit and sunk in the same turn
   const barco = flotaRival(BETO)[3];
-  await escribir(BETO, nombre(barco.celdas[0]));
-  assert.match(ultimo().text, new RegExp(`^💥 \\*${nombre(barco.celdas[0])}\\*: ¡tocado!\n\n\\*Radar de @300000000000032\\* 🔴 · hundió 0 de 4\n`));
-  assert.ok(ultimo().text.includes("💥"));
-  // Ana shoots where she already did: told, and still her turn
+  const aguaBeto = aguas(flotaRival(BETO)).next().value;
+  await escribir(BETO, `${nombre(aguaBeto)} ${nombre(barco.celdas[0])} ${nombre(barco.celdas[1])}`);
+  assert.match(ultimo().text, new RegExp(`^🌊 \\*${nombre(aguaBeto)}\\*: agua\\.\n💥 \\*${nombre(barco.celdas[0])}\\*: ¡tocado!\n🚢 \\*${nombre(barco.celdas[1])}\\*: ¡hundido! Era la lancha de @300000000000031\\.\n\n\\*Radar de @300000000000032\\* 🔴 · hundió 1 de 4\n`));
+  assert.equal((ultimo().text.match(/🚢/g) || []).length, 3, "las dos casillas de la lancha, más el emoji del aviso");
+  assert.deepEqual([sala().turno, sala().tirosRestantes], [1, 3]);
+
+  // Ana's salvo with a cell she already shot at, one with a cell twice and one with four cells: none goes off
+  const nueva = aguaAna.next().value;
+  await escribir(ANA, `${nombre(nueva)} ${nombre(agua)}`);
+  assert.equal(ultimo().text, `Ya tiraste en ${nombre(agua)} (fue agua): elegí otra casilla (no tiré ninguna).`);
+  await escribir(ANA, `${nombre(nueva)} ${nombre(nueva)} H8`);
+  assert.equal(ultimo().text, `Repetiste ${nombre(nueva)}: cada tiro va a una casilla distinta (no tiré ninguna).`);
+  await escribir(ANA, "A1 A2 A3 A4");
+  assert.equal(ultimo().text, "Te quedan 3 tiros en este turno y mandaste 4 casillas: mandá 3 (no tiré ninguna).");
   await escribir(ANA, nombre(agua));
   assert.equal(ultimo().text, `Ya tiraste en ${nombre(agua)} (fue agua): elegí otra casilla.`);
-  assert.equal(sala().turno, 1);
-  // Beto sinks the lancha, after Ana's next miss
-  const agua2 = [...aguas(flotaRival(ANA))][1];
-  await escribir(ANA, nombre(agua2));
-  await escribir(BETO, nombre(barco.celdas[1]));
-  assert.match(ultimo().text, new RegExp(`^🚢 \\*${nombre(barco.celdas[1])}\\*: ¡hundido! Era la lancha de @300000000000031\\.\n\n\\*Radar de @300000000000032\\* 🔴 · hundió 1 de 4\n`));
-  assert.equal((ultimo().text.match(/🚢/g) || []).length, 3, "las dos casillas de la lancha, más el emoji del aviso");
+  assert.deepEqual([sala().turno, sala().tirosRestantes, Object.keys(sala().tiros[1]).length], [1, 3, 3], "nada tirado, y sigue su turno entero");
 
   // .naval during the game, from anyone: both radars and whose turn
   await comando(CARLA, "naval");
   assert.match(ultimo().text, /^🚢 \*Batalla naval\*\n🔵 @300000000000031 {2}vs {2}🔴 @300000000000032\n\n\*Radar de @300000000000031\* 🔵 · hundió 0 de 4\n🧭/);
-  assert.match(ultimo().text, /\n\n\*Radar de @300000000000032\* 🔴 · hundió 1 de 4\n🧭[\s\S]*\n\n🟦 sin tirar · 🌊 agua · 💥 tocado · 🚢 hundido\nTurno de @300000000000031 🔵\. Escribí la casilla \(A1 a H8\)\. Para abandonar: \.rendirse$/);
+  assert.match(ultimo().text, /\n\n\*Radar de @300000000000032\* 🔴 · hundió 1 de 4\n🧭[\s\S]*\n\n🟦 sin tirar · 🌊 agua · 💥 tocado · 🚢 hundido\nTurno de @300000000000031 🔵, 3 tiros: escribí las casillas juntas \(B4 C5 D6\) o de a una\. Para abandonar: \.rendirse$/);
   assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "naval");
+  // halfway through a turn it says how many are left, down to the last one
+  await escribir(ANA, nombre(nueva));
+  await comando(CARLA, "naval");
+  assert.ok(ultimo().text.endsWith("\nA @300000000000031 🔵 le quedan 2 tiros: escribí las casillas juntas (B4 C5) o de a una. Para abandonar: .rendirse"));
+  await escribir(ANA, nombre(aguaAna.next().value));
+  assert.ok(ultimo().text.endsWith("\n\nA @300000000000031 🔵 le queda 1 tiro: escribí la casilla. Para abandonar: .rendirse"));
+  await escribir(ANA, `${nombre(aguaAna.next().value)} ${nombre(aguaAna.next().value)}`);
+  assert.equal(ultimo().text, "Te queda 1 tiro en este turno y mandaste 2 casillas: mandá 1 (no tiré ninguna).");
+  await escribir(ANA, nombre(aguaAna.next().value));
+  assert.deepEqual([sala().turno, sala().tirosRestantes, Object.keys(sala().tiros[1]).length], [2, 3, 6]);
 });
 
-test("batalla naval: gana el que hunde toda la flota del otro, y la mesa queda libre", async () => {
+test("batalla naval: gana el que hunde toda la flota del otro, en el tiro que lo hace, y la mesa queda libre", async () => {
   await empezar();
-  const ultimoBarco = flotaRival(ANA)[3];
+  const flota = flotaRival(ANA);
   const casilla = await ganaAna();
-  assert.equal(casilla, nombre(ultimoBarco.celdas[1]));
-  assert.match(ultimo().text, new RegExp(`^🏆 \\*${casilla}\\*: ¡hundido! Era la lancha de @300000000000032 y no le queda ningún barco: @300000000000031 🔵 ganó la batalla\\. 🎉\n\n\\*Radar de @300000000000031\\* 🔵 · hundió 4 de 4\n🧭`));
-  assert.ok(!/Turno de/.test(ultimo().text));
-  assert.equal((ultimo().text.match(/🚢/g) || []).length, 12, "la flota entera hundida en el radar");
+  assert.equal(casilla, nombre(flota[3].celdas[1]));
+  // the last salvo: the submarino's last cell and the lancha's two, the second of them the end of the game
+  assert.match(ultimo().text, new RegExp(`^🚢 \\*${nombre(flota[2].celdas[2])}\\*: ¡hundido! Era el submarino de @300000000000032\\.\n💥 \\*${nombre(flota[3].celdas[0])}\\*: ¡tocado!\n🏆 \\*${casilla}\\*: ¡hundido! Era la lancha de @300000000000032 y no le queda ningún barco: @300000000000031 🔵 ganó la batalla\\. 🎉\n\n\\*Radar de @300000000000031\\* 🔵 · hundió 4 de 4\n🧭`));
+  assert.ok(!/Turno de|le quedan? \d tiro/.test(ultimo().text), "sin línea de turno");
+  assert.equal((ultimo().text.match(/🚢/g) || []).length, 13, "la flota entera hundida en el radar, más el aviso del submarino");
   assert.deepEqual([sala(), F.getNaval(G)], [undefined, null], "la mesa queda libre, también en la base");
   // and a new game can start
   await comando(BETO, "naval");
   assert.match(ultimo().text, /espera rival/);
+  await comando(BETO, "delnaval");
+
+  // the last ship falls on the first shot of a salvo: the other two cells are never fired
+  await empezar();
+  const ultima = await ganaAna({ ganaAlPrimero: true });
+  assert.match(ultimo().text, new RegExp(`^🏆 \\*${ultima}\\*: ¡hundido! Era la lancha de @300000000000032 y no le queda ningún barco: @300000000000031 🔵 ganó la batalla\\. 🎉\n\n\\*Radar de @300000000000031\\* 🔵 · hundió 4 de 4\n🧭`));
+  assert.deepEqual([(ultimo().text.match(/🚢/g) || []).length, (ultimo().text.match(/🌊/g) || []).length], [12, 1], "en el radar, la flota y el único tiro al agua: los dos que seguían no se tiraron");
+  assert.equal(sala(), undefined);
 });
 
 test("batalla naval: un tiro que cita otro juego es de ese juego, y los de otro chat no se mezclan", async () => {
@@ -246,7 +291,7 @@ test("batalla naval: un tiro que cita otro juego es de ese juego, y los de otro 
   MJ.marcarMensajeDeJuego("TRIVIA-1", G, { juego: "trivia" });
   const antes = globalThis.enviados.length;
   const m = await escribir(ANA, "B4", { extra: { quoted: { id: "TRIVIA-1" } } });
-  assert.deepEqual([globalThis.enviados.length, m.respuestaDeJuego, sala().turno], [antes, undefined, 1]);
+  assert.deepEqual([globalThis.enviados.length, m.respuestaDeJuego, sala().turno, sala().tirosRestantes], [antes, undefined, 1, 3]);
   // the same people in another group: a table of its own
   await comando(ANA, "naval", { chat: G2 });
   assert.match(ultimo().text, /espera rival/);
@@ -286,9 +331,9 @@ test("batalla naval: .rendirse le da la partida al otro, y .delnaval la borra (l
 test("batalla naval: con los juegos apagados no toma tiros, y una mesa sin jugadas se borra a los 10 minutos", async () => {
   await empezar();
   const antes = globalThis.enviados.length;
-  const m = await escribir(ANA, "B4", { datosChat: { games: 0 } });
-  assert.deepEqual([globalThis.enviados.length, m.respuestaDeJuego, sala().turno], [antes, undefined, 1]);
-  await escribir(ANA, "B4");
+  const m = await escribir(ANA, "B4 C5 D6", { datosChat: { games: 0 } });
+  assert.deepEqual([globalThis.enviados.length, m.respuestaDeJuego, sala().turno, sala().tirosRestantes], [antes, undefined, 1, 3]);
+  await escribir(ANA, "B4 C5 D6");
   assert.equal(sala().turno, 2, "con los juegos prendidos, sí");
 
   let ahora = Date.now();
@@ -306,16 +351,17 @@ test("batalla naval: con los juegos apagados no toma tiros, y una mesa sin jugad
   assert.deepEqual([sala(), F.getNaval(G), avisos], [undefined, null, []]);
 });
 
-test("batalla naval: la partida sigue después de un reinicio, con las mismas flotas, los tiros y el turno", async () => {
+test("batalla naval: la partida sigue después de un reinicio, con las mismas flotas, los tiros y el turno a medias", async () => {
   let ahora = Date.now();
   BN._dep.ahora = () => ahora;
   await empezar();
-  const agua = aguas(flotaRival(ANA)).next().value;
-  await escribir(ANA, nombre(agua));
+  const aguaAna = aguas(flotaRival(ANA));
+  const agua = aguaAna.next().value;
+  await escribir(ANA, [agua, aguaAna.next().value, aguaAna.next().value].map(nombre).join(" "));
   const barco = flotaRival(BETO)[0];
   await escribir(BETO, nombre(barco.celdas[0]));
   const antes = JSON.parse(JSON.stringify(sala()));
-  assert.deepEqual([antes.turno, antes.tiros[1][`${agua[0]},${agua[1]}`], antes.tiros[2][`${barco.celdas[0][0]},${barco.celdas[0][1]}`]], [1, "agua", "tocado"]);
+  assert.deepEqual([antes.turno, antes.tirosRestantes, antes.tiros[1][`${agua[0]},${agua[1]}`], antes.tiros[2][`${barco.celdas[0][0]},${barco.celdas[0][1]}`]], [2, 2, "agua", "tocado"]);
 
   // the bot restarts nine minutes later: the memory is gone, the database isn't, and the clock starts over
   ahora += 9 * 60 * 1000;
@@ -323,21 +369,38 @@ test("batalla naval: la partida sigue después de un reinicio, con las mismas fl
   assert.equal(BN.salas.size, 0);
   await comando(CARLA, "naval");
   assert.match(ultimo().text, /^🚢 \*Batalla naval\*\n🔵 @300000000000031 {2}vs {2}🔴 @300000000000032\n\n\*Radar de @300000000000031\* 🔵 · hundió 0 de 4\n/);
-  assert.match(ultimo().text, /Turno de @300000000000031 🔵\./);
+  assert.match(ultimo().text, /\nA @300000000000032 🔴 le quedan 2 tiros: /);
   const despues = sala();
-  assert.deepEqual({ ...despues, ultimo: 0 }, { ...antes, ultimo: 0 }, "la misma partida");
+  assert.deepEqual({ ...despues, ultimo: 0 }, { ...antes, ultimo: 0 }, "la misma partida, con los tiros que le quedaban a Beto");
   assert.equal(despues.ultimo, ahora, "el reloj arranca de nuevo");
   ahora += 9 * 60 * 1000;
   assert.equal(BN.salaVigente(G)?.estado, "JUGANDO", "nueve minutos después del reinicio no venció");
-  // and it goes on: Ana hits the ship Beto's radar knows nothing about
+  // and it goes on: Beto's other two, then Ana hits the ship Beto's radar knows nothing about
+  const aguaBeto = aguas(flotaRival(BETO));
+  await escribir(BETO, `${nombre(aguaBeto.next().value)} ${nombre(aguaBeto.next().value)}`);
+  assert.deepEqual([sala().turno, sala().tirosRestantes], [1, 3]);
   const objetivo = flotaRival(ANA)[3].celdas[0];
   await escribir(ANA, nombre(objetivo));
   assert.match(ultimo().text, new RegExp(`^💥 \\*${nombre(objetivo)}\\*: ¡tocado!`));
-  assert.equal(sala().turno, 2);
-  // Beto writes nothing for eleven minutes: free, the game is simply dropped
+  assert.deepEqual([sala().turno, sala().tirosRestantes], [1, 2]);
+  // Ana writes nothing more for eleven minutes: free, the game is simply dropped
   ahora += 11 * 60 * 1000;
   BN.barrer();
   assert.deepEqual([sala(), F.getNaval(G), avisos], [undefined, null, []]);
+});
+
+test("batalla naval: una partida guardada cuando el turno era un tiro sigue con el turno entero", async () => {
+  await empezar();
+  const vieja = JSON.parse(JSON.stringify(sala()));
+  delete vieja.tirosRestantes;
+  F.setNaval(G, vieja);
+  BN.olvidarSalas();
+  assert.equal(BN.salaVigente(G).tirosRestantes, 3);
+  assert.equal(F.getNaval(G).tirosRestantes, 3, "y queda escrita así");
+  await comando(CARLA, "naval");
+  assert.match(ultimo().text, /\nTurno de @300000000000031 🔵, 3 tiros: /);
+  await escribir(ANA, "A1 A2 A3");
+  assert.deepEqual([sala().turno, sala().tirosRestantes], [2, 3]);
 });
 
 test("batalla naval por UruCoins: quien abre paga, quien se sienta escribe el mismo monto y paga, y el que gana se lleva los dos", async () => {
@@ -420,12 +483,23 @@ test("batalla naval por UruCoins: a los 10 minutos sin rival se devuelve, y en j
 
   avisos = [];
   await empezar({ apuesta: "100" });
-  await escribir(ANA, "A1");
+  const aguaAna = aguas(flotaRival(ANA));
+  await escribir(ANA, [1, 2, 3].map(() => nombre(aguaAna.next().value)).join(" "));
   ahora += 11 * 60 * 1000;
   // looked at by a message in the chat, not by the sweep: settled the same
   assert.equal(BN.salaVigente(G), null);
   assert.deepEqual(avisos, [{ chat: G, texto: "⌛ @300000000000032 no tiró en 10 minutos: ¡ganó @300000000000031! 🎉\n💰 Se lleva 200 UruCoins.", mentions: [ANA, BETO] }]);
   assert.deepEqual([saldo(ANA), saldo(BETO), F.getNaval(G)], [600, 400, null]);
+
+  // a turn left halfway is still that player's: with shots to go, it's them who didn't shoot
+  avisos = [];
+  await empezar({ apuesta: "100" });
+  await escribir(ANA, nombre(aguas(flotaRival(ANA)).next().value));
+  assert.deepEqual([sala().turno, sala().tirosRestantes], [1, 2]);
+  ahora += 11 * 60 * 1000;
+  BN.barrer();
+  assert.deepEqual(avisos, [{ chat: G, texto: "⌛ @300000000000031 no tiró en 10 minutos: ¡ganó @300000000000032! 🎉\n💰 Se lleva 200 UruCoins.", mentions: [ANA, BETO] }]);
+  assert.deepEqual([saldo(ANA), saldo(BETO), F.getNaval(G)], [500, 500, null]);
 
   // with the games switched off in between, nobody could play: each one gets theirs back
   avisos = [];
@@ -434,7 +508,7 @@ test("batalla naval por UruCoins: a los 10 minutos sin rival se devuelve, y en j
   ahora += 11 * 60 * 1000;
   BN.barrer();
   assert.deepEqual(avisos, [{ chat: G, texto: "⌛ La batalla naval de @300000000000031 y @300000000000032 quedó parada con los juegos apagados: cada uno recupera sus 100 UruCoins.", mentions: [ANA, BETO] }]);
-  assert.deepEqual([saldo(ANA), saldo(BETO), F.getNaval(G)], [600, 400, null]);
+  assert.deepEqual([saldo(ANA), saldo(BETO), F.getNaval(G)], [500, 500, null]);
 });
 
 test(".delnaval por UruCoins: esperando, devuelve; empezada, los que juegan no pueden y un admin les devuelve a los dos", async () => {
