@@ -14,9 +14,13 @@ const conQuery = (query) => ({ ...globalThis.client, query });
 
 test(".ping: Pong, lo que tarda WhatsApp en contestar y desde cuándo está prendida y conectada", async () => {
   const pedidos = [];
+  // The wait is measured here too, with the same clock: a 40 ms timer may read as 39 on Date.now, and once did on CI.
+  let tardo = 0;
   const client = conQuery(async (nodo, espera) => {
     pedidos.push({ nodo, espera });
+    const antes = Date.now();
     await esperar(40);
+    tardo = Date.now() - antes;
     return { tag: "iq", attrs: { type: "result" } };
   });
   globalThis.horaConexion = Date.now() - 5 * 3600e3;
@@ -25,7 +29,7 @@ test(".ping: Pong, lo que tarda WhatsApp en contestar y desde cuándo está pren
     await correr(client);
     const texto = ultimoEnviado().msg.text;
     assert.match(texto, /^🏓 Pong\n📡 WhatsApp me contesta en (\d+) ms\.\n🟢 Encendida hace .+ · conectada hace 5 h 0 min\.$/);
-    assert.ok(Number(texto.match(/en (\d+) ms/)[1]) >= 40, texto);
+    assert.ok(tardo >= 30 && Number(texto.match(/en (\d+) ms/)[1]) >= tardo, `${texto} (la espera tardó ${tardo} ms)`);
     // The same ping Baileys keeps the connection alive with, with a time limit, and nothing else sent for it.
     assert.deepEqual(pedidos.map((p) => [p.nodo.tag, p.nodo.attrs.to, p.nodo.attrs.type, p.nodo.attrs.xmlns, p.nodo.content[0].tag, p.espera]), [["iq", "@s.whatsapp.net", "get", "w:p", "ping", PING.ESPERA_MS]]);
     assert.equal(globalThis.enviados.length, 1);

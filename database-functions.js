@@ -542,9 +542,11 @@ export function isBlacklisted(id, chat = "*") {
 }
 
 // a group's entries plus the global ones; with no chat, every entry of every group
+// Oldest first, and among entries of the same millisecond, in the order they came (rowid): by the date alone, SQLite
+// gave those in its primary key's order, by number, and .vln's numbering, which .ln2 goes by, moved around.
 export function getBlacklist(chat = null) {
-  if (!chat) return db.prepare(`SELECT * FROM lista_negra ORDER BY dateAdded ASC`).all();
-  return db.prepare(`SELECT * FROM lista_negra WHERE chat IN (?, '*') ORDER BY dateAdded ASC`).all(chat);
+  if (!chat) return db.prepare(`SELECT * FROM lista_negra ORDER BY dateAdded ASC, rowid ASC`).all();
+  return db.prepare(`SELECT * FROM lista_negra WHERE chat IN (?, '*') ORDER BY dateAdded ASC, rowid ASC`).all(chat);
 }
 
 // The rows the listings show: every one with a LID, and an old one keyed by the number only while no row with a LID has

@@ -528,6 +528,9 @@ test("lo anotado por un número que tenían dos filas queda con el número, y de
   F.addToBlacklist(N5, "otra", "admin", G);
   F.syncUserInfo({ sender: U, senderJid: N5 }); // U writes with the number it had, and V's row had it too
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[N, null], [N3, null], [N5, null]]);
+  // Added within the same millisecond, as a fast machine does: still in the order they came, not by number.
+  db.prepare("UPDATE lista_negra SET dateAdded = 1").run();
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.jid), [N, N3, N5]);
 
   const roles = db.prepare("INSERT INTO roles_grupo (chat, usuario, rol, dadoPor, fecha) VALUES (?, ?, ?, ?, ?)");
   const [S, T] = ["300000000000794@lid", "300000000000796@lid"];
