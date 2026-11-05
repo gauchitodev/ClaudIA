@@ -7,7 +7,7 @@ import { prepararBase, fijarSaldo, mazoDe, nodosQue } from "./helpers.mjs";
 // The casino's games live in memory and charge up front: a restart in the middle used to swallow the stakes.
 // lib/cierre.js refunds whatever is in play on the way out.
 
-let F, Cierre, Casino, Carrera, BJ, Mines, D, C4, Timba;
+let F, Cierre, Casino, Carrera, BJ, Mines, D, C4, Poker, Timba;
 before(async () => {
   ({ F } = await prepararBase("cierre"));
   Cierre = await import("../lib/cierre.js");
@@ -17,6 +17,7 @@ before(async () => {
   Mines = await import("../lib/mines.js");
   D = await import("../lib/duelos.js");
   C4 = await import("../lib/cuatro-en-linea.js");
+  Poker = await import("../lib/poker.js");
   Timba = await import("../lib/timba.js");
 });
 const C = "cierre@g.us";
@@ -24,7 +25,7 @@ const saldo = (u) => F.getSaldoCoins(C, u);
 const nada = () => {};
 
 test("cierre: devuelve lo que está en juego en cada juego, una sola vez", () => {
-  const gente = ["ruleta", "carrera", "bj", "bjseguro", "mines", "retador", "retado", "pelea1", "pelea2", "linea1", "linea2"];
+  const gente = ["ruleta", "carrera", "bj", "bjseguro", "mines", "retador", "retado", "pelea1", "pelea2", "linea1", "linea2", "poker1", "poker2"];
   for (const u of gente) fijarSaldo(F, C, u, 100);
   // A 4 en línea table waiting with a bet, in a group of its own: one table per group.
   const C2 = "cierre-4enlinea@g.us";
@@ -45,20 +46,23 @@ test("cierre: devuelve lo que está en juego en cada juego, una sola vez", () =>
   assert.ok(C4.abrirMesa(C, "linea1", 30).ok);
   assert.ok(C4.sentarse(C, "linea2", 30).ok);
   assert.ok(C4.abrirMesa(C2, "espera", 20).ok);
+  // A poker table with two seated, 100 each: the buy-ins come back whole, hand or no hand.
+  assert.ok(Poker.abrirOSentarse(C, "poker1", "", 100).ok);
+  assert.ok(Poker.abrirOSentarse(C, "poker2", "", 100).ok);
 
   const r = Cierre.devolverLoQueEstaEnJuego();
-  assert.deepEqual(r, { apuestas: 11, monedas: 290 });
+  assert.deepEqual(r, { apuestas: 13, monedas: 490 });
   for (const u of gente.filter((u) => u !== "bjseguro")) assert.equal(saldo(u), 100, `${u} recupera todo`);
   assert.equal(F.getSaldoCoins(C2, "espera"), 100, "la mesa que esperaba rival también");
   assert.equal(saldo("bjseguro"), 90, "la mano vuelve, el seguro ya se había perdido");
-  const mapas = { mesasRuleta: Casino.mesasRuleta, carreras: Carrera.carreras, manosBlackjack: BJ.manosBlackjack, partidasMines: Mines.partidasMines, duelos: D.duelos, peleas: D.peleas, salasCuatroEnLinea: C4.salas };
+  const mapas = { mesasRuleta: Casino.mesasRuleta, carreras: Carrera.carreras, manosBlackjack: BJ.manosBlackjack, partidasMines: Mines.partidasMines, duelos: D.duelos, peleas: D.peleas, salasCuatroEnLinea: C4.salas, mesasPoker: Poker.mesasPoker };
   for (const [nombre, mapa] of Object.entries(mapas)) assert.equal(mapa.size, 0, `${nombre} quedó vacío`);
 
   assert.deepEqual(Cierre.devolverLoQueEstaEnJuego(), { apuestas: 0, monedas: 0 }, "una segunda vez no devuelve de nuevo");
   assert.equal(saldo("ruleta"), 100);
 
   // .mitimba takes the refunds as plays that never happened.
-  for (const motivo of ["casino_ruleta_devolucion", "casino_carrera_devolucion", "casino_blackjack_devolucion", "casino_mines_devolucion", "duelo_devolucion", "cuatroenlinea_devolucion"]) {
+  for (const motivo of ["casino_ruleta_devolucion", "casino_carrera_devolucion", "casino_blackjack_devolucion", "casino_mines_devolucion", "duelo_devolucion", "cuatroenlinea_devolucion", "casino_poker_devolucion"]) {
     assert.equal(Timba.clasificar(motivo)?.anulaJugada, true, motivo);
   }
 });

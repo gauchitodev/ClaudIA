@@ -100,7 +100,7 @@ test("menú: la economía y el casino son temas, y ya no hay .menuuru", async ()
   const coins = menu({ pedido: "coins" });
   assert.match(coins, /^🪙 \*UruCoins\*\n_Se ganan reaccionando \(\+1\) y cuando te reaccionan \(\+2\), ganando juegos \(\+10; hasta 20 premios/);
   for (const cmd of ["bal", "regalar", "tienda", "laburos", "racha", "mitimba"]) assert.match(coins, new RegExp(`\n▸ \\.${cmd} `), `.${cmd}`);
-  assert.match(menu({ pedido: "Lotería" }), /^🎰 \*Casino y apuestas\*\n_\.ruleta, \.tragamonedas, \.blackjack, \.mines y \.carrera, escritos solos/);
+  assert.match(menu({ pedido: "Lotería" }), /^🎰 \*Casino y apuestas\*\n_\.ruleta, \.tragamonedas, \.blackjack, \.mines, \.carrera y \.poker, escritos solos/);
   assert.match(menu({ pedido: "admins", ...MOD }), /\n▸ \.evento <título> \| <opciones> \| <cierre> 📊 – `Solo admins: [^\n]+\n▸ \.resolver 7 Nacional/);
   assert.match(menu({ pedido: "extras" }), /\n▸ \.recap 📅/);
   assert.match(menu({ pedido: "casino", bloqueados: new Set(["ruleta"]) }), /\n▸ \.ruleta .+ 🔒\n/);

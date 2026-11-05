@@ -260,7 +260,7 @@ export async function handleMessage(nMsg) {
       }
 
       // Casino (plugin.casino): its own switch, separate from .juegos. Lets you turn off just the betting —roulette,
-      // slots, blackjack, duels, races, lottery, markets and the 4 en línea's bets— leaving the rest running.
+      // slots, blackjack, poker, duels, races, lottery, markets and the 4 en línea's bets— leaving the rest running.
       if (plugin.casino && m.isGroup && chat.casino === 0) {
         rechazar(() => client.sendText(m.chat, CASINO_APAGADO, m));
         continue;
