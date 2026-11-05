@@ -121,5 +121,6 @@ export const COMANDOS_QUE_NOMBRAN = [
   ["familia-parentesco", "parentesco"],
   ["genero", "genero", " mujer", null, { isAdmin: true }],
   ["misredes", "misredes"],
+  ["insta-usuario", "ig"],
 ];
-export const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco", "misredes"];
+export const POR_SU_NOMBRE = ["familia", "desheredar", "parentesco", "misredes", "ig"];

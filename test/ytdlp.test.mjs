@@ -167,8 +167,11 @@ test("ytdlp: .tiktok acepta videos y no perfiles ni colecciones, y yt-dlp baja u
   globalThis.txt = (await import("../lib/strings.js")).default;
   const P = (await import("../plugins/dl-tiktok.js")).default;
   const client = clienteFalso();
-  await P.run({ chat: "g@g.us", react: async () => {} }, { client, text: "https://www.tiktok.com/@tiktok" });
-  assert.match(ultimoEnviado().msg.text, /^❌ Ese link no es de un video: perfiles, colecciones o hashtags enteros no los bajo\./);
+  // A profile's link is the profile's card now (lib/redes-persona.js); a collection is still refused.
+  await P.run({ chat: "g@g.us", sender: "1@lid", react: async () => {} }, { client, text: "https://www.tiktok.com/@tiktok", command: "tt" });
+  assert.equal(ultimoEnviado().msg.text, "🎵 *TikTok de @1*\n👤 @tiktok\n🔗 https://www.tiktok.com/@tiktok");
+  await P.run({ chat: "g@g.us", sender: "1@lid", react: async () => {} }, { client, text: "https://www.tiktok.com/@tiktok/collection/viajes-7300000000000000001", command: "tt" });
+  assert.match(ultimoEnviado().msg.text, /^❌ Ese link no es de un video: colecciones o hashtags enteros no los bajo\./);
 
   // And yt-dlp is asked for one item: a short link may still lead to a profile.
   _dep.ejecutar = ytDlpFalso();
