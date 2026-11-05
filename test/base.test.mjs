@@ -20,6 +20,8 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   vieja.exec(`CREATE TABLE blacklist (jid TEXT PRIMARY KEY, reason TEXT, dateAdded INTEGER, addedBy TEXT)`);
   vieja.exec(`CREATE TABLE hashtag_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, chat TEXT NOT NULL, hashtag TEXT NOT NULL, usuario TEXT NOT NULL, contenido TEXT, messageId TEXT, semana TEXT NOT NULL, fecha INTEGER NOT NULL)`);
   vieja.prepare(`INSERT INTO blacklist VALUES (?, ?, ?, ?)`).run("111@s.whatsapp.net", "spam", 1700000000000, "owner@s.whatsapp.net");
+  // the batalla naval's table, from the weeks the game existed
+  vieja.exec(`CREATE TABLE naval (chat TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado INTEGER DEFAULT 0)`);
   vieja.prepare(`INSERT INTO chats (remoteJid) VALUES (?)`).run(G);
   vieja.close();
 
@@ -33,12 +35,13 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT recapSemanal FROM chats WHERE remoteJid = ?`).get(G).recapSemanal, 1);
   assert.equal(db.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'blacklist'`).get(), undefined);
+  assert.equal(db.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'naval'`).get(), undefined, "la tabla de la batalla naval, que se sacó, se borra");
   assert.equal(F.getBlacklist().length, 1);
   assert.equal(F.getBlacklist()[0].chat, "*");
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G)?.reason, "spam");
   assert.ok(cols("hashtag_entries").includes("reacciones"));
   const tablas = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all().map((t) => t.name);
-  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "envios_bot", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones", "iniciativa_estado", "intervenciones", "aura_mensual", "naval"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
+  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "envios_bot", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones", "iniciativa_estado", "intervenciones", "aura_mensual"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
   const plan = db.prepare(`EXPLAIN QUERY PLAN SELECT * FROM users WHERE jid = ?`).all("x").map((f) => f.detail).join(" ");
   assert.match(plan, /idx_users_jid/, "buscar a alguien por número no recorre la tabla entera");
   globalThis.db = F.loadDatabase(); // idempotente

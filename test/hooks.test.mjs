@@ -103,7 +103,7 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
   assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
   assert.deepEqual(marcados.trasModeracion, ["_memoria-corta.js"]);
   // The games played with plain messages take their moves before the rest: one message, one game.
-  assert.deepEqual(marcados.jugadas.sort(), ["_fun-ttt.js", "fun-4enlinea.js", "fun-ahorcado.js", "fun-naval.js"]);
+  assert.deepEqual(marcados.jugadas.sort(), ["_fun-ttt.js", "fun-4enlinea.js", "fun-ahorcado.js"]);
   assert.deepEqual(marcados.alFinal, ["_auto-ia.js"]);
   // A hook that throws takes only itself down; the greeting goes once the moderation has run, and only if it deleted
   // nothing; and what it deleted reaches no other hook but the short-term memory.

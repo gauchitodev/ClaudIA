@@ -199,7 +199,7 @@ test("4 en línea: una columna llena se avisa, y sigue el mismo turno", async ()
 
 test("4 en línea: .rendirse le da la partida al otro, y .del4enlinea la borra (los que juegan o un admin)", async () => {
   await comando(CARLA, "rendirse");
-  assert.equal(ultimo().text, "No estás jugando al 4 en línea ni a la batalla naval, ni tenés una mano de blackjack.");
+  assert.equal(ultimo().text, "No estás jugando al 4 en línea ni tenés una mano de blackjack.");
   await comando(ANA, "del4enlinea");
   assert.equal(ultimo().text, "No hay ninguna partida de 4 en línea en este grupo.");
 
@@ -509,5 +509,5 @@ test(".rendirse: en el 4 en línea anda con el casino apagado; si no, va a la ma
   assert.match(ultimo().text, /^🏳️ Te rendiste con .+ Recuperás 10 de 20\./);
   assert.equal(saldo(CARLA), 90);
   await comando(CARLA, "rendirse");
-  assert.equal(ultimo().text, "No estás jugando al 4 en línea ni a la batalla naval, ni tenés una mano de blackjack.");
+  assert.equal(ultimo().text, "No estás jugando al 4 en línea ni tenés una mano de blackjack.");
 });

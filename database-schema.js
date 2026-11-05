@@ -223,15 +223,12 @@ export function ponerAlDia(db) {
     )
   `);
 
-  // The batalla naval games (lib/batalla-naval.js), one per group, whole, as JSON: the fleets, the shots, whose turn
-  // and the bet. Kept here so a restart doesn't end a battle that takes dozens of turns.
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS naval (
-      chat TEXT PRIMARY KEY,
-      datos TEXT NOT NULL,
-      actualizado INTEGER DEFAULT 0
-    )
-  `);
+  // Migration: the batalla naval (2026-10-23 to 2026-11-05, taken out before anyone played it) kept its games in a
+  // table of its own. A file from those weeks still has it, empty: it goes, so nothing of the game is left behind.
+  if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'naval'`).get()) {
+    db.exec(`DROP TABLE naval`);
+    console.log("🟢 Migración: tabla 'naval' borrada (la batalla naval se sacó)");
+  }
 
   // UruCoins: balance per person and per group (each group has its own economy)
   db.exec(`

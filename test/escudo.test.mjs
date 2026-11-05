@@ -23,7 +23,7 @@ const conEscudo = (u) => {
 const escudos = (u) => F.getItem(G, u, "escudo")?.cantidad || 0;
 
 test("escudo: la tienda lo describe para todos los juegos y protegerApuesta lo gasta una sola vez", () => {
-  assert.match(T.ITEMS.escudo.desc, /ruleta, tragamonedas, mines, carrera, blackjack, duelos, 4 en línea, batalla naval o mercados/);
+  assert.match(T.ITEMS.escudo.desc, /ruleta, tragamonedas, mines, carrera, blackjack, duelos, 4 en línea o mercados/);
   assert.doesNotMatch(T.ITEMS.escudo.desc, /\.apostar/, "en los juegos ya no se apuesta");
   conEscudo("u");
   assert.equal(T.protegerApuesta(G, "u", 20), 20);

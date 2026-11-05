@@ -4,7 +4,7 @@ import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 // The poker table's moves and exits (lib/poker.js): .paso, .pago (.igualo, .voy), .subo N, .allin, .novoy from the
 // one whose turn it is; .levantarme to stand up with one's chips; .mesa to see the table; .delpoker for an admin to
-// close it. Apart from .poker, and without the casino flag, as .rendirse and .delnaval are from their games: a hand
+// close it. Apart from .poker, and without the casino flag, as .rendirse and .del4enlinea are from their games: a hand
 // that started before the casino closed is played out, and chips can always leave the table. No money comes in here.
 const plugin = {};
 plugin.cmd = [...CMD.paso, ...CMD.pago, ...CMD.subo, ...CMD.allin, ...CMD.novoy, ...CMD.levantarme, ...CMD.mesa, ...CMD.cancelar];

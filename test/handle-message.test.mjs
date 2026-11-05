@@ -872,8 +872,7 @@ test("un mensaje con la hora adelantada entra en la memoria como de ahora", asyn
 // live in plugins of their own: a table left open at closing time can always be cleared.
 test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las jugadas, ni rendirse ni cancelar", async (t) => {
   const C4 = await import("../lib/cuatro-en-linea.js");
-  const BN = await import("../lib/batalla-naval.js");
-  const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-naval.js", "fun-naval-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js"];
+  const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js"];
   globalThis.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
   const client = cliente();
   // An hour that starts two hours from now never includes now.
@@ -882,8 +881,6 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   t.after(() => {
     F.updateChat(GRUPO, { horarioJuegos: "" });
     C4.salas.clear();
-    F.delNaval(GRUPO);
-    BN.olvidarSalas();
   });
   const mandar = async (quien, texto) => {
     globalThis.enviados = [];
@@ -895,7 +892,7 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   await mandar(BETO, ".4enlinea");
   F.updateChat(GRUPO, { horarioJuegos: cerrado });
   assert.match(await mandar(ANA, ".ttt"), /^🕒 Acá los juegos van de /);
-  for (const texto of [".ttt", ".4enlinea", ".4enlinea 100", ".naval", ".naval 100"]) assert.equal(await mandar(BETO, texto), "🕒", texto);
+  for (const texto of [".ttt", ".4enlinea", ".4enlinea 100"]) assert.equal(await mandar(BETO, texto), "🕒", texto);
   assert.match(await mandar(ANA, "4"), /Turno de @300000000000003 🟡/, "la partida empezada sigue");
   assert.match(await mandar(BETO, ".rendirse"), /^🏳️ @300000000000003 se rindió/);
   assert.equal(await mandar(ANA, ".delttt"), globalThis.txt.tttDelNull("."));
@@ -904,10 +901,6 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   await mandar(ANA, ".4enlinea");
   F.updateChat(GRUPO, { horarioJuegos: cerrado });
   assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
-  F.updateChat(GRUPO, { horarioJuegos: "" });
-  await mandar(ANA, ".naval");
-  F.updateChat(GRUPO, { horarioJuegos: cerrado });
-  assert.equal(await mandar(ANA, ".delnaval"), "Partida de batalla naval cancelada.");
 });
 
 // ---------- what a command is (lib/comandos.js) ----------
