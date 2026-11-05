@@ -142,6 +142,29 @@ test("si le contestan a ella con un sticker, guarda ese y a veces contesta con o
   assert.equal(globalThis.enviados.length, 1, "y no de nuevo enseguida");
 });
 
+test("nunca contesta con el mismo sticker que le mandaron; si no tiene otro, no contesta", async () => {
+  const client = clienteFalso();
+  const permisos = { client, chat: {}, user: {}, isMod: false, isOwner: false };
+  S._dep.random = () => 0.1;
+  globalThis.autoIaCooldown = new Map();
+
+  const solo = nuevoGrupo();
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(solo, webp("unico"), { quoted: { fromMe: true, id: "BOT1" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 0, "el único que tiene es el que le mandaron");
+
+  const chat = nuevoGrupo();
+  S.guardarSticker(chat, "x", webp("otro"));
+  for (const dado of [0, 0.1, 0.99]) {
+    S._dep.random = () => dado;
+    globalThis.enviados = [];
+    await Hook.before(stickerDe(`${chat}`, webp("mio"), { quoted: { fromMe: true, id: "BOT1" } }), permisos);
+    await Hook.enCurso;
+    if (globalThis.enviados.length) assert.equal(S.shaDe(globalThis.enviados[0].msg.sticker), S.shaDe(webp("otro")));
+  }
+});
+
 // ---------- in a glance ----------
 
 const MIN = 60 * 1000;

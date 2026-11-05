@@ -1,4 +1,4 @@
-import { guardarSticker, mandarStickerAlAzar, STICKERS, _dep } from "../lib/stickers-grupo.js";
+import { guardarSticker, mandarStickerAlAzar, shaDe, STICKERS, _dep } from "../lib/stickers-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { pausa } from "../lib/pausas.js";
 
@@ -22,9 +22,10 @@ export function contestaConSticker(m, { user, chat, isMod, isOwner }, ahora = Da
 async function atender(m, client, contestar) {
   const buffer = await m.download?.().catch(() => null);
   if (buffer) guardarSticker(m.chat, m.sender, buffer);
-  if (!contestar) return;
+  // Never the same one she got: without knowing which it was (the download failed), she doesn't answer.
+  if (!contestar || !buffer) return;
   await pausa(1500 + Math.floor(_dep.random() * 2500)); // nobody answers a sticker in the same second
-  if (await mandarStickerAlAzar(client, m.chat, m)) globalThis.autoIaCooldown?.set(m.chat, Date.now());
+  if (await mandarStickerAlAzar(client, m.chat, m, { excluir: [shaDe(buffer)] })) globalThis.autoIaCooldown?.set(m.chat, Date.now());
 }
 
 const plugin = (m) => m;
