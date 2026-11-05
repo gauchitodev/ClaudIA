@@ -15,7 +15,7 @@ export const EN_GLOBALTHIS = {
   configuracion: [
     ...["authFile", "baileys", "botVersion", "canalConfig", "cerebrasApiKey", "geminiApiKey"],
     ...["groqApiKey", "numberBot", "nvidiaApiKey", "openrouterApiKey", "prefix", "tarjetaGrupo", "tenorApiKey"],
-    ...["textoFaggi", "txt"],
+    ...["textoFaggi", "txt", "vozConfig"],
   ],
   // The process: the WhatsApp connection, the plugins, how the bot is doing, and its owners (.addowner adds one).
   proceso: [

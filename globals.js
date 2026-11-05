@@ -31,6 +31,10 @@ globalThis.nvidiaApiKey = config.nvidiaApiKey || "";
 // Discord link (.discord and .links) and the text for .faggi
 globalThis.textoFaggi = config.textofaggi || "";
 
+// Claudia's voice for the voice notes (.voz) and .tts: the edge-tts voice, rate and pitch (lib/voz.js; [voz] in
+// config.toml).
+globalThis.vozConfig = config.voz || {};
+
 // Bot owner numbers without "+", spaces or dashes
 globalThis.owners = config.owners || [""];
 

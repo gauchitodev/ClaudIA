@@ -40,3 +40,10 @@ enlace = ""
 [canal]
 enlace = ""
 nombre = ""
+
+# Voz de Claudia para las notas de voz (.voz) y para .tts: una voz de edge-tts (pip install edge-tts; la lista sale con
+# edge-tts --list-voices), con su velocidad y su tono. Opcional: sin esta sección usa es-AR-ElenaNeural, +0% y +0Hz.
+[voz]
+voz = "es-AR-ElenaNeural"
+velocidad = "+0%"
+tono = "+0Hz"

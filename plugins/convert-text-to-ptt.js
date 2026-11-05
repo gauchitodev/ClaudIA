@@ -1,6 +1,11 @@
 import { sintetizar } from "../lib/tts.js";
+import { hablar } from "../lib/voz.js";
 import { conNombres } from "../lib/menciones.js";
 import { esAudio } from "../lib/audios.js";
+
+// Claudia's own voice (lib/voz.js, edge-tts) for a Spanish text when the command is there and the text isn't too long
+// for it; Google's, as always, otherwise and for the other languages.
+const leer = async (texto, lang, defaultLang) => (lang === defaultLang && (await hablar(texto))) || sintetizar(texto, lang);
 
 const plugin = {};
 plugin.cmd = ["tts"];
@@ -29,12 +34,12 @@ plugin.run = async (m, { client, args }) => {
   // Mentions read out as names, not as the LID digits they carry in the text (lib/menciones.js).
   let res;
   try {
-    res = await sintetizar(conNombres(text, menciones, { arroba: false }), lang);
+    res = await leer(conNombres(text, menciones, { arroba: false }), lang, defaultLang);
   } catch (e) {
     text = args.join(" ");
     if (!text) return client.sendText(m.chat, txt.textToPTTNull, m);
     await client.sendPresenceUpdate("recording", m.chat);
-    res = await sintetizar(conNombres(text, m.mentionedJid, { arroba: false }), defaultLang);
+    res = await leer(conNombres(text, m.mentionedJid, { arroba: false }), defaultLang, defaultLang);
   } finally {
     // No "seconds": Baileys measures the audio. SawBot sent a made-up 9999999999999, which WhatsApp showed as an
     // hour-long voice note for a single word.

@@ -125,6 +125,78 @@ test("pedido a Claudia: le dice quién pregunta y qué comandos no puede usar, p
   }
 });
 
+// With .voz on (lib/voz.js), the answer goes as a voice note made with edge-tts: "siempre", every one; "audios", only
+// to a voice note; and by text when the voice fails, isn't there or the answer is too long.
+test("con .voz, Claudia contesta con nota de voz: siempre, o solo a las notas de voz; sin voz, por texto", async () => {
+  const Voz = await import("../lib/voz.js");
+  const CV = "ia-voz@g.us"; // a group of its own: what she says here mustn't land in C's short memory
+  F.initDataDB({ chat: CV, sender: "555@lid", senderJid: "", pushName: "Ana" });
+  const fs = await import("node:fs");
+  const ejecutarReal = Voz._dep.ejecutar;
+  const edge = (fallo = null) => async (bin, args) => {
+    if (fallo) throw fallo;
+    if (args[0] === "--version") return { stdout: "edge-tts 7\n", stderr: "" };
+    fs.writeFileSync(args.find((a) => a.startsWith("--write-media=")).slice("--write-media=".length), Buffer.from("MP3"));
+    return { stdout: "", stderr: "" };
+  };
+  // What she sent: the voice notes (with ptt), the presences, and the texts.
+  const hablado = async (texto, { nota = false } = {}) => {
+    globalThis.autoIaCooldown.delete(CV);
+    const salidas = [];
+    const client = { ...clienteFalso(), sendPresenceUpdate: async (estado) => salidas.push(`presencia:${estado}`), sendFile: async (chat, archivo, nombre, caption, quoted, ptt) => (salidas.push({ archivo: String(archivo), ptt }), { key: { id: "A" } }) };
+    const base = { chat: CV, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
+    const m = nota
+      ? { ...base, text: "", mtype: "audioMessage", msg: { seconds: 2, fileLength: 100, mimetype: "audio/ogg; codecs=opus" }, download: async () => Buffer.from("audio"), quoted: { fromMe: true, text: "¿Cómo andás?" } }
+      : { ...base, text: texto };
+    await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, isAdmin: false, isMod: false, user: {}, chat: { mentions: 1 } });
+    await esperar(50); // the answer goes out after the hook returns, as pedir waits for it too
+    return { notas: salidas.filter((s) => typeof s === "object"), presencias: salidas.filter((s) => typeof s === "string"), textos: globalThis.enviados.map((e) => e.msg?.text).filter(Boolean) };
+  };
+  const clasificacionAntes = clasificacion;
+  clasificacion = { comando: "ninguno", respuesta: "Todo bien, ¿y vos?", resumenAudio: "pregunta cómo anda" };
+  Voz._dep.ejecutar = edge();
+  Voz.olvidarVoz();
+  // A millisecond of "typing": with the file's zero, the presence loop never runs and "recording..." never shows.
+  const ritmoAntes = { TIPEO_MIN_MS: RITMO.TIPEO_MIN_MS, TIPEO_MAX_MS: RITMO.TIPEO_MAX_MS };
+  Object.assign(RITMO, { TIPEO_MIN_MS: 1, TIPEO_MAX_MS: 2 });
+  try {
+    F.updateChat(CV, { voz: "siempre" });
+    let r = await hablado("claudia, ¿cómo estás?");
+    assert.deepEqual(r.notas, [{ archivo: "MP3", ptt: true }]);
+    assert.deepEqual(r.textos, [], "la respuesta no va también por texto");
+    assert.ok(r.presencias.includes("presencia:recording"), `"grabando..." mientras la arma: ${r.presencias.join(",")}`);
+    // "audios": a typed question gets text, a voice note gets voice
+    F.updateChat(CV, { voz: "audios" });
+    r = await hablado("claudia, ¿cómo estás?");
+    assert.deepEqual([r.notas, r.textos], [[], ["Todo bien, ¿y vos?"]]);
+    r = await hablado("", { nota: true });
+    assert.deepEqual([r.notas, r.textos], [[{ archivo: "MP3", ptt: true }], []]);
+    // off: text, to a voice note too
+    F.updateChat(CV, { voz: "" });
+    r = await hablado("", { nota: true });
+    assert.deepEqual([r.notas, r.textos], [[], ["Todo bien, ¿y vos?"]]);
+    // the voice isn't there: text, with "typing..." as always
+    F.updateChat(CV, { voz: "siempre" });
+    Voz._dep.ejecutar = edge(Object.assign(new Error("spawn edge-tts ENOENT"), { code: "ENOENT" }));
+    Voz.olvidarVoz();
+    r = await hablado("claudia, ¿cómo estás?");
+    assert.deepEqual([r.notas, r.textos], [[], ["Todo bien, ¿y vos?"]]);
+    assert.ok(r.presencias.includes("presencia:composing") && !r.presencias.includes("presencia:recording"), r.presencias.join(","));
+    // too long for a voice note: text
+    Voz._dep.ejecutar = edge();
+    Voz.olvidarVoz();
+    clasificacion = { comando: "ninguno", respuesta: "x".repeat(800) };
+    r = await hablado("claudia, contame todo");
+    assert.deepEqual([r.notas, r.textos.length], [[], 1]);
+  } finally {
+    Voz._dep.ejecutar = ejecutarReal;
+    Voz.olvidarVoz();
+    Object.assign(RITMO, ritmoAntes);
+    F.updateChat(CV, { voz: "" });
+    clasificacion = clasificacionAntes;
+  }
+});
+
 // ---------- replies to a game's message ----------
 // Trivia, riddles, flags and unscramble are answered by quoting the bot's question, and so is today's question. Claudia
 // took each answer as spoken to her, with the game's question in her prompt: she chatted back to every one, and
