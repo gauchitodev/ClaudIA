@@ -127,6 +127,16 @@ test(".voz: muestra cómo está; un admin la pone en on, siempre y off; avisa si
   assert.equal(await correr(["siempre"], { isAdmin: true }), "🎙️ Listo: en este grupo contesto todo con nota de voz, con la voz de Elena. Con .voz on hablo solo cuando me hablan por nota de voz, y con .voz off vuelvo al texto.");
   assert.deepEqual([V.hablaCon(G, { notaDeVoz: true }), V.hablaCon(G, { notaDeVoz: false })], [true, true]);
   assert.match(await correr([]), /^🎙️ Voz en este grupo: siempre, con la voz de Elena\./);
+  assert.match(await correr(["a", "veces"], { isAdmin: true }), /^🎙️ Listo: contesto con nota de voz cuando me hablan por nota de voz y, de vez en cuando, alguna respuesta corta/);
+  assert.equal(V.modoDeVoz(G), "aveces");
+  V._dep.random = () => 0.9;
+  assert.deepEqual([V.hablaCon(G, { notaDeVoz: true }), V.hablaCon(G, { notaDeVoz: false })], [true, false], "con el dado alto, solo a la nota de voz");
+  V._dep.random = () => 0.1;
+  assert.equal(V.hablaCon(G, { notaDeVoz: false }), true, "y una de cada cuatro, por su cuenta");
+  assert.deepEqual([V.maxLetrasDeVoz(G), V.maxLetrasDeVoz(G, { notaDeVoz: true })], [V.VOZ.A_VECES_MAX_LETRAS, V.VOZ.MAX_LETRAS], "por su cuenta, solo las cortas");
+  assert.equal(await V.hablar("x".repeat(V.VOZ.A_VECES_MAX_LETRAS + 1), { maxLetras: V.VOZ.A_VECES_MAX_LETRAS }), null);
+  V._dep.random = Math.random;
+  assert.match(await correr([]), /^🎙️ Voz en este grupo: a veces, con la voz de Elena/);
   assert.equal(await correr(["off"], { isAdmin: true }), "⌨️ Listo: vuelvo a contestar por texto.");
   assert.equal(V.modoDeVoz(G), "");
   assert.match(await correr(["otra"], { isAdmin: true }), /^❌ Las opciones son \.voz on/);

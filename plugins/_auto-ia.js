@@ -15,7 +15,7 @@ import { programarReintento } from "../lib/pendientes.js";
 import { conocimientoPara } from "../lib/manual-claudia.js";
 import { sinPermisoEn } from "../lib/menu.js";
 import { tipear, grabar } from "../lib/ritmo.js";
-import { hablaCon, hablar } from "../lib/voz.js";
+import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
@@ -326,11 +326,12 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // With the voice on for this answer (.voz, lib/voz.js: always, or to a voice note), it goes as a voice note, made
     // first and with "recording..." instead of "typing..."; by text if the voice isn't there, it's too long or fails.
     const conVoz = m.isGroup && hablaCon(m.chat, { notaDeVoz });
+    const maxLetras = conVoz ? maxLetrasDeVoz(m.chat, { notaDeVoz }) : 0;
     let yaTipeo = false;
     const decir = async (crudo, quoted = null) => {
       const texto = sinMenciones(crudo);
       if (!texto || !puedeHablar()) return;
-      const audio = conVoz ? await hablar(texto) : null;
+      const audio = conVoz ? await hablar(texto, { maxLetras }) : null;
       if (!yaTipeo) {
         yaTipeo = true;
         await (audio ? grabar : tipear)(client, m.chat, texto);
