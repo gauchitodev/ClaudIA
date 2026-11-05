@@ -91,7 +91,7 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
   const principales = (texto) => texto.split("\n").map((l) => M.comandoDeLinea(l)).filter(Boolean);
   const repetidos = (texto) => principales(texto).filter((c, i, todos) => todos.indexOf(c) !== i);
   assert.deepEqual(repetidos(miembro), []);
-  assert.deepEqual(repetidos(menu({ pedido: "todo", ...OWNER })), ["antecedentes", "reglas"], "solo .antecedentes y .reglas, que están para todos y como .antecedentes @mención y .reglas set para admins");
+  assert.deepEqual(repetidos(menu({ pedido: "todo", ...OWNER })), ["antecedentes", "reglas", "redes"], "solo .antecedentes, .reglas y .redes, que están para todos y como .antecedentes @mención, .reglas set y .redes instagram <link> para admins");
 });
 
 // The economy and the casino were .menuuru, a menu apart written by hand for one group: .menu todo didn't show them,

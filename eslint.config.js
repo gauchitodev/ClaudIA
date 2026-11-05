@@ -13,7 +13,7 @@ import * as url from "node:url";
 export const EN_GLOBALTHIS = {
   // Settings, from config.toml (globals.js).
   configuracion: [
-    ...["authFile", "baileys", "botVersion", "canalConfig", "cerebrasApiKey", "discordUrl", "geminiApiKey"],
+    ...["authFile", "baileys", "botVersion", "canalConfig", "cerebrasApiKey", "geminiApiKey"],
     ...["groqApiKey", "numberBot", "nvidiaApiKey", "openrouterApiKey", "prefix", "tarjetaGrupo", "tenorApiKey"],
     ...["textoFaggi", "txt"],
   ],

@@ -25,9 +25,6 @@ tenorApiKey = ""
 # API key de Cerebras. Último respaldo de IA; sin saldo cargado no responde. Opcional.
 cerebrasApiKey = ""
 
-# Link de invitación al Discord del grupo. Lo muestran .discord y .links. Opcional.
-discordUrl = ""
-
 # Texto con el que responde .faggi. Opcional. Para varias líneas usá comillas triples: textofaggi = """..."""
 textofaggi = ""
 

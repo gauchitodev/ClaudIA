@@ -29,7 +29,6 @@ globalThis.openrouterApiKey = config.openrouterApiKey || "";
 globalThis.nvidiaApiKey = config.nvidiaApiKey || "";
 
 // Discord link (.discord and .links) and the text for .faggi
-globalThis.discordUrl = config.discordUrl || "";
 globalThis.textoFaggi = config.textofaggi || "";
 
 // Bot owner numbers without "+", spaces or dashes

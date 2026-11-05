@@ -111,6 +111,15 @@ test("pedido a Claudia: le dice quién pregunta y qué comandos no puede usar, p
     } finally {
       F.updateUser("555@lid", { genero: "" });
     }
+
+    // The group's links (.redes, lib/redes.js) go in too, to hand over when someone asks for them.
+    F.updateChat(C, { redes: JSON.stringify({ instagram: "https://instagram.com/xuru" }) });
+    try {
+      await pedir("claudia, ¿cuál es el insta del grupo?", { isAdmin: false, isMod: false });
+      assert.match(prompt, /Redes y links del grupo \(si alguien te los pide, pasalos tal cual, sin cambiarlos\): Instagram: https:\/\/instagram\.com\/xuru/);
+    } finally {
+      F.updateChat(C, { redes: "{}" });
+    }
   } finally {
     globalThis.fetch = fetchAntes;
   }

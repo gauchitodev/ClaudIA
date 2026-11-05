@@ -5,6 +5,7 @@ import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
 import { tratoPara, generoDe } from "../lib/genero.js";
+import { textoRedesParaPrompt } from "../lib/redes.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
 import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
@@ -204,6 +205,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     if (m.isGroup) {
       const hechos = memoriaDelGrupo(m.chat);
       if (hechos) partes.push(hechos);
+      // The group's social links (.redes, lib/redes.js), to hand over when someone asks for the group's Instagram.
+      const redes = textoRedesParaPrompt(m.chat);
+      if (redes) partes.push(redes);
     }
 
     // their role-play job: Claudia knows it and can tease them about it
