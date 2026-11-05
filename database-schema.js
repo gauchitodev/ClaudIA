@@ -222,6 +222,16 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The batalla naval games (lib/batalla-naval.js), one per group, whole, as JSON: the fleets, the shots, whose turn
+  // and the bet. Kept here so a restart doesn't end a battle that takes dozens of turns.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS naval (
+      chat TEXT PRIMARY KEY,
+      datos TEXT NOT NULL,
+      actualizado INTEGER DEFAULT 0
+    )
+  `);
+
   // UruCoins: balance per person and per group (each group has its own economy)
   db.exec(`
     CREATE TABLE IF NOT EXISTS urucoins (

@@ -1760,3 +1760,20 @@ export function exParejasDe(lid) {
   }
   return lista;
 }
+
+// ===================== Batalla naval (lib/batalla-naval.js) =====================
+// One game per group, whole, as JSON. A row that doesn't parse reads as no game.
+const leerNaval = (fila) => {
+  try {
+    return fila ? JSON.parse(fila.datos) : null;
+  } catch {
+    return null;
+  }
+};
+export const getNaval = (chat) => leerNaval(db.prepare(`SELECT datos FROM naval WHERE chat = ?`).get(chat));
+export function setNaval(chat, datos) {
+  db.prepare(`INSERT INTO naval (chat, datos, actualizado) VALUES (?, ?, ?) ON CONFLICT(chat) DO UPDATE SET datos = excluded.datos, actualizado = excluded.actualizado`).run(chat, JSON.stringify(datos), Date.now());
+  return true;
+}
+export const delNaval = (chat) => db.prepare(`DELETE FROM naval WHERE chat = ?`).run(chat).changes > 0;
+export const listarNaval = () => db.prepare(`SELECT datos FROM naval`).all().map(leerNaval).filter(Boolean);
