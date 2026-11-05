@@ -209,7 +209,7 @@ test("quien escribe desde su número acepta el duelo que le pidieron por su LID,
 // The aura duel the same way (lib/aura.js): challenged by the LID, they answer from the number and play the duel by it,
 // and their reactions, from either id, aren't votes in it. And from the number, naming their own LID is challenging
 // themselves: the group lists both as one participant (.duelo still lets it through).
-test("quien escribe desde su número acepta el duelo de aura que le pidieron por su LID, y no vota en el suyo", async (t) => {
+test("quien escribe desde su número acepta la batalla de aura que le pidieron por su LID, y no vota en el suyo", async (t) => {
   const Aura = await import("../lib/aura.js");
   const R = await import("../lib/reacciones.js");
   t.after(() => Aura.olvidarDuelosDeAura());

@@ -32,7 +32,7 @@ plugin.run = async (m, { client, text, participants }) => {
       if (!r.ok) return responder(r);
     } catch (e) {
       console.error("[aura] no salió la votación:", e?.message || e);
-      return client.sendText(m.chat, "❌ No pude abrir la votación, así que el duelo queda sin efecto. Probá de nuevo en un rato.", m);
+      return client.sendText(m.chat, "❌ No pude abrir la votación, así que la batalla queda sin efecto. Probá de nuevo en un rato.", m);
     }
     return;
   }

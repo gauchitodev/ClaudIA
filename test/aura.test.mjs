@@ -66,16 +66,16 @@ test("el desafío y la votación, con sus textos, y los mensajes quedan como de 
   limpio(t);
   const C = nuevoChat();
   const [desafio] = await desafiar(C, 1, 2);
-  assert.equal(desafio.text, `✨ ${at(1)} desafía a ${at(2)} a un *duelo de aura*: si acepta, el grupo vota quién tiene más.\n${at(2)}: .aura si para aceptar o .aura no para pasar (tenés 5 minutos).`);
+  assert.equal(desafio.text, `✨ ${at(1)} desafía a ${at(2)} a una *batalla de aura*: si acepta, el grupo vota quién tiene más.\n${at(2)}: .aura si para aceptar o .aura no para pasar (tenés 5 minutos).`);
   assert.deepEqual(desafio.mentions, [lid(1), lid(2)]);
   assert.equal(juegoDelMensaje(`MSG${globalThis.enviados.length}`), "aura", "las respuestas al desafío no son para Claudia");
   const [votacion] = await contestar(C, 2, "si");
-  assert.equal(votacion.text, `🗳️ *Duelo de aura*\n🔵 ${at(1)}  vs  🔴 ${at(2)}\nReaccioná a este mensaje con 🔵 o 🔴: ¿quién tiene más aura? Cierra en 5 minutos.`);
+  assert.equal(votacion.text, `🗳️ *Batalla de aura*\n🔵 ${at(1)}  vs  🔴 ${at(2)}\nReaccioná a este mensaje con 🔵 o 🔴: ¿quién tiene más aura? Cierra en 5 minutos.`);
   assert.deepEqual(votacion.mentions, [lid(1), lid(2)]);
   assert.equal(juegoDelMensaje(boleta(C)), "aura");
 });
 
-test("el duelo entero: gana quien saca más votos, suma 1.000 del mes, y votar no paga UruCoins ni suma al ranking", async (t) => {
+test("la batalla entera: gana quien saca más votos, suma 1.000 del mes, y votar no paga UruCoins ni suma al ranking", async (t) => {
   rapido(t);
   limpio(t);
   const C = nuevoChat();
@@ -90,7 +90,7 @@ test("el duelo entero: gana quien saca más votos, suma 1.000 del mes, y votar n
   const antes = globalThis.enviados.length;
   await esperar(300);
   const [resultado] = globalThis.enviados.slice(antes).map((e) => e.msg);
-  assert.equal(resultado.text, `🏆 *Duelo de aura*: 🔵 ${at(1)} 2 votos · 🔴 ${at(2)} 1 voto\n${at(1)} tiene más aura y suma *+1.000* este mes.`);
+  assert.equal(resultado.text, `🏆 *Batalla de aura*: 🔵 ${at(1)} 2 votos · 🔴 ${at(2)} 1 voto\n${at(1)} tiene más aura y suma *+1.000* este mes.`);
   assert.deepEqual(resultado.mentions, [lid(1), lid(2)]);
   assert.deepEqual(F.auraDe(C, mesDe(), lid(1)), { delMes: 1000, puesto: 1, total: 1000, ganados: 1, perdidos: 0 });
   assert.deepEqual(F.auraDe(C, mesDe(), lid(2)), { delMes: 0, puesto: null, total: 0, ganados: 0, perdidos: 1 });
@@ -158,7 +158,7 @@ test("empate o sin votos: nadie suma ni se anota nada, y una reacción tardía t
   reaccionar(C, id, lid(4), "🔴");
   let antes = globalThis.enviados.length;
   await esperar(300);
-  assert.equal(globalThis.enviados[antes]?.msg.text, `🤝 *Duelo de aura*: 🔵 ${at(1)} 1 voto · 🔴 ${at(2)} 1 voto\nEmpate: nadie suma aura.`);
+  assert.equal(globalThis.enviados[antes]?.msg.text, `🤝 *Batalla de aura*: 🔵 ${at(1)} 1 voto · 🔴 ${at(2)} 1 voto\nEmpate: nadie suma aura.`);
   for (const n of [1, 2]) assert.deepEqual(F.auraDe(C, mesDe(), lid(n)), { delMes: 0, puesto: null, total: 0, ganados: 0, perdidos: 0 });
   reaccionar(C, id, lid(5), "🔵");
   assert.equal(F.getSaldoCoins(C, lid(5)), 0, "la boleta cerrada no paga como una reacción común");
@@ -168,7 +168,7 @@ test("empate o sin votos: nadie suma ni se anota nada, y una reacción tardía t
   await contestar(D, 4, "si");
   antes = globalThis.enviados.length;
   await esperar(300);
-  assert.equal(globalThis.enviados[antes]?.msg.text, `🦗 *Duelo de aura*: nadie votó entre ${at(3)} y ${at(4)}, así que nadie suma aura.`);
+  assert.equal(globalThis.enviados[antes]?.msg.text, `🦗 *Batalla de aura*: nadie votó entre ${at(3)} y ${at(4)}, así que nadie suma aura.`);
   assert.deepEqual(F.auraDe(D, mesDe(), lid(3)).ganados + F.auraDe(D, mesDe(), lid(4)).perdidos, 0);
 });
 
@@ -177,7 +177,7 @@ test("rechazar, retirar, contestar sin nada pendiente y el desafío que vence: e
   limpio(t);
   const C = nuevoChat();
   await desafiar(C, 1, 2);
-  assert.equal(texto(await contestar(C, 2, "no")), `🏳️ ${at(2)} no aceptó el duelo de aura de ${at(1)}.`);
+  assert.equal(texto(await contestar(C, 2, "no")), `🏳️ ${at(2)} no aceptó la batalla de aura de ${at(1)}.`);
   assert.equal(A.dueloDeAuraEn(C), null);
   await desafiar(C, 1, 3);
   assert.equal(texto(await contestar(C, 1, "no")), `↩️ ${at(1)} retiró su desafío de aura.`, "quien desafió lo retira");
@@ -187,7 +187,7 @@ test("rechazar, retirar, contestar sin nada pendiente y el desafío que vence: e
   const antes = globalThis.enviados.length;
   await esperar(300);
   const [aviso] = globalThis.enviados.slice(antes).map((e) => e.msg);
-  assert.equal(aviso?.text, `⌛ El duelo de aura de ${at(6)} contra ${at(5)} venció sin respuesta.`);
+  assert.equal(aviso?.text, `⌛ La batalla de aura de ${at(6)} contra ${at(5)} venció sin respuesta.`);
   assert.deepEqual(aviso.mentions, [lid(6), lid(5)]);
   assert.equal(A.dueloDeAuraEn(C), null);
   assert.equal(texto(await contestar(C, 5, "si")), "❌ No tenés ningún desafío de aura pendiente. Para desafiar a alguien: .aura @persona", "vencido, ya no se acepta");
@@ -211,18 +211,18 @@ test("los chequeos del desafío: a quién, Claudia, de otro grupo, a sí mismo (
   assert.equal(A.dueloDeAuraEn(C), null, "nada de eso abre un desafío");
 });
 
-test("un duelo a la vez por grupo, mientras se espera la respuesta y mientras se vota", async (t) => {
+test("una batalla a la vez por grupo, mientras se espera la respuesta y mientras se vota", async (t) => {
   limpio(t);
   const C = nuevoChat();
   await desafiar(C, 1, 2);
-  assert.equal(texto(await desafiar(C, 3, 4)), `❌ Ya hay un duelo de aura en curso (${nombre(1)} contra ${nombre(2)}): esperá a que termine.`);
+  assert.equal(texto(await desafiar(C, 3, 4)), `❌ Ya hay una batalla de aura en curso (${nombre(1)} contra ${nombre(2)}): esperá a que termine.`);
   assert.equal(texto(await desafiar(C, 2, 3)), "❌ Ya te desafiaron: respondé .aura si o .aura no.");
   await contestar(C, 2, "si");
-  assert.equal(texto(await desafiar(C, 3, 4)), `❌ Ya hay un duelo de aura en curso (${nombre(1)} contra ${nombre(2)}): esperá a que termine.`);
+  assert.equal(texto(await desafiar(C, 3, 4)), `❌ Ya hay una batalla de aura en curso (${nombre(1)} contra ${nombre(2)}): esperá a que termine.`);
   assert.match(texto(await desafiar(nuevoChat(), 3, 4)), /desafía a/, "en otro grupo, sí");
 });
 
-test("los topes: tres desafíos por día por persona, contados igual si no se juegan, y un duelo jugado por día por pareja", async (t) => {
+test("los topes: tres desafíos por día por persona, contados igual si no se juegan, y una batalla jugada por día por pareja", async (t) => {
   rapido(t, { respuesta: 5, votacion: 0.002 });
   limpio(t);
   const C = nuevoChat();
@@ -239,8 +239,8 @@ test("los topes: tres desafíos por día por persona, contados igual si no se ju
   await desafiar(C, 6, 7);
   await contestar(C, 7, "si");
   await esperar(300);
-  assert.deepEqual(desafio(6, 7), { ok: false, error: `${nombre(7)} y vos ya tuvieron un duelo de aura hoy: mañana pueden de nuevo.` });
-  assert.deepEqual(desafio(7, 6), { ok: false, error: `${nombre(6)} y vos ya tuvieron un duelo de aura hoy: mañana pueden de nuevo.` });
+  assert.deepEqual(desafio(6, 7), { ok: false, error: `${nombre(7)} y vos ya tuvieron una batalla de aura hoy: mañana pueden de nuevo.` });
+  assert.deepEqual(desafio(7, 6), { ok: false, error: `${nombre(6)} y vos ya tuvieron una batalla de aura hoy: mañana pueden de nuevo.` });
   // One that wasn't played doesn't count for the pair.
   assert.equal(desafio(8, 2).ok, true);
   A.rechazarAura(C, { quien: lid(2) });
@@ -251,7 +251,7 @@ test("los topes: tres desafíos por día por persona, contados igual si no se ju
   assert.equal(desafio(1, 5, manana).ok, true, "y el tope de desafíos, también");
 });
 
-test("si la votación no sale, el duelo queda sin efecto, el grupo libre y la pareja sin gastar", async (t) => {
+test("si la votación no sale, la batalla queda sin efecto, el grupo libre y la pareja sin gastar", async (t) => {
   limpio(t);
   const base = globalThis.client;
   const falla = (como) => Object.create(base, { sendMessage: { value: async (chat, msg, ...resto) => (String(msg?.text).startsWith("🗳️") ? como() : base.sendMessage(chat, msg, ...resto)) } });
@@ -261,7 +261,7 @@ test("si la votación no sale, el duelo queda sin efecto, el grupo libre y la pa
   for (const [caso, cliente] of [["tira un error", falla(() => Promise.reject(new Error("se cayó")))], ["no devuelve nada", falla(() => undefined)]]) {
     const C = nuevoChat();
     await desafiar(C, 1, 2);
-    assert.equal(texto(await contestar(C, 2, "si", { client: cliente })), "❌ No pude abrir la votación, así que el duelo queda sin efecto. Probá de nuevo en un rato.", caso);
+    assert.equal(texto(await contestar(C, 2, "si", { client: cliente })), "❌ No pude abrir la votación, así que la batalla queda sin efecto. Probá de nuevo en un rato.", caso);
     assert.equal(A.dueloDeAuraEn(C), null, caso);
     assert.match(texto(await desafiar(C, 1, 2)), /desafía a/, `${caso}: la pareja no jugó`);
   }
@@ -271,7 +271,7 @@ test("si quien desafió ya no está en el grupo, aceptar no abre la votación", 
   limpio(t);
   const C = nuevoChat();
   await desafiar(C, 1, 2);
-  assert.equal(texto(await contestar(C, 2, "si", { participants: grupo(2, 3) })), "❌ Quien te desafió ya no está en el grupo: el duelo queda sin efecto.");
+  assert.equal(texto(await contestar(C, 2, "si", { participants: grupo(2, 3) })), "❌ Quien te desafió ya no está en el grupo: la batalla queda sin efecto.");
   assert.equal(A.dueloDeAuraEn(C), null);
 });
 
@@ -281,15 +281,15 @@ test(".noaura y .siaura: los cuatro estados, nadie desafía ni es desafiado afue
   const C = nuevoChat();
   const pedir = async (n, command) => texto(await correr(NoAura, C, n, { command }));
   F.updateUserInGroup(lid(3), C, { sinTagall: true });
-  assert.equal(await pedir(3, "siaura"), "✨ Ya estás en los duelos de aura de este grupo. Con .noaura te salís.");
-  assert.equal(await pedir(3, "noaura"), "🚫 Listo: en este grupo ya no te pueden desafiar a duelos de aura, ni vos podés desafiar a nadie. El aura que ganaste sigue en el ranking. Con .siaura volvés.");
-  assert.equal(await pedir(3, "noaura"), "🚫 Ya estabas fuera de los duelos de aura de este grupo. Con .siaura volvés.");
+  assert.equal(await pedir(3, "siaura"), "✨ Ya estás en las batallas de aura de este grupo. Con .noaura te salís.");
+  assert.equal(await pedir(3, "noaura"), "🚫 Listo: en este grupo ya no te pueden desafiar a batallas de aura, ni vos podés desafiar a nadie. El aura que ganaste sigue en el ranking. Con .siaura volvés.");
+  assert.equal(await pedir(3, "noaura"), "🚫 Ya estabas fuera de las batallas de aura de este grupo. Con .siaura volvés.");
   assert.equal(F.getUser(lid(3)).inGroup[C].sinTagall, true, "lo demás del grupo, como estaba");
   const contra = await desafiar(C, 1, 3);
-  assert.equal(texto(contra), `❌ ${nombre(3)} no juega duelos de aura en este grupo.`);
+  assert.equal(texto(contra), `❌ ${nombre(3)} no juega batallas de aura en este grupo.`);
   assert.ok(!texto(contra).includes(at(3)) && !contra.some((msg) => msg.mentions?.length), "sin arrobarlo");
-  assert.equal(texto(await desafiar(C, 3, 1)), "❌ Estás fuera de los duelos de aura de este grupo. Con .siaura volvés.");
-  assert.equal(await pedir(3, "siaura"), "✨ Listo: volvés a los duelos de aura de este grupo.");
+  assert.equal(texto(await desafiar(C, 3, 1)), "❌ Estás fuera de las batallas de aura de este grupo. Con .siaura volvés.");
+  assert.equal(await pedir(3, "siaura"), "✨ Listo: volvés a las batallas de aura de este grupo.");
   assert.match(texto(await desafiar(C, 1, 3)), /desafía a/);
 
   // Out with a challenge waiting for their answer: it goes, and nothing expires later.
@@ -302,7 +302,7 @@ test(".noaura y .siaura: los cuatro estados, nadie desafía ni es desafiado afue
   // Out while their duel is being voted: it ends as it is.
   await desafiar(C, 4, 5);
   await contestar(C, 5, "si");
-  assert.match(await pedir(5, "noaura"), /\nEl duelo que ya se está votando termina igual\.$/);
+  assert.match(await pedir(5, "noaura"), /\nLa batalla que ya se está votando termina igual\.$/);
   assert.ok(A.votaciones[C], "la votación sigue");
 
   // Getting out is always possible: no game (.juegos off doesn't stop it) and no section (.bladd can't take it).
@@ -327,11 +327,11 @@ test(".aura muestra el ranking del mes por nombre, sin arrobar, con la corona, e
   const ranking = (n, opciones) => correr(Aura, C, n, opciones);
   const [deDos] = await ranking(2);
   const lista = `👑 ${nombre(2)} — *2.000* (el aura del mes)\n2. ${nombre(3)} — *1.000*\n3. ${nombre(4)} — *1.000*`;
-  assert.equal(deDos.text, `✨ *Ranking de aura — ${MESES[Number(mes.slice(5)) - 1]}*\n\n${lista}\n\nVos: *2.000* este mes (puesto 1) · *2.000* en total · 2 duelos ganados y 1 perdido.`);
+  assert.equal(deDos.text, `✨ *Ranking de aura — ${MESES[Number(mes.slice(5)) - 1]}*\n\n${lista}\n\nVos: *2.000* este mes (puesto 1) · *2.000* en total · 2 batallas ganadas y 1 perdida.`);
   assert.ok(!deDos.mentions?.length && !/@\d/.test(deDos.text), "por nombre, sin arrobar a nadie");
-  assert.match(texto(await ranking(4)), /\n\nVos: \*1\.000\* este mes \(puesto 3\) · \*1\.000\* en total · 1 duelo ganado y 0 perdidos\.$/);
-  assert.match(texto(await ranking(5)), /\n\nVos: nada este mes · \*1\.000\* en total · 1 duelo ganado y 0 perdidos\.$/);
-  assert.match(texto(await ranking(6)), /\n\nVos: todavía no ganaste ni perdiste ningún duelo de aura\.$/);
+  assert.match(texto(await ranking(4)), /\n\nVos: \*1\.000\* este mes \(puesto 3\) · \*1\.000\* en total · 1 batalla ganada y 0 perdidas\.$/);
+  assert.match(texto(await ranking(5)), /\n\nVos: nada este mes · \*1\.000\* en total · 1 batalla ganada y 0 perdidas\.$/);
+  assert.match(texto(await ranking(6)), /\n\nVos: todavía no ganaste ni perdiste ninguna batalla de aura\.$/);
   assert.match(texto(await ranking(6, { quoted: { sender: BOT } })), /^✨ \*Ranking de aura/, "respondiendo a Claudia, también el ranking");
   // With "nombres" or "numeros" (lib/menciones.js): by WhatsApp name with the nickname in brackets, or by number.
   F.updateUser(lid(2), { apodo: "Dos" });
@@ -351,5 +351,5 @@ test(".aura muestra el ranking del mes por nombre, sin arrobar, con la corona, e
 
 test("el menú lo ofrece entre los juegos, con el premio que da lib/aura.js", () => {
   const juegos = seccionesDelMenu(".").find((s) => s.clave === "juegos");
-  assert.match(juegos.lineas, /\n▸ \.aura @mención ✨ – `Duelo de aura: si acepta \(\.aura si\), el grupo vota con 🔵 o 🔴 y el que gana suma 1\.000 de aura del mes\. \.aura sola muestra el ranking \(con nombres o numeros al final, por nombre de WhatsApp o por número\); \.noaura te saca de los duelos y \.siaura te vuelve a poner\.`\n/);
+  assert.match(juegos.lineas, /\n▸ \.aura @mención ✨ – `Batalla de aura: si acepta \(\.aura si\), el grupo vota con 🔵 o 🔴 y el que gana suma 1\.000 de aura del mes\. \.aura sola muestra el ranking \(con nombres o numeros al final, por nombre de WhatsApp o por número\); \.noaura te saca de las batallas y \.siaura te vuelve a poner\.`\n/);
 });
