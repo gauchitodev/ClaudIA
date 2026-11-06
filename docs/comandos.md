@@ -223,6 +223,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.clima [ciudad]` 🌦️ | Clima de ahora y de mañana; sin ciudad, Montevideo. |
 | `.recordame <cuándo> <texto>` ⏰ | Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar &lt;n&gt; |
 | `.cumple 08/10/1997` 🎂 | Anotá tu cumple, con el año; con .cumples (o .cumpleaños) ves los del grupo y cuántos cumple cada uno, por nombre de WhatsApp y sin arrobar; con alias o numero al final, por apodo o por número. |
+| `.agedist [n]` 📊 | Cómo se reparten las edades del grupo según los cumples anotados, en tramos de 5 años (o de n: .agedist 2) y por generación. También .distedad y .edades. |
 | `.genero mujer` 🚻 | Hombre o mujer, para que Claudia te trate así y tu perfil lo diga; .genero borrar lo saca. Un admin se lo pone a otro con .genero @mención mujer. |
 | `.resumen [tiempo]` 📝 | Resumen con IA de lo que se habló: sin nada, los últimos 15 min; .resumen 2h o .resumen 30m, hasta 6 h. |
 | `.recap` 📅 | Resumen de la semana en curso; el domingo a la noche sale solo, si el grupo no lo apagó. |
