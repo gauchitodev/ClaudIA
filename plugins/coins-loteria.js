@@ -2,7 +2,7 @@ import { comprarBoletos, textoEstadoLoteria } from "../lib/loteria.js";
 import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
-plugin.cmd = ["loteria", "lotería", "boleto", "boletos"];
+plugin.cmd = ["loteria", "boleto", "boletos"];
 plugin.economia = true;
 plugin.juego = true;
 plugin.casino = true; // .casino off and the .horariojuegos schedule stop these

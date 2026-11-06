@@ -2,7 +2,7 @@
 
 _Generado desde `lib/menu.js` y `lib/menu-ventas.js` con `npm run comandos`: no se edita a mano, y un test (`test/guia-comandos.test.mjs`) avisa si quedó viejo._
 
-Los comandos van con un punto adelante (`.menu`); también andan `/` y `@`. En un grupo, `.menu` muestra lo más usado ahí y los temas; `.menu <tema>` abre uno y `.menu todo` los trae todos. No se ofrece lo que el grupo tiene apagado (`.juegos`, `.casino`, `.monedas`, o un juego solo con `.juego`), lo que necesita que Claudia sea admin cuando no lo es, ni lo que el rol de quien pregunta no puede usar. En la charla, Claudia también explica sus comandos si se le pregunta.
+Los comandos van con un punto adelante (`.menu`), pegado o con un espacio (`. menu`), y con o sin tildes (`.menú`); también andan `/` y `@`. En un grupo, `.menu` muestra lo más usado ahí y los temas; `.menu <tema>` abre uno y `.menu todo` los trae todos. No se ofrece lo que el grupo tiene apagado (`.juegos`, `.casino`, `.monedas`, o un juego solo con `.juego`), lo que necesita que Claudia sea admin cuando no lo es, ni lo que el rol de quien pregunta no puede usar. En la charla, Claudia también explica sus comandos si se le pregunta.
 
 ## Temas
 
@@ -62,7 +62,7 @@ _Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.men
 <a id="casino"></a>
 ## 🎰 Casino y apuestas
 
-_Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.menu loteria`, `.menu mercados`, `.menu poker`, `.menu póker`, `.menu holdem`._
+_Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.menu loteria`, `.menu mercados`, `.menu poker`, `.menu holdem`._
 
 > _.ruleta, .tragamonedas, .blackjack, .mines, .carrera y .poker, escritos solos, explican cómo se juega y cuánto pagan (el póker, si hay mesa abierta, la muestra). Se apuesta de 5 a 100 UruCoins, o hasta el 20 % de tu saldo si es más; en el póker la entrada es fija, de 50 a 100._
 
@@ -353,7 +353,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 <a id="owner"></a>
 ## 🥷 Solo el owner
 
-_Solo para el owner del bot. Se abre con `.menu owner`, `.menu dueño`, `.menu dueno`._
+_Solo para el owner del bot. Se abre con `.menu owner`, `.menu dueno`._
 
 | Comando | Qué hace |
 |---|---|

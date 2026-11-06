@@ -955,8 +955,8 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
 });
 
 // ---------- what a command is (lib/comandos.js) ----------
-// The prefix with the name right against it: "...pero bueno" was the command "..pero", and the bot answered that it
-// doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.
+// The prefix with the name against it, or after a space for a command that exists: "...pero bueno" was the command
+// "..pero", and the bot answered that it doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.
 test("el despachador: a lo que no es un comando no le contesta, y a lo que parece uno y no existe, sí", async () => {
   const corrieron = [];
   globalThis.plugins = { "probar.js": { cmd: ["probar"], run: async (m, { text, textoCompleto, command }) => corrieron.push({ command, text, textoCompleto }) } };
@@ -975,6 +975,14 @@ test("el despachador: a lo que no es un comando no le contesta, y a lo que parec
   // The name cleaned, the words as always, and the text as it was typed for the commands that keep it.
   await mandar(".PROBAR? uno   dos\ntres");
   assert.deepEqual(corrieron, [{ command: "probar", text: "uno dos tres", textoCompleto: "uno   dos\ntres" }]);
+  // With or without its accents, the same command (lib/comandos.js).
+  await mandar(".PRÓBAR uno");
+  assert.deepEqual(corrieron, [{ command: "probar", text: "uno", textoCompleto: "uno" }]);
+  // With a space after the prefix, a command that exists runs the same; one that doesn't is talking, unanswered.
+  assert.deepEqual(await mandar(". PROBAR? uno   dos\ntres"), []);
+  assert.deepEqual(corrieron, [{ command: "probar", text: "uno dos tres", textoCompleto: "uno   dos\ntres" }]);
+  assert.deepEqual(await mandar(". noexiste"), []);
+  assert.deepEqual(corrieron, []);
 });
 
 // Before admin mode and the banned notice: a banned person who wrote "..." or mentioned someone got "ESTÁS BANEADO".

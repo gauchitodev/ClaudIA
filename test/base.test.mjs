@@ -180,6 +180,48 @@ test("migra las advertencias globales al formato por grupo", async () => {
 // What Claudia learned of each person before 3.4 was one memory for the whole bot, with what people told her in
 // private. It's kept per group now, and the old column is erased once: from the file too, where SQLite leaves erased
 // text (an older version, rewritten since, here in pages it freed) and the backups carry it.
+// The parser reads command names without their accents now (lib/comandos.js): the ones kept with them, in the owner's
+// blacklist and in the uses, go to their plain name once, merged with their twin if it was there.
+test("los nombres de comandos guardados con tilde pasan a su forma sin tilde, una vez, sumados con su gemelo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-tildes-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE chat_blacklist (remoteJid TEXT NOT NULL, command TEXT NOT NULL, PRIMARY KEY (remoteJid, command))`);
+  vieja.exec(`CREATE TABLE usos_comandos (chat TEXT NOT NULL, fecha TEXT NOT NULL, comando TEXT NOT NULL, usos INTEGER DEFAULT 0, PRIMARY KEY (chat, fecha, comando))`);
+  const bloquear = vieja.prepare(`INSERT INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`);
+  for (const [chat, cmd] of [["g1", "póker"], ["g1", "poker"], ["g1", "cárcel"], ["g1", "trivia"], ["g2", "menú"]]) bloquear.run(chat, cmd);
+  const usar = vieja.prepare(`INSERT INTO usos_comandos (chat, fecha, comando, usos) VALUES (?, ?, ?, ?)`);
+  for (const [chat, fecha, cmd, n] of [["g1", "2026-11-01", "vídeo", 3], ["g1", "2026-11-01", "video", 2], ["g1", "2026-11-02", "menú", 1], ["g1", "2026-11-02", "s", 4]]) usar.run(chat, fecha, cmd, n);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  const logReal = console.log;
+  const logs = [];
+  console.log = (...partes) => logs.push(partes.join(" "));
+  try {
+    globalThis.db = F.loadDatabase();
+    assert.deepEqual(db.prepare(`SELECT remoteJid, command FROM chat_blacklist ORDER BY remoteJid, command`).all(), [
+      { remoteJid: "g1", command: "carcel" },
+      { remoteJid: "g1", command: "poker" },
+      { remoteJid: "g1", command: "trivia" },
+      { remoteJid: "g2", command: "menu" },
+    ], "una fila por comando, sin la tilde");
+    assert.deepEqual(db.prepare(`SELECT chat, fecha, comando, usos FROM usos_comandos ORDER BY fecha, comando`).all(), [
+      { chat: "g1", fecha: "2026-11-01", comando: "video", usos: 5 },
+      { chat: "g1", fecha: "2026-11-02", comando: "menu", usos: 1 },
+      { chat: "g1", fecha: "2026-11-02", comando: "s", usos: 4 },
+    ], "los usos se suman con los de su gemelo");
+    assert.equal(F.isCommandBlacklisted("g1", "poker") && F.isCommandBlacklisted("g2", "menu"), true, "y lo bloqueado sigue bloqueado");
+    assert.deepEqual(logs.filter((l) => l.includes("sin tildes")), ["🟢 Migración: nombres de comandos sin tildes (3 de la lista negra, 2 de los usos)"]);
+    globalThis.db = F.loadDatabase(); // idempotente: no queda ninguno con tilde
+    assert.equal(logs.filter((l) => l.includes("sin tildes")).length, 1, "una sola vez");
+  } finally {
+    console.log = logReal;
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("borra la memoria vieja de todo el bot, una vez, sin dejar rastro en el archivo, y deja la de cada grupo", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-memoria-vieja-"));
   process.chdir(dir);

@@ -5,7 +5,7 @@ import { bajarImagen } from "../lib/descarga-segura.js";
 const INTENTOS = 3;
 
 const plugin = {};
-plugin.cmd = ["imagen", "foto", "imágen"];
+plugin.cmd = ["imagen", "foto"];
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

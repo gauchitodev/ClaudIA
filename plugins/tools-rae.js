@@ -2,7 +2,7 @@ import { definir } from "../lib/rae.js";
 
 // .rae <word or phrase>: definitions from the RAE dictionary.
 const plugin = {};
-plugin.cmd = ["definición", "rae", "definicion"];
+plugin.cmd = ["rae", "definicion"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix, command }) => {

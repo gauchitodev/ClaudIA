@@ -3,7 +3,7 @@ import { mencionadoActual, estaEnGrupo } from "../lib/identidad.js";
 import { calificar, textoReputacion, textoCalificaciones, borrarCalificacion, editarCalificacion } from "../lib/reputacion.js";
 
 const plugin = {};
-plugin.cmd = ["calificar", "reputacion", "reputación", "calificaciones"];
+plugin.cmd = ["calificar", "reputacion", "calificaciones"];
 plugin.onlyGroup = true;
 
 // .calificar @persona 5 <comentario> (o respondiendo a un mensaje suyo) · .reputacion [@persona] ·

@@ -5,7 +5,7 @@ import { leerGenero, generoDe, ponerGenero } from "../lib/genero.js";
 // (lib/genero.js). .genero shows it and .genero borrar takes it out: then she goes by the name, as always. An admin
 // sets someone else's with .genero @persona mujer, as .setcumple does with the birthday. Only those two, as asked.
 const plugin = {};
-plugin.cmd = ["genero", "género"];
+plugin.cmd = ["genero"];
 plugin.onlyGroup = true;
 
 const TRATO = { mujer: "en femenino", hombre: "en masculino" };

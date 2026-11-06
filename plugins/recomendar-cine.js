@@ -2,7 +2,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { mandarConImagen } from "../lib/con-imagen.js";
 
 const plugin = {};
-plugin.cmd = ["serie", "pelicula", "película"];
+plugin.cmd = ["serie", "pelicula"];
 plugin.botAdmin = true;
 
 const generosDisponibles = ["acción", "accion", "comedia", "comedy", "aventura", "adventure", "animación", "animacion", "kids", "ciencia ficción", "ciencia ficcion", "sci-fi", "misterio", "terror", "drama", "romance", "bélica", "belica", "crimen", "familia", "family", "suspenso", "suspense", "documental", "historia", "history", "horror"];

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { limpiarNombre } from "../lib/comandos.js";
 
 // The menus are written by hand and the plugin.cmd lists change on their own: this keeps them from drifting apart.
 // Until now the discipline was manual (the comment in lib/menu-ventas.js), and nothing warned when a menu ended
@@ -19,6 +20,7 @@ const MENUS = ["lib/menu.js", "lib/menu-ventas.js"];
 // list built at load time (a getter, a spread) would escape a regex over the source.
 const comandos = new Map();
 const comandosDe = new Map(); // plugin file -> its commands
+const declarados = new Map(); // plugin file -> its commands exactly as declared, for the check on how they're written
 
 before(async () => {
   globalThis.client = { user: { lid: "999000@lid", id: "59899000000@s.whatsapp.net", jid: "59899000000@s.whatsapp.net" } };
@@ -29,6 +31,7 @@ before(async () => {
   for (const archivo of fs.readdirSync(CARPETA).filter((f) => f.endsWith(".js"))) {
     const mod = await import(pathToFileURL(path.join(CARPETA, archivo)).href);
     comandosDe.set(archivo, ((mod.default || mod).cmd || []).map((c) => String(c).toLowerCase()));
+    declarados.set(archivo, ((mod.default || mod).cmd || []).map(String));
     for (const cmd of (mod.default || mod).cmd || []) {
       const nombre = String(cmd).toLowerCase();
       if (!comandos.has(nombre)) comandos.set(nombre, []);
@@ -52,7 +55,7 @@ test("todo comando nombrado en un menú existe en algún plugin", () => {
         if (!linea.trimStart().startsWith("▸")) return;
         for (const forma of FORMAS) {
           for (const [, cmd] of linea.matchAll(forma)) {
-            if (!comandos.has(cmd.toLowerCase())) faltan.push(`${archivo}:${i + 1} → .${cmd}`);
+            if (!comandos.has(limpiarNombre(cmd))) faltan.push(`${archivo}:${i + 1} → .${cmd}`);
           }
         }
       });
@@ -64,7 +67,7 @@ test("todo comando nombrado en un menú existe en algún plugin", () => {
 // stays out: it may name commands that were removed since, like .apostar.
 test("todo comando que nombra el manual de Claudia existe en algún plugin", async () => {
   const { RESUMEN, MANUAL } = await import("../lib/manual-claudia.js");
-  const nombrados = [...`${RESUMEN}\n${MANUAL}`.matchAll(FORMAS[1])].map(([, cmd]) => cmd.toLowerCase());
+  const nombrados = [...`${RESUMEN}\n${MANUAL}`.matchAll(FORMAS[1])].map(([, cmd]) => limpiarNombre(cmd));
   assert.ok(nombrados.length > 100, `el manual nombra muy pocos comandos (${nombrados.length}): ¿cambió el formato?`);
   const faltan = [...new Set(nombrados)].filter((cmd) => !comandos.has(cmd)).map((cmd) => `.${cmd}`);
   assert.deepEqual(faltan, [], `el manual de Claudia nombra comandos que no existen: ${faltan.join(", ")}`);
@@ -75,7 +78,7 @@ test("todo comando que nombra el manual de Claudia existe en algún plugin", asy
 test("la última entrada del historial de Claudia nombra solo comandos que existen", async () => {
   const { CAMBIOS } = await import("../lib/manual-claudia.js");
   const [ultima] = CAMBIOS;
-  const nombrados = [...`${ultima.titulo}\n${ultima.puntos.join("\n")}`.matchAll(FORMAS[1])].map(([, cmd]) => cmd.toLowerCase());
+  const nombrados = [...`${ultima.titulo}\n${ultima.puntos.join("\n")}`.matchAll(FORMAS[1])].map(([, cmd]) => limpiarNombre(cmd));
   const faltan = [...new Set(nombrados)].filter((cmd) => !comandos.has(cmd)).map((cmd) => `.${cmd}`);
   assert.deepEqual(faltan, [], `la ${ultima.version} del historial nombra comandos que no existen: ${faltan.join(", ")}`);
 });
@@ -126,6 +129,23 @@ test("lib/menu.js: las líneas ▸ están donde el chequeo las ve, con el comand
 test("lib/menu.js: títulos sin letras matemáticas de Unicode", () => {
   // 𝚂𝙾𝙻𝙾 𝙰𝙳𝙼𝙸𝙽𝚂 and the like: can't be found with the chat's search and screen readers spell them out.
   assert.doesNotMatch(fs.readFileSync(path.join(RAIZ, "lib/menu.js"), "utf8"), /[\u{1D400}-\u{1D7FF}]/u);
+});
+
+// The parser reads a typed name without its accents (lib/comandos.js), and every comparison after it is exact: a name
+// declared or listed with an accent would never be the one compared. Twenty plugins declared each name twice, with and
+// without it, and the copies went on into the sections, the games' catalogue and the menu's aliases.
+test("los nombres declarados y los que se listan aparte van como los lee el parser: sin tildes, en minúscula", async () => {
+  const { secciones } = await import("../lib/secciones.js");
+  const { JUEGOS } = await import("../lib/juegos-apagados.js");
+  const M = await import("../lib/menu.js");
+  const listas = [
+    ...declarados,
+    ...Object.entries(secciones).map(([clave, cmds]) => [`lib/secciones.js (${clave})`, cmds]),
+    ...JUEGOS.map((j) => [`lib/juegos-apagados.js (${j.clave})`, j.comandos]),
+    ["lib/menu.js (ALIAS_DE_LINEA)", Object.keys(M.ALIAS_DE_LINEA)],
+  ];
+  const mal = listas.flatMap(([donde, cmds]) => cmds.filter((c) => limpiarNombre(c) !== c).map((c) => `${donde}: ${c}`));
+  assert.deepEqual(mal, [], "declaralos sin tilde: el parser ya entiende «.póker» como .poker");
 });
 
 test("lib/menu.js: cada sección de .bladd es un tema de .menu, y los alias de ALIAS_DE_LINEA existen", async () => {

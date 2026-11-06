@@ -189,11 +189,21 @@ test("menú: un juego apagado con .juego lleva ⛔, no entra en lo más usado, y
   assert.doesNotMatch(menu({ pedido: "juegos", isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN }), /⛔/);
 });
 
+// The lines write a name as people do (".recordá que…", ".cárcel" in .gay's) and read it as the parser reads a typed
+// one, without its accents (lib/comandos.js): that's how the uses are counted and the plugins declare it.
+test("lo más usado: una línea escrita con tilde cuenta los usos del comando sin tilde, y lleva su 🔒", () => {
+  assert.equal(M.comandoDeLinea("▸ .recordá que <algo> 🧠 – `x`"), "recorda");
+  usar(G, "recorda", 50);
+  usar(G, "carcel", 40); // named in .gay's line, as .cárcel
+  assert.deepEqual(comandos(masUsados()).slice(0, 2), ["recorda", "gay"]);
+  assert.match(menu({ pedido: "extras", bloqueados: new Set(["recorda"]) }), /\n▸ \.recordá que <algo> .+ 🔒\n/);
+});
+
 test("lo más usado: lo del grupo, con los alias de cada línea juntos", () => {
   usar(G, "sticker", 15);
   usar(G, "s", 10); // .s and .sticker are the same line: 25
   usar(G, "play", 12); // dl-youtube: .play is the .audio line
-  usar(G, "vídeo", 11); // and .vídeo the .video line, not .audio's
+  usar(G, "videoya", 11); // and .videoya the .video line, not .audio's
   usar(G, "gemini", 9); // .gemini lands on .ia
   const r = masUsados();
   assert.equal(r.fuente, "grupo");

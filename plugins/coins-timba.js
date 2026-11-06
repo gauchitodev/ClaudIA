@@ -10,7 +10,7 @@ import { nombreDe } from "../lib/menciones.js";
 const TITULOS = ["🎰 Ludópata mayor", "🎲 Timbero serial", "🃏 Aprendiz del vicio", "🎯 Ocasional", "🪙 Turista"];
 
 const plugin = {};
-plugin.cmd = ["timba", "ludopatas", "ludópatas"];
+plugin.cmd = ["timba", "ludopatas"];
 plugin.economia = true;
 plugin.onlyGroup = true;
 

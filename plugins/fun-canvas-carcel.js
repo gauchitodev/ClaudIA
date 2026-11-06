@@ -5,7 +5,7 @@ import { destinatarioActual } from "../lib/identidad.js";
 import { generoDe, concordar } from "../lib/genero.js";
 
 const plugin = {};
-plugin.cmd = ["carcel", "cárcel", "preso", "presa"];
+plugin.cmd = ["carcel", "preso", "presa"];
 plugin.juego = true;
 plugin.botAdmin = true;
 

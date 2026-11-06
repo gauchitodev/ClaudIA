@@ -295,7 +295,10 @@ test("4 en línea: guardar el plugin no pierde las partidas que se están jugand
 });
 
 test("4 en línea: se escribe con tilde o sin ella, y sus comandos están en la sección juegos de .bladd", async () => {
-  assert.ok(Plugin.cmd.includes("4enlinea") && Plugin.cmd.includes("4enlínea"));
+  // one name, without the accent: the parser takes it out of ".4enlínea" (lib/comandos.js)
+  assert.ok(Plugin.cmd.includes("4enlinea") && !Plugin.cmd.includes("4enlínea"));
+  const { parsearComando } = await import("../lib/comandos.js");
+  assert.equal(parsearComando(".4enlínea", ["."]).comando, "4enlinea");
   const { secciones } = await import("../lib/secciones.js");
   assert.deepEqual(
     [...Plugin.cmd, ...Del.cmd, ...Rendirse.cmd].filter((c) => !secciones.juegos.includes(c)),

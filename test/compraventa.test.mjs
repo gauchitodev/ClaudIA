@@ -381,7 +381,7 @@ test("compraventa: .catalogo lista todo y muestra el detalle de una", async () =
 });
 
 test("compraventa: quedaron solo los comandos que se usan, más .vender como alias de .vendo", () => {
-  assert.deepEqual(Cmd.cmd, ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"]);
+  assert.deepEqual(Cmd.cmd, ["vendo", "vender", "compro", "catalogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"]);
   // The tests call Cmd.run with the command directly, never through plugin.cmd: without this check, half of
   // plugin.cmd could be deleted and the suite would stay green.
   for (const viejo of ["busco", "publicaciones", "publicacion", "publicación", "conseguido", "mispublicaciones", "alertas"]) {

@@ -5,7 +5,7 @@ import { responderBiblia } from "../lib/biblia.js";
 // .salmo 23 is that psalm, .salmo alone one of the Psalms. They used to come from bible-api.deno.dev, which ceased to
 // exist when Deno Deploy Classic shut down in July 2026.
 const plugin = {};
-plugin.cmd = ["versiculo", "versículo", "biblia", "salmo", "salmos"];
+plugin.cmd = ["versiculo", "biblia", "salmo", "salmos"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = "." }) => {

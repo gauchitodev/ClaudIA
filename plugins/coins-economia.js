@@ -4,7 +4,7 @@ import { lidMencionadoActual } from "../lib/identidad.js";
 import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
-plugin.cmd = ["economia", "economía", "ajustar"];
+plugin.cmd = ["economia", "ajustar"];
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 

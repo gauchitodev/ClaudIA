@@ -19,11 +19,16 @@ test("parsearComando: el prefijo con el nombre pegado, limpio, y el texto en una
     [".menu", { prefijo: ".", comando: "menu", args: [], texto: "", textoCompleto: "" }],
     ["/menu", { prefijo: "/", comando: "menu", args: [], texto: "", textoCompleto: "" }],
     ["@resumen 2h", { prefijo: "@", comando: "resumen", args: ["2h"], texto: "2h", textoCompleto: "2h" }],
-    // The punctuation glued at the end, the case, the invisibles and the accents typed apart aren't the name.
+    // The punctuation glued at the end, the case, the invisibles and the accents aren't the name: the plugins declare
+    // one form, without them.
     [".MENU?", { prefijo: ".", comando: "menu", args: [], texto: "", textoCompleto: "" }],
     [".ttt!", { prefijo: ".", comando: "ttt", args: [], texto: "", textoCompleto: "" }],
     [".me​nu", { prefijo: ".", comando: "menu", args: [], texto: "", textoCompleto: "" }],
-    [".4enlínea", { prefijo: ".", comando: "4enlínea", args: [], texto: "", textoCompleto: "" }],
+    [".4enlínea", { prefijo: ".", comando: "4enlinea", args: [], texto: "", textoCompleto: "" }],
+    [".4enlínea", { prefijo: ".", comando: "4enlinea", args: [], texto: "", textoCompleto: "" }],
+    [".PÓKER?", { prefijo: ".", comando: "poker", args: [], texto: "", textoCompleto: "" }],
+    [".cumpleaños", { prefijo: ".", comando: "cumpleanos", args: [], texto: "", textoCompleto: "" }],
+    [".recordá que el asado es el sábado", { prefijo: ".", comando: "recorda", args: ["que", "el", "asado", "es", "el", "sábado"], texto: "que el asado es el sábado", textoCompleto: "que el asado es el sábado" }],
     // Names that aren't only letters still are names.
     [".18", { prefijo: ".", comando: "18", args: [], texto: "", textoCompleto: "" }],
     [".toppajer@s", { prefijo: ".", comando: "toppajer@s", args: [], texto: "", textoCompleto: "" }],
@@ -38,6 +43,40 @@ test("parsearComando: el prefijo con el nombre pegado, limpio, y el texto en una
   for (const texto of ["...pero bueno", ". hola", ".\nhola", "...", ".", "", " .menu", "hola .menu", ".@ana", "@.menu", "/.", ".?", "¿.menu?"]) {
     assert.equal(C.parsearComando(texto, PREFIJOS), null, JSON.stringify(texto));
   }
+});
+
+// ". actividad" was a command until the parser became one (bfc57f5): the dispatcher trimmed what followed the prefix.
+// It is again, read exactly as the command against the prefix, but only for a command that exists: with a space,
+// ". hola" is still someone talking. A command that is also a word counts all the same (". no sé" is .no).
+test("parsearComando: con espacios después del prefijo, un comando que existe se lee igual que pegado; lo demás es charla", () => {
+  const antes = globalThis.plugins;
+  globalThis.plugins = { p: { cmd: ["actividad", "menu", "no", "s", "4enlinea", "resumen"] } };
+  try {
+    for (const [conEspacio, pegado] of [
+      [". actividad", ".actividad"],
+      [".   actividad 7 días", ".actividad 7 días"],
+      [".\tmenu", ".menu"],
+      [". menu", ".menu"],
+      ["/ menu", "/menu"],
+      ["@ resumen 2h", "@resumen 2h"],
+      [". MENU?", ".MENU?"],
+      [". 4enlínea", ".4enlínea"],
+      [". menú", ".menu"],
+      [". s\n\n  hola", ".s\n\n  hola"],
+      [". no sé", ".no sé"],
+    ]) {
+      assert.ok(C.parsearComando(pegado, PREFIJOS), pegado);
+      assert.deepEqual(C.parsearComando(conEspacio, PREFIJOS), C.parsearComando(pegado, PREFIJOS), JSON.stringify(conEspacio));
+    }
+    for (const texto of [". hola", ". hola menu", ".\nactividad", ". \nactividad", ". . menu", ".  ", "@ ana", "@ 59899000001 hola", ". actividades"]) {
+      assert.equal(C.parsearComando(texto, PREFIJOS), null, JSON.stringify(texto));
+    }
+    assert.deepEqual([". actividad", "@ menu", ". hola", ". hola que tal", "@ ana"].map((t) => C.esComando(t)), [true, true, false, false, false]);
+  } finally {
+    globalThis.plugins = antes;
+  }
+  // without the plugins loaded (start-process.js reads chat with this too), nothing after a space is a command
+  assert.equal(C.parsearComando(". actividad", PREFIJOS), null);
 });
 
 test("pareceComando: letras, números o «@», y alguna letra", () => {
@@ -67,7 +106,7 @@ test("leerEntero: «1.000» es mil; un decimal, una coma, letras o un punto fuer
 });
 
 test("normalizarComando: como el despachador limpia uno escrito, con o sin su prefijo", () => {
-  for (const [texto, nombre] of [[".menu", "menu"], ["menu", "menu"], ["@Sticker", "sticker"], ["/TTT!", "ttt"], [".menu?", "menu"], ["4enlínea", "4enlínea"]]) {
+  for (const [texto, nombre] of [[".menu", "menu"], ["menu", "menu"], ["@Sticker", "sticker"], ["/TTT!", "ttt"], [".menu?", "menu"], ["4enlínea", "4enlinea"], ["recordá", "recorda"], [".MENÚ", "menu"]]) {
     assert.equal(C.normalizarComando(texto), nombre, texto);
   }
 });

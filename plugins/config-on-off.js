@@ -1,7 +1,7 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "antiubicación", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
 plugin.botAdmin = true;
 
 // The same words .iniciativa takes.
@@ -42,7 +42,6 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     antiinstagram: { key: "antiInstagram", from: "chat" },
     antiig: { key: "antiInstagram", from: "chat" },
     antiubicacion: { key: "antiLiveLocation", from: "chat" },
-    antiubicación: { key: "antiLiveLocation", from: "chat" },
     reactions: { key: "reactions", from: "chat" },
     reacciones: { key: "reactions", from: "chat" },
     juegos: { key: "games", from: "chat" },

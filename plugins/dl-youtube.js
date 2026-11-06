@@ -25,7 +25,7 @@ const cookiesPath = path.resolve("cookies.txt");
 const cookiesArgs = existsSync(cookiesPath) ? ["--cookies", cookiesPath] : [];
 
 const plugin = {};
-plugin.cmd = ["play", "audio", "video", "vídeo", "playya", "videoya"];
+plugin.cmd = ["play", "audio", "video", "playya", "videoya"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetadata }) => {

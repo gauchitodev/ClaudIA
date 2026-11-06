@@ -112,8 +112,9 @@ test("juegoDe: la clave, cualquiera de sus comandos o un alias, escritos como se
     ["juegos", null],
     ["destapar", null],
   ]) assert.equal(clave(texto), esperada, JSON.stringify(texto));
-  // the dispatcher's command is exact: with its accent, as typed
-  assert.equal(J.juegoDelComando("4enlínea")?.clave, "4enlinea");
+  // the dispatcher's command is exact, and arrives without its accent (lib/comandos.js): ".4enlínea" is 4enlinea
+  assert.equal(J.juegoDelComando("4enlinea")?.clave, "4enlinea");
+  assert.equal(J.juegoDelComando("4enlínea"), null, "nunca llega así");
   assert.equal(J.juegoDelComando("acepto"), null);
 });
 
@@ -146,12 +147,12 @@ test("juegoApagadoPara: solo lo que empieza el juego apagado; las respuestas y s
   assert.equal(J.juegoApagadoPara(f, "aura", [])?.clave, "aura", "el ranking también es del juego");
   for (const palabra of ["si", "sí", "SI", "no"]) assert.equal(J.juegoApagadoPara(f, "aura", [palabra]), null, palabra);
   assert.equal(J.juegoApagadoPara(f, "poker", ["100"])?.clave, "poker");
-  assert.equal(J.juegoApagadoPara(f, "póker", [])?.clave, "poker");
+  assert.equal(J.juegoApagadoPara(f, "poker", [])?.clave, "poker");
   for (const palabra of ["salir", "levantarme", "cancelar", "cerrar"]) assert.equal(J.juegoApagadoPara(f, "poker", [palabra]), null, palabra);
   assert.equal(J.juegoApagadoPara(f, "mines", ["10"])?.clave, "mines");
   for (const cmd of ["destapar", "retirar", "del4enlinea", "rendirse", "ruleta", "levantarme"]) assert.equal(J.juegoApagadoPara(f, cmd, []), null, cmd);
-  assert.equal(J.juegoApagadoPara(f, "4enlínea", [])?.clave, "4enlinea");
-  assert.deepEqual([...J.comandosApagados(f)].sort(), ["4enlinea", "4enlínea", "aura", "mines", "minas", "poker", "póker"].sort());
+  assert.equal(J.juegoApagadoPara(f, "4enlinea", [])?.clave, "4enlinea");
+  assert.deepEqual([...J.comandosApagados(f)].sort(), ["4enlinea", "aura", "mines", "minas", "poker"].sort());
   assert.deepEqual([...J.comandosApagados(null)], []);
 });
 

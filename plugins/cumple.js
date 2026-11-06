@@ -2,7 +2,7 @@ import { registrarCumple, textoCumples } from "../lib/cumpleanos.js";
 import { estaEnGrupo, conIndice } from "../lib/identidad.js";
 
 const plugin = {};
-plugin.cmd = ["cumple", "cumples", "cumpleanos", "cumpleaños"];
+plugin.cmd = ["cumple", "cumples", "cumpleanos"];
 plugin.onlyGroup = true;
 
 // .cumple 14/03/1995 records yours, with the year · .cumple shows it · .cumple borrar · .cumples lists the group's,

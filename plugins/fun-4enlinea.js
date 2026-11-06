@@ -13,7 +13,7 @@ import { marcarMensajeDeJuego, citaOtroJuego } from "../lib/mensajes-de-juego.js
 import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
-plugin.cmd = ["4enlinea", "4enlínea"];
+plugin.cmd = ["4enlinea"];
 plugin.juego = true;
 plugin.conHorario = true;
 plugin.onlyGroup = true;

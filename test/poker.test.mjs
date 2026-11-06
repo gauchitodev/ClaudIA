@@ -338,7 +338,7 @@ test("los plugins llevan las marcas que corresponden: la entrada es casino, las 
   assert.deepEqual([Poker.casino, Poker.economia, Poker.juego, Poker.onlyGroup], [true, true, true, true]);
   assert.deepEqual([Mesa.casino, Mesa.economia, Mesa.juego, Mesa.onlyGroup], [undefined, undefined, true, true]);
   assert.deepEqual([Cartas.casino, Cartas.juego, Cartas.onlyGroup], [undefined, undefined, undefined]);
-  assert.deepEqual(Poker.cmd, ["poker", "póker"]);
+  assert.deepEqual(Poker.cmd, ["poker"]); // .póker reaches it too: the parser takes the accent out
   assert.deepEqual(Mesa.cmd, ["paso", "pago", "igualo", "voy", "subo", "allin", "novoy", "levantarme", "mesa", "delpoker"]);
   assert.deepEqual(Cartas.cmd, ["cartas"]);
 });

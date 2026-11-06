@@ -116,7 +116,8 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   await config("antiubicacion", ["on"]);
   assert.match(ultimo(), /Opción: `antiubicacion`\n• Estado: Activado/);
   assert.equal(F.getChat(chat).antiLiveLocation, 1);
-  await config("antiubicación", ["off"]);
+  // ".antiubicación" reaches it as antiubicacion: the parser takes the accent out (lib/comandos.js)
+  await config("antiubicacion", ["off"]);
   assert.equal(F.getChat(chat).antiLiveLocation, 0);
   const VerConfig = (await import("../plugins/grupo-config.js")).default;
   await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });

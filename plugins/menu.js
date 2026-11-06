@@ -4,7 +4,7 @@ import { textoMenu } from "../lib/menu.js";
 // .menu: a short index with what's used most in the group, .menu <tema> for one topic, and .menu todo for everything.
 // The contents and the rules live in lib/menu.js.
 const plugin = {};
-plugin.cmd = ["menu", "menú", "help", "comandos", "ayuda"];
+plugin.cmd = ["menu", "help", "comandos", "ayuda"];
 
 plugin.run = async (m, { client, usedPrefix, args = [], chat, isBotAdmin = true, isMod, isOwner }) => {
   const bloqueados = m.isGroup && chat?.blacklistMode ? new Set(getChatBlacklist(m.chat)) : new Set();

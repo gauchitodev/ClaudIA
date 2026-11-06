@@ -42,7 +42,7 @@ export function buscarSigno(texto) {
 const IMAGEN = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
 
 const plugin = {};
-plugin.cmd = ["horoscopo", "horóscopo"];
+plugin.cmd = ["horoscopo"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

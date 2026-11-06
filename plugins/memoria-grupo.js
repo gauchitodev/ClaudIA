@@ -3,7 +3,7 @@ import { memoriaDe, olvidarDe } from "../lib/memoria-persona.js";
 import { conNombres } from "../lib/menciones.js";
 
 const plugin = {};
-plugin.cmd = ["recorda", "recordá", "memoria"];
+plugin.cmd = ["recorda", "memoria"];
 plugin.onlyGroup = true;
 
 // .recordá que <something> records it · .memoria lists · .memoria borrar <n> · .memoria limpiar (admin)

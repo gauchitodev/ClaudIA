@@ -3,7 +3,7 @@ import { getPublicacionPorMensaje } from "../database-functions.js";
 import { mismaPersona, lidDe } from "../lib/identidad.js";
 
 const plugin = {};
-plugin.cmd = ["vendo", "vender", "compro", "catalogo", "catálogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
+plugin.cmd = ["vendo", "vender", "compro", "catalogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
 plugin.onlyGroup = true;
 
 // .vendo / .compro: with nothing → that type's catalogue; with text → it posts; quoting a message → it posts what
@@ -30,7 +30,7 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
   }
 
   // .catalogo 12 is the detail of #12; with anything else (or nothing) it's the whole catalogue.
-  if (command === "catalogo" || command === "catálogo") {
+  if (command === "catalogo") {
     return enviar(/^\d+$/.test(args[0] || "") ? textoPublicacion(m.chat, parseInt(args[0], 10), { usuario: m.sender, esMod: isMod }) : textoCatalogo(m.chat, null));
   }
   if (command === "buscar") return enviar(textoBusqueda(m.chat, text));

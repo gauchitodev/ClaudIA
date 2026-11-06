@@ -1,6 +1,8 @@
 // The database's tables, and the migrations that bring an older file up to them: what loadDatabase
 // (database-functions.js) does to the file each start, right after opening it. It was a third of that file, and apart
 // from the rest of it: this runs once a start, and the rest there on every message.
+import { limpiarNombre } from "./lib/comandos.js";
+
 export function ponerAlDia(db) {
   // What's erased or written over (a .memoria olvidame, a post taken down, each rewrite of someone's data in a group)
   // is overwritten with zeros right away. SQLite only marks that space as free (its docs: secure_delete), and the text
@@ -732,6 +734,26 @@ export function ponerAlDia(db) {
       }
     })();
     console.log(`🟢 Migración: advertencias de ${conAdvertencias.length} usuario(s) pasadas al formato por grupo`);
+  }
+
+  // Migration: command names are read without their accents now (lib/comandos.js), so the ones kept with them stop
+  // matching: a ".bladd póker" stopped blocking the poker, and the uses of ".menú" counted apart from ".menu". They go
+  // to their plain name: a blocked one that had its twin already is one row, and the uses add up with their twin's.
+  const conTilde = (filas, campo) => filas.filter((f) => limpiarNombre(f[campo]) !== f[campo]);
+  const bloqueados = conTilde(db.prepare(`SELECT remoteJid, command FROM chat_blacklist`).all(), "command");
+  const usados = conTilde(db.prepare(`SELECT chat, fecha, comando, usos FROM usos_comandos`).all(), "comando");
+  if (bloqueados.length || usados.length) {
+    db.transaction(() => {
+      for (const b of bloqueados) {
+        db.prepare(`INSERT OR IGNORE INTO chat_blacklist (remoteJid, command) VALUES (?, ?)`).run(b.remoteJid, limpiarNombre(b.command));
+        db.prepare(`DELETE FROM chat_blacklist WHERE remoteJid = ? AND command = ?`).run(b.remoteJid, b.command);
+      }
+      for (const u of usados) {
+        db.prepare(`INSERT INTO usos_comandos (chat, fecha, comando, usos) VALUES (?, ?, ?, ?) ON CONFLICT(chat, fecha, comando) DO UPDATE SET usos = usos + excluded.usos`).run(u.chat, u.fecha, limpiarNombre(u.comando), u.usos);
+        db.prepare(`DELETE FROM usos_comandos WHERE chat = ? AND fecha = ? AND comando = ?`).run(u.chat, u.fecha, u.comando);
+      }
+    })();
+    console.log(`🟢 Migración: nombres de comandos sin tildes (${bloqueados.length} de la lista negra, ${usados.length} de los usos)`);
   }
 }
 
