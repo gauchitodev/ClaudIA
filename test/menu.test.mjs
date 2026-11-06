@@ -63,7 +63,7 @@ test("menú: cada uno ve los temas que puede usar", () => {
   assert.match(temas(OWNER), /🥷 owner/);
   assert.equal(menu({ pedido: "admins" }), "🛡️ Ese tema es para admins y moderadores del grupo.");
   assert.equal(menu({ pedido: "owner", ...MOD }), "🥷 Ese tema es solo del owner del bot.");
-  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Cada opción con on u off; sin nada, la invierte\._\n▸ \.modoadmin/);
+  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._\n▸ \.modoadmin/);
   // In private: no group rank, and the menus that only work in groups aren't offered.
   const privado = menu({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null });
   assert.doesNotMatch(privado, /admins/);
@@ -85,7 +85,7 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
   const miembro = menu({ pedido: "todo" });
   const mod = menu({ pedido: "TODO", ...MOD });
   assert.doesNotMatch(miembro, /Configuración|Admins y moderadores/);
-  assert.match(mod, /⚙️ \*Configuración\*\n_Cada opción con on u off; sin nada, la invierte\._/);
+  assert.match(mod, /⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._/);
   assert.doesNotMatch(mod, /viceversa/, "el título viejo, de antes de que los interruptores aceptaran on y off");
   assert.doesNotMatch(mod, /▸ \.vendo/, "la compraventa está en .menuventas");
   const principales = (texto) => texto.split("\n").map((l) => M.comandoDeLinea(l)).filter(Boolean);
@@ -301,7 +301,8 @@ test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-mess
 test("sinPermisoEn: lo que nombra un texto y no puede usar quien pregunta, según su rol", () => {
   // .reglas and .antecedentes head lines of the admins' topic (.reglas set, .antecedentes @persona), and a topic for
   // everyone has them too.
-  const texto = "Probá .tagall, .notagall, .kick, .horariojuegos, .casino, .adminbot, .roles, .calificaciones, .iniciativa, .reglas, .antecedentes, .4enlinea, .addowner o .menu.";
+  // .voz alone tells anyone how the voice is set, as .iniciativa does: an admin switches it.
+  const texto = "Probá .tagall, .notagall, .kick, .horariojuegos, .casino, .adminbot, .roles, .calificaciones, .iniciativa, .voz, .reglas, .antecedentes, .4enlinea, .addowner o .menu.";
   assert.deepEqual(M.sinPermisoEn(texto, {}), ["tagall", "kick", "horariojuegos", "casino", "adminbot", "addowner"]);
   // A moderator has the moderators' commands, not the ones a plugin keeps for admins or for the owner.
   const deModeracion = "Probá .tagall, .kick, .horariojuegos, .llamar o .addowner.";

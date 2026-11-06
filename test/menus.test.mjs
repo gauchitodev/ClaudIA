@@ -5,7 +5,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 // The menus are written by hand and the plugin.cmd lists change on their own: this keeps them from drifting apart.
-// Until now the discipline was manual (the comment in plugins/menu-ventas.js), and nothing warned when a menu ended
+// Until now the discipline was manual (the comment in lib/menu-ventas.js), and nothing warned when a menu ended
 // up naming a command that no longer exists: the only one who found out was whoever typed it and got "no such command".
 //
 // Formatting rule: in the menus, a line starting with "▸" names a single main command right against the ▸ (that is
@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 // description, has to really exist. The general menu's contents live in lib/menu.js; the paths are from the repo root.
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CARPETA = path.join(RAIZ, "plugins");
-const MENUS = ["lib/menu.js", "plugins/menu-ventas.js"];
+const MENUS = ["lib/menu.js", "lib/menu-ventas.js"];
 
 // The commands are read from the loaded plugin and not from the file's text: that's what handle-message.js sees, and a
 // list built at load time (a getter, a spread) would escape a regex over the source.

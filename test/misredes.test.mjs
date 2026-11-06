@@ -113,5 +113,5 @@ test(".misredes es de los grupos, está entre los extras y el menú la nombra, j
   assert.ok(secciones.extras.includes("misredes"));
   const menu = fs.readFileSync(new URL("../lib/menu.js", import.meta.url), "utf8");
   assert.match(menu, /\n▸ \$\{usedPrefix\}misredes instagram @usuario 🔗 – /);
-  assert.match(menu, /pareja, cumple y redes\./);
+  assert.match(menu, /cumple, redes, reputación/);
 });

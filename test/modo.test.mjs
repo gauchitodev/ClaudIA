@@ -121,4 +121,10 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   const VerConfig = (await import("../plugins/grupo-config.js")).default;
   await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   assert.match(ultimo(), /\n❌ Anti ubicación en tiempo real \(\.antiubicacion\)\n/);
+  // the switches that had no line: the status mentions, the stickers on her own, and how the voice is set
+  assert.match(ultimo(), /\n❌ Anti menciones del grupo en estados \(\.antiestados\)\n✅ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: apagada \(\.voz\)\n/);
+  await config("antiestados", ["on"]);
+  F.updateChat(chat, { voz: "aveces", stickersAuto: 0 });
+  await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  assert.match(ultimo(), /\n✅ Anti menciones del grupo en estados \(\.antiestados\)\n❌ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: a veces \(\.voz\)\n/);
 });

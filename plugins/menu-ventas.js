@@ -1,8 +1,8 @@
 import { esGrupoDeVentas } from "../lib/modo.js";
+import { textoMenuVentas } from "../lib/menu-ventas.js";
 
-// The marketplace mode menu: what's useful in a sales group, without the games or the economy.
-// If new marketplace commands are added, add them here and in lib/manual-claudia.js too, so Claudia can answer when
-// someone asks how to do something. test/menus.test.mjs checks that what is named here exists.
+// The marketplace mode menu: what's useful in a sales group, without the games or the economy. Its text lives in
+// lib/menu-ventas.js, where the command guide (docs/comandos.md) reads it too.
 const plugin = {};
 plugin.cmd = ["menuventas", "menuventa", "menucompraventa", "ventas"];
 plugin.onlyGroup = true;
@@ -10,44 +10,7 @@ plugin.onlyGroup = true;
 plugin.run = async (m, { client, chat }) => {
   // The same test the loose sales are read by (plugins/_compraventa.js): this menu used to call a group buy-and-sell
   // while the hook, asking for every switch off, had stopped reading them.
-  const enModo = esGrupoDeVentas(chat);
-
-  const texto = `
-🏷️ *MENÚ DE COMPRAVENTA*
-
-📢 *Publicar*
-▸ .vendo <qué, precio, zona> — lo ponés a la venta. Ej: .vendo bici rodado 26, 4500, Mercedes
-▸ .compro <qué buscás> — publicás que lo estás buscando
-▸ #vendo o #compro en un mensaje, o en el pie de una foto, hacen lo mismo
-▸ .vendo respondiendo a una foto — la publica con la descripción que tenga (el dueño de la foto, o un admin)
-▸ En modo compraventa alcanza con empezar el mensaje con «vendo» o «se vende»
-
-🔎 *Ver y buscar*
-▸ .catalogo — todo lo activo · .catalogo N — el detalle de la #N
-▸ .vendo o .compro sin texto — solo las de ese tipo
-▸ .buscar <palabra> — filtra por palabra
-▸ .mias — las tuyas, con su número
-▸ .avisame <palabra> — te aviso acá cuando aparezca · sin nada las lista · .avisame quitar <palabra> la saca
-▸ #busco — te recuerdo quién vende algo parecido, y a quien venda le cuento que lo buscabas. En modo compraventa también con «¿alguien vende…?»
-
-✅ *Cerrar la tuya* — respondé a tu publicación y escribí el comando, o agregá el número
-▸ .vendido — se concretó · .baja — la sacás de la lista
-▸ .reservado — está señada · .sigue — vuelve a estar libre (y la renueva)
-
-⭐ *Confianza y grupo*
-▸ .calificar @persona 5 buen vendedor — después de operar · .reputacion — la tuya
-▸ .calificaciones @persona — el detalle, con números (los admins corrigen con borrar N o editar N)
-▸ .perfil · .rango · .reglas · .plantilla
-
-🛡️ *Admins*
-▸ .modo compraventa — apaga juegos, economía y charla (.modo amigos los vuelve a prender)
-▸ .roles · .adminbot @persona · .moderador @persona · .reglas set <texto> · .horario 8:00-22:00 · .config
-
-${enModo ? "Este grupo está en modo compraventa." : "Este grupo NO está en modo compraventa: los juegos y la economía siguen prendidos. Un admin lo cambia con .modo compraventa"}
-Menú general: .menu
-`.trim();
-
-  await client.sendText(m.chat, texto, m);
+  await client.sendText(m.chat, textoMenuVentas(esGrupoDeVentas(chat)), m);
 };
 
 export default plugin;
