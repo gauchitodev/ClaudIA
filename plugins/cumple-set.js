@@ -1,7 +1,7 @@
 import { anotarCumpleDe } from "../lib/cumpleanos.js";
 import { lidMencionadoActual, filaDe, esElBot } from "../lib/identidad.js";
 
-// .setcumple @persona 14/03/1995, or replying to one of their messages: an admin notes someone's birthday, or changes
+// .setcumple @persona 08/10/1997, or replying to one of their messages: an admin notes someone's birthday, or changes
 // it, with .cumple's checks (lib/cumpleanos.js). .delcumple deletes it, and so does "borrar" in place of the date. The
 // person is who .perfil reads them as, so the profile, .cumples and the greeting go by what's noted here.
 const plugin = {};
@@ -11,7 +11,7 @@ plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, text, participants }) => {
   const usuario = await lidMencionadoActual(client, m, text, participants);
-  if (!usuario) return client.sendText(m.chat, "❌ ¿De quién? Mencioná a la persona (elegila de la lista que aparece al escribir @) o respondé un mensaje suyo: .setcumple @persona 14/03/1995", m);
+  if (!usuario) return client.sendText(m.chat, "❌ ¿De quién? Mencioná a la persona (elegila de la lista que aparece al escribir @) o respondé un mensaje suyo: .setcumple @persona 08/10/1997", m);
   // Replying to one of her own messages names her.
   if (esElBot([usuario], client)) return client.sendText(m.chat, "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo.", m);
   // Only someone the bot knows, as .perfil and .regalar: an "@" with digits typed by hand that match nobody makes up an

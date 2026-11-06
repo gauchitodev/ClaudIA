@@ -66,11 +66,11 @@ test("cumpleaños: el año es obligatorio, y .cumple y .cumples dicen la edad", 
   const Z = "cumple-anio@g.us";
   const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
   const anotar = (quien, texto) => C.registrarCumple(Z, quien, texto, ahora);
-  assert.equal(anotar("ana@lid", "").error, "Anotá tu cumple con .cumple 14/03/1995 (día/mes/año)");
-  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .cumple 14/03/1995 (día/mes/año).");
+  assert.equal(anotar("ana@lid", "").error, "Anotá tu cumple con .cumple 08/10/1997 (día/mes/año)");
+  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .cumple 08/10/1997 (día/mes/año).");
   assert.equal(F.getCumple(Z, "ana@lid"), null, "sin el año no se anota");
   assert.equal(anotar("ana@lid", "14/03/1990").mensaje, "🎂 Anotado: tu cumple es el 14 de marzo de 1990. Ese día te saludo en el grupo por tus 37.");
-  assert.equal(anotar("ana@lid", "").mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 14/03/1995 · para borrarlo: .cumple borrar");
+  assert.equal(anotar("ana@lid", "").mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 08/10/1997 · para borrarlo: .cumple borrar");
   // Two digits: the last year ending in them that isn't past this one.
   assert.match(anotar("beto@lid", "5-11-95").mensaje, /el 5 de noviembre de 1995\. .* por tus 31\.$/);
   assert.match(anotar("beto@lid", "05.11.05").mensaje, /de 2005\. .* por tus 21\.$/);
@@ -85,14 +85,14 @@ test("cumpleaños: el año es obligatorio, y .cumple y .cumples dicen la edad", 
   assert.equal(anotar("eva@lid", "01/11/2025").error, "Con ese año tendrías 1 año: fijate el año.");
   assert.equal(anotar("eva@lid", "03/11/2021").error, "Con ese año tendrías 4 años: fijate el año.");
   assert.equal(anotar("eva@lid", "02/11/1905").error, "Con ese año tendrías 121 años: fijate el año.");
-  assert.equal(anotar("eva@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .cumple 14/03/1995");
+  assert.equal(anotar("eva@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .cumple 08/10/1997");
   assert.equal(F.getCumple(Z, "eva@lid"), null, "nada de eso se anotó");
   assert.ok(anotar("eva@lid", "02/11/2021").ok, "5 años, recién cumplidos");
   assert.ok(anotar("eva@lid", "03/11/1905").ok, "120 años, y mañana 121");
   assert.ok(anotar("eva@lid", "borrar").ok);
   // Noted before the year was asked for: it stays, and .cumple asks for the year.
   F.setCumple(Z, "fede@lid", 10, 1);
-  assert.equal(anotar("fede@lid", "").mensaje, "🎂 Tu cumple está anotado el 10 de enero, pero sin el año: volvé a anotarlo con el año (.cumple 14/03/1995) y ese día digo cuántos cumplís. Para borrarlo: .cumple borrar");
+  assert.equal(anotar("fede@lid", "").mensaje, "🎂 Tu cumple está anotado el 10 de enero, pero sin el año: volvé a anotarlo con el año (.cumple 08/10/1997) y ese día digo cuántos cumplís. Para borrarlo: .cumple borrar");
   const r = C.textoCumples(Z, ahora);
   assert.deepEqual(r.texto.split("\n"), [
     "🎂 *Cumpleaños del grupo*",
@@ -161,9 +161,9 @@ test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y qu
   const Z = "cumple-admin@g.us";
   const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
   const anotar = (quien, texto) => C.anotarCumpleDe(Z, quien, texto, ahora);
-  assert.equal(anotar("ana@lid", "").error, "Poné la fecha, con el año: .setcumple @persona 14/03/1995 (día/mes/año). Para borrarlo: .delcumple @persona");
-  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .setcumple @persona 14/03/1995 (día/mes/año).");
-  assert.equal(anotar("ana@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .setcumple @persona 14/03/1995");
+  assert.equal(anotar("ana@lid", "").error, "Poné la fecha, con el año: .setcumple @persona 08/10/1997 (día/mes/año). Para borrarlo: .delcumple @persona");
+  assert.equal(anotar("ana@lid", "14/03").error, "Poné también el año: .setcumple @persona 08/10/1997 (día/mes/año).");
+  assert.equal(anotar("ana@lid", "14/03/199").error, "No entendí la fecha. Poné día/mes/año, por ejemplo .setcumple @persona 08/10/1997");
   assert.equal(anotar("ana@lid", "29/02/1990").error, "Esa fecha no existe.");
   assert.equal(anotar("ana@lid", "03/11/2026").error, "Esa fecha todavía no llegó: fijate el año.");
   assert.equal(anotar("ana@lid", "14/03/24").error, "Con ese año tendría 2 años: fijate el año.");
@@ -172,7 +172,7 @@ test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y qu
   assert.equal(F.getCumple(Z, "ana@lid"), null, "nada de eso se anotó");
   assert.deepEqual(anotar("ana@lid", "14/03/1990"), { ok: true, mensaje: "🎂 Anotado: el cumple de @ana es el 14 de marzo de 1990. Ese día le mando el saludo en el grupo por sus 37.", mentions: ["ana@lid"] });
   // Hers: she sees it with .cumple as her own.
-  assert.equal(C.registrarCumple(Z, "ana@lid", "", ahora).mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 14/03/1995 · para borrarlo: .cumple borrar");
+  assert.equal(C.registrarCumple(Z, "ana@lid", "", ahora).mensaje, "🎂 Tu cumple está anotado el 14 de marzo de 1990 (tenés 36). Para cambiarlo: .cumple 08/10/1997 · para borrarlo: .cumple borrar");
   // Over what someone noted themselves, two digits for the year as .cumple takes them, and then deleted.
   assert.ok(C.registrarCumple(Z, "beto@lid", "05/11/1995", ahora).ok);
   assert.match(anotar("beto@lid", "5.11.96").mensaje, /^🎂 Anotado: el cumple de @beto es el 5 de noviembre de 1996\. .* por sus 30\.$/);
@@ -200,7 +200,7 @@ test("cumpleaños: .setcumple @persona o respondiendo un mensaje suyo; ni a la b
     assert.equal(enviados.length, antes + 1, "contesta una vez");
     return enviados.at(-1);
   };
-  assert.match((await correr("14/03/1990")).text, /^❌ ¿De quién\? Mencioná a la persona .* o respondé un mensaje suyo: \.setcumple @persona 14\/03\/1995$/);
+  assert.match((await correr("14/03/1990")).text, /^❌ ¿De quién\? Mencioná a la persona .* o respondé un mensaje suyo: \.setcumple @persona 08\/10\/1997$/);
   const anotado = await correr("@7002 14/03/1990", { mencion: ["7002@lid"] });
   assert.match(anotado.text, /^🎂 Anotado: el cumple de @7002 es el 14 de marzo de 1990\. Ese día le mando el saludo en el grupo por sus \d+\.$/);
   assert.deepEqual(anotado.mentions, ["7002@lid"]);
@@ -211,7 +211,7 @@ test("cumpleaños: .setcumple @persona o respondiendo un mensaje suyo; ni a la b
   await correr("20/05/1992", { citado: "7003@lid" });
   assert.deepEqual(F.getCumple(Z, "7003@lid"), { dia: 20, mes: 5, anio: 1992 });
   // A date it won't take says why, tagging nobody, and leaves what there was.
-  assert.deepEqual(await correr("@7002 15/04", { mencion: ["7002@lid"] }), { text: "❌ Poné también el año: .setcumple @persona 14/03/1995 (día/mes/año)." });
+  assert.deepEqual(await correr("@7002 15/04", { mencion: ["7002@lid"] }), { text: "❌ Poné también el año: .setcumple @persona 08/10/1997 (día/mes/año)." });
   assert.deepEqual(F.getCumple(Z, "7002@lid"), { dia: 15, mes: 4, anio: 1991 });
   // Not the bot, replying to one of her messages, nor an "@" with digits typed by hand that match nobody.
   assert.deepEqual(await correr("20/05/1992", { citado: "bot@lid" }), { text: "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo." });
@@ -297,7 +297,7 @@ test("cumpleaños: .cumples muestra aparte a los que ya no están en el grupo", 
   const r = C.textoCumples(Z, ahora, (lid) => lid === "7201@lid");
   assert.deepEqual(r.texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "05/11 @7201 — en 3 días (cumple 31)", "", "🚪 *Ya no están en el grupo* (no los saludo; un admin borra su cumple con .delcumple)", "10/01 @7203", "14/03 @7202"]);
   assert.deepEqual(r.mentions, ["7201@lid", "7203@lid", "7202@lid"]);
-  assert.equal(C.textoCumples(Z, ahora, () => false).texto.split("\n")[1], "Nadie de los que están anotó su cumple todavía. Anotá el tuyo con .cumple 14/03/1995");
+  assert.equal(C.textoCumples(Z, ahora, () => false).texto.split("\n")[1], "Nadie de los que están anotó su cumple todavía. Anotá el tuyo con .cumple 08/10/1997");
 
   const P = (await import("../plugins/cumple.js")).default;
   const enviados = [];
@@ -309,6 +309,12 @@ test("cumpleaños: .cumples muestra aparte a los que ya no están en el grupo", 
   const idos = await pedir([{ id: "7201@lid" }, { id: "bot@lid" }]);
   assert.match(idos, /\n\n🚪 \*Ya no están en el grupo\* .*\n10\/01 @7203\n14\/03 @7202$/);
   assert.doesNotMatch(await pedir([]), /Ya no están/, "sin la lista del grupo, todos juntos");
+  // .cumpleaños is .cumples: the parser takes the ñ out (lib/comandos.js) and the plugin declares that name
+  const { parsearComando } = await import("../lib/comandos.js");
+  const { comando } = parsearComando(".cumpleaños", ["."]);
+  assert.ok(P.cmd.includes(comando), comando);
+  await P.run({ chat: Z, sender: "7201@lid", isGroup: true }, { client, text: "", command: comando, participants: [{ id: "7201@lid" }, { id: "bot@lid" }] });
+  assert.equal(enviados.at(-1).text, idos, "la misma lista que .cumples");
 });
 
 // The greeting skips whoever left: it tagged someone who was gone. Their birthday stays noted. With no list of the

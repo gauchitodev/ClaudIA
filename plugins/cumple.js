@@ -5,7 +5,7 @@ const plugin = {};
 plugin.cmd = ["cumple", "cumples", "cumpleanos"];
 plugin.onlyGroup = true;
 
-// .cumple 14/03/1995 records yours, with the year · .cumple shows it · .cumple borrar · .cumples lists the group's,
+// .cumple 08/10/1997 records yours, with the year · .cumple shows it · .cumple borrar · .cumples lists the group's,
 // with whoever isn't in it anymore apart. With no list of the group at hand (empty), nobody is set apart: they'd all
 // be.
 plugin.run = async (m, { client, text, command, participants }) => {

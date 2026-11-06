@@ -222,7 +222,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.ping` 🏓 | ¿Está Claudia? Contesta Pong, lo que tarda WhatsApp en responderle y desde cuándo está prendida. |
 | `.clima [ciudad]` 🌦️ | Clima de ahora y de mañana; sin ciudad, Montevideo. |
 | `.recordame <cuándo> <texto>` ⏰ | Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar &lt;n&gt; |
-| `.cumple 14/03/1995` 🎂 | Anotá tu cumple, con el año; con .cumples ves los del grupo y cuántos cumple cada uno. |
+| `.cumple 08/10/1997` 🎂 | Anotá tu cumple, con el año; con .cumples (o .cumpleaños) ves los del grupo y cuántos cumple cada uno. |
 | `.genero mujer` 🚻 | Hombre o mujer, para que Claudia te trate así y tu perfil lo diga; .genero borrar lo saca. Un admin se lo pone a otro con .genero @mención mujer. |
 | `.resumen [tiempo]` 📝 | Resumen con IA de lo que se habló: sin nada, los últimos 15 min; .resumen 2h o .resumen 30m, hasta 6 h. |
 | `.recap` 📅 | Resumen de la semana en curso; el domingo a la noche sale solo, si el grupo no lo apagó. |
@@ -292,7 +292,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.reglas set <texto>` 📋 | Carga las reglas del grupo; se mandan al que entra. .plantilla set &lt;texto&gt; hace lo mismo con el formato. |
 | `.redes instagram <link>` 🔗 | Solo admins: carga una red del grupo (instagram, facebook, x, tiktok, youtube, twitch, spotify, discord, telegram, canal, grupo, web); .redes borrar instagram la saca. |
 | `.calificaciones @mención` ⭐ | Lista numerada; con "borrar N" o "editar N 4 comentario" corregís una maliciosa. |
-| `.setcumple @mención 14/03/1995` 🎂 | Solo admins: anota o corrige el cumple de alguien, con el año. |
+| `.setcumple @mención 08/10/1997` 🎂 | Solo admins: anota o corrige el cumple de alguien, con el año. |
 | `.delcumple @mención` 🗑️ | Solo admins: borra el cumple de alguien. Con su número (+598 99 123 456), el de quien ya no está. |
 | `.conteo` 🏆 | Ver los 10 que mas hablan en este grupo. |
 | `.actividad` 📊 | Cuánto se habla en el grupo y a qué hora, de los últimos 7 días. |
