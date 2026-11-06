@@ -145,7 +145,7 @@ _Para todos. Se abre con `.menu juegos`, `.menu juego`._
 |---|---|
 | `.trivia` ❔ | Pregunta con cuatro opciones; respondé con la letra. |
 | `.ahorcado` 💬 | Adivina la palabra en 8 intentos. |
-| `.acertijo` ❔ | Un acertijo y 30 segundos para resolverlo. |
+| `.acertijo` ❔ | Un acertijo, 30 segundos y 3 intentos cada uno; la respuesta vale con o sin artículo (pez o un pez). |
 | `.ordenar` 🔠 | Ordená la palabra. |
 | `.bandera` 🌍 | ¿De qué país es la bandera? |
 | `.ttt` 🕹️ | TaTeTi; .delttt borra la sala. |

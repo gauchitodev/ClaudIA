@@ -1,5 +1,5 @@
 import { juegoTerminado } from "../lib/urucoins.js";
-import { abrirJuego } from "../lib/juego-rapido.js";
+import { abrirJuego, limpiarRespuesta } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { esComando } from "../lib/comandos.js";
 const plugin = {};
@@ -7,13 +7,14 @@ plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-// Lista de palabras
-const palabras = ["sol", "casa", "perro", "gato", "luz", "rio", "arbol", "flor", "mesa", "silla", "puerta", "ventana", "camino", "cielo", "nube", "estrella", "luna", "dia", "noche", "hora", "minuto", "segundo", "reloj", "libro", "papel", "lapiz", "pluma", "cuaderno", "escuela", "maestro", "alumno", "clase", "tarea", "juego", "pelota", "carro", "bici", "calle", "ciudad", "pueblo", "montaña", "valle", "lago", "mar", "playa", "arena", "roca", "piedra", "bosque", "hoja", "rama", "tronco", "fruta", "manzana", "naranja", "banana", "uva", "pera", "mango", "sandia", "comida", "pan", "agua", "leche", "jugo", "cafe", "te", "sopa", "carne", "pescado", "arroz", "frijol", "huevo", "sal", "azucar", "torta", "helado", "dulce", "chocolate", "galletas", "amigo", "familia", "madre", "padre", "hermano", "hermana", "abuelo", "abuela", "tio", "tia", "primo", "vecino", "persona", "niño", "niña", "hombre", "mujer", "risa", "amor", "felicidad", "zapato", "camisa", "pantalon", "sombrero", "bufanda", "guante", "cinturon", "bolsa", "mochila", "remera", "falda", "vestido", "chaqueta", "abrigo", "calcetin", "lentes", "anillo", "collar", "pulsera", "arete", "cama", "almohada", "sabana", "cobija", "lampara", "espejo", "alfombra", "cortina", "techo", "piso", "cocina", "estufa", "sarten", "cuchara", "tenedor", "cuchillo", "plato", "vaso", "taza", "servilleta", "jardin", "planta", "semilla", "tierra", "regadera", "pala", "maceta", "cesped", "baila", "cancion", "musica", "guitarra", "piano", "tambor", "flauta", "baile", "cine", "teatro", "pintura", "color", "rojo", "azul", "verde", "amarillo", "blanco", "negro", "gris", "rosa", "morado", "naranjo", "viaje", "tren", "avion", "barco", "bus", "taxista", "puente", "rioja", "isla", "volcan", "lluvia", "viento", "nieve", "trueno", "rayo", "solana", "calor", "frio", "niebla", "humedad", "sueno", "despertar", "cansancio", "energia", "salud", "doctor", "enfermo", "medicina", "rueda", "suerte"];
+// The words, spelled as they're written (the answer is compared without accents, lib/juego-rapido.js: "arbol" and
+// "árbol" both count). Exported for the tests.
+export const PALABRAS = ["sol", "casa", "perro", "gato", "luz", "río", "árbol", "flor", "mesa", "silla", "puerta", "ventana", "camino", "cielo", "nube", "estrella", "luna", "día", "noche", "hora", "minuto", "segundo", "reloj", "libro", "papel", "lápiz", "pluma", "cuaderno", "escuela", "maestro", "alumno", "clase", "tarea", "juego", "pelota", "carro", "bici", "calle", "ciudad", "pueblo", "montaña", "valle", "lago", "mar", "playa", "arena", "roca", "piedra", "bosque", "hoja", "rama", "tronco", "fruta", "manzana", "naranja", "banana", "uva", "pera", "mango", "sandía", "comida", "pan", "agua", "leche", "jugo", "café", "té", "sopa", "carne", "pescado", "arroz", "frijol", "huevo", "sal", "azúcar", "torta", "helado", "dulce", "chocolate", "galletas", "amigo", "familia", "madre", "padre", "hermano", "hermana", "abuelo", "abuela", "tío", "tía", "primo", "vecino", "persona", "niño", "niña", "hombre", "mujer", "risa", "amor", "felicidad", "zapato", "camisa", "pantalón", "sombrero", "bufanda", "guante", "cinturón", "bolsa", "mochila", "remera", "falda", "vestido", "chaqueta", "abrigo", "calcetín", "lentes", "anillo", "collar", "pulsera", "arete", "cama", "almohada", "sábana", "cobija", "lámpara", "espejo", "alfombra", "cortina", "techo", "piso", "cocina", "estufa", "sartén", "cuchara", "tenedor", "cuchillo", "plato", "vaso", "taza", "servilleta", "jardín", "planta", "semilla", "tierra", "regadera", "pala", "maceta", "césped", "baila", "canción", "música", "guitarra", "piano", "tambor", "flauta", "baile", "cine", "teatro", "pintura", "color", "rojo", "azul", "verde", "amarillo", "blanco", "negro", "gris", "rosa", "morado", "naranjo", "viaje", "tren", "avión", "barco", "bus", "taxista", "puente", "rioja", "isla", "volcán", "lluvia", "viento", "nieve", "trueno", "rayo", "solana", "calor", "frío", "niebla", "humedad", "sueño", "despertar", "cansancio", "energía", "salud", "doctor", "enfermo", "medicina", "rueda", "suerte"];
 
 const ordenarPalabra = {};
 
 plugin.run = async (m, { client, chat }) => {
-  const palabra = elegirAlAzar(palabras);
+  const palabra = elegirAlAzar(PALABRAS);
   const desordenada = palabra
     .split("")
     .sort(() => Math.random() - 0.5)
@@ -39,9 +40,8 @@ plugin.before = async (m, { client }) => {
   // A command quoting the question isn't an answer (lib/comandos.js), as in the riddles (plugins/fun-acertijos.js).
   if (esComando(m.text)) return;
 
-  const respuestaUsuario = m.text.toLowerCase().trim();
-
-  if (respuestaUsuario === juego.palabra) {
+  // With or without accents, upper or lower case: what counts is the letters' order.
+  if (limpiarRespuesta(m.text) === limpiarRespuesta(juego.palabra)) {
     const resumen = juegoTerminado(m.chat, m.sender, { nombre: "ordenar" });
     client.sendText(m.chat, txt.gameSuccess + resumen, m);
     clearTimeout(ordenarPalabra[m.chat].timeout);
