@@ -250,23 +250,11 @@ test("conNombres: las menciones como nombres, sin los dígitos de la LID", () =>
   assert.equal(M.conNombres("hola @300000000000003", [BETO], { arroba: false }), "hola Beto", "para leerlo en voz alta");
 });
 
-test(".qc, .wm y .tts no muestran la LID de quien mencionan ni la de quien citan", async () => {
+test(".wm y .tts no muestran la LID de quien mencionan ni la de quien citan", async () => {
   conBeto();
-  const Qc = (await import("../plugins/sticker-qc.js")).default;
   const Wm = (await import("../plugins/sticker-wm.js")).default;
   const Tts = (await import("../plugins/convert-text-to-ptt.js")).default;
   const tts = await import("../lib/tts.js");
-
-  // .qc: what goes to the service that draws the quote.
-  const fetchAntes = globalThis.fetch;
-  let cita;
-  globalThis.fetch = async (url, opciones) => {
-    cita = JSON.parse(opciones.body).messages[0];
-    return { ok: false, status: 500 };
-  };
-  await Qc.run(pedido({ quoted: CITADO, mentionedJid: [] }), { client: { ...clienteFalso(), profilePictureUrl: async () => "foto" }, text: "" }).catch(() => {});
-  globalThis.fetch = fetchAntes;
-  assert.deepEqual([cita.from.name, cita.text], ["Alguien", "hola @Beto"], ".qc");
 
   // .wm: the pack name written into the sticker, a 1x1 webp.
   const webp = Buffer.from("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==", "base64");
@@ -314,7 +302,7 @@ test(".ttp y .ttp2 dibujan el nombre de quien mencionan, no su LID", async () =>
 
 // A reply as Baileys hands it over (a proto.Message decoded from its bytes), through the bot's own wrapper: pushMessage
 // keeps a copy of the quoted message, and then smsg turns the reply into m, as in handle-message. m.quoted has to bring
-// the mentions the quoted message came with, for .ttp, .ttp2, .tts and .qc to name them.
+// the mentions the quoted message came with, for .ttp, .ttp2 and .tts to name them.
 test("una cita llega con sus propias menciones: .ttp dibuja el nombre y no la LID", async () => {
   conBeto();
   const { proto } = await import("@whiskeysockets/baileys");

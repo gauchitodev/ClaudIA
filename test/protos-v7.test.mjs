@@ -111,7 +111,7 @@ for (const [mundo, en] of MUNDOS) {
     en(async () => {
       const m = WS.smsg(client, laRespuesta());
       assert.deepEqual([m.quoted.mtype, m.quoted.mimetype, m.quoted.text, m.quoted.sender], ["imageMessage", "image/jpeg", "la foto de Beto", BETO]);
-      assert.deepEqual(m.quoted.contextInfo.mentionedJid, [CARLA], ".ttp, .tts y .qc nombran a los que menciona");
+      assert.deepEqual(m.quoted.contextInfo.mentionedJid, [CARLA], ".ttp y .tts nombran a los que menciona");
       await laClaveSirve(m.quoted.mediaKey, "m.quoted");
 
       const { key, participant } = m.quoted.fakeObj;
