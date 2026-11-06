@@ -43,7 +43,8 @@ test("cumpleaños", async () => {
   assert.ok(!C.registrarCumple(G, "d", "31/04/1990").ok && !C.registrarCumple(G, "d", "hola").ok);
   assert.equal(C.diasHasta(2, 9, new Date(2026, 8, 2)), 0);
   assert.equal(C.diasHasta(1, 9, new Date(2026, 8, 2)), 364);
-  assert.equal(C.textoCumples(G).mentions.length, 2);
+  assert.deepEqual(C.textoCumples(G).mentions, [], "nombra a cada uno, sin arrobar");
+  assert.equal(C.textoCumples(G).texto.split("\n").length, 3);
   assert.ok(C.registrarCumple(G, "b", "borrar").ok);
   const hoy = new Date();
   // 28 years back, a 29 February is still a date that exists.
@@ -93,16 +94,17 @@ test("cumpleaños: el año es obligatorio, y .cumple y .cumples dicen la edad", 
   // Noted before the year was asked for: it stays, and .cumple asks for the year.
   F.setCumple(Z, "fede@lid", 10, 1);
   assert.equal(anotar("fede@lid", "").mensaje, "🎂 Tu cumple está anotado el 10 de enero, pero sin el año: volvé a anotarlo con el año (.cumple 08/10/1997) y ese día digo cuántos cumplís. Para borrarlo: .cumple borrar");
+  for (const quien of ["caro", "beto", "fede", "dani", "ana"]) F.initDataDB({ chat: Z, sender: `${quien}@lid`, senderJid: "", pushName: quien[0].toUpperCase() + quien.slice(1) });
   const r = C.textoCumples(Z, ahora);
   assert.deepEqual(r.texto.split("\n"), [
     "🎂 *Cumpleaños del grupo*",
-    "02/11 @caro — ¡es hoy! 🎉 (cumple 26)",
-    "05/11 @beto — en 3 días (cumple 99)",
-    "10/01 @fede — en 69 días (le falta el año)",
-    "29/02 @dani — en 118 días (cumple 35)",
-    "14/03 @ana — en 132 días (cumple 37)",
+    "02/11 Caro — ¡es hoy! 🎉 (cumple 26)",
+    "05/11 Beto — en 3 días (cumple 99)",
+    "10/01 Fede — en 69 días (le falta el año)",
+    "29/02 Dani — en 118 días (cumple 35)",
+    "14/03 Ana — en 132 días (cumple 37)",
   ]);
-  assert.deepEqual(r.mentions, ["caro@lid", "beto@lid", "fede@lid", "dani@lid", "ana@lid"]);
+  assert.deepEqual(r.mentions, [], "nombra a cada uno, sin arrobar");
 });
 
 // The greeting says how many they turn. The ones noted before the year was asked for are greeted as before, without
@@ -179,7 +181,8 @@ test("cumpleaños: .setcumple anota el de otro con los chequeos de .cumple, y qu
   assert.deepEqual(F.getCumple(Z, "beto@lid"), { dia: 5, mes: 11, anio: 1996 });
   assert.deepEqual(anotar("beto@lid", "quitar"), { ok: true, mensaje: "🗑️ Listo, borré el cumple de @beto (5 de noviembre).", mentions: ["beto@lid"] });
   assert.equal(F.getCumple(Z, "beto@lid"), null);
-  assert.deepEqual(C.textoCumples(Z, ahora).texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "14/03 @ana — en 132 días (cumple 37)"]);
+  F.initDataDB({ chat: Z, sender: "ana@lid", senderJid: "", pushName: "Ana" });
+  assert.deepEqual(C.textoCumples(Z, ahora).texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "14/03 Ana — en 132 días (cumple 37)"]);
 });
 
 // .setcumple as the admins write it: the person mentioned, before or after the date, or the author of the message it
@@ -288,26 +291,39 @@ test("cumpleaños: .delcumple por mención, respondiendo o con el número, tambi
 // Whoever isn't in the group anymore goes apart in .cumples, with the day alone: they're not greeted, and an admin
 // deletes theirs with .delcumple. The plugin hands over the group's list; with none (empty), nobody is set apart, since
 // everyone would be.
-test("cumpleaños: .cumples muestra aparte a los que ya no están en el grupo", async () => {
+test("cumpleaños: .cumples nombra sin arrobar, por nombre de WhatsApp, apodo o número, y aparte a los que ya no están", async () => {
   const Z = "cumple-idos@g.us";
   const ahora = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
   F.setCumple(Z, "7201@lid", 5, 11, 1995);
   F.setCumple(Z, "7202@lid", 14, 3, 1990);
   F.setCumple(Z, "7203@lid", 10, 1);
+  // Juan has a nickname and no number the bot knows; Pedro a number; Lu, a name alone.
+  F.initDataDB({ chat: Z, sender: "7201@lid", senderJid: "", pushName: "Juan" });
+  F.updateUser("7201@lid", { apodo: "Juancho" });
+  F.initDataDB({ chat: Z, sender: "7202@lid", senderJid: "59899000202@s.whatsapp.net", pushName: "Pedro" });
+  F.initDataDB({ chat: Z, sender: "7203@lid", senderJid: "", pushName: "Lu" });
+  // As the lib names them with no mode: the nickname, or the name
   const r = C.textoCumples(Z, ahora, (lid) => lid === "7201@lid");
-  assert.deepEqual(r.texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "05/11 @7201 — en 3 días (cumple 31)", "", "🚪 *Ya no están en el grupo* (no los saludo; un admin borra su cumple con .delcumple)", "10/01 @7203", "14/03 @7202"]);
-  assert.deepEqual(r.mentions, ["7201@lid", "7203@lid", "7202@lid"]);
+  assert.deepEqual(r.texto.split("\n"), ["🎂 *Cumpleaños del grupo*", "05/11 Juancho — en 3 días (cumple 31)", "", "🚪 *Ya no están en el grupo* (no los saludo; un admin borra su cumple con .delcumple)", "10/01 Lu", "14/03 Pedro"]);
+  assert.deepEqual(r.mentions, [], "nadie arrobado, tampoco los que se fueron");
   assert.equal(C.textoCumples(Z, ahora, () => false).texto.split("\n")[1], "Nadie de los que están anotó su cumple todavía. Anotá el tuyo con .cumple 08/10/1997");
 
   const P = (await import("../plugins/cumple.js")).default;
   const enviados = [];
   const client = { sendMessage: async (chat, contenido) => enviados.push(contenido) };
-  const pedir = async (participants) => {
-    await P.run({ chat: Z, sender: "7201@lid", isGroup: true }, { client, text: "", command: "cumples", participants });
+  const pedir = async (participants, text = "") => {
+    await P.run({ chat: Z, sender: "7201@lid", isGroup: true }, { client, text, command: "cumples", participants });
+    assert.deepEqual(enviados.at(-1).mentions, [], `sin arrobar (${text || "sin palabra"})`);
     return enviados.at(-1).text;
   };
+  // .cumples goes by WhatsApp name, with the nickname in brackets; "nombre" says the same. The plugin counts the days
+  // from today, so the lines are matched up to their name.
   const idos = await pedir([{ id: "7201@lid" }, { id: "bot@lid" }]);
-  assert.match(idos, /\n\n🚪 \*Ya no están en el grupo\* .*\n10\/01 @7203\n14\/03 @7202$/);
+  assert.match(idos, /^🎂 \*Cumpleaños del grupo\*\n05\/11 Juan \(Juancho\) — [^\n]+\n\n🚪 \*Ya no están en el grupo\* .*\n10\/01 Lu\n14\/03 Pedro$/);
+  assert.equal(await pedir([{ id: "7201@lid" }, { id: "bot@lid" }], "nombre"), idos);
+  // "alias": the nickname, or the name; "numero": the number, with what they're called
+  assert.match(await pedir([{ id: "7201@lid" }, { id: "bot@lid" }], "alias"), /\n05\/11 Juancho — [^\n]+\n.*\n10\/01 Lu\n14\/03 Pedro$/s);
+  assert.match(await pedir([{ id: "7201@lid" }, { id: "bot@lid" }], "Número"), /\n05\/11 Juancho \(sin número\) — [^\n]+\n.*\n10\/01 Lu \(sin número\)\n14\/03 \+59899000202 \(Pedro\)$/s);
   assert.doesNotMatch(await pedir([]), /Ya no están/, "sin la lista del grupo, todos juntos");
   // .cumpleaños is .cumples: the parser takes the ñ out (lib/comandos.js) and the plugin declares that name
   const { parsearComando } = await import("../lib/comandos.js");

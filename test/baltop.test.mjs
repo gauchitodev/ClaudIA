@@ -180,6 +180,8 @@ test(".baltop nombres y .baltop numeros: por nombre de WhatsApp o por número, s
     return ultimoEnviado().msg;
   };
   assert.match((await top("")).text, /\n1\. La Capa — \*500\*\n/);
+  // "alias" asks for the nickname: here, the list's own way
+  assert.equal((await top("alias")).text, (await top("")).text);
   assert.match((await top("nombres")).text, /\n1\. Rica \(La Capa\) — \*500\*\n/);
   const porNumero = await top("numeros");
   assert.match(porNumero.text, /\n1\. \+59899000031 \(La Capa\) — \*500\*\n/);

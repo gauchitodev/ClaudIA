@@ -57,6 +57,12 @@ test("nombreDe por nombre o por número: la palabra del comando, los paréntesis
   assert.deepEqual(M.modoDeNombre("@40"), { modo: "apodo", texto: "@40" });
   assert.deepEqual(M.modoDeNombre(""), { modo: "apodo", texto: "" });
   assert.deepEqual(M.modoDeNombre("sinnombres"), { modo: "apodo", texto: "sinnombres" });
+  // "alias" (or "apodo") asks for the nickname; with no word, the list's own way (.cumples goes by name)
+  assert.deepEqual(M.modoDeNombre("alias"), { modo: "apodo", texto: "" });
+  assert.deepEqual(M.modoDeNombre("@40 Apodo"), { modo: "apodo", texto: "@40" });
+  assert.deepEqual(M.modoDeNombre("", { porDefecto: "nombres" }), { modo: "nombres", texto: "" });
+  assert.deepEqual(M.modoDeNombre("alias", { porDefecto: "nombres" }), { modo: "apodo", texto: "" });
+  assert.deepEqual(M.modoDeNombre("numero", { porDefecto: "nombres" }), { modo: "numeros", texto: "" });
   // as always: the nickname, or the name
   assert.deepEqual([LID, OTRO, "a@lid"].map(M.nombreDe), ["Tito", "Ana", "Pepe"]);
   // by name: the WhatsApp name, with the nickname in brackets when they have one; without a name, the nickname
