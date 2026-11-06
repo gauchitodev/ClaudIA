@@ -195,6 +195,24 @@ test("la lista de advertidos con «numeros»: el número de cada uno, también e
   assert.doesNotMatch(ultimo(), /5989911111/);
 });
 
+// By WhatsApp name with no word, as .cumples (a nickname from the shop can be anything); "nombre" says the same,
+// "alias" goes by nickname and "numero" by number (lib/menciones.js). In a group and from the owner's private chat.
+test("la lista de advertidos va por nombre de WhatsApp; con «alias», el apodo; con «numero», el número", async (t) => {
+  F.setAdvertencias("111@lid", G, 2);
+  F.updateUser("111@lid", { apodo: "Fula" });
+  t.after(() => F.updateUser("111@lid", { apodo: "" }));
+  const pedir = async (text, chat = G, isGroup = true) => {
+    await Lista.run({ ...m(text, { chat }), isGroup }, { client: globalThis.client, text });
+    assert.equal(ultimoEnviado()?.msg?.mentions, undefined, `sin arrobar (${text || "sin palabra"})`);
+    return ultimo();
+  };
+  assert.match(await pedir(""), /│ Fulano \(Fula\) \*\(2\/3\)\*/);
+  assert.equal(await pedir("nombre"), await pedir(""));
+  assert.match(await pedir("alias"), /│ Fula \*\(2\/3\)\*/);
+  assert.match(await pedir("Número"), /│ \+5989911111 \(Fula\) \*\(2\/3\)\*/);
+  assert.match(await pedir("", "59899111222@s.whatsapp.net", false), /│ Fulano \(Fula\) \*\(2\/3\)\* · /, "por privado también");
+});
+
 // The list used to be the owner's everywhere, and in no menu: now the moderators and the admins, who give and take the
 // warnings, see their group's. From a private chat it's still the owner's alone, with no code of its own: the roles are
 // a group's (lib/roles.js), so in a private chat nobody else is a moderator.

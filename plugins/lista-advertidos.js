@@ -10,7 +10,9 @@ plugin.cmd = ["listaadv", "listaadvertidos", "advertidos"];
 plugin.onlyMod = true;
 
 plugin.run = async (m, { client, text }) => {
-  const { modo } = modoDeNombre(text);
+  // By WhatsApp name, as .cumples goes: a nickname from the shop can be anything, and a list of warned people has to
+  // say who they are. "alias" at the end names them by nickname, and "numero" by number (lib/menciones.js).
+  const { modo } = modoDeNombre(text, { porDefecto: "nombres" });
   // In a group, that group's warnings; from a private chat, everyone's, with the group's name.
   const lista = advertidos(m.isGroup ? m.chat : null);
   if (!lista.length) return client.sendText(m.chat, "⚠️ No hay nadie con advertencias.", m);

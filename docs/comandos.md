@@ -273,7 +273,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.desilenciar @mención` 🔇 | Desilencia un participante. También .unmute |
 | `.advertir @mención <motivo>` 🤚 | Advertir a un participante. |
 | `.unwarn @mención` 🤚 | Quitar advertencia a un participante. |
-| `.listaadv` 📋 | Quiénes tienen advertencias en el grupo y cuántas lleva cada uno, sin arrobar. Con nombres o numeros al final, por nombre de WhatsApp o por número. |
+| `.listaadv` 📋 | Quiénes tienen advertencias en el grupo y cuántas lleva cada uno, sin arrobar, por nombre de WhatsApp; con alias o numero al final, por apodo o por número. |
 | `.antecedentes @mención` 📋 | Las últimas 30 advertencias de alguien acá: fecha y hora, motivo, quién la dio y cuáles siguen vigentes. Con nombres o numeros al final, por nombre de WhatsApp o por número. |
 | `.clearantecedentes @mención` 🧹 | Solo admins: borra los antecedentes de alguien y sus advertencias vigentes. |
 | `.setpp` 📸 | Cambia la foto del grupo. |
