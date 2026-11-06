@@ -101,7 +101,7 @@ _Para todos. Se abre con `.menu ia`, `.menu inteligencia`._
 
 | Comando | Qué hace |
 |---|---|
-| `.ia <texto>` 🤖 | Pregunta a la IA (también .gemini). |
+| `.ia <texto>` 🤖 | Pregunta a la IA (también .ai y .gemini). |
 
 <a id="convertidores"></a>
 ## 🔄 Stickers y convertidores

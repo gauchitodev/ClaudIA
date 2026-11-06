@@ -468,7 +468,10 @@ test("IA por mención: el número del bot no es un comando de .ia", async () => 
   const previo = globalThis.client;
   globalThis.client = { user: { lid: "59899111222@lid" } };
   const P = (await import("../plugins/tools-ia.js")).default;
-  assert.deepEqual(P.cmd, ["gemini", "ia", "bot"]);
+  assert.deepEqual(P.cmd, ["gemini", "ia", "ai", "bot"]);
+  // .ai is .ia too: the parser hands it over as written, and this plugin declares it
+  const { parsearComando } = await import("../lib/comandos.js");
+  assert.ok(P.cmd.includes(parsearComando(".AI ¿quién ganó el mundial del 50?", ["."]).comando));
   globalThis.client = previo;
 });
 

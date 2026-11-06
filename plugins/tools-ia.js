@@ -9,7 +9,7 @@ if (!globalThis.esperaIa) globalThis.esperaIa = new Map(); // chat -> when she w
 // The bot's number used to be one of the commands too, so "@Claudia ..." came here and got an answer without the
 // group's context. Mentioning her is now talking to her: plugins/_auto-ia.js answers it, like naming her.
 const plugin = {};
-plugin.cmd = ["gemini", "ia", "bot"];
+plugin.cmd = ["gemini", "ia", "ai", "bot"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text: unaLinea, textoCompleto }) => {
