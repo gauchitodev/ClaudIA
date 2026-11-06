@@ -170,6 +170,25 @@ test("menú: el 🔒 va en todas las respuestas, y lo bloqueado no entra en lo m
   assert.equal(comandos(masUsados())[0], "trivia");
 });
 
+test("menú: un juego apagado con .juego lleva ⛔, no entra en lo más usado, y el tema config ofrece .juego", () => {
+  const SIN = { ...ABIERTO, juegosApagados: '["mines","trivia"]' };
+  assert.match(menu({ pedido: "casino", datosChat: SIN }), /\n▸ \.mines .+ ⛔\n/);
+  assert.match(menu({ pedido: "juegos", datosChat: SIN }), /\n▸ \.trivia .+ ⛔\n/);
+  assert.doesNotMatch(menu({ pedido: "juegos", datosChat: SIN }), /▸ \.ahorcado .+ ⛔/);
+  assert.match(menu({ pedido: "todo", datosChat: SIN }), /▸ \.mines .+ ⛔\n/);
+  assert.match(menu({ pedido: "juegos", datosChat: SIN, bloqueados: new Set(["trivia"]) }), /▸ \.trivia .+ ⛔ 🔒\n/, "las dos marcas");
+  assert.doesNotMatch(menu({ pedido: "casino" }), /⛔/, "sin nada apagado, sin marcas");
+  usar(G, "trivia", 100);
+  usar(G, "mines", 90);
+  usar(G, "clima", 10);
+  const cmds = comandos(masUsados({ datosChat: SIN }));
+  assert.ok(!cmds.includes("trivia") && !cmds.includes("mines") && cmds.includes("clima"), cmds.join(","));
+  assert.deepEqual(comandos(masUsados()).slice(0, 2), ["trivia", "mines"]);
+  assert.match(menu({ pedido: "config", ...MOD }), /\n▸ \.juego mines off ⛔ – `Apaga un solo juego/);
+  // in private there is no group to switch anything off in
+  assert.doesNotMatch(menu({ pedido: "juegos", isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN }), /⛔/);
+});
+
 test("lo más usado: lo del grupo, con los alias de cada línea juntos", () => {
   usar(G, "sticker", 15);
   usar(G, "s", 10); // .s and .sticker are the same line: 25
@@ -270,7 +289,7 @@ test("menú: la línea de .info dice lo que cuenta .info", () => {
 test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-message", () => {
   // The ranking leaves out what wouldn't run here. If handle-message checks change, lib/menu.js has to follow.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "plugin.economia && m.isGroup && chat.monedas === 0"]) {
+  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "juegoApagadoPara(chat, command, args)", "plugin.economia && m.isGroup && chat.monedas === 0"]) {
     assert.ok(fuente.includes(condicion), `handle-message ya no chequea «${condicion}»: revisá puedeCorrerAca en lib/menu.js`);
   }
 });

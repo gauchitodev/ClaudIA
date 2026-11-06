@@ -64,8 +64,16 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   // there is nothing left to schedule and the test failed
   const mediodia = new Date();
   mediodia.setHours(12, 0, 0, 0);
+  // A second group with the trivia switched off one by one (.juego trivia off): nothing scheduled and the day not
+  // marked done, so once it's back on the next pass schedules it.
+  const G2 = "apagado@g.us";
+  F.initDataDB({ sender: "u@lid", senderJid: "", pushName: "U", chat: G2 });
+  F.updateChat(G2, { triviaRelampago: true, juegosApagados: '["trivia"]' });
   assert.equal(T.programarTriviasDelDia(mediodia), 2);
   assert.equal(T.programarTriviasDelDia(mediodia), 0);
+  F.updateChat(G2, { juegosApagados: "[]" });
+  assert.equal(T.programarTriviasDelDia(mediodia), 2, "prendida de nuevo, la pasada siguiente la agenda");
+  F.updateChat(G2, { triviaRelampago: false });
   await T.lanzarTriviaRelampago(globalThis.client, G, mediodia);
   const lanzada = ultimoEnviado();
   assert.match(lanzada.msg.text, /^⚡ \*TRIVIA RELÁMPAGO\* — 15 UruCoins para el primero que acierte\n\n.+\nA\) /);

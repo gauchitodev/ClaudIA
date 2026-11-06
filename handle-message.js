@@ -2,6 +2,7 @@ import { smsg } from "./lib/wa-socket.js";
 import { elegirAlAzar } from "./lib/azar.js";
 import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo, isCommandBlacklisted } from "./database-functions.js";
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
+import { juegoApagadoPara, correspondeAvisarApagado, textoJuegoApagado } from "./lib/juegos-apagados.js";
 import { CASINO_APAGADO } from "./lib/casino.js";
 import { parsearComando, pareceComando, esComando } from "./lib/comandos.js";
 import { permisosDe } from "./lib/roles.js";
@@ -264,6 +265,18 @@ export async function handleMessage(nMsg) {
       if (plugin.casino && m.isGroup && chat.casino === 0) {
         rechazar(() => client.sendText(m.chat, CASINO_APAGADO, m));
         continue;
+      }
+
+      // One game switched off here (.juego mines off, lib/juegos-apagados.js): only what starts it, by the command
+      // typed, so a game going on is played out through its moves and exits, which are other commands. After the
+      // group-wide switches, which say more, and before the hours, whose notice promises an opening time. The notice
+      // goes out once every 10 minutes per group and game; it's decided inside the deferred rejection, as the hours'.
+      if ((plugin.juego || plugin.casino) && m.isGroup) {
+        const apagado = juegoApagadoPara(chat, command, args);
+        if (apagado) {
+          rechazar(() => (correspondeAvisarApagado(m.chat, apagado.clave) ? client.sendText(m.chat, textoJuegoApagado(apagado, usedPrefix), m) : m.react("⛔")));
+          continue;
+        }
       }
 
       // The .horariojuegos schedule stops the casino (plugin.casino) and the board games (plugin.conHorario: the

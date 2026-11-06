@@ -103,6 +103,12 @@ test("trivia relámpago agendada: no sale fuera de su horario ni con la función
   await R.lanzarTriviaRelampago(client, G, aLas(12));
   assert.equal(globalThis.enviados.length, 0, "salía con la función apagada");
 
+  // An admin switched the trivia off one by one (.juego trivia off) after it was scheduled.
+  F.updateChat(G, { triviaRelampago: 1, juegosApagados: '["trivia"]' });
+  await R.lanzarTriviaRelampago(client, G, aLas(12));
+  assert.equal(globalThis.enviados.length, 0, "salía con la trivia apagada con .juego");
+  F.updateChat(G, { juegosApagados: "[]" });
+
   // The bot was down at the scheduled time and reconnected at night.
   F.updateChat(G, { triviaRelampago: 1 });
   await R.lanzarTriviaRelampago(client, G, aLas(2));

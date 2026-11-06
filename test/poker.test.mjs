@@ -297,7 +297,9 @@ test("con el casino cerrado no se reparte otra mano y la mesa avisa una vez; la 
   assert.equal(P.empezarMano(mesa()), null, "lo dice una vez");
   F.updateChat(G, { casino: 1, games: 0 });
   assert.equal(P.empezarMano(mesa()), null, "con los juegos apagados tampoco");
-  F.updateChat(G, { games: 1 });
+  F.updateChat(G, { games: 1, juegosApagados: '["poker"]' });
+  assert.equal(P.empezarMano(mesa()), null, "con el póker apagado con .juego, tampoco");
+  F.updateChat(G, { juegosApagados: "[]" });
   assert.match(P.empezarMano(mesa()).texto, /^🃏 \*Mano 2\*/);
 });
 

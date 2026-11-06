@@ -903,6 +903,57 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
 });
 
+// .juego 4enlinea off (lib/juegos-apagados.js) stops starting that one game: the moves, giving up and clearing the
+// table go on, the other games too, the group-wide switch says more, and only an admin turns it back on.
+test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas siguen, y lo prende un admin", async (t) => {
+  const C4 = await import("../lib/cuatro-en-linea.js");
+  const JA = await import("../lib/juegos-apagados.js");
+  const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js", "juego.js"];
+  globalThis.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  const client = cliente();
+  t.after(() => {
+    F.updateChat(GRUPO, { juegosApagados: "[]", games: 1 });
+    F.quitarRolGrupo(GRUPO, ANA);
+    C4.salas.clear();
+  });
+  const mandar = async (quien, texto) => {
+    globalThis.enviados = [];
+    await llega(client, quien, texto).hecho;
+    return globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
+  };
+
+  await mandar(ANA, ".4enlinea");
+  await mandar(BETO, ".4enlinea");
+  JA.apagar(GRUPO, "4enlinea");
+  assert.equal(await mandar(ANA, ".4enlinea"), "⛔ Acá un admin apagó el 4 en línea. Se prende con .juego 4enlinea on.");
+  for (const texto of [".4enlinea", ".4enlínea", ".4enlinea 100"]) assert.equal(await mandar(BETO, texto), "⛔", texto);
+  assert.match(await mandar(ANA, "4"), /Turno de @300000000000003 🟡/, "la partida empezada sigue");
+  assert.match(await mandar(BETO, ".rendirse"), /^🏳️ @300000000000003 se rindió/);
+  assert.doesNotMatch(await mandar(ANA, ".ttt"), /⛔/, "otro juego arranca igual");
+  assert.match(await mandar(ANA, ".delttt"), /Sala eliminada/);
+  // a table opened before the switch can always be cleared
+  JA.prender(GRUPO, "4enlinea");
+  await mandar(ANA, ".4enlinea");
+  JA.apagar(GRUPO, "4enlinea");
+  assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
+  // the group-wide switch says more
+  F.updateChat(GRUPO, { games: 0 });
+  assert.equal(await mandar(ANA, ".4enlinea"), globalThis.txt.disabledGames);
+  F.updateChat(GRUPO, { games: 1 });
+  // outside the game hours too, the game being off is what's said: the hours' notice promises an opening time
+  const desde = (new Date().getHours() + 2) % 24;
+  F.updateChat(GRUPO, { horarioJuegos: `${String(desde).padStart(2, "0")}:00-${String((desde + 1) % 24).padStart(2, "0")}:00` });
+  assert.equal(await mandar(ANA, ".4enlinea"), "⛔");
+  F.updateChat(GRUPO, { horarioJuegos: "" });
+  // who turns it back on
+  assert.equal(await mandar(BETO, ".juego 4enlinea on"), globalThis.txt.onlyAdmin);
+  assert.equal(F.getChat(GRUPO).juegosApagados, '["4enlinea"]');
+  F.setRolGrupo(GRUPO, ANA, "admin");
+  assert.equal(await mandar(ANA, ".juego 4enlinea on"), "✅ Listo: prendí el 4 en línea de nuevo en este grupo.");
+  assert.equal(F.getChat(GRUPO).juegosApagados, "[]");
+  assert.match(await mandar(ANA, ".4enlinea"), /espera rival/);
+});
+
 // ---------- what a command is (lib/comandos.js) ----------
 // The prefix with the name right against it: "...pero bueno" was the command "..pero", and the bot answered that it
 // doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.

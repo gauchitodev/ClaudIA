@@ -1,4 +1,5 @@
 import { rolesPorPersona } from "../lib/roles.js";
+import { apagadosDe } from "../lib/juegos-apagados.js";
 
 const plugin = {};
 plugin.cmd = ["config"];
@@ -35,6 +36,7 @@ ${antiTelegram ? "✅" : "❌"} Anti links Telegram
 ${antiLiveLocation ? "✅" : "❌"} Anti ubicación en tiempo real (.antiubicacion)
 ${games ? "✅" : "❌"} Uso de juegos
 ${casino ? "✅" : "❌"} Casino y apuestas (.casino)
+🎮 Juegos apagados de a uno: ${apagadosDe(chat).join(", ") || "ninguno"} (.juego)
 🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
 🌙 Horario del grupo: ${horarioGrupo ? `${horarioGrupo.replace("-", " a ")} (se cierra solo fuera de eso)${horarioGrupoFalla ? " ⚠️ no lo puedo cumplir: ¿sigo siendo admin?" : ""}` : "sin horario (.horariogrupo)"}
 📋 Reglas: ${reglas ? "cargadas (.reglas)" : "sin cargar (.reglas set <texto>)"}
