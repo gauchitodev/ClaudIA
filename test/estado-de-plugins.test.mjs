@@ -1,4 +1,4 @@
-import { test, before, after } from "node:test";
+import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -88,4 +88,29 @@ test("grupo-llamar.js: guardado el archivo con un .llamar en curso, .cancelar lo
   await nuevo.run(mensaje(chat, ".cancelar"), { client, text: "", command: "cancelar", participants: [] });
   assert.equal(client.salidas.at(-1), "Menciones canceladas.");
   assert.equal(E.estadoDe("grupo-llamar", () => ({}))[chat], undefined);
+});
+
+// A series of calls that ends on its own leaves the chat's calls: it used to stay, and a .cancelar afterwards said it
+// had stopped them.
+test("grupo-llamar.js: una serie que termina sola deja de estar en curso, y otra a medias sigue cancelable", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const chat = "llamar-termina@g.us";
+    const client = cliente();
+    const P = await recargar("grupo-llamar.js");
+    const llamar = (quien) => P.run(mensaje(chat, ".llamar"), { client, text: "", command: "llamar", participants: [], aLlamar: [quien] });
+    const cancelar = async () => (await P.run(mensaje(chat, ".cancelar"), { client, text: "", command: "cancelar", participants: [] }), client.salidas.at(-1));
+    await llamar("111@lid");
+    mock.timers.tick(5000);
+    await llamar("222@lid"); // a second one, while the first is halfway
+    mock.timers.tick(5000);
+    assert.equal(client.salidas.filter((s) => s === "@111").length, 10, "la primera terminó");
+    assert.equal(await cancelar(), "Menciones canceladas.", "la segunda seguía");
+    await llamar("333@lid");
+    mock.timers.tick(10_000);
+    assert.equal(client.salidas.filter((s) => s === "@333").length, 10);
+    assert.equal(await cancelar(), "No hay menciones en curso.", "terminó sola: no queda nada que cancelar");
+  } finally {
+    mock.timers.reset();
+  }
 });

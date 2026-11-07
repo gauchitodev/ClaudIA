@@ -129,3 +129,9 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   assert.match(ultimo(), /\n✅ Anti menciones del grupo en estados \(\.antiestados\)\n❌ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: a veces \(\.voz\)\n/);
 });
+
+// .anticall and .audios saved an option nothing ever read: they're gone, and so are their columns (database-schema.js).
+test("config: .anticall y .audios, que no hacían nada, ya no son interruptores", () => {
+  for (const cmd of ["anticall", "audios"]) assert.ok(!Config.cmd.includes(cmd), cmd);
+  assert.ok(Config.cmd.includes("antiprivado") && Config.cmd.includes("autoread"), "los demás siguen");
+});

@@ -778,3 +778,27 @@ test("las tablas y los índices se crean solo en database-schema.js", () => {
   const conEsquema = archivos.filter((a) => /\b(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX)|ALTER TABLE)\b/.test(fs.readFileSync(path.join(raiz, a), "utf8")));
   assert.deepEqual(conEsquema, []);
 });
+
+// .audios (chats.audios) and .anticall (settings.antiCall) saved an option nothing read, and their switches went. A
+// file from before has their columns: they go too, and whatever else the group and the bot had stays as it was.
+test("las columnas de .audios y .anticall se borran al poner al día una base vieja, y lo demás queda", async () => {
+  const { ponerAlDia } = await import("../database-schema.js");
+  const db = new Database(":memory:");
+  const logReal = console.log;
+  console.log = () => {}; // each migration says so
+  try {
+    ponerAlDia(db);
+    db.exec(`ALTER TABLE chats ADD COLUMN audios BOOLEAN DEFAULT 0; ALTER TABLE settings ADD COLUMN antiCall BOOLEAN DEFAULT 1`);
+    db.prepare(`INSERT INTO chats (remoteJid, adminMode, audios) VALUES (?, 1, 1)`).run(G);
+    db.prepare(`INSERT INTO settings (botJid, antiPrivate, antiCall) VALUES (?, 1, 0)`).run("bot@lid");
+    ponerAlDia(db);
+    const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+    assert.deepEqual([cols("chats").includes("audios"), cols("settings").includes("antiCall")], [false, false]);
+    assert.equal(db.prepare(`SELECT adminMode FROM chats WHERE remoteJid = ?`).get(G).adminMode, 1, "lo demás del grupo, como estaba");
+    assert.equal(db.prepare(`SELECT antiPrivate FROM settings WHERE botJid = ?`).get("bot@lid").antiPrivate, 1, "y lo del bot");
+    ponerAlDia(db); // a second time finds nothing to do
+  } finally {
+    console.log = logReal;
+    db.close();
+  }
+});

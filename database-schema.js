@@ -91,7 +91,6 @@ export function ponerAlDia(db) {
       antiTiktok BOOLEAN DEFAULT 0,
       antiTelegram BOOLEAN DEFAULT 0,
       allAntiLinks BOOLEAN DEFAULT 0,
-      audios BOOLEAN DEFAULT 0,
       detect BOOLEAN DEFAULT 1,
       antiDelete BOOLEAN DEFAULT 0,
       games BOOLEAN DEFAULT 1,
@@ -149,7 +148,6 @@ export function ponerAlDia(db) {
       botJid TEXT PRIMARY KEY,
       autoRead BOOLEAN DEFAULT 1,
       antiPrivate BOOLEAN DEFAULT 0,
-      antiCall BOOLEAN DEFAULT 1,
       spamTime INTEGER DEFAULT -1
     )
   `);
@@ -231,6 +229,16 @@ export function ponerAlDia(db) {
   if (db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'naval'`).get()) {
     db.exec(`DROP TABLE naval`);
     console.log("🟢 Migración: tabla 'naval' borrada (la batalla naval se sacó)");
+  }
+
+  // Migration: .audios (chats.audios) and .anticall (settings.antiCall) saved an option nothing ever read. Their
+  // switches went on 2026-11-07, and so do their columns, so nothing of them is left behind. A file that never had
+  // them is left as it is.
+  for (const [tabla, columna] of [["chats", "audios"], ["settings", "antiCall"]]) {
+    if (db.prepare(`PRAGMA table_info(${tabla})`).all().some((c) => c.name === columna)) {
+      db.exec(`ALTER TABLE ${tabla} DROP COLUMN ${columna}`);
+      console.log(`🟢 Migración: columna '${columna}' de '${tabla}' borrada (su interruptor se sacó)`);
+    }
   }
 
   // UruCoins: balance per person and per group (each group has its own economy)

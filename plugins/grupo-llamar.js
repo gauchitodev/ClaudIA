@@ -4,6 +4,7 @@ import { estadoDe } from "../lib/estado-de-plugins.js";
 // chat -> the calls on their way, kept where a reload of this file doesn't lose them: .cancelar has to find them
 // (lib/estado-de-plugins.js)
 const activeTimers = estadoDe("grupo-llamar", () => ({}));
+const VECES = 10; // calls in a series, one a second
 
 const plugin = {};
 plugin.cmd = ["llamar", "mencionar", "cancelar"];
@@ -31,13 +32,22 @@ plugin.run = async (m, { client, text, command, participants, aLlamar }) => {
 
   if (!activeTimers[m.chat]) activeTimers[m.chat] = [];
   const timersArray = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < VECES; i++) {
     const timer = setTimeout(() => {
       client.sendText(m.chat, mencion, m).catch(console.error);
+      if (i === VECES - 1) terminarSerie(m.chat, timersArray);
     }, i * 1000);
     timersArray.push(timer);
   }
   activeTimers[m.chat].push(timersArray);
 };
+
+// A series is over with its last call: it leaves the chat's calls, and with none left the chat has none going on. The
+// series used to stay there when they ended on their own, and a .cancelar afterwards said it had stopped them.
+function terminarSerie(chat, serie) {
+  const quedan = (activeTimers[chat] || []).filter((s) => s !== serie);
+  if (quedan.length) activeTimers[chat] = quedan;
+  else delete activeTimers[chat];
+}
 
 export default plugin;

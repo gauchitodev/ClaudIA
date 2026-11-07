@@ -2,7 +2,7 @@ import { updateChat, updateSettings } from "../database-functions.js";
 import txt from "../lib/strings.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall", "audios", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
 plugin.botAdmin = true;
 
 // The same words .iniciativa takes.
@@ -30,8 +30,6 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     autoread: { key: "autoRead", from: "bot" },
     antiprivate: { key: "antiPrivate", from: "bot" },
     antiprivado: { key: "antiPrivate", from: "bot" },
-    anticall: { key: "antiCall", from: "bot" },
-    audios: { key: "audios", from: "chat" },
     anticanales: { key: "antiChannels", from: "chat" },
     antigrupos: { key: "antiGroups", from: "chat" },
     allantilink: { key: "allAntiLinks", from: "chat" },
@@ -73,7 +71,7 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
   }
 
   // commands that require being the owner
-  if (["mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticall"].includes(command)) {
+  if (["mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado"].includes(command)) {
     if (!isOwner) {
       return client.sendMessage(m.chat, { text: txt.onlyOwner }, { quoted: m });
     }
