@@ -4,6 +4,7 @@ import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 // .poker: Texas Hold'em among the group (lib/poker.js has the table, the hands and the chips).
 //   .poker            the table if there is one, or how it's played
+//   .poker ayuda      how it's played and which hand beats which, also with a table open (.poker manual too)
 //   .poker 100        opens the table with that buy-in (50 to 100), or sits you down at the one open (same buy-in)
 //   .poker empezar    the opener deals the first hand, with two or more seated (.poker arrancar too; lib/poker.js)
 //   .poker salir      stands you up with your chips (.levantarme and .pleave do the same; plugins/coins-poker-mesa.js)
@@ -18,13 +19,21 @@ plugin.juego = true;
 plugin.casino = true;
 plugin.onlyGroup = true;
 
+// The words after .poker that show the manual, which .poker alone shows only with no table open.
+const AYUDA_PALABRAS = ["ayuda", "manual"];
+
+// How it's played, and which hand beats which: whoever is learning needs that first (the names, as the showdown says
+// them: lib/poker-manos.js).
 const AYUDA = `🃏 *Póker (Texas Hold'em)* — uso: .${CMD.poker[0]} <entrada>
 
 Una mesa por grupo, de 2 a ${POKER.ASIENTOS_MAX}. El primero fija la entrada (de ${POKER.ENTRADA_MIN} a ${POKER.ENTRADA_MAX} UruCoins) y los demás se sientan con .${CMD.poker[0]} <esa entrada>. Cuando están todos, el que abrió la mesa la arranca con .${CMD.poker[0]} ${EMPEZAR[0]}; si no, reparto yo a los ${Math.round(POKER.ARRANQUE_MS / 60_000)} minutos de sentarse el segundo, o apenas se llena. Las fichas son tus UruCoins: las ciegas son el 5 % y el 10 % de la entrada, y no hay límite para subir.
 Las cartas te las digo por privado: en cada mano, escribime .${CMD.cartas[0]} a mí.
 
 ▸ .${CMD.paso[0]} pasás · .${CMD.pago[0]} igualás · .${CMD.subo[0]} 20 subís 20 por encima de la apuesta · .${CMD.allin[0]} vas con todo · .${CMD.novoy[0]} no vas
-▸ .${CMD.levantarme[0]} o .${CMD.levantarme[1]} te retira con tus fichas (si estás en una mano, al terminarla) · .${CMD.mesa[0]} muestra la mesa · .${CMD.cancelar[0]} (admins) la cierra
+▸ .${CMD.levantarme[0]} o .${CMD.levantarme[1]} te retira con tus fichas (si estás en una mano, al terminarla) · .${CMD.mesa[0]} muestra la mesa · .${CMD.cancelar[0]} (admins) la cierra · .${CMD.poker[0]} ${AYUDA_PALABRAS[0]}, esta ayuda
+
+🏆 Gana la mejor jugada de 5 cartas entre tus 2 y las 5 de la mesa. De la más alta a la más baja:
+escalera real (A K Q J 10 del mismo palo) › escalera de color (5 seguidas del mismo palo) › póker (4 iguales) › full (trío y par) › color (5 del mismo palo) › escalera (5 seguidas) › trío › doble par › par › carta alta
 
 Tenés ${Math.round(POKER.TURNO_MS / 1000)} segundos por turno: si no decidís, pasás o te retirás, y a la segunda seguida te levanto de la mesa. Sin dos para jugar durante 10 minutos, la mesa se cierra y cada uno cobra sus fichas. La entrada cuenta para el tope diario del casino; el escudo acá no corre.
 Ej: .${CMD.poker[0]} ${POKER.ENTRADA_MAX}`;
@@ -52,14 +61,16 @@ plugin.run = async (m, { client, args = [], isAdmin, botSettings }) => {
       const r = arrancar(m.chat, m.sender);
       return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
     }
+    // without private chats there's no way to see one's cards: said up front, so nobody buys in for nothing
+    const sinPrivados = botSettings?.antiPrivate ? "\n\n⚠️ Ojo: los privados están cerrados (.antiprivado), y las cartas van por privado: así no se puede jugar." : "";
+    // the manual whenever it's asked for: with a table going, .poker alone shows the table, and there was no other way
+    if (AYUDA_PALABRAS.includes(palabra)) return client.sendText(m.chat, AYUDA + sinPrivados, m);
     const mesa = mesaDe(m.chat);
     if (!palabra) {
       if (mesa) {
         const r = textoMesa(mesa);
         return mandar(client, m, r.texto, r.mentions);
       }
-      // without private chats there's no way to see one's cards: said up front, so nobody buys in for nothing
-      const sinPrivados = botSettings?.antiPrivate ? "\n\n⚠️ Ojo: los privados están cerrados (.antiprivado), y las cartas van por privado: así no se puede jugar." : "";
       return client.sendText(m.chat, AYUDA + sinPrivados, m);
     }
     const entrada = leerEntero(palabra);

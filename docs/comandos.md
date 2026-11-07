@@ -64,7 +64,7 @@ _Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.men
 
 _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.menu loteria`, `.menu mercados`, `.menu poker`, `.menu holdem`._
 
-> _.ruleta, .tragamonedas, .blackjack, .mines, .carrera y .poker, escritos solos, explican cómo se juega y cuánto pagan (el póker, si hay mesa abierta, la muestra). Se apuesta de 5 a 100 UruCoins, o hasta el 20 % de tu saldo si es más; en el póker la entrada es fija, de 50 a 100._
+> _.ruleta, .tragamonedas, .blackjack, .mines, .carrera y .poker, escritos solos, explican cómo se juega y cuánto pagan (el póker, si hay mesa abierta, la muestra; .poker ayuda explica igual). Se apuesta de 5 a 100 UruCoins, o hasta el 20 % de tu saldo si es más; en el póker la entrada es fija, de 50 a 100._
 
 | Comando | Qué hace |
 |---|---|
@@ -72,7 +72,7 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.tragamonedas 20` 🍒 | Tres rodillos y cinco líneas de pago. |
 | `.blackjack 20` 🃏 | Contra la banca: .pedir, .plantarse, .doblar, .dividir, .seguro o .rendirse. |
 | `.mines 20 3` 💣 | Grilla con minas: .destapar B3 sube el multiplicador y .retirar cobra; con una mina perdés. |
-| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .pcheck, .pcall, .praise 20, .allin y .pfold; .levantarme o .pleave te retira con tus fichas. |
+| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .pcheck, .pcall, .praise 20, .allin y .pfold; .levantarme o .pleave te retira con tus fichas; .poker ayuda, cómo se juega y qué jugada gana. |
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |

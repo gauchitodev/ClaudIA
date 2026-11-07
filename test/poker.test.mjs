@@ -29,6 +29,8 @@ before(async () => {
   Cartas = (await import("../plugins/coins-poker-cartas.js")).default;
   for (const chat of [G, G2]) F.initDataDB({ chat, sender: ANA, senderJid: "", pushName: "Ana" });
   F.initDataDB({ chat: G, sender: BETO, senderJid: "", pushName: "Beto" });
+  // every move names everyone at the table by their name (lib/poker.js, fichasDeLaMano)
+  for (const [u, nombre] of [[CARLA, "Carla"], [DANI, "Dani"], [ELI, "Eli"], [FEDE, "Fede"], [GUS, "Gus"]]) F.initDataDB({ chat: G, sender: u, senderJid: "", pushName: nombre });
 });
 after(() => P.olvidarMesas());
 
@@ -183,6 +185,30 @@ test("las palabras y los montos del póker se leen con un signo pegado al final,
   assert.equal(mesa(), null);
 });
 
+// The message with the table goes far up the chat: each move shows how the hand stands, naming everyone without
+// tagging them, and tags only who played and whose turn it is.
+test("cada jugada muestra cómo queda la mesa: cartas, pozo, las fichas de todos por nombre y a quién le toca", async () => {
+  await sentar(ANA, BETO, CARLA);
+  P.empezarMano(mesa());
+  await comando(DANI, "poker 100"); // sits down during the hand
+  const jugada = await comando(ANA, "pcall");
+  assert.equal(jugada.text, "✅ @300000000000041 paga 10\n🂠 Mesa: todavía nada · pozo 25\n💰 Ana 90 · Beto 95 · Carla 90 · Dani 100 (entra en la próxima)\n👉 @300000000000042: 5 para igualar");
+  assert.deepEqual(jugada.mentions, [ANA, BETO], "arroba a quien jugó y a quien le toca, no a toda la mesa");
+});
+
+// With a table going, .poker alone shows the table, and the manual had no way to be seen.
+test(".poker ayuda muestra el manual aunque haya una mesa abierta, con las jugadas de la más alta a la más baja", async () => {
+  await sentar(ANA, BETO);
+  assert.match((await comando(ANA, "poker")).text, /^🃏 \*Mesa de póker\* · entrada 100/, ".poker solo, con mesa, sigue mostrando la mesa");
+  for (const palabra of ["ayuda", "Manual!"]) assert.match((await comando(CARLA, `poker ${palabra}`)).text, /^🃏 \*Póker \(Texas Hold'em\)\* — uso: \.poker <entrada>/, palabra);
+  const ayuda = ultimo().text;
+  assert.ok(ayuda.includes("· .delpoker (admins) la cierra · .poker ayuda, esta ayuda\n"), "y dice cómo volver a verlo");
+  // the names the showdown says (lib/poker-manos.js), from the highest down
+  const jugadas = ayuda.split("\n").find((l) => l.startsWith("escalera real"));
+  assert.deepEqual(jugadas.split(" › ").map((j) => j.replace(/ \(.*\)$/, "")), ["escalera real", ...[...PM.CATEGORIAS].reverse()]);
+  assert.match((await comando(CARLA, "poker ayuda", { botSettings: { antiPrivate: 1 } })).text, /\n\n⚠️ Ojo: los privados están cerrados/, "con los privados cerrados, avisa");
+});
+
 test("mano a mano: el botón pone la ciega chica y habla primero antes del flop y último después; la ciega grande tiene su opción", async () => {
   await sentar(ANA, BETO);
   const inicio = P.empezarMano(mesa());
@@ -194,20 +220,20 @@ test("mano a mano: el botón pone la ciega chica y habla primero antes del flop 
   await comando(BETO, "pcall");
   assert.deepEqual([globalThis.enviados.length - antes, ultimo()], [1, { react: "✋" }]);
   assert.equal((await comando(ANA, "pcheck")).text, "Hay 5 para igualar: .pcall, .praise 10, .allin o .pfold.");
-  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 5 · pozo 20 · te toca @300000000000042 (puede pasar)");
+  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 5\n🂠 Mesa: todavía nada · pozo 20\n💰 Ana 90 · Beto 90\n👉 @300000000000042: puede pasar");
   assert.deepEqual(ultimo().mentions, [ANA, BETO]);
   assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "poker", "las jugadas también son mensajes del juego");
   assert.equal((await comando(BETO, "praise 5")).text, "La subida mínima es 10 (.praise 10), o .allin.");
   assert.equal((await comando(BETO, "praise")).text, "¿Cuánto subís? .praise 10 (sube 10 por encima de la apuesta; es el mínimo ahora)");
   assert.equal((await comando(BETO, "praise 200")).text, "Tenés 90 fichas: para ir con todo, .allin.");
-  assert.equal((await comando(BETO, "praise 10")).text, "⬆️ @300000000000042 sube 10 (la apuesta queda en 20) · pozo 30 · te toca @300000000000041 (10 para igualar)");
-  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 10 · pozo 40\n🂠 *Flop:* 2♣ 7♥ 9♠ · te toca @300000000000042 (puede pasar)");
+  assert.equal((await comando(BETO, "praise 10")).text, "⬆️ @300000000000042 sube 10 (la apuesta queda en 20)\n🂠 Mesa: todavía nada · pozo 30\n💰 Ana 90 · Beto 80\n👉 @300000000000041: 10 para igualar");
+  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 10\n🂠 *Flop:* 2♣ 7♥ 9♠ · pozo 40\n💰 Ana 80 · Beto 80\n👉 @300000000000042: puede pasar");
   assert.deepEqual([mano().calle, fichas(ANA), fichas(BETO)], ["flop", 80, 80]);
-  assert.equal((await comando(BETO, "pcheck")).text, "👌 @300000000000042 pasa · pozo 40 · te toca @300000000000041 (puede pasar)");
-  assert.equal((await comando(ANA, "praise 20")).text, "⬆️ @300000000000041 sube 20 (la apuesta queda en 20) · pozo 60 · te toca @300000000000042 (20 para igualar)");
-  assert.equal((await comando(BETO, "pcall")).text, "✅ @300000000000042 paga 20 · pozo 80\n🂠 *Turn:* 2♣ 7♥ 9♠ J♦ · te toca @300000000000042 (puede pasar)");
+  assert.equal((await comando(BETO, "pcheck")).text, "👌 @300000000000042 pasa\n🂠 Mesa: 2♣ 7♥ 9♠ · pozo 40\n💰 Ana 80 · Beto 80\n👉 @300000000000041: puede pasar");
+  assert.equal((await comando(ANA, "praise 20")).text, "⬆️ @300000000000041 sube 20 (la apuesta queda en 20)\n🂠 Mesa: 2♣ 7♥ 9♠ · pozo 60\n💰 Ana 60 · Beto 80\n👉 @300000000000042: 20 para igualar");
+  assert.equal((await comando(BETO, "pcall")).text, "✅ @300000000000042 paga 20\n🂠 *Turn:* 2♣ 7♥ 9♠ J♦ · pozo 80\n💰 Ana 60 · Beto 60\n👉 @300000000000042: puede pasar");
   await comando(BETO, "pcheck");
-  assert.equal((await comando(ANA, "pcheck")).text, "👌 @300000000000041 pasa · pozo 80\n🂠 *River:* 2♣ 7♥ 9♠ J♦ 3♣ · te toca @300000000000042 (puede pasar)");
+  assert.equal((await comando(ANA, "pcheck")).text, "👌 @300000000000041 pasa\n🂠 *River:* 2♣ 7♥ 9♠ J♦ 3♣ · pozo 80\n💰 Ana 60 · Beto 60\n👉 @300000000000042: puede pasar");
   await comando(BETO, "pcheck");
   assert.equal((await comando(ANA, "pcheck")).text, "👌 @300000000000041 pasa · pozo 80\n🏁 *Mesa:* 2♣ 7♥ 9♠ J♦ 3♣\n@300000000000041: A♠ A♦ · par de ases\n@300000000000042: K♠ K♦ · par de reyes\n🏆 @300000000000041 gana 80 con par de ases\n💰 @300000000000041 140 · @300000000000042 60");
   assert.deepEqual([mesa().estado, mano(), fichas(ANA), fichas(BETO), saldo(ANA), saldo(BETO)], ["ESPERANDO", null, 140, 60, 400, 400], "las fichas no tocan el saldo");
@@ -227,12 +253,12 @@ test("cuatro jugadores: subida mínima, un all-in corto no reabre la ronda, y si
   await sentar(ANA, BETO, CARLA, DANI);
   const inicio = P.empezarMano(mesa());
   assert.match(inicio.texto, /^🃏 \*Mano 1\* · botón @300000000000041 · ciegas @300000000000042 5 \/ @300000000000043 10 · pozo 15\n.*\n👉 @300000000000044: 10 para igualar/s);
-  assert.equal((await comando(DANI, "praise 10")).text, "⬆️ @300000000000044 sube 10 (la apuesta queda en 20) · pozo 35 · te toca @300000000000041 (20 para igualar)");
-  assert.equal((await comando(ANA, "praise 70")).text, "⬆️ @300000000000041 sube 70 (la apuesta queda en 90) · pozo 125 · te toca @300000000000042 (85 para igualar)");
-  assert.equal((await comando(BETO, "allin")).text, "🔥 @300000000000042 va all-in con 95 · pozo 220 · te toca @300000000000043 (90 para igualar y quedar all-in, o .pfold)");
+  assert.equal((await comando(DANI, "praise 10")).text, "⬆️ @300000000000044 sube 10 (la apuesta queda en 20)\n🂠 Mesa: todavía nada · pozo 35\n💰 Ana 100 · Beto 95 · Carla 90 · Dani 80\n👉 @300000000000041: 20 para igualar");
+  assert.equal((await comando(ANA, "praise 70")).text, "⬆️ @300000000000041 sube 70 (la apuesta queda en 90)\n🂠 Mesa: todavía nada · pozo 125\n💰 Ana 10 · Beto 95 · Carla 90 · Dani 80\n👉 @300000000000042: 85 para igualar");
+  assert.equal((await comando(BETO, "allin")).text, "🔥 @300000000000042 va all-in con 95\n🂠 Mesa: todavía nada · pozo 220\n💰 Ana 10 · Beto all-in · Carla 90 · Dani 80\n👉 @300000000000043: 90 para igualar y quedar all-in, o .pfold");
   assert.equal(mano().subidaIncompleta, true, "95 sobre 90 no llega a la subida mínima");
-  assert.equal((await comando(CARLA, "pcall")).text, "🔥 @300000000000043 paga 90 y queda all-in · pozo 310 · te toca @300000000000044 (80 para igualar y quedar all-in, o .pfold)");
-  assert.equal((await comando(DANI, "pfold")).text, "🏳️ @300000000000044 no va · pozo 310 · te toca @300000000000041 (10 para igualar y quedar all-in, o .pfold)");
+  assert.equal((await comando(CARLA, "pcall")).text, "🔥 @300000000000043 paga 90 y queda all-in\n🂠 Mesa: todavía nada · pozo 310\n💰 Ana 10 · Beto all-in · Carla all-in · Dani 80\n👉 @300000000000044: 80 para igualar y quedar all-in, o .pfold");
+  assert.equal((await comando(DANI, "pfold")).text, "🏳️ @300000000000044 no va\n🂠 Mesa: todavía nada · pozo 310\n💰 Ana 10 · Beto all-in · Carla all-in · Dani 80 (no va)\n👉 @300000000000041: 10 para igualar y quedar all-in, o .pfold");
   assert.equal((await comando(ANA, "praise 5")).text, "Ya no se puede subir en esta ronda (un all-in corto no la reabre): .pcall o .pfold.");
   assert.equal(enCirculacion([ANA, BETO, CARLA, DANI]), 2000);
   const fin = (await comando(ANA, "pcall")).text;
@@ -252,8 +278,8 @@ test("pozos laterales: cada uno gana hasta su nivel, lo no igualado vuelve, y si
   P._dep.mazo = () => mazoDe("A♠", "K♠", "2♣", "A♦", "K♦", "3♣", "5♥", "8♦", "10♠", "J♣", "9♥");
   P.empezarMano(mesa());
   assert.equal(mano().turno, 2, "con tres, habla primero el botón");
-  assert.equal((await comando(ANA, "allin")).text, "🔥 @300000000000041 va all-in con 100 · pozo 115 · te toca @300000000000042 (35 para igualar y quedar all-in, o .pfold)");
-  assert.equal((await comando(BETO, "allin")).text, "🔥 @300000000000042 va all-in con 35 · pozo 150 · te toca @300000000000043 (60 para igualar y quedar all-in, o .pfold)");
+  assert.equal((await comando(ANA, "allin")).text, "🔥 @300000000000041 va all-in con 100\n🂠 Mesa: todavía nada · pozo 115\n💰 Ana all-in · Beto 35 · Carla 60\n👉 @300000000000042: 35 para igualar y quedar all-in, o .pfold");
+  assert.equal((await comando(BETO, "allin")).text, "🔥 @300000000000042 va all-in con 35\n🂠 Mesa: todavía nada · pozo 150\n💰 Ana all-in · Beto all-in · Carla 60\n👉 @300000000000043: 60 para igualar y quedar all-in, o .pfold");
   const fin = (await comando(CARLA, "allin")).text;
   assert.ok(fin.startsWith("🔥 @300000000000043 va all-in con 60 · pozo 210\n— no queda nadie por apostar, voy hasta el final\n🏁 *Mesa:* 5♥ 8♦ 10♠ J♣ 9♥\n"), fin);
   assert.ok(fin.endsWith("\n🏆 Pozo principal (120): @300000000000042, par de ases · pozo lateral (60): @300000000000043, par de reyes\n@300000000000041 recupera 30 sin igualar\n💰 @300000000000041 30 · @300000000000042 120 · @300000000000043 60"), fin);
@@ -261,7 +287,7 @@ test("pozos laterales: cada uno gana hasta su nivel, lo no igualado vuelve, y si
   // next hand: the button moves to Beto; Beto and Carla fold and Ana takes the blinds without showing
   P.empezarMano(mesa());
   assert.match(P.textoMesa(mesa()).texto, /· mano 2 \(preflop\)\n@300000000000041 20 · 🔘 @300000000000042 120 · @300000000000043 55 · pozo 15\nMesa: todavía nada\n👉 Le toca a @300000000000042 \(10 para igualar\)$/);
-  assert.equal((await comando(BETO, "pfold")).text, "🏳️ @300000000000042 no va · pozo 15 · te toca @300000000000043 (5 para igualar)");
+  assert.equal((await comando(BETO, "pfold")).text, "🏳️ @300000000000042 no va\n🂠 Mesa: todavía nada · pozo 15\n💰 Ana 20 · Beto 120 (no va) · Carla 55\n👉 @300000000000043: 5 para igualar");
   assert.equal((await comando(CARLA, "pfold")).text, "🏳️ @300000000000043 no va · pozo 15\n🏆 @300000000000041 se lleva 15: todos se retiraron.\n💰 @300000000000041 35 · @300000000000042 120 · @300000000000043 55");
   assert.equal(enCirculacion([ANA, BETO, CARLA]), 1410, "los 90 que saqué a mano, nada más");
 });
@@ -279,7 +305,7 @@ test("el reloj: sin jugar a tiempo pasa o se retira, a la segunda seguida se lev
   P.empezarMano(mesa());
   await comando(BETO, "pcall");
   P.vencerTurno(mesa());
-  assert.match(avisos.at(-1).texto, /^⏳ @300000000000041 se quedó sin tiempo: pasa · se levanta al terminar la mano · pozo 20\n🂠 \*Flop:\* 2♣ 7♥ 9♠ · te toca @300000000000041 \(puede pasar\)$/);
+  assert.match(avisos.at(-1).texto, /^⏳ @300000000000041 se quedó sin tiempo: pasa · se levanta al terminar la mano\n🂠 \*Flop:\* 2♣ 7♥ 9♠ · pozo 20\n💰 Ana 85 · Beto 95\n👉 @300000000000041: puede pasar$/);
   assert.equal(mesa().asientos[0].quiereIrse, true);
   // a stale timer does nothing: the turn already moved on
   const manoActual = mano();
@@ -334,8 +360,8 @@ test("irse y cerrar: .levantarme cobra entre manos o al terminar la mano; .delpo
   await sentar(ANA, BETO, CARLA);
   P.empezarMano(mesa());
   assert.equal(mano().turno, 2, "habla Ana, el botón");
-  assert.equal((await comando(BETO, "levantarme")).text, "🏳️ @300000000000042 no va y se levanta al terminar la mano · pozo 15 · te toca @300000000000041 (10 para igualar)");
-  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 10 · pozo 25 · te toca @300000000000043 (puede pasar)");
+  assert.equal((await comando(BETO, "levantarme")).text, "🏳️ @300000000000042 no va y se levanta al terminar la mano\n🂠 Mesa: todavía nada · pozo 15\n💰 Ana 100 · Beto 95 (no va) · Carla 90\n👉 @300000000000041: 10 para igualar");
+  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 10\n🂠 Mesa: todavía nada · pozo 25\n💰 Ana 90 · Beto 95 (no va) · Carla 90\n👉 @300000000000043: puede pasar");
   // the admin closes the table with the hand going: chips and stakes back to everyone
   assert.equal((await comando(ANA, "delpoker")).text, "Para irte de la mesa: .levantarme. Cerrarla entera es de los admins.");
   assert.equal((await comando(DANI, "poker cancelar", { isAdmin: true })).text, "Mesa de póker cerrada: @300000000000041 recupera 100, @300000000000042 recupera 100 y @300000000000043 recupera 100.");
@@ -367,7 +393,7 @@ test("con el casino cerrado no se reparte otra mano y la mesa avisa una vez; la 
   await sentar(ANA, BETO);
   P.empezarMano(mesa());
   F.updateChat(G, { casino: 0 });
-  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 5 · pozo 20 · te toca @300000000000042 (puede pasar)");
+  assert.equal((await comando(ANA, "pcall")).text, "✅ @300000000000041 paga 5\n🂠 Mesa: todavía nada · pozo 20\n💰 Ana 90 · Beto 90\n👉 @300000000000042: puede pasar");
   await comando(BETO, "pfold");
   assert.deepEqual([mesa().estado, fichas(ANA)], ["ESPERANDO", 110]);
   assert.deepEqual(P.empezarMano(mesa()), { texto: "⏸️ El casino está cerrado acá: la mesa espera. Si en 10 minutos no se puede jugar, se cierra y cada uno cobra sus fichas.", mentions: [] });
