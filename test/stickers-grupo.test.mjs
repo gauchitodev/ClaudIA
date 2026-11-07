@@ -304,6 +304,26 @@ test("describe los stickers de a uno, con la imagen, con tope por día, y para a
   assert.equal(pedidosIA.length, 1, "dos intentos hoy ya, uno más y llegó al tope");
 });
 
+// A run with nothing to do never awaited anything, ended before its mark was set, and the mark stayed on: no sticker
+// was described again until a restart. In the group: the day's cap reached, a new sticker comes in, and from then on
+// nothing, that day or any other.
+test("una corrida sin nada que hacer no traba las siguientes: pasado el tope del día, se vuelve a describir", async () => {
+  await S.describirPendientes(); // whatever an earlier test left
+  F.db.exec(`DELETE FROM stickers_grupo; DELETE FROM stickers_descripcion`);
+  const chat = nuevoGrupo();
+  S.STICKERS.DESCRIPCIONES_DIA = 0; // the day's cap, reached
+  S.guardarSticker(chat, "x", webp("trabado"));
+  pedidosIA.length = 0;
+  await S.describirPendientes();
+  assert.equal(pedidosIA.length, 0, "con el tope alcanzado, ninguno");
+  // the cap leaves room again, as the next day does
+  S.STICKERS.DESCRIPCIONES_DIA = 40;
+  respuestasIA = [{ descripcion: "un loro" }];
+  await S.describirPendientes();
+  assert.equal(pedidosIA.length, 1, "la corrida vacía no dejó la marca puesta");
+  assert.equal(S.descripcionDe(S.shaDe(webp("trabado"))), "un loro");
+});
+
 test("contestando un sticker, la IA elige cuál según lo que dijo ella; 0 es ninguno, y sin IA va al azar", async () => {
   const chat = nuevoGrupo();
   const lista = { e1: "perro riéndose", e2: "gato enojado", e3: "señor aplaudiendo" };
