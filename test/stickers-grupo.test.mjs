@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -20,7 +21,7 @@ const logReal = console.log;
 
 before(async () => {
   ({ F } = await prepararBase("stickers"));
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   ritmoDeClaudia.clear();
   ({ RITMO } = await import("../lib/ritmo.js"));
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0 });

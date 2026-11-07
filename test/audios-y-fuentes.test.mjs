@@ -2,6 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -21,7 +22,7 @@ const tipeoReal = {};
 
 before(async () => {
   await prepararBase("audios");
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0 });
@@ -194,7 +195,7 @@ test("si Gemini no contesta, el respaldo sabe que el audio no lo escuchó", asyn
   const { preguntarIA } = await import("../lib/ia.js");
   const fetchAntes = globalThis.fetch;
   let alRespaldo = null;
-  globalThis.groqApiKey = "clave-groq";
+  configuracion.groqApiKey = "clave-groq";
   globalThis.fetch = async (url, opciones) => {
     if (String(url).includes("generativelanguage")) return { ok: false, status: 429 };
     alRespaldo = JSON.parse(opciones.body).messages.at(-1).content;
@@ -206,7 +207,7 @@ test("si Gemini no contesta, el respaldo sabe que el audio no lo escuchó", asyn
     assert.match(alRespaldo, /el audio no lo pudiste escuchar esta vez/);
   } finally {
     globalThis.fetch = fetchAntes;
-    globalThis.groqApiKey = "";
+    configuracion.groqApiKey = "";
     geminiEnPausa.clear();
   }
 });

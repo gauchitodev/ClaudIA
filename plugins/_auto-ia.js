@@ -24,6 +24,7 @@ import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
 import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
@@ -126,7 +127,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // quota, and a .tagall went out by asking her.
     if (!isOwner && (chat?.isBanned || user?.banned || (m.isGroup && chat?.adminMode && !isMod))) return;
 
-    if (!globalThis.geminiApiKey) return;
+    if (!configuracion.geminiApiKey) return;
 
     // A command is the normal system's. "@" is a prefix too, but a message that starts by mentioning someone isn't a
     // command ("@Juan, claudia dice que..."), and neither is one that starts by mentioning her: esComando tells them

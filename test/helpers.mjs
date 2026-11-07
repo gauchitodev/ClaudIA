@@ -3,6 +3,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { configuracion } from "../lib/configuracion.js";
 
 export const G = "grupo@g.us";
 export { setTimeout as esperar } from "node:timers/promises";
@@ -31,16 +32,16 @@ export function clienteFalso() {
   };
 }
 
-// Creates a fresh database in a temp folder and sets the globals the bot expects.
+// Creates a fresh database in a temp folder, and sets the settings the tests start from (lib/configuracion.js: an
+// owner, no AI keys) and the globals the bot expects.
 export async function prepararBase(nombre = "prueba") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudia-test-${nombre}-`));
   process.chdir(dir);
   process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
-  globalThis.owners = ["59899111222"];
-  globalThis.prefix = [".", "/", "@"];
-  globalThis.geminiApiKey = "";
-  globalThis.groqApiKey = "";
-  globalThis.cerebrasApiKey = "";
+  configuracion.owners = ["59899111222"];
+  configuracion.geminiApiKey = "";
+  configuracion.groqApiKey = "";
+  configuracion.cerebrasApiKey = "";
   globalThis.botConectado = true;
   globalThis.client = clienteFalso();
   // The plugins' pauses for show (lib/pausas.js) pass at once, after a turn of the event loop as a timer would give:

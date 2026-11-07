@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 // .menu (lib/menu.js): a short index with what the group uses most (counted by lib/usos.js), one topic per .menu <tema>
 // and everything with .menu todo. It used to be a single message of 233 lines, with the admin and settings commands
@@ -19,8 +20,7 @@ const ABIERTO = { games: 1, casino: 1, monedas: 1, charla: 1 };
 
 before(async () => {
   ({ F } = await prepararBase("menu"));
-  globalThis.botVersion = "v3.3.0";
-  globalThis.baileys = "@whiskeysockets/baileys"; // plugins/_anti-delete-messages.js imports it dynamically
+  configuracion.botVersion = "v3.3.0";
   // The real plugins, as the bot loads them: the ranking reads their commands and flags.
   const plugins = {};
   for (const archivo of fs.readdirSync(path.join(RAIZ, "plugins")).filter((f) => f.endsWith(".js"))) {

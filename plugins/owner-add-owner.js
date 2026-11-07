@@ -1,6 +1,7 @@
 import fs from "fs";
 import toml from "@iarna/toml";
 import { numeroActual, numeroSinConfirmar, confirmarOwnerNuevo, olvidarOwner } from "../lib/identidad.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // config.toml with only its owners line changed: rewriting the whole file with toml.stringify wiped every comment that
 // explains the settings. The result is parsed back before anything is written: null if the owners didn't come out
@@ -63,7 +64,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     const nuevo = conOwners(configContent, owners);
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: agregalo a mano.", m);
     guardarConfig(nuevo);
-    globalThis.owners = owners; // update it in memory
+    configuracion.owners = owners; // update it in memory
     await confirmarOwnerNuevo(); // their LID, as WhatsApp says, for when a message brings only that
 
     return client.sendText(m.chat, `✅ El numero *${who}* fué añadido como owner.`, m);
@@ -84,7 +85,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants }) => {
     const nuevo = conOwners(configContent, owners);
     if (!nuevo) return client.sendText(m.chat, "❌ No pude cambiar la línea de owners en config.toml: sacalo a mano.", m);
     guardarConfig(nuevo);
-    globalThis.owners = owners; // update it in memory
+    configuracion.owners = owners; // update it in memory
     olvidarOwner(numero); // what WhatsApp said of the number is about whoever had it then: added again, it's asked anew
 
     return client.sendText(m.chat, `✅ *${who}* fué removido de owners.`, m);

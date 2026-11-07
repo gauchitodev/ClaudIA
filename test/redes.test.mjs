@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 // The group's social links (lib/redes.js, plugins/redes.js): an admin loads them, anyone sees them, the welcome with
 // the rules points to them, and Claudia has them in her prompt (auto-ia.test.mjs).
@@ -61,13 +62,14 @@ test("textoRedes y el prompt: la lista en orden, una sola, el canal del bot por 
   assert.equal(R.textoRedes(C, { grupoInvitacion: "https://chat.whatsapp.com/INV" }), "🔗 *Redes del grupo*\n📸 Instagram: https://instagram.com/xuru\n🎮 Discord: https://discord.gg/xuru\n👥 Link de invitación: https://chat.whatsapp.com/INV");
   assert.equal(R.textoRedesParaPrompt(C), "Redes y links del grupo (si alguien te los pide, pasalos tal cual, sin cambiarlos): Instagram: https://instagram.com/xuru · Discord: https://discord.gg/xuru");
   // the bot's channel (config.toml) where the group loaded none; the group's own wins
-  globalThis.canalConfig = { enlace: "https://whatsapp.com/channel/BOT" };
+  const canalAntes = configuracion.canalConfig;
+  configuracion.canalConfig = { enlace: "https://whatsapp.com/channel/BOT" };
   try {
     assert.match(R.textoRedes(C), /\n📣 Canal de WhatsApp: https:\/\/whatsapp\.com\/channel\/BOT$/);
     R.fijarRed(C, "canal", "https://whatsapp.com/channel/GRUPO");
     assert.match(R.textoRedes(C), /\n📣 Canal de WhatsApp: https:\/\/whatsapp\.com\/channel\/GRUPO$/);
   } finally {
-    delete globalThis.canalConfig;
+    configuracion.canalConfig = canalAntes;
   }
   // a broken column reads as none
   F.updateChat(C, { redes: "no es json" });

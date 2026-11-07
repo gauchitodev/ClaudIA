@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // Claudia's voice (lib/voz.js): edge-tts as a command, the text cleaned for it, the voice from config.toml, and what
 // happens without the command or when it fails; .voz (plugins/voz.js) per group; and .tts with that voice when it's
@@ -32,7 +33,7 @@ before(async () => {
 beforeEach(() => {
   V.olvidarVoz();
   V._dep.ahora = () => Date.now();
-  delete globalThis.vozConfig;
+  configuracion.vozConfig = {}; // without [voz] in config.toml
 });
 
 test("limpiarParaVoz: sin marcas, sin emojis y con los links dichos como link", () => {
@@ -55,11 +56,11 @@ test("hablar: llama a edge-tts con la voz de la configuración, devuelve el mp3 
   assert.ok(!fs.existsSync(args[4].slice("--write-media=".length)), "el temporal no queda");
   assert.equal(V.nombreDeLaVoz(), "Elena");
   // the voice, rate and pitch of config.toml's [voz]
-  globalThis.vozConfig = { voz: "es-AR-TomasNeural", velocidad: "-10%", tono: "+5Hz" };
+  configuracion.vozConfig = { voz: "es-AR-TomasNeural", velocidad: "-10%", tono: "+5Hz" };
   await V.hablar("Hola");
   assert.deepEqual(edge.llamadas[2].slice(1, 4), ["--voice=es-AR-TomasNeural", "--rate=-10%", "--pitch=+5Hz"]);
   assert.equal(V.nombreDeLaVoz(), "Tomas");
-  globalThis.vozConfig = { voz: "en-US-EmmaMultilingualNeural" };
+  configuracion.vozConfig = { voz: "en-US-EmmaMultilingualNeural" };
   assert.equal(V.nombreDeLaVoz(), "Emma");
   // nothing to say, or too much: null without asking
   const antes = edge.llamadas.length;

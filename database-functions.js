@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "fs";
 import Database from "better-sqlite3";
 import { ponerAlDia } from "./database-schema.js";
+import { configuracion } from "./lib/configuracion.js";
 
 // The connection every function here uses, loadDatabase's. It used to be a global main.js set (globalThis.db), and this
 // module only worked once someone had set it; what else needs the connection imports it from here.
@@ -709,7 +710,7 @@ export function auraDe(chat, mes, usuario) {
 }
 
 // The owners' numbers as ids, from config.toml as it writes them: with "+" and spaces, they're just the digits.
-export const numerosDeOwners = () => (globalThis.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
+export const numerosDeOwners = () => (configuracion.owners || []).map((n) => String(n).replace(/[^0-9]/g, "")).filter(Boolean).map((d) => `${d}@s.whatsapp.net`);
 
 // Does this identifier (lid or jid) belong to a bot owner? Owners are configured by phone number, but in groups
 // participants arrive as @lid, so the owner's lid is resolved through the users table. For leaving an owner alone,

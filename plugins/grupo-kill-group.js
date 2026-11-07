@@ -4,7 +4,7 @@
 plugin.cmd = ["k5"];
 
 plugin.run = async (m, { client, participants, isBotAdmin }) => {
-  if (![...globalThis.owners.map((number) => number.replace(/[^0-9]/g, "") + "@s.whatsapp.net")].includes(m.senderJid) && m.sender !== client.user.lid) return;
+  if (![...configuracion.owners.map((number) => number.replace(/[^0-9]/g, "") + "@s.whatsapp.net")].includes(m.senderJid) && m.sender !== client.user.lid) return;
   if (!m.isGroup) return;
   if (!isBotAdmin) return;
 

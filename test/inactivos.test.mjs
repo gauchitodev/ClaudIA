@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { numeroReciclado, unNumero, unaLid } from "./identidad-escenarios.mjs";
 import { COINS } from "../lib/urucoins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 const DIA = 24 * 60 * 60 * 1000;
 let F, I, CG, Inactivos, Kick;
@@ -414,8 +415,8 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
   const participants = [{ id: "4444@lid", admin: null }, { id: "555@lid", admin: null }, { id: "666@lid", admin: null }, { id: "59899000556@s.whatsapp.net", admin: null }];
   miembros.set(chat, participants);
   const mapa = { "59899777777@s.whatsapp.net": "4444@lid", "59899000555@s.whatsapp.net": "555@lid", "556@lid": "59899000556:0@s.whatsapp.net" };
-  const ownersReales = globalThis.owners;
-  globalThis.owners = [...ownersReales, "59899777777"];
+  const ownersReales = configuracion.owners;
+  configuracion.owners = [...ownersReales, "59899777777"];
   // Like Baileys' (Signal/lid-mapping.js, in node_modules): pairs of { pn, lid } for many at once, and one at a time
   // through those.
   const lidMapping = { getLIDsForPNs: async (pns) => pns.filter((pn) => mapa[pn]).map((pn) => ({ pn, lid: mapa[pn] })), getPNsForLIDs: async (lids) => lids.filter((lid) => mapa[lid]).map((lid) => ({ lid, pn: mapa[lid] })) };
@@ -426,7 +427,7 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
     await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
   } finally {
     delete globalThis.client.signalRepository;
-    globalThis.owners = ownersReales;
+    configuracion.owners = ownersReales;
   }
   assert.deepEqual(ultimoEnviado().msg.mentions, ["666@lid"]);
 });
@@ -452,14 +453,14 @@ test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de 
   mapa.getLIDForPN = async (pn) => (await mapa.getLIDsForPNs([pn]))?.[0]?.lid || null;
   mapa.getPNForLID = async (lid) => (await mapa.getPNsForLIDs([lid]))?.[0]?.pn || null;
   const ID = await import("../lib/identidad.js");
-  const [ownersReales, consultaReal, esperarReal] = [globalThis.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar];
+  const [ownersReales, consultaReal, esperarReal] = [configuracion.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar];
   // Put back by t.after, which runs also when the test runs out of its time: a finally after the hang never came, and
   // the next test ran with all of this still in place.
   t.after(() => {
     delete globalThis.client.signalRepository;
-    [globalThis.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar] = [ownersReales, consultaReal, esperarReal];
+    [configuracion.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar] = [ownersReales, consultaReal, esperarReal];
   });
-  globalThis.owners = [...ownersReales, ...nuevos];
+  configuracion.owners = [...ownersReales, ...nuevos];
   globalThis.client.signalRepository = { lidMapping: mapa };
   I.INACTIVOS.CONSULTA_MS = 100;
   // The time limit, without the clock: it goes by once what's already answered is in. Measured, it failed under load.

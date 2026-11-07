@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { limpiarNombre } from "../lib/comandos.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // The menus are written by hand and the plugin.cmd lists change on their own: this keeps them from drifting apart.
 // Until now the discipline was manual (the comment in lib/menu-ventas.js), and nothing warned when a menu ended
@@ -24,9 +25,7 @@ const declarados = new Map(); // plugin file -> its commands exactly as declared
 
 before(async () => {
   globalThis.client = { user: { lid: "999000@lid", id: "59899000000@s.whatsapp.net", jid: "59899000000@s.whatsapp.net" } };
-  globalThis.prefix = [".", "/", "@"];
-  globalThis.owners = ["59899111222"];
-  globalThis.baileys = "@whiskeysockets/baileys"; // the dynamic import in plugins/_anti-delete-messages.js expects it
+  configuracion.owners = ["59899111222"];
 
   for (const archivo of fs.readdirSync(CARPETA).filter((f) => f.endsWith(".js"))) {
     const mod = await import(pathToFileURL(path.join(CARPETA, archivo)).href);
@@ -101,8 +100,8 @@ test("no hay dos plugins declarando el mismo comando", () => {
 });
 
 test("la versión que cuenta Claudia es la del menú y .estado, y el historial arranca por ella", async () => {
-  // Claudia said 3.1 while the menu and .estado, which read package.json (globals.js), still said v3.0.0. The whole
-  // version counts, patch included; only a .0 patch is left out, the way the manual writes it (3.4 for 3.4.0).
+  // Claudia said 3.1 while the menu and .estado, which read package.json (lib/configuracion.js), still said v3.0.0. The
+  // whole version counts, patch included; only a .0 patch is left out, the way the manual writes it (3.4 for 3.4.0).
   const { VERSION, CAMBIOS } = await import("../lib/manual-claudia.js");
   const paquete = JSON.parse(fs.readFileSync(path.join(RAIZ, "package.json"), "utf8"));
   assert.equal(paquete.version.replace(/\.0$/, ""), VERSION, "package.json y lib/manual-claudia.js tienen que ir juntos");

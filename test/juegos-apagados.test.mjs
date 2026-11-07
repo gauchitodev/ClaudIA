@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 // .juego <nombre> on|off (plugins/juego.js, lib/juegos-apagados.js): one game switched off at a time, per group. The
 // catalogue against the real plugins, how a name is read, what is kept in the database, the texts, the notice's limit,
@@ -15,8 +16,7 @@ const ADMIN = "300000000000051@lid";
 let F, J, Plugin, Config, plugins;
 before(async () => {
   ({ F } = await prepararBase("juegos-apagados"));
-  globalThis.botVersion = "v3.3.0";
-  globalThis.baileys = "@whiskeysockets/baileys"; // plugins/_anti-delete-messages.js imports it dynamically
+  configuracion.botVersion = "v3.3.0";
   // The real plugins, as the bot loads them: the catalogue is checked against their commands and flags.
   plugins = {};
   for (const archivo of fs.readdirSync(path.join(RAIZ, "plugins")).filter((f) => f.endsWith(".js"))) {

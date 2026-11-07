@@ -3,6 +3,7 @@
 // file shares one database, and two scenarios with the same ids would see each other's rows. They write to the
 // database prepararBase (helpers.mjs) publishes. And the commands that name someone.
 import { G } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 export const unaLid = (n, k = 1) => `3${String(n).padStart(6, "0")}${String(k).padStart(8, "0")}@lid`;
 export const unNumero = (n) => `59899${String(n).padStart(6, "0")}@s.whatsapp.net`;
@@ -62,14 +63,14 @@ export function filaVieja(n, { dispositivo = false } = {}) {
   return { X, LID, DISPOSITIVO };
 }
 
-// An owner, on globalThis.owners as config.toml has it (comoEnConfig, the bare digits if not given), with their LID
+// An owner, on configuracion.owners as config.toml has it (comoEnConfig, the bare digits if not given), with their LID
 // row; with filaAjena, someone else's row that still has the owner's number. The owners come back after the test.
 export function owner(t, n, { comoEnConfig = null, filaAjena = false } = {}) {
   const [X, LID, AJENA] = [unNumero(n), unaLid(n, 1), unaLid(n, 9)];
-  const antes = globalThis.owners;
-  globalThis.owners = [comoEnConfig ?? digitos(X)];
+  const antes = configuracion.owners;
+  configuracion.owners = [comoEnConfig ?? digitos(X)];
   t.after(() => {
-    globalThis.owners = antes;
+    configuracion.owners = antes;
   });
   fila(LID, X, "Owner", 2);
   if (filaAjena) fila(AJENA, X, "Ajena", 1);

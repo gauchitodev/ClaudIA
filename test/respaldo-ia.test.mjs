@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { sinRazonamiento, preguntarRespaldo, objetoJson } from "../lib/respaldo-ia.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // The AI fallback talks to the providers through fetch; here the global fetch is swapped for canned answers, per model.
 // Only Groq has a key, so the cascade is Groq's three models in order.
@@ -10,7 +11,7 @@ const pedidos = []; // the models asked, in order
 const fetchReal = globalThis.fetch;
 const logReal = console.log;
 before(() => {
-  Object.assign(globalThis, { groqApiKey: "clave", openrouterApiKey: "", nvidiaApiKey: "", cerebrasApiKey: "" });
+  Object.assign(configuracion, { groqApiKey: "clave", openrouterApiKey: "", nvidiaApiKey: "", cerebrasApiKey: "" });
   console.log = () => {}; // the cascade narrates every failure
   globalThis.fetch = async (url, opciones) => {
     const { model } = JSON.parse(opciones.body);

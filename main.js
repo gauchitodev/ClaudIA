@@ -1,5 +1,6 @@
 import "./globals.js";
-const { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = await import(baileys);
+import { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
+import { configuracion } from "./lib/configuracion.js";
 import { rmSync, mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
@@ -22,6 +23,10 @@ const handler = await import("./handle-message.js");
 
 serialize();
 
+// The folder WhatsApp's session is kept in, so that the bot doesn't pair again on each start (README); deleted when the
+// session is closed from the phone. It was a global (authFile) that only this file read.
+const CARPETA_DE_SESION = "botSession";
+
 let intentosReconexion = 0;
 const MAX_REINTENTOS = 5;
 let reconectando = false;
@@ -29,7 +34,7 @@ let yaConectoAlgunaVez = false;
 let horaConexion = 0;
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(authFile);
+  const { state, saveCreds } = await useMultiFileAuthState(CARPETA_DE_SESION);
 
   const { version, isLatest } = await fetchLatestBaileysVersion();
   console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
@@ -58,10 +63,10 @@ async function startBot() {
 
   client.ev.on("creds.update", saveCreds);
 
-  if (!client.authState.creds.registered && numberBot && numberBot !== "") {
+  if (!client.authState.creds.registered && configuracion.numberBot) {
     setTimeout(async () => {
       try {
-        let pairingCode = await client.requestPairingCode(numberBot);
+        let pairingCode = await client.requestPairingCode(configuracion.numberBot);
         pairingCode = pairingCode?.match(/.{1,4}/g)?.join("-");
         console.log(`\n🔑 CÓDIGO DE VINCULACIÓN: ${pairingCode}\n`);
       } catch (e) {
@@ -77,14 +82,14 @@ async function startBot() {
       if (!globalThis.horaCaida) globalThis.horaCaida = Date.now();
     }
 
-    if (!numberBot && qr) {
+    if (!configuracion.numberBot && qr) {
       qrcode.generate(qr, { small: true });
       console.log("📌 Escaneá este QR antes de que cambie: el primero dura un minuto y los siguientes, 20 segundos.");
     }
 
     if (connection === "close" && lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
       console.log('❌ La sesión fue cerrada desde WhatsApp. Se borrarán las credenciales.');
-      rmSync(`./${globalThis.authFile}`, { recursive: true, force: true });
+      rmSync(`./${CARPETA_DE_SESION}`, { recursive: true, force: true });
       setTimeout(() => process.exit(0), 2000);
       return;
     }
@@ -122,7 +127,7 @@ async function startBot() {
       // Notify the owner: on process start, and when coming back from a long outage.
       if (!globalThis.avisoArranqueEnviado) {
         globalThis.avisoArranqueEnviado = true;
-        avisarOwner(`Arranqué (${globalThis.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
+        avisarOwner(`Arranqué (${configuracion.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
       } else if (globalThis.horaCaida && Date.now() - globalThis.horaCaida > 5 * 60 * 1000) {
         avisarOwner(`Volví después de ${Math.round((Date.now() - globalThis.horaCaida) / 60000)} min sin conexión.`, "reconexion");
       }
@@ -190,7 +195,7 @@ async function startBot() {
 // Resolves the internal ID of the channel configured under [canal] in config.toml from its invite link.
 // Done once per process; if it fails, files go out without the channel tag.
 async function resolverCanal() {
-  const enlace = globalThis.canalConfig?.enlace;
+  const enlace = configuracion.canalConfig?.enlace;
   if (!enlace || globalThis.canal) return;
   const codigo = enlace.split("/channel/")[1]?.split(/[/?#]/)[0];
   if (!codigo) return console.error("[canal] el enlace del config no parece un link de canal (whatsapp.com/channel/...)");
@@ -198,7 +203,7 @@ async function resolverCanal() {
     const meta = await client.newsletterMetadata("invite", codigo);
     if (!meta?.id) throw new Error("WhatsApp no devolvió el ID del canal");
     const nombreReal = meta.name || meta.thread_metadata?.name?.text || "";
-    globalThis.canal = { jid: meta.id, nombre: globalThis.canalConfig.nombre || nombreReal };
+    globalThis.canal = { jid: meta.id, nombre: configuracion.canalConfig.nombre || nombreReal };
     console.log(`📣 Canal para la etiqueta de los archivos: ${globalThis.canal.nombre} (${meta.id})`);
   } catch (e) {
     console.error("[canal] no se pudo resolver el link del canal:", e.message);

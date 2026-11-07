@@ -1,7 +1,7 @@
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { nombreDeGrupo } from "../lib/cache-grupos.js";
 import { esVistaUnica } from "../lib/vista-unica.js";
 import { esElBot } from "../lib/identidad.js";
-const { downloadContentFromMessage } = await import(baileys);
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, chat, isWaAdmin }) => {

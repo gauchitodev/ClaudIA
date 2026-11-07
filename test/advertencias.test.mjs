@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, Warn, Unwarn, Lista;
 const H = "otro@g.us";
@@ -119,7 +120,7 @@ test("no se puede advertir al bot ni a un dueño", async () => {
   assert.equal(globalThis.enviados.length, 0, "al bot no");
 
   const ownerLid = "777@lid";
-  F.initDataDB({ chat: G, sender: ownerLid, senderJid: `${globalThis.owners[0]}@s.whatsapp.net` });
+  F.initDataDB({ chat: G, sender: ownerLid, senderJid: `${configuracion.owners[0]}@s.whatsapp.net` });
   await correr(Warn, "@777 por algo", { mentionedJid: [ownerLid] });
   assert.equal(F.advertenciasDe(ownerLid, G), 0, "a un dueño tampoco");
 });

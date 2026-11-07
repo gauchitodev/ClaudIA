@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { WAMessageStubType } from "@whiskeysockets/baileys";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // The whole of handle-message, from the message as Baileys hands it over: the hooks in their order (hooksEnOrden,
 // load-functions.js) and then the command. The plugins of each test are the real ones (or a spy standing in for a
@@ -25,8 +26,7 @@ const ritmoReal = {};
 
 before(async () => {
   ({ F } = await prepararBase("handle-message"));
-  globalThis.geminiApiKey = "clave";
-  globalThis.baileys = "@whiskeysockets/baileys"; // the dynamic import in plugins/_anti-delete-messages.js expects it
+  configuracion.geminiApiKey = "clave";
   ({ RITMO, esperarTurno } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS", "MIN_ENTRE_MENSAJES_MS"]) ritmoReal[k] = RITMO[k];
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0, MIN_ENTRE_MENSAJES_MS: 600 });
@@ -688,7 +688,7 @@ test("un aviso del grupo con el dispositivo en la LID es de la misma persona", a
   const client = cliente();
   globalThis.plugins = {};
   const grupo = "120363000000000031@g.us";
-  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const OWNER = `${configuracion.owners[0]}@s.whatsapp.net`;
   const DUENO = "300000000000061@lid";
   const ahora = () => ({ messageTimestamp: Math.floor(Date.now() / 1000), _llegada: Date.now() });
   await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id: "ABCDEF999911", participant: DUENO, participantAlt: OWNER }, message: { conversation: "hola" }, pushName: "Dueño", _upsertType: "notify", ...ahora() });
@@ -703,7 +703,7 @@ test("un mensaje con solo la LID del owner tiene sus poderes una vez que WhatsAp
   const client = cliente();
   const vistos = [];
   globalThis.plugins = { "quien.js": { cmd: ["quiensoy"], run: async (m, { isOwner }) => vistos.push(isOwner) } };
-  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const OWNER = `${configuracion.owners[0]}@s.whatsapp.net`;
   const DUENO = "300000000000063@lid";
   F.initDataDB({ chat: GRUPO, sender: DUENO, senderJid: OWNER, pushName: "Dueño" });
   const I = await import("../lib/identidad.js");

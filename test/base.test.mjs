@@ -5,9 +5,10 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
+import { configuracion } from "../lib/configuracion.js";
 
 const G = "grupo@g.us";
-globalThis.owners = ["59899111222"];
+configuracion.owners = ["59899111222"];
 globalThis.client = { user: { lid: "bot@lid" } };
 
 test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista negra global)", async () => {
@@ -482,7 +483,7 @@ test("una fila con inGroup roto se lee vacía, por getUser y por getAllUsers", a
 test("esOwner: el número del owner es de quien lo usa ahora", async () => {
   const { prepararBase } = await import("./helpers.mjs");
   const { F } = await prepararBase("owner-numero");
-  const OWNER = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const OWNER = `${configuracion.owners[0]}@s.whatsapp.net`;
   const [ANTES, DUENO] = ["300000000000771@lid", "300000000000772@lid"];
   const escribe = (sender, senderJid) => {
     const m = { chat: G, sender, senderJid, pushName: "x", isGroup: true };
@@ -492,13 +493,13 @@ test("esOwner: el número del owner es de quien lo usa ahora", async () => {
   escribe(ANTES, OWNER); // the number was someone else's
   escribe(DUENO, OWNER); // the owner's now
   assert.deepEqual([F.esOwner(ANTES), F.esOwner(DUENO)], [false, true]);
-  const owners = globalThis.owners;
-  globalThis.owners = ["59899333444"];
+  const owners = configuracion.owners;
+  configuracion.owners = ["59899333444"];
   try {
     escribe(DUENO, "59899333444@s.whatsapp.net");
     assert.equal(F.esOwner(DUENO), true, "con el número nuevo en config");
   } finally {
-    globalThis.owners = owners;
+    configuracion.owners = owners;
   }
 });
 

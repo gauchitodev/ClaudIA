@@ -1,5 +1,6 @@
 import { lidMencionadoActual, esElBot, lidDe } from "../lib/identidad.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import { configuracion } from "../lib/configuracion.js";
 
 const plugin = {};
 plugin.cmd = ["love", "gay2", "lesbiana", "zorra", "zorro", "pajero", "pajera", "puto", "puta", "infiel", "cornudo", "cornuda"];
@@ -12,7 +13,7 @@ plugin.run = async (m, { client, command, text, chat, participants }) => {
   if (command !== "love" && esElBot(who, client)) return client.sendText(m.chat, `Yo no soy ${command} como vos🤨🤨🤨`, m);
   // The "saint" is the second configured owner; their @lid is resolved, by the group and failing that the database,
   // because mentions arrive as @lid.
-  const numeroSanto = owners[1] ? String(owners[1]).replace(/[^0-9]/g, "") : "";
+  const numeroSanto = configuracion.owners[1] ? String(configuracion.owners[1]).replace(/[^0-9]/g, "") : "";
   const santoJid = numeroSanto ? `${numeroSanto}@s.whatsapp.net` : null;
   const santoLid = santoJid ? lidDe(santoJid, participants, { oElMismo: false }) : null;
   if (command !== "love" && santoJid && [santoJid, santoLid].includes(who)) return client.sendText(m.chat, concordar(`0% @${who.split("@")[0]} es un santo 😇`, generoDe(who)), m, { mentions: [who] });

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import txt from "../lib/strings.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const esperaIa = estadoDe("tools-ia", () => new Map());
@@ -24,7 +25,7 @@ const HORA = 60 * MIN;
 
 before(async () => {
   await prepararBase("gemini");
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   console.log = () => {}; // the AI modules narrate which model they try
   console.error = () => {};
   globalThis.fetch = async (url, opciones) => {

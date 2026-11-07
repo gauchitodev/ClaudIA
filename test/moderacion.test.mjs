@@ -5,6 +5,7 @@ import strings from "../lib/strings.js";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and that fell inside the first test that asks, under a time limit of its own.
 import "@whiskeysockets/baileys";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, Kick, Silenciar, Ban, Llamar;
 let expulsiones = [];
@@ -389,7 +390,7 @@ test(".fr parte el texto por el @ que está escrito, no por el id resuelto", asy
 test(".addowner saca el teléfono de una mención por LID", async () => {
   const fs = await import("fs");
   const AddOwner = (await import("../plugins/owner-add-owner.js")).default;
-  const ownersAntes = globalThis.owners;
+  const ownersAntes = configuracion.owners;
   // The plugin reads and writes config.toml in the current directory, which in the tests is a temp folder.
   fs.writeFileSync("config.toml", 'owners = ["59899000000"]\n');
 
@@ -408,7 +409,7 @@ test(".addowner saca el teléfono de una mención por LID", async () => {
   await correr(AddOwner, "@333", "addowner", { mentionedJid: ["333@lid"] });
   assert.match(ultimo(), /No se encontró el numero telefonico/);
 
-  globalThis.owners = ownersAntes;
+  configuracion.owners = ownersAntes;
 });
 
 test(".silenciar y .mute son lo mismo, y .desilenciar y .unmute también", async () => {
@@ -555,7 +556,7 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al owner", 
   const Ruleta = (await import("../plugins/fun-ruleta-del-ban.js")).default;
   const grupo = [
     { id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, // who spins it
-    { id: `${globalThis.owners[0]}@s.whatsapp.net`, lid: "770077@lid", admin: null }, // the owner, LID unknown to the bot
+    { id: `${configuracion.owners[0]}@s.whatsapp.net`, lid: "770077@lid", admin: null }, // the owner, LID unknown to the bot
     { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: "admin" },
   ];
   await Ruleta.run({ chat: J, sender: "100@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: true });
@@ -609,7 +610,7 @@ test(".del: con un rol del bot se borra solo hacia abajo; los admins de WhatsApp
   const Del = (await import("../plugins/grupo-delete-message.js")).default;
   F.initDataDB({ chat: G, sender: "400@lid", senderJid: "" });
   F.setRolGrupo(G, "400@lid", "mod", "100@lid");
-  F.initDataDB({ chat: G, sender: "7070@lid", senderJid: `${globalThis.owners[0]}@s.whatsapp.net` }); // the bot's owner
+  F.initDataDB({ chat: G, sender: "7070@lid", senderJid: `${configuracion.owners[0]}@s.whatsapp.net` }); // the bot's owner
   const conAdmin = [...participants, { id: "888@lid", admin: "admin" }, { id: "7070@lid", admin: null }];
   const borrar = async (autor, { fromMe = false, rango = { isWaAdmin: false } } = {}) => {
     const borrados = [];

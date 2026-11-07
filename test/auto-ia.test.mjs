@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import { numeroReciclado, soloPorNumero, unNumero, digitos } from "./identidad-escenarios.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -21,7 +22,7 @@ const tipeoReal = {};
 
 before(async () => {
   ({ F } = await prepararBase("auto-ia"));
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0 }); // no "typing..." wait

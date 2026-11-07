@@ -11,7 +11,6 @@ serialize();
 let A;
 const OTRO = "otro@g.us";
 before(async () => {
-  globalThis.baileys = "@whiskeysockets/baileys"; // the plugin imports Baileys through this global
   A = (await import("../plugins/_anti-delete-messages.js")).default;
 });
 

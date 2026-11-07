@@ -7,12 +7,12 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, G, fijarSaldo } from "./helpers.mjs";
 import { conDosFilas, soloPorNumero, filaVieja, numeroReciclado, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, I, Par, Fam, D, handleMessage;
 const P = {};
 before(async () => {
   ({ F } = await prepararBase("desde-su-numero"));
-  globalThis.baileys = "@whiskeysockets/baileys";
   (await import("../lib/wa-socket.js")).serialize(); // what turns Baileys' message into the bot's m
   ({ handleMessage } = await import("../handle-message.js"));
   I = await import("../lib/identidad.js");
@@ -104,7 +104,7 @@ const llega = (client, chat, participant, texto, mentionedJid = null) =>
 test("a quien escribe desde su número, .mute, .banuser y .rd le llegan aunque su LID tenga fila", async (t) => {
   const C = "120363000000000910@g.us";
   const { X, L, porNumeroSinLid } = conDosFilas(910);
-  const [ADMIN, OWNER] = [unNumero(911), `${globalThis.owners[0]}@s.whatsapp.net`];
+  const [ADMIN, OWNER] = [unNumero(911), `${configuracion.owners[0]}@s.whatsapp.net`];
   const client = clientePorNumero(t, [...porNumeroSinLid, { id: ADMIN, admin: "admin" }, { id: OWNER, admin: null }, { id: BOT.jid, admin: "admin" }]);
   usyncFalso(t, { [X]: L }, client);
   const antes = globalThis.plugins;
@@ -142,7 +142,7 @@ test("a quien escribe desde su número, .mute, .banuser y .rd le llegan aunque s
 
 // An owner resets themselves from their number alone: both rows are theirs.
 test(".rd de un owner a sí mismo desde su número borra sus dos filas", async (t) => {
-  const X = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const X = `${configuracion.owners[0]}@s.whatsapp.net`;
   const L = unaLid(915);
   db.prepare("INSERT OR IGNORE INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(X, X, "Owner por número", 1);
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(L, "", "Owner por LID", 2);

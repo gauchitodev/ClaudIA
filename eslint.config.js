@@ -9,19 +9,13 @@ import * as url from "node:url";
 // What the bot keeps on globalThis, by what it is. A name that isn't on this list doesn't pass the lint, so a new one
 // is a decision and not a habit. One module's state goes in a variable of that module. A plugin's that has to outlive
 // the plugin being reloaded (load-functions.js imports it as a new module) goes in lib/estado-de-plugins.js: a lib/
-// module isn't reloaded, so a reloaded plugin gets the one it imports as it was. The globals used bare are another
-// such list, below.
+// module isn't reloaded, so a reloaded plugin gets the one it imports as it was. The settings (config.toml's and the
+// version) are imported from lib/configuracion.js. The globals used bare are another such list, below.
 export const EN_GLOBALTHIS = {
-  // Settings, from config.toml (globals.js).
-  configuracion: [
-    ...["authFile", "baileys", "botVersion", "canalConfig", "cerebrasApiKey", "geminiApiKey"],
-    ...["groqApiKey", "numberBot", "nvidiaApiKey", "openrouterApiKey", "prefix", "tarjetaGrupo", "tenorApiKey"],
-    ...["textoFaggi", "vozConfig"],
-  ],
-  // The process: the WhatsApp connection, the plugins, how the bot is doing, and its owners (.addowner adds one).
+  // The process: the WhatsApp connection, the plugins and how the bot is doing.
   proceso: [
     ...["avisoArranqueEnviado", "botConectado", "canal", "client", "horaCaida", "horaConexion", "modeloActivo"],
-    ...["owners", "plugins", "watchPluginsIniciado"],
+    ...["plugins", "watchPluginsIniciado"],
   ],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
@@ -135,15 +129,10 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.node,
-        // Bot globals: defined in globals.js and main.js, and used bare by the rest of the code.
-        authFile: "readonly",
-        baileys: "readonly",
-        botVersion: "readonly",
+        // The one bot global used bare: the WhatsApp connection, which main.js sets. The settings aren't globals
+        // anymore (they're imported from lib/configuracion.js, and Baileys from its package), and the plugins go by
+        // globalThis.
         client: "readonly",
-        numberBot: "readonly",
-        owners: "readonly",
-        plugins: "readonly",
-        prefix: "readonly",
         // txt isn't one anymore: the texts are imported from lib/strings.js, and a bare txt is an error here.
       },
     },

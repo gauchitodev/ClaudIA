@@ -2,6 +2,7 @@ import { preguntarGemini } from "../lib/gemini.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import txt from "../lib/strings.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // One question at a time per chat: each one is a request to the models Claudia chats with, and .ia over and over spent
 // the quota of the whole bot. It counts from the question, answered or not.
@@ -20,7 +21,7 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto }) => {
   const text = textoCompleto ?? unaLinea;
   if (!text) return client.sendText(m.chat, txt.iaPeticion, m);
 
-  if (!globalThis.geminiApiKey) {
+  if (!configuracion.geminiApiKey) {
     return client.sendText(m.chat, "Falta configurar la API key de Gemini en config.toml (geminiApiKey).", m);
   }
 

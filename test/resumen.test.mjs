@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 // .resumen (lib/resumen.js): how far back it goes (15 minutes unless asked, 6 hours at most), a header that only
 // promises what it really covers, the same summary again within 5 minutes, one new summary a minute, a long while in
@@ -19,7 +20,7 @@ const HORA = 60 * MIN;
 
 before(async () => {
   await prepararBase("resumen");
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   console.error = () => {};
   globalThis.fetch = async (url, opciones = {}) => {
     const body = JSON.parse(opciones.body);

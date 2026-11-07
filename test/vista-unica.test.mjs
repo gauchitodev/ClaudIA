@@ -16,8 +16,6 @@ serialize();
 
 const plugins = {};
 before(async () => {
-  // The anti-delete imports Baileys through this global (globals.js sets it when the bot starts).
-  globalThis.baileys = "@whiskeysockets/baileys";
   for (const nombre of ["recuperar-vista-unica", "sticker", "convert-to-url", "tools-change-resolution", "convert-to-mp3", "convert-to-ptt", "audio-effects", "grupo-hidetag", "_anti-delete-messages"]) {
     plugins[nombre] = (await import(`../plugins/${nombre}.js`)).default;
   }

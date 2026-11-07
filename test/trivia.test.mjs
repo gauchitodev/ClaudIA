@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso, ultimoEnviado, esperar, fijarSaldo } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, Tr, U, plugin;
 before(async () => {
@@ -250,7 +251,7 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
   const pedidos = [];
   const fetchReal = globalThis.fetch;
   const logReal = console.log;
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   console.log = () => {};
   globalThis.fetch = async (url) => {
     pedidos.push(String(url));
@@ -287,7 +288,7 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
   } finally {
     globalThis.fetch = fetchReal;
     console.log = logReal;
-    globalThis.geminiApiKey = "";
+    configuracion.geminiApiKey = "";
     Gem.geminiEnPausa.clear();
   }
 });
@@ -296,7 +297,7 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
 function iaFalsa(t, respuesta, cuerpos = []) {
   const fetchReal = globalThis.fetch;
   const logReal = console.log;
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   console.log = () => {};
   globalThis.fetch = async (url, opciones) => {
     cuerpos.push(String(opciones?.body || ""));
@@ -305,7 +306,7 @@ function iaFalsa(t, respuesta, cuerpos = []) {
   t.after(() => {
     globalThis.fetch = fetchReal;
     console.log = logReal;
-    globalThis.geminiApiKey = "";
+    configuracion.geminiApiKey = "";
   });
   return cuerpos;
 }
@@ -392,7 +393,7 @@ test("trivia: a la IA se le pide una pregunta sin discusión, que no dependa de 
   const cuerpos = [];
   const fetchReal = globalThis.fetch;
   const logReal = console.log;
-  globalThis.geminiApiKey = "clave";
+  configuracion.geminiApiKey = "clave";
   console.log = () => {};
   globalThis.fetch = async (url, opciones) => {
     cuerpos.push(String(opciones?.body || ""));
@@ -409,6 +410,6 @@ test("trivia: a la IA se le pide una pregunta sin discusión, que no dependa de 
   } finally {
     globalThis.fetch = fetchReal;
     console.log = logReal;
-    globalThis.geminiApiKey = "";
+    configuracion.geminiApiKey = "";
   }
 });

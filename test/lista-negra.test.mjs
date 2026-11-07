@@ -7,6 +7,7 @@ import { owner, unaLid, unNumero, digitos, usyncFalso } from "./identidad-escena
 // test's time, the more the slower the machine: 10.6 s against its 10 with the CPU at 12%.
 import "@whiskeysockets/baileys";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const listaNegraMostrada = estadoDe("grupo-lista-negra", () => new Map());
@@ -810,7 +811,7 @@ test("la lista negra deja en paz a los dueños como para sus poderes, al entrar 
   // Another owner, whose row has no number and whom WhatsApp hasn't confirmed yet: their number was listed back when it
   // was someone else's, and the group lists them with it.
   const [OL, Z] = [unaLid(831), unNumero(831)];
-  globalThis.owners = [...globalThis.owners, digitos(Z)];
+  configuracion.owners = [...configuracion.owners, digitos(Z)];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, '', 'Dueño', 1)").run(OL);
   F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);
   const conDueno = [...participants, { id: OL, phoneNumber: Z, admin: null }];
@@ -884,9 +885,9 @@ test("al escribir, a un owner sin confirmar con una entrada bajo su número se l
 // out wherever they came without the number, and the one listed got in.
 test("el owner que el grupo lista con su número no le deja su LID a la entrada de quien lo tuvo antes", async (t) => {
   const [OL, Z, VIEJO] = [unaLid(842), unNumero(842), unaLid(842, 7)];
-  const antes = globalThis.owners;
-  globalThis.owners = [digitos(Z)];
-  t.after(() => (globalThis.owners = antes));
+  const antes = configuracion.owners;
+  configuracion.owners = [digitos(Z)];
+  t.after(() => (configuracion.owners = antes));
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, '', 'Dueño', 1)").run(OL);
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, 'Viejo', 1)").run(VIEJO, Z);
   F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);

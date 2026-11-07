@@ -74,6 +74,18 @@ test("un global nuevo en globalThis no pasa el lint si no está en la lista; los
   assert.deepEqual(await reglas('db.prepare("SELECT 1");\n', "test/x.test.mjs"), []);
 });
 
+// The settings were globals, off globalThis or bare: each file imports them from lib/configuracion.js now, the
+// prefixes are lib/comandos.js's, the session's folder main.js's, and Baileys comes from its package.
+test("la configuración ya no pasa por globalThis: se importa de lib/configuracion.js", async () => {
+  const eslint = new ESLint({ cwd: RAIZ });
+  const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
+  for (const nombre of ["geminiApiKey", "owners", "botVersion", "numberBot", "vozConfig", "prefix", "authFile", "baileys"]) {
+    assert.deepEqual(await reglas(`globalThis.${nombre};\n`, "lib/x.js"), ["no-restricted-syntax"], `globalThis.${nombre}`);
+    assert.deepEqual(await reglas(`${nombre};\n`, "plugins/x.js"), ["no-undef"], nombre);
+  }
+  assert.deepEqual(await reglas('import { configuracion } from "../lib/configuracion.js";\nconfiguracion.owners;\n', "plugins/x.js"), []);
+});
+
 // The lint stops a global that isn't on the list; this, one that's on it and nothing uses anymore (one moved into its
 // module, say), which would let it come back unnoticed.
 test("la lista de globales no tiene ninguno que el código ya no use", async () => {

@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, R, P, Pf;
 before(async () => {
@@ -128,7 +129,7 @@ test("roles: el rango ordena dueño > admin de WhatsApp > admin del bot > modera
   F.initDataDB(persona(502));
   F.setRolGrupo(G, "501@lid", "admin", "100@lid");
   F.setRolGrupo(G, "502@lid", "mod", "501@lid");
-  const dueno = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const dueno = `${configuracion.owners[0]}@s.whatsapp.net`;
 
   assert.equal(R.rango(G, { jid: dueno }), 4, "al dueño lo reconoce por su número aunque no se diga");
   assert.equal(R.rango(G, { lid: "100@lid", esAdminWhatsApp: true }), 3);
@@ -223,7 +224,7 @@ test("roles: con un rol bajo cada identidad, vale el más alto, y .roles la nomb
 });
 
 test("esOwner reconoce el LID del dueño aunque tenga una fila vieja guardada por número", () => {
-  const numero = `${globalThis.owners[0]}@s.whatsapp.net`;
+  const numero = `${configuracion.owners[0]}@s.whatsapp.net`;
   F.initDataDB({ chat: numero, sender: numero, senderJid: numero }); // from before LIDs: the row is keyed by the number
   F.initDataDB({ chat: G, sender: "4242@lid", senderJid: numero }); // the same owner, now writing in a group by LID
   assert.ok(F.esOwner("4242@lid"), "solo miraba la primera fila con ese número, la vieja");

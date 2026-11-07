@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { prepararBase, G, ultimoEnviado, nodosQue, manejadorDe, dentroDe } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { configuracion } from "../lib/configuracion.js";
 
 let F, Rec, C, B, Av, CC, Mem, E, LT;
 before(async () => {
@@ -382,17 +383,17 @@ test("backup con la copia real de SQLite, rotación y envío semanal", async () 
 // A config edited by hand can start with an empty owner (config.example.toml comes with owners = [""]): the notices and
 // the weekly backup went to nobody.
 test("avisos al owner: van al primer owner con número, aunque el primero esté vacío", async () => {
-  const ownersReal = globalThis.owners;
+  const ownersReal = configuracion.owners;
   try {
-    globalThis.owners = ["", " ", "+598 99 333 444", "59899111222"];
+    configuracion.owners = ["", " ", "+598 99 333 444", "59899111222"];
     assert.equal(Av.jidOwner(), "59899333444@s.whatsapp.net");
     globalThis.enviados = [];
     assert.equal(await Av.avisarOwner("hola", "primero-vacio"), true);
     assert.equal(globalThis.enviados.at(-1).chat, "59899333444@s.whatsapp.net");
-    globalThis.owners = [""];
+    configuracion.owners = [""];
     assert.equal(Av.jidOwner(), null);
   } finally {
-    globalThis.owners = ownersReal;
+    configuracion.owners = ownersReal;
   }
 });
 
@@ -659,7 +660,7 @@ test(".emojimix: un sticker que no se pudo armar no sale como archivo, y si no s
   const P = (await import("../plugins/sticker-emoji-mix.js")).default;
   const fetchReal = globalThis.fetch;
   const errorReal = console.error;
-  globalThis.tenorApiKey = "clave";
+  configuracion.tenorApiKey = "clave";
   globalThis.fetch = async (url) => (String(url).includes("tenor.googleapis.com") ? { ok: true, status: 200, json: async () => ({ results: [{ url: "http://127.0.0.1:9/a.png" }, { url: "http://127.0.0.1:9/b.png" }] }) } : { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) });
   console.error = () => {};
   const archivos = [];
@@ -670,7 +671,7 @@ test(".emojimix: un sticker que no se pudo armar no sale como archivo, y si no s
   } finally {
     globalThis.fetch = fetchReal;
     console.error = errorReal;
-    globalThis.tenorApiKey = "";
+    configuracion.tenorApiKey = "";
   }
   assert.deepEqual(archivos, []);
   assert.deepEqual(textos, ["No pude armar el sticker de esa mezcla, probá de nuevo en un rato."]);
@@ -681,18 +682,19 @@ test(".addowner y .removeowner cambian solo la línea de owners de config.toml",
   const P = await import("../plugins/owner-add-owner.js");
   const ejemplo = fs.readFileSync(new URL("../config.example.toml", import.meta.url), "utf8").replace('owners = [""]', 'owners = ["59899111222"]');
   fs.writeFileSync("config.toml", ejemplo);
-  const ownersAntes = globalThis.owners;
+  const ownersAntes = configuracion.owners;
   try {
     const correr = (command, text) => P.default.run({ chat: "59899111222@s.whatsapp.net", sender: "59899111222@s.whatsapp.net", mentionedJid: [], quoted: null }, { client: globalThis.client, text, usedPrefix: ".", command, participants: [] });
     await correr("addowner", "+598 99 333 444");
     const despues = fs.readFileSync("config.toml", "utf8");
     assert.equal(despues, ejemplo.replace('owners = ["59899111222"]', 'owners = ["59899111222", "59899333444"]'), "todo lo demás, comentarios incluidos, queda igual");
-    assert.deepEqual(globalThis.owners, ["59899111222", "59899333444"]);
+    assert.deepEqual(configuracion.owners, ["59899111222", "59899333444"]);
     await correr("removeowner", "+598 99 333 444");
     assert.equal(fs.readFileSync("config.toml", "utf8"), ejemplo);
+    assert.deepEqual(configuracion.owners, ["59899111222"], "y en la configuración: deja de ser owner sin esperar un reinicio");
     assert.ok(!fs.existsSync("config.toml.tmp"), "el archivo de paso no queda");
   } finally {
-    globalThis.owners = ownersAntes;
+    configuracion.owners = ownersAntes;
     fs.rmSync("config.toml", { force: true });
   }
   assert.equal(P.conOwners("# x\nowners = [\n  \"1\",\n]\n", ["1", "2"]), '# x\nowners = ["1", "2"]\n', "una lista en varias líneas");

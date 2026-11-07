@@ -7,7 +7,7 @@ import path from "node:path";
 
 // globals.js sets Uruguay's time zone unless the environment brings one: the daily rounds, the trivia window, the
 // birthdays and the closings all go by it, and nothing used to set it. Each case runs in a process of its own, from an
-// empty folder (globals.js only complains that there's no config.toml).
+// empty folder (globals.js only complains that there's no config.toml nor package.json).
 
 const GLOBALS = new URL("../globals.js", import.meta.url).href;
 const MEDIODIA_UTC = "2026-01-15T12:00:00Z";
