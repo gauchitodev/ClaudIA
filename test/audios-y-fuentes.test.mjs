@@ -1,6 +1,10 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
 
 // Claudia hears an audio only when it's meant for her: a voice note answering one of her messages, or an audio quoted
 // while naming her. And when asked whether something is true she can look it up (a second query, with Google Search),
@@ -53,7 +57,7 @@ const AUDIO = Buffer.from("OggS audio de prueba");
 const audioCitado = (extra = {}) => ({ id: "AUD-1", mtype: "audioMessage", mediaType: "audioMessage", fromMe: false, text: "", seconds: 12, mimetype: "audio/ogg; codecs=opus", download: async () => AUDIO, ...extra });
 
 async function mandar(m) {
-  globalThis.autoIaCooldown.delete(C);
+  ritmoDeClaudia.delete(C);
   pedidos = [];
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const base = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text: "", mentionedJid: [], quoted: null, key: { id: `IN-${Math.random()}` } };

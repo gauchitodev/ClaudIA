@@ -2,8 +2,9 @@ import { getChat } from "../database-functions.js";
 import { mensajesRecientes, fueComando } from "../lib/contexto-chat.js";
 import { hacerVistazo, textoInforme, claveDe, citaDe } from "../lib/vistazos.js";
 import { duracion } from "../lib/tiempo.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
-if (!globalThis.vistazoAdminCooldown) globalThis.vistazoAdminCooldown = new Map();
+const vistazoAdminCooldown = estadoDe("owner-vistazo", () => new Map()); // chat -> when an admin last asked
 // An admin's glance spends a Gemini call (a test one isn't even counted in the daily cap), so one per group every so
 // often. The owner has no limit.
 const COOLDOWN_ADMIN_MS = 10 * 60 * 1000;
@@ -36,9 +37,9 @@ plugin.run = async (m, { client, args, isOwner }) => {
   const prueba = opcion === "prueba";
   if (!prueba && getChat(m.chat)?.iniciativa !== 1) return client.sendText(m.chat, "La iniciativa está apagada en este grupo: prendela con .iniciativa on, o probá sin mandar nada con .vistazo prueba.", m);
   if (!isOwner) {
-    const espera = COOLDOWN_ADMIN_MS - (Date.now() - (globalThis.vistazoAdminCooldown.get(m.chat) || 0));
+    const espera = COOLDOWN_ADMIN_MS - (Date.now() - (vistazoAdminCooldown.get(m.chat) || 0));
     if (espera > 0) return client.sendText(m.chat, `Recién miré el grupo; esperá ${duracion(espera)} para pedir otro vistazo.`, m);
-    globalThis.vistazoAdminCooldown.set(m.chat, Date.now());
+    vistazoAdminCooldown.set(m.chat, Date.now());
   }
   const informe = await hacerVistazo(client, m.chat, { motivo: isOwner ? "owner" : "admin", forzado: true, prueba });
   await client.sendText(privado, textoInforme(informe));

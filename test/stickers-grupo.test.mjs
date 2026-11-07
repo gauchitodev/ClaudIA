@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
 
 // The group's stickers (lib/stickers-grupo.js): kept as people send them, sent back at random by .stickerazar, when
 // someone answers Claudia with one (plugins/_stickers-grupo.js) and on her own in a glance (lib/vistazos.js). Gemini
@@ -17,7 +21,7 @@ const logReal = console.log;
 before(async () => {
   ({ F } = await prepararBase("stickers"));
   globalThis.geminiApiKey = "clave";
-  globalThis.autoIaCooldown = new Map();
+  ritmoDeClaudia.clear();
   ({ RITMO } = await import("../lib/ritmo.js"));
   Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0 });
   console.log = () => {};
@@ -158,7 +162,7 @@ test("nunca contesta con el mismo sticker que le mandaron; si no tiene otro, no 
   const client = clienteFalso();
   const permisos = { client, chat: {}, user: {}, isMod: false, isOwner: false };
   S._dep.random = () => 0.1;
-  globalThis.autoIaCooldown = new Map();
+  ritmoDeClaudia.clear();
 
   const solo = nuevoGrupo();
   globalThis.enviados = [];
@@ -268,7 +272,7 @@ test(".respuestastickers off: no los manda sola, ni contestando ni en el vistazo
 
   const client = clienteFalso();
   S._dep.random = () => 0.1;
-  globalThis.autoIaCooldown = new Map();
+  ritmoDeClaudia.clear();
   globalThis.enviados = [];
   await Hook.before(stickerDe(chat, webp("off"), { quoted: { fromMe: true, id: "BOT1" } }), { client, chat: F.getChat(chat), user: {}, isMod: false, isOwner: false });
   await Hook.enCurso;
@@ -333,7 +337,7 @@ test("contestando un sticker, la IA elige cuál según lo que dijo ella; 0 es ni
   const permisos = { client, chat: {}, user: {}, isMod: false, isOwner: false };
   S._dep.random = () => 0.1;
   const contestar = async (id) => {
-    globalThis.autoIaCooldown = new Map();
+    ritmoDeClaudia.clear();
     globalThis.enviados = [];
     await Hook.before(stickerDe(chat, webp("recibido"), { quoted: { fromMe: true, id, text: "hoy no hay asado, se suspende" } }), permisos);
     await Hook.enCurso;
@@ -357,7 +361,7 @@ test("contestando un sticker, la IA elige cuál según lo que dijo ella; 0 es ni
     describir(webp(c), d);
   }
   elecciones = [{ numero: 0 }];
-  globalThis.autoIaCooldown = new Map();
+  ritmoDeClaudia.clear();
   globalThis.enviados = [];
   await Hook.before(stickerDe(otro, webp("recibido"), { quoted: { fromMe: true, id: "BOT2", text: "hola" } }), permisos);
   await Hook.enCurso;
@@ -389,4 +393,23 @@ test(".stickerazar <tema> busca en lo que la IA vio de cada uno", async () => {
   assert.equal(S.shaDe(globalThis.enviados.at(-1).msg.sticker), S.shaDe(webp("t2")));
   await Azar.run({ chat, isGroup: true }, { client, text: "dinosaurio" });
   assert.match(globalThis.enviados.at(-1).msg.text, /No tengo ninguno de "dinosaurio"/);
+});
+
+// Her pace is shared with the chat (plugins/_auto-ia.js leaves it in lib/estado-de-plugins.js when she answers): right
+// after she says something, a sticker for her gets no sticker back.
+test("si recién dijo algo en la charla, no contesta un sticker; pasados los 20 s, sí", async () => {
+  const chat = nuevoGrupo();
+  // stickers of its own: another test checks that a file goes when no other group has it
+  for (const c of ["ritmo-1", "ritmo-2", "ritmo-3"]) S.guardarSticker(chat, "x", webp(c));
+  const permisos = { client: clienteFalso(), chat: {}, user: {}, isMod: false, isOwner: false };
+  S._dep.random = () => 0.1;
+  ritmoDeClaudia.set(chat, Date.now()); // as plugins/_auto-ia.js leaves it when she answers
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(chat, webp("a-ella-ritmo"), { quoted: { fromMe: true, id: "BOT-RITMO-1" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 0, "recién habló: no contesta con un sticker");
+  ritmoDeClaudia.set(chat, Date.now() - 21 * 1000);
+  await Hook.before(stickerDe(chat, webp("a-ella-ritmo"), { quoted: { fromMe: true, id: "BOT-RITMO-2" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 1, "pasados los 20 s, sí");
 });

@@ -6,6 +6,10 @@ import { owner, unaLid, unNumero, digitos, usyncFalso } from "./identidad-escena
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own, loading it was most of that
 // test's time, the more the slower the machine: 10.6 s against its 10 with the CPU at 12%.
 import "@whiskeysockets/baileys";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const listaNegraMostrada = estadoDe("grupo-lista-negra", () => new Map());
 
 let F, LN, B, P, Manejador, Detect, Identidad;
 
@@ -265,13 +269,13 @@ const PRIVADO_VLN = "59899100100@s.whatsapp.net";
 test(".ln2 con un número, sin una .vln de la última media hora, pide mirar la lista de nuevo", async () => {
   F.initDataDB({ chat: G, sender: "601@lid", senderJid: "59899000601@s.whatsapp.net", pushName: "Carla" });
   F.addToBlacklist("59899000601@s.whatsapp.net", "uno", "", G, "601@lid");
-  globalThis.listaNegraMostrada.delete(G);
+  listaNegraMostrada.delete(G);
   await correr("ln2", "1");
   assert.match(ultimo(), /^Mirá la lista negra con \.vln y después usá \.ln2 con el número que aparece ahí/);
   assert.ok(F.isBlacklisted("59899000601@s.whatsapp.net", G), "no sacó a nadie");
 
   await correr("vln", "");
-  globalThis.listaNegraMostrada.get(G).fecha -= 31 * 60 * 1000; // half an hour went by
+  listaNegraMostrada.get(G).fecha -= 31 * 60 * 1000; // half an hour went by
   await correr("ln2", "1");
   assert.match(ultimo(), /^Mirá la lista negra con \.vln/);
   assert.ok(F.isBlacklisted("59899000601@s.whatsapp.net", G));

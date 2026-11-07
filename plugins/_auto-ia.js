@@ -23,16 +23,19 @@ import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
 import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
 // what cuts the bot's message volume the most, which is what gets accounts banned.
 const COOLDOWN_MS = 20000; // 20 seconds
 
-if (!globalThis.autoIaCooldown) globalThis.autoIaCooldown = new Map();
+// chat -> when she last said something: her pace, shared with lib/vistazos.js and _stickers-grupo.js, and kept where a
+// reload of this file doesn't lose it (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map());
 // When the AI fails her (no quota, every model down, a broken answer) she says so, but not more than once every 30 min
 // per chat: with Gemini down, every message naming her would get the same notice.
-if (!globalThis.autoIaAvisoFalla) globalThis.autoIaAvisoFalla = new Map();
+const avisoFalla = estadoDe("_auto-ia/aviso-falla", () => new Map()); // chat -> when she last said so
 const AVISO_FALLA_MS = 30 * 60 * 1000;
 
 const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
@@ -158,9 +161,9 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
 
     // THROTTLE: per-chat cooldown
     const ahora = Date.now();
-    const ultimaVez = globalThis.autoIaCooldown.get(m.chat) || 0;
+    const ultimaVez = ritmoDeClaudia.get(m.chat) || 0;
     if (ahora - ultimaVez < COOLDOWN_MS) return;
-    globalThis.autoIaCooldown.set(m.chat, ahora);
+    ritmoDeClaudia.set(m.chat, ahora);
 
     // ---------- the audio, if there is one to hear ----------
     // Her own voice note answer, or the audio quoted while naming her. A song she sent with .play doesn't need
@@ -278,8 +281,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // When the AI fails her, she says so, but not more than once every AVISO_FALLA_MS per chat. A failure that wasn't
     // the quota (every model down, blocked or cut off) used to get no answer at all.
     const avisarFalla = async (texto) => {
-      if (Date.now() - (globalThis.autoIaAvisoFalla.get(m.chat) || 0) < AVISO_FALLA_MS || !puedeHablar()) return;
-      globalThis.autoIaAvisoFalla.set(m.chat, Date.now());
+      if (Date.now() - (avisoFalla.get(m.chat) || 0) < AVISO_FALLA_MS || !puedeHablar()) return;
+      avisoFalla.set(m.chat, Date.now());
       await client.sendText(m.chat, texto, null);
     };
 

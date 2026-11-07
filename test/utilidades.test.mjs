@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { prepararBase, G, ultimoEnviado, nodosQue, manejadorDe, dentroDe } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 let F, Rec, C, B, Av, CC, Mem, E, LT;
 before(async () => {
@@ -851,7 +852,7 @@ test(".avisartodos: cancelar contesta en el momento, aunque un envío esté sali
     soltar();
     await conError;
     assert.deepEqual(grupos("Con un error"), ["a@g.us", "b@g.us"], "el cortado no sigue");
-    assert.ok(globalThis.avisoATodos, "y al terminar no le saca el lugar al corregido");
+    assert.ok(estadoDe("avisar-todos", () => ({ enCurso: null })).enCurso, "y al terminar no le saca el lugar al corregido");
     await correr("cancelar");
     await corregido;
     assert.deepEqual(alDueno().filter((t) => t.startsWith("⏹️")), ["⏹️ Corté el aviso: llegó a 1 de 3 grupo(s), más el que estaba saliendo.", "⏹️ Corté el aviso: llegó a 1 de 3 grupo(s)."], "una respuesta por cada corte");

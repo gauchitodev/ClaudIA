@@ -1,6 +1,11 @@
 import { guardarSticker, mandarStickerAlAzar, mandarSticker, elegirRespuesta, describirPendientes, shaDe, STICKERS, _dep } from "../lib/stickers-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { pausa } from "../lib/pausas.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// Claudia's pace in each chat, shared with plugins/_auto-ia.js and lib/vistazos.js: she doesn't answer a sticker right
+// after saying something.
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map());
 
 // Every sticker people send in a group is kept for it (lib/stickers-grupo.js), and a sticker that answers one of
 // Claudia's messages sometimes gets one back: the one the AI picks for what she had said and what she got, or none if
@@ -16,7 +21,7 @@ export function contestaConSticker(m, { user, chat, isMod, isOwner }, ahora = Da
   if (chat?.charla === 0 || chat?.stickersAuto === 0) return false;
   if (!isOwner && (chat?.isBanned || user?.banned || (chat?.adminMode && !isMod))) return false;
   if (ahora - (ultimaRespuesta.get(m.chat) || 0) < STICKERS.RESPUESTA_PAUSA_MS) return false;
-  if (ahora - (globalThis.autoIaCooldown?.get(m.chat) || 0) < 20 * 1000) return false; // she just said something
+  if (ahora - (ritmoDeClaudia.get(m.chat) || 0) < 20 * 1000) return false; // she just said something
   return _dep.random() < STICKERS.RESPUESTA_PROBABILIDAD;
 }
 
@@ -30,7 +35,7 @@ async function atender(m, client, contestar) {
   if (eleccion && !eleccion.sha) return; // nothing she has fits: better nothing than any old one
   await pausa(1000 + Math.floor(_dep.random() * 2000)); // nobody answers a sticker in the same second
   const enviado = eleccion ? await mandarSticker(client, m.chat, eleccion.sha, m) : await mandarStickerAlAzar(client, m.chat, m, { excluir });
-  if (enviado) globalThis.autoIaCooldown?.set(m.chat, Date.now());
+  if (enviado) ritmoDeClaudia.set(m.chat, Date.now());
 }
 
 const plugin = (m) => m;

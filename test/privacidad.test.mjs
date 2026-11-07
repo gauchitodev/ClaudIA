@@ -2,6 +2,11 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
+const esperaIa = estadoDe("tools-ia", () => new Map());
 
 // What Claudia learns of each person stays in the group it was learned in (lib/memoria-persona.js); what the AI writes
 // can't tag anyone (sinMenciones in lib/menciones.js); .encuesta and .inactivos only tag who they should; and the
@@ -64,7 +69,7 @@ after(() => {
 });
 
 async function hablar(chat, texto) {
-  globalThis.autoIaCooldown.delete(chat);
+  ritmoDeClaudia.delete(chat);
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const m = { chat, isGroup: chat.endsWith("@g.us"), sender: ANA, pushName: "Ana", text: texto, mentionedJid: [], quoted: null, key: { id: `M${prompts.length}` } };
   await AutoIA.before(m, { client, participants: [], isAdmin: false, isMod: false, isOwner: false, user: F.getUser(ANA), chat: F.getChat(chat) || {} });
@@ -393,7 +398,7 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
   respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
   CC.contextoChat.delete(AMIGOS);
   const habla = async (extra) => {
-    globalThis.autoIaCooldown.delete(AMIGOS);
+    ritmoDeClaudia.delete(AMIGOS);
     const m = { chat: AMIGOS, isGroup: true, sender: ANA, pushName: "Ana", quoted: null, ...extra };
     const user = F.getUser(ANA);
     await MemoriaCorta.before(m, { user });
@@ -428,7 +433,7 @@ test(".recordá y .ia le pasan a la IA las menciones como nombres", async () => 
   assert.doesNotMatch(enElPrompt, /300000000000/);
   assert.match(enElPrompt, /"@Beto y @alguien siempre llegan tarde" · "@Beto trae el mate"/);
 
-  globalThis.esperaIa?.delete(FAMILIA);
+  esperaIa.delete(FAMILIA);
   respuestaIA = "No sé quién es";
   await IA.run({ chat: FAMILIA, sender: ANA, mentionedJid: [NADIE] }, { client: { ...clienteFalso(), sendPresenceUpdate: async () => {} }, text: "¿quién es @300000000000094?" });
   assert.match(prompts.at(-1), /¿quién es @alguien\?/);
@@ -628,7 +633,7 @@ test("Claudia no llama a nadie por los dígitos de su LID", async () => {
   const SIN_NOMBRE = "300000000000097@lid";
   F.initDataDB({ chat: AMIGOS, sender: SIN_NOMBRE, senderJid: "", pushName: null });
   const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
-  globalThis.autoIaCooldown.delete(AMIGOS);
+  ritmoDeClaudia.delete(AMIGOS);
   CC.contextoChat.delete(AMIGOS);
   respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
   const m = { chat: AMIGOS, isGroup: true, sender: SIN_NOMBRE, text: "claudia, ¿qué onda?", mentionedJid: [], quoted: null, key: { id: "SINNOMBRE1" } };

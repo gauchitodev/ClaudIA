@@ -114,3 +114,15 @@ test("grupo-llamar.js: una serie que termina sola deja de estar en curso, y otra
     mock.timers.reset();
   }
 });
+
+// The owner's numbered list of groups (.blgrupos), which the next command goes by (.blon 1): saving the plugin's file
+// left the next command without it, and it asked for the list again.
+test("owner-blacklist-grupo.js: la lista de grupos que vio el owner sigue después de recargar el archivo", async () => {
+  const client = { ...cliente(), chats: { "recarga-bl@g.us": { subject: "Grupo de la recarga" } }, insertAllGroup: async () => {} };
+  const privado = { chat: "59899000777@s.whatsapp.net", sender: "777@lid", senderJid: "59899000777@s.whatsapp.net", isGroup: false };
+  const viejo = await recargar("owner-blacklist-grupo.js");
+  await viejo.run(privado, { client, text: "", chat: {}, usedPrefix: ".", command: "blgrupos" });
+  const nuevo = await recargar("owner-blacklist-grupo.js");
+  await nuevo.run(privado, { client, text: "1", chat: {}, usedPrefix: ".", command: "blon" });
+  assert.match(client.salidas.at(-1), /Modo blacklist activado en \*Grupo de la recarga\*/);
+});

@@ -4,6 +4,7 @@ import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOw
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { nombreDe, conNombres } from "../lib/menciones.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 // Per-group blacklist: whoever is on a group's list can't get in there (their request is rejected and, if they get
 // in anyway, they're removed). Each group's admins manage it; admins and the bot's owners can't be put on it. The
@@ -13,8 +14,9 @@ plugin.cmd = ["ln", "ln2", "vln", "listanegra"];
 plugin.onlyAdmin = true;
 
 // The last list .vln showed in each group, number → entry, so ".ln2 <number>" takes off the one that was on screen even
-// after another came off (the numbers move up). In memory, for a while.
-if (!globalThis.listaNegraMostrada) globalThis.listaNegraMostrada = new Map();
+// after another came off (the numbers move up). In memory, for a while, through a reload of this file
+// (lib/estado-de-plugins.js).
+const listaNegraMostrada = estadoDe("grupo-lista-negra", () => new Map());
 const MOSTRADA_MS = 30 * 60 * 1000;
 
 plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotAdmin, isOwner, isWaAdmin }) => {
@@ -60,7 +62,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
       .join("\n");
 
     if (m.isGroup) {
-      globalThis.listaNegraMostrada.set(m.chat, { fecha: Date.now(), porNumero: new Map(entries.map((e, i) => [entries.length - i, { jid: e.jid, chat: e.chat }])) });
+      listaNegraMostrada.set(m.chat, { fecha: Date.now(), porNumero: new Map(entries.map((e, i) => [entries.length - i, { jid: e.jid, chat: e.chat }])) });
       return client.sendMessage(m.chat, { text: `${msg}\nPara sacar a alguien: ${usedPrefix}ln2 <su número en esta lista>` }, { quoted: m });
     }
     const jids = entries.map((e) => e.lid || e.jid);
@@ -75,7 +77,7 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     const entradas = getBlacklist(m.chat);
     // The one with that number in the last .vln, and only a recent one: the numbers move up when someone comes off the
     // list, and going by the list as it stood then took off someone other than the one on the screen.
-    const mostrada = globalThis.listaNegraMostrada.get(m.chat);
+    const mostrada = listaNegraMostrada.get(m.chat);
     const vigente = mostrada && Date.now() - mostrada.fecha < MOSTRADA_MS ? mostrada : null;
     if (!vigente) return client.sendText(m.chat, `Mirá la lista negra con ${usedPrefix}vln y después usá ${usedPrefix}ln2 con el número que aparece ahí: los números cambian cuando alguien sale de la lista.`, m);
     const vista = vigente.porNumero.get(numero);

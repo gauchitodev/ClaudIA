@@ -4,6 +4,10 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
 
 // The hooks (plugin.before) run one after another on every message, in the order hooksEnOrden gives
 // (load-functions.js): the moderation first, then Claudia's short-term memory, her chat last. It used to be the plugins
@@ -45,7 +49,7 @@ after(() => {
   console.log = logReal;
 });
 beforeEach(() => {
-  globalThis.autoIaCooldown.clear();
+  ritmoDeClaudia.clear();
   Tr.cerrarRonda(G);
 });
 

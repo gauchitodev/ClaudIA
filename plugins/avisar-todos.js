@@ -3,6 +3,7 @@ import { getChat } from "../database-functions.js";
 import { duracion } from "../lib/tiempo.js";
 import { sinMenciones } from "../lib/menciones.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 // The same text to every group, spaced out and at an uneven pace: a burst of identical messages to many chats is what
 // WhatsApp's spam filter looks for, and the number was already blocked once for volume. It used to go every 1.5 s, and
@@ -15,9 +16,9 @@ export const _dep = { esperar, azar: Math.random };
 // The notice going out right now, or null: { total, enviados, fallidos (the groups it surely didn't reach, for now),
 // dudosos (the ones it can't tell), nombres (each group's name), reintentando, saliendo (the group on its way),
 // cortadoDesde, control }. Spaced out like this, fifty groups take some 25 minutes: one with a typo couldn't be
-// stopped, and a second one sent meanwhile went out alongside it. In globalThis, so a reload of this file doesn't lose
-// track of it.
-if (globalThis.avisoATodos === undefined) globalThis.avisoATodos = null;
+// stopped, and a second one sent meanwhile went out alongside it. Kept where a reload of this file doesn't lose track
+// of it (lib/estado-de-plugins.js).
+const avisos = estadoDe("avisar-todos", () => ({ enCurso: null }));
 
 // Groups by their names: the owner used to hear only how many it didn't reach. A name is whatever the group's admins
 // typed, and sendText turns an "@" with digits in it into a mention: "Ventas @59899…" tagged that person where the
@@ -55,14 +56,14 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
   // pass just text.
   const text = textoCompleto ?? unaLinea;
   if (!isOwner) return client.sendText(m.chat, "Este comando es solo para el dueño del bot.", m);
-  const enCurso = globalThis.avisoATodos;
+  const enCurso = avisos.enCurso;
   // ".avisartodos cancelar" alone stops the one going out, even halfway through a wait, and says right away how far it
   // got. The corrected one can go out right after, while the send that was on its way finishes.
   if (/^(cancelar|parar)$/i.test((text || "").trim())) {
     if (!enCurso) return client.sendText(m.chat, "No hay ningún aviso saliendo.", m);
     enCurso.control.abort();
     enCurso.cortadoDesde = m.chat;
-    globalThis.avisoATodos = null;
+    avisos.enCurso = null;
     return client.sendText(m.chat, `⏹️ Corté el aviso: ${hastaDonde(enCurso)}.`, m);
   }
   if (enCurso) return client.sendText(m.chat, `📣 Ya estoy mandando un aviso: ${comoVa(enCurso)}. Esperá a que termine o cortalo con .avisartodos cancelar.`, m);
@@ -70,7 +71,7 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
 
   // Taken before the first wait, so a second .avisartodos sent right after this one finds it.
   const aviso = { total: 0, enviados: 0, fallidos: [], dudosos: [], nombres: new Map(), reintentando: false, saliendo: null, cortadoDesde: null, control: new AbortController() };
-  globalThis.avisoATodos = aviso;
+  avisos.enCurso = aviso;
   const { signal } = aviso.control;
   // Through the socket of the moment: after a reconnection, the one that took the command is closed, and everything
   // sent through it fails (main.js makes a new one, globalThis.client).
@@ -138,7 +139,7 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
     }
   } finally {
     // A cancel already let go of it, and a new notice may have taken it since.
-    if (globalThis.avisoATodos === aviso) globalThis.avisoATodos = null;
+    if (avisos.enCurso === aviso) avisos.enCurso = null;
   }
 
   await conectado(); // the owner hears how it went once there's a connection to tell them through

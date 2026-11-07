@@ -2,6 +2,10 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const esperaIa = estadoDe("tools-ia", () => new Map());
 
 // A 429 from Gemini pauses that model (lib/gemini.js): a minute, doubling while the 429s keep coming, up to 4 hours.
 // It used to be 4 hours after any 429, and a 429 is also what a per-minute limit answers: one burst of messages left
@@ -126,7 +130,7 @@ test("«por hoy» y el aviso al owner, solo cuando todos llevan una hora o más 
 test(".ia: en un tirón pide probar en un rato; «por hoy» solo con la cuota del día", async () => {
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const pedir = async () => {
-    globalThis.esperaIa.delete("g@g.us"); // the wait between questions has its own test
+    esperaIa.delete("g@g.us"); // the wait between questions has its own test
     await Ia.run({ chat: "g@g.us" }, { client, text: "hola" });
     return ultimoEnviado().msg.text;
   };
@@ -237,15 +241,15 @@ test(".ia: una pregunta cada 20 s por chat, contestada o no; en otro chat no se 
   assert.deepEqual(pedidos, [A], "sin preguntarle a la IA");
   assert.equal(await pedir("otro@g.us", "hola"), `soy ${A}`);
 
-  globalThis.esperaIa.set(C, Date.now() - 19500);
+  esperaIa.set(C, Date.now() - 19500);
   assert.equal(await pedir(C, "otra"), "Recién me preguntaron algo; probá de nuevo en 1 s.");
-  globalThis.esperaIa.set(C, Date.now() - 20000);
+  esperaIa.set(C, Date.now() - 20000);
   respuestas = todosCon(500);
   assert.equal(await pedir(C, "otra"), "Ta, se me complicó pensar ahora, probá de nuevo en un rato bo.");
   respuestas = {};
   assert.match(await pedir(C, "otra"), /^Recién me preguntaron algo; probá de nuevo en (19|20) s\.$/, "la que falló también cuenta");
 
-  globalThis.esperaIa.set(C, Date.now() - 20000);
+  esperaIa.set(C, Date.now() - 20000);
   assert.equal(await pedir(C, ""), txt.iaPeticion);
   assert.equal(await pedir(C, "hola"), `soy ${A}`, "un .ia sin pregunta no arranca la espera");
 });

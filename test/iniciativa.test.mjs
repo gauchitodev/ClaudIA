@@ -2,6 +2,10 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase } from "./helpers.mjs";
 import strings from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
 
 // Claudia's initiative: the glances (lib/vistazos.js), the feedback (lib/iniciativa.js), the hook and the commands.
 // Gemini is swapped for canned decisions; the typing wait, the pause between reactions and the dice are pinned.
@@ -237,7 +241,7 @@ test("vistazo: si mientras pensaba ya contestó en la charla, no escribe", async
   decisiones.push({ motivo: "x", reacciones: [], accion: "comentar", mensaje: 0, texto: "qué partido" });
   const client = cliente(chat);
   // Someone named her a moment ago: the chat answered, so her pace says wait.
-  globalThis.autoIaCooldown.set(chat, Date.now());
+  ritmoDeClaudia.set(chat, Date.now());
   const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
   assert.equal(client.salidas.length, 0);
   assert.equal(informe.retenido, true);
@@ -417,7 +421,7 @@ test("vistazo: si contestó en la charla recién, igual puede reaccionar", async
   const chat = nuevoGrupo();
   charlar(chat);
   decisiones.push({ motivo: "x", reacciones: [{ mensaje: 4, emoji: "😂" }], accion: "nada", mensaje: 0, texto: "" });
-  globalThis.autoIaCooldown.set(chat, Date.now());
+  ritmoDeClaudia.set(chat, Date.now());
   const client = cliente(chat);
   await V.hacerVistazo(client, chat, { ahora: AHORA });
   assert.equal(client.salidas.length, 1);
@@ -479,6 +483,24 @@ test("comandos: .vistazo es para admins, con un vistazo cada tanto; el owner no 
   assert.equal(client.salidas.at(-1).jid, m.senderJid, "el informe le llega al admin por privado");
   await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: false });
   assert.match(alGrupo(), /Recién miré el grupo; esperá (9|10) min para pedir otro vistazo\./);
+  // saving the plugin's file doesn't hand out another glance: the wait is kept in lib/estado-de-plugins.js
+  const pluginsAntes = globalThis.plugins;
+  const logReal = console.log;
+  globalThis.plugins = {};
+  console.log = () => {};
+  try {
+    const { recargarPlugin } = await import("../load-functions.js");
+    await recargarPlugin("owner-vistazo.js", "change", `${new URL("../plugins/", import.meta.url).pathname}`);
+    assert.notEqual(globalThis.plugins["owner-vistazo"], OwnerVistazo, "un módulo nuevo, como al guardar el archivo");
+    const yaSalidas = client.salidas.length;
+    await globalThis.plugins["owner-vistazo"].run(m, { client, args: ["prueba"], isOwner: false });
+    // its answer, to the group: the wait, and no report to the admin's private chat
+    assert.deepEqual([client.salidas.length, client.salidas.at(-1).jid], [yaSalidas + 1, chat]);
+    assert.match(client.salidas.at(-1).contenido.text, /Recién miré el grupo; esperá (9|10) min para pedir otro vistazo\./);
+  } finally {
+    globalThis.plugins = pluginsAntes;
+    console.log = logReal;
+  }
   const antes = client.salidas.length;
   await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: true });
   assert.equal(client.salidas.length, antes + 1);

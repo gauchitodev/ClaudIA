@@ -1,3 +1,5 @@
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
 
@@ -5,13 +7,14 @@ plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-fun
 // as they leave it on. Off unless the group turns it on. It came with the bot's original code on in every group, with
 // no way to turn it off, and deleted without a word: whoever shared it saw it vanish and didn't know why. One notice
 // per person every AVISO_UBICACION_MS, though each one is deleted: shared again and again, each time would bring the
-// same notice. Who was told when goes on globalThis: in a variable of the plugin, saving the plugin's file started it
-// over (load-functions.js imports it as a new module), and the next share brought the notice again.
+// same notice. Who was told when is kept where a reload of this file doesn't start it over
+// (lib/estado-de-plugins.js): in a variable of the plugin, saving the file (load-functions.js imports it as a new
+// module) brought the notice again.
 const AVISO_UBICACION_MS = 10 * 60 * 1000;
 // `${chat} ${sender}` -> when they were last told
-if (!globalThis.avisoUbicacionCooldown) globalThis.avisoUbicacionCooldown = new Map();
+const avisadosUbicacion = estadoDe("_chatbot-events", () => new Map());
 function hayQueAvisar(chat, sender, ahora = Date.now()) {
-  const avisados = globalThis.avisoUbicacionCooldown;
+  const avisados = avisadosUbicacion;
   for (const [clave, cuando] of avisados) if (ahora - cuando >= AVISO_UBICACION_MS) avisados.delete(clave);
   const clave = `${chat} ${sender}`;
   if (avisados.has(clave)) return false;

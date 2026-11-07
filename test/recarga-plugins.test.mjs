@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase } from "./helpers.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 // watchPlugins (load-functions.js) loads a plugin again when its file changes, without restarting the bot. It used to
 // drop the version that worked before loading the new one: a file saved halfway, or with a typo, took the command away
@@ -74,9 +75,9 @@ test("recarga: el plugin recargado ve el estado de lib/ que había, con lo que t
   }
 });
 
-// Or on globalThis, as .antiubicacion's notice keeps who was told when, one notice every so often for each person: in a
-// variable of the plugin, saving its file started it over, and the next share brought the notice again. The real
-// plugin, loaded as watchPlugins loads it.
+// Or in lib/estado-de-plugins.js, as .antiubicacion's notice keeps who was told when, one notice every so often for
+// each person: in a variable of the plugin, saving its file started it over, and the next share brought the notice
+// again. The real plugin, loaded as watchPlugins loads it.
 test("recarga: el aviso de la ubicación en tiempo real no se repite por recargar el plugin", async () => {
   const plugins = `${path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugins")}/`;
   const avisos = [];
@@ -96,7 +97,7 @@ test("recarga: el aviso de la ubicación en tiempo real no se repite por recarga
   } finally {
     console.log = logReal;
     delete globalThis.plugins["_chatbot-events"];
-    globalThis.avisoUbicacionCooldown?.clear();
+    estadoDe("_chatbot-events", () => new Map()).clear();
   }
 });
 

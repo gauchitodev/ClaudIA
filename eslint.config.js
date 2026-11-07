@@ -7,9 +7,10 @@ import * as path from "node:path";
 import * as url from "node:url";
 
 // What the bot keeps on globalThis, by what it is. A name that isn't on this list doesn't pass the lint, so a new one
-// is a decision and not a habit. One module's state goes in a variable of that module: a plugin's has to be here to
-// outlive the plugin being reloaded (load-functions.js imports it as a new module), but a lib/ module's doesn't, since
-// a reloaded plugin gets the lib/ module it imports as it was. The globals used bare are another such list, below.
+// is a decision and not a habit. One module's state goes in a variable of that module. A plugin's that has to outlive
+// the plugin being reloaded (load-functions.js imports it as a new module) goes in lib/estado-de-plugins.js: a lib/
+// module isn't reloaded, so a reloaded plugin gets the one it imports as it was. The globals used bare are another
+// such list, below.
 export const EN_GLOBALTHIS = {
   // Settings, from config.toml (globals.js).
   configuracion: [
@@ -21,12 +22,6 @@ export const EN_GLOBALTHIS = {
   proceso: [
     ...["avisoArranqueEnviado", "botConectado", "canal", "client", "horaCaida", "horaConexion", "modeloActivo"],
     ...["owners", "plugins", "watchPluginsIniciado"],
-  ],
-  // A plugin's state, which outlives a reload of the plugin (autoIaCooldown is shared with lib/vistazos.js). New state
-  // like this goes in lib/estado-de-plugins.js, which needs no globalThis.
-  estadoDePlugins: [
-    ...["autoIaAvisoFalla", "autoIaCooldown", "avisoATodos", "avisoUbicacionCooldown", "blGroupListCache", "esperaIa"],
-    ...["listaNegraMostrada", "vistazoAdminCooldown"],
   ],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
@@ -55,7 +50,7 @@ const PREGUNTALE_A_WHATSAPP = "A plugin resolves whom a message names with the v
 // out of the lint's sight.
 const GLOBAL_NO_LISTADO = {
   selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
-  message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module; a global that has to be, goes on the list.",
+  message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module, a plugin's that has to outlive a reload in lib/estado-de-plugins.js, and a global that has to be, on the list.",
 };
 // A file as a path names it: at its end, with the extension or without it, as require takes it.
 const RUTA_DE_LA_BASE = "/(^|\\/)database-functions(\\.js)?$/";

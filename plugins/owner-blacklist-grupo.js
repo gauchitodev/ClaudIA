@@ -1,13 +1,15 @@
 import { updateChat, addManyToChatBlacklist, removeManyFromChatBlacklist, getChatBlacklist, getChat } from "../database-functions.js";
 import { getComandosDeSeccion, getNombresSecciones } from "../lib/secciones.js";
 import { normalizarComando } from "../lib/comandos.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 const plugin = {};
 plugin.cmd = ["blgrupos", "blsecciones", "blon", "bloff", "bladd", "bldel", "bllist"];
 plugin.onlyOwner = true;
 
-// Temporary in-memory map: it keeps the last numbered group listing each owner saw.
-if (!globalThis.blGroupListCache) globalThis.blGroupListCache = new Map();
+// Temporary in-memory map: it keeps the last numbered group listing each owner saw, through a reload of this file
+// (lib/estado-de-plugins.js).
+const listasMostradas = estadoDe("owner-blacklist-grupo", () => new Map());
 
 plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
   // blsecciones: show the list of available sections
@@ -25,7 +27,7 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
     if (groupIds.length === 0) return client.sendText(m.chat, "El bot no está en ningún grupo todavía.", m);
 
     const lista = groupIds.map((id) => ({ id, subject: client.chats[id]?.subject || client.chats[id]?.metadata?.subject || id }));
-    globalThis.blGroupListCache.set(m.senderJid, lista);
+    listasMostradas.set(m.senderJid, lista);
 
     const texto = lista.map((g, i) => `${i + 1}. ${g.subject}`).join("\n");
     return client.sendText(m.chat, `*Grupos donde está el bot:*\n${texto}\n\nUsá el número junto al comando. Ejemplo: ${usedPrefix}blon 1`, m);
@@ -38,7 +40,7 @@ plugin.run = async (m, { client, text, chat, usedPrefix, command }) => {
   if (!m.isGroup) {
     const args = text.trim().split(/\s+/);
     const num = parseInt(args[0], 10);
-    const lista = globalThis.blGroupListCache.get(m.senderJid);
+    const lista = listasMostradas.get(m.senderJid);
 
     if (!lista) return client.sendText(m.chat, `Primero pedí la lista de grupos con *${usedPrefix}blgrupos*.`, m);
     if (!num || !lista[num - 1]) return client.sendText(m.chat, `Número de grupo inválido. Pedí la lista de nuevo con *${usedPrefix}blgrupos*.`, m);

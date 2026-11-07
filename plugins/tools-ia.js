@@ -1,11 +1,12 @@
 import { preguntarGemini } from "../lib/gemini.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 // One question at a time per chat: each one is a request to the models Claudia chats with, and .ia over and over spent
 // the quota of the whole bot. It counts from the question, answered or not.
 const ESPERA_MS = 20 * 1000;
-if (!globalThis.esperaIa) globalThis.esperaIa = new Map(); // chat -> when she was last asked
+const esperaIa = estadoDe("tools-ia", () => new Map()); // chat -> when she was last asked
 
 // The bot's number used to be one of the commands too, so "@Claudia ..." came here and got an answer without the
 // group's context. Mentioning her is now talking to her: plugins/_auto-ia.js answers it, like naming her.
@@ -24,9 +25,9 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto }) => {
   }
 
   const ahora = Date.now();
-  const falta = (globalThis.esperaIa.get(m.chat) || 0) + ESPERA_MS - ahora;
+  const falta = (esperaIa.get(m.chat) || 0) + ESPERA_MS - ahora;
   if (falta > 0) return client.sendText(m.chat, `Recién me preguntaron algo; probá de nuevo en ${Math.ceil(falta / 1000)} s.`, m);
-  globalThis.esperaIa.set(m.chat, ahora);
+  esperaIa.set(m.chat, ahora);
 
   await client.sendPresenceUpdate("composing", m.chat).catch(() => {}); // a nicety: a failure there mustn't end the command
 

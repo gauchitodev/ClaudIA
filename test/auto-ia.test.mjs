@@ -2,6 +2,11 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import { numeroReciclado, soloPorNumero, unNumero, digitos } from "./identidad-escenarios.mjs";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+// what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
+const avisoFalla = estadoDe("_auto-ia/aviso-falla", () => new Map());
 
 // Asking Claudia in plain words ("claudia, llamá a @111") runs .llamar or .tagall straight from the _auto-ia hook, past
 // the dispatcher's checks. So the hook has to apply the same rule the command has: .tagall for moderators, .llamar
@@ -42,7 +47,7 @@ after(() => {
 const C = "ia@g.us";
 const participants = [{ id: "111@lid", admin: null }, { id: "555@lid", admin: null }];
 async function pedir(texto, rango) {
-  globalThis.autoIaCooldown.delete(C); // she answers once every 20 s per group
+  ritmoDeClaudia.delete(C); // she answers once every 20 s per group
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const m = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text: texto, mentionedJid: ["111@lid"], quoted: null };
   await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, user: {}, chat: { mentions: 1 }, ...rango });
@@ -139,7 +144,7 @@ test("con .voz, Claudia contesta con nota de voz: siempre, o solo a las notas de
   };
   // What she sent: the voice notes (with ptt), the presences, and the texts.
   const hablado = async (texto, { nota = false } = {}) => {
-    globalThis.autoIaCooldown.delete(CV);
+    ritmoDeClaudia.delete(CV);
     const salidas = [];
     const client = { ...clienteFalso(), sendPresenceUpdate: async (estado) => salidas.push(`presencia:${estado}`), sendFile: async (chat, archivo, nombre, caption, quoted, ptt) => (salidas.push({ archivo: String(archivo), ptt }), { key: { id: "A" } }) };
     const base = { chat: CV, isGroup: true, sender: "555@lid", pushName: "Ana", mentionedJid: [], quoted: null };
@@ -201,7 +206,7 @@ test("con .voz, Claudia contesta con nota de voz: siempre, o solo a las notas de
 // sometimes gave the right answer away.
 
 async function citando(id, texto) {
-  globalThis.autoIaCooldown.delete(C);
+  ritmoDeClaudia.delete(C);
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
   const m = { chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text: texto, mentionedJid: [], quoted: { id, fromMe: true, text: "🎓 *Trivia* ¿Cuál es la capital de Japón?" } };
   const antes = consultasIA;
@@ -299,7 +304,7 @@ test("lo que borra un anti-link no le llega a Claudia: ni lo contesta ni lo guar
   clasificacion = { comando: "ninguno", respuesta: "Jaja no, ahí no me uno" };
   const probar = async (archivo, opciones, texto) => {
     const Hook = (await import(`../plugins/${archivo}`)).default;
-    globalThis.autoIaCooldown.delete(L);
+    ritmoDeClaudia.delete(L);
     contextoChat.delete(L);
     const borrados = [];
     const client = { ...clienteFalso(), sendPresenceUpdate: async () => {}, groupInviteCode: async () => "OTRO", groupParticipantsUpdate: async () => {} };
@@ -387,12 +392,12 @@ test("pedido a Claudia sin IA: en un tirón, que pruebe en un rato; «por hoy» 
   const fetchAntes = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: false, status: 429, text: async () => "" });
   try {
-    globalThis.autoIaAvisoFalla.clear();
+    avisoFalla.clear();
     let { textos } = await pedir("claudia contame algo", MODERADOR);
     assert.deepEqual(textos, ["Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅"]);
 
     for (const pausa of geminiEnPausa.values()) pausa.hasta = Date.now() + 2 * 60 * 60 * 1000; // hours of 429s
-    globalThis.autoIaAvisoFalla.clear();
+    avisoFalla.clear();
     ({ textos } = await pedir("claudia contame algo", MODERADOR));
     assert.deepEqual(textos, ["🤖 Se quedó sin cuota la IA (Gemini y los respaldos). Hasta que se renueve, Claudia no responde charlas.", "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅"]);
   } finally {
@@ -431,7 +436,7 @@ const BOT = "200000000000001@lid"; // Claudia's LID in these tests: digits, like
 // A message to Claudia with whatever the test needs; alPensar runs while "Gemini" thinks, bot changes her ids, and
 // participantes is the group's list.
 async function hablarle(extra, { rango = MODERADOR, chat = { mentions: 1 }, alPensar = null, grupo = C, bot = {}, participantes = participants, cliente = {} } = {}) {
-  globalThis.autoIaCooldown.delete(grupo);
+  ritmoDeClaudia.delete(grupo);
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {}, ...cliente };
   client.user = { ...client.user, lid: BOT, ...bot };
   const m = { chat: grupo, isGroup: true, sender: "555@lid", pushName: "Ana", text: "", mentionedJid: [], quoted: null, ...extra };
@@ -580,10 +585,10 @@ test("pedido a Claudia sin IA: si falla por otra cosa que la cuota, avisa, como 
   const errorReal = console.error;
   console.error = () => {}; // every model narrates its failure
   try {
-    globalThis.autoIaAvisoFalla.clear();
+    avisoFalla.clear();
     assert.deepEqual((await hablarle({ text: "claudia contame algo" })).textos, ["Uy, no me sale pensar ahora. Probá de nuevo en un rato 😅"]);
     assert.deepEqual((await hablarle({ text: "claudia contame algo" })).textos, [], "la segunda, callada");
-    globalThis.autoIaAvisoFalla.set(C, Date.now() - 31 * 60 * 1000);
+    avisoFalla.set(C, Date.now() - 31 * 60 * 1000);
     assert.equal((await hablarle({ text: "claudia contame algo" })).textos.length, 1, "media hora después, de nuevo");
   } finally {
     globalThis.fetch = fetchAntes;
