@@ -106,7 +106,7 @@ test("el voto: vale la última reacción, quitarla o cambiarla por otro emoji lo
   limpio(t);
   const C = nuevoChat();
   await desafiar(C, 1, 2);
-  await contestar(C, 2, "si");
+  await contestar(C, 2, "Sí!"); // with an accent and a sign, as people write it
   const id = boleta(C);
   reaccionar(C, id, lid(3), "🔵");
   reaccionar(C, id, lid(3), "🔴");

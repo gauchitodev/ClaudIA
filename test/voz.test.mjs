@@ -124,7 +124,7 @@ test(".voz: muestra cómo está; un admin la pone en on, siempre y off; avisa si
   assert.equal(V.modoDeVoz(G), "audios");
   assert.deepEqual([V.hablaCon(G, { notaDeVoz: true }), V.hablaCon(G, { notaDeVoz: false })], [true, false]);
   assert.match(await correr([]), /^🎙️ Voz en este grupo: cuando me hablan por nota de voz, con la voz de Elena\./);
-  assert.equal(await correr(["siempre"], { isAdmin: true }), "🎙️ Listo: en este grupo contesto todo con nota de voz, con la voz de Elena. Con .voz on hablo solo cuando me hablan por nota de voz, y con .voz off vuelvo al texto.");
+  assert.equal(await correr(["Siempre!"], { isAdmin: true }), "🎙️ Listo: en este grupo contesto todo con nota de voz, con la voz de Elena. Con .voz on hablo solo cuando me hablan por nota de voz, y con .voz off vuelvo al texto.");
   assert.deepEqual([V.hablaCon(G, { notaDeVoz: true }), V.hablaCon(G, { notaDeVoz: false })], [true, true]);
   assert.match(await correr([]), /^🎙️ Voz en este grupo: siempre, con la voz de Elena\./);
   assert.match(await correr(["a", "veces"], { isAdmin: true }), /^🎙️ Listo: contesto con nota de voz cuando me hablan por nota de voz y, de vez en cuando, alguna respuesta corta/);

@@ -81,7 +81,7 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   await correr("22-01");
   assert.match(ultimoEnviado().msg.text, /van de 22:00 a 01:00[\s\S]*apagados con \.juegos/);
   F.updateChat(G, { games: true });
-  await correr("off");
+  await correr("off."); // with a sign at the end, too
   assert.match(ultimoEnviado().msg.text, /saqué el horario/);
   assert.equal(F.getChat(G).horarioJuegos, "");
 });

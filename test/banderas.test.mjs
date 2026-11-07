@@ -25,7 +25,7 @@ function tocara(t, pais) {
 const de = (pais) => BANDERAS.find((b) => b.pais === pais);
 
 test("cada bandera tiene su país escrito como se escribe, una sola vez, y su capital", () => {
-  assert.equal(BANDERAS.length, 191);
+  assert.equal(BANDERAS.length, 195);
   assert.equal(new Set(BANDERAS.map((b) => b.pais)).size, BANDERAS.length, "sin países repetidos");
   for (const b of BANDERAS) {
     assert.match(b.pais, /^[A-ZÁÉÍÓÚÑ]/, `${b.pais}: con mayúscula`);
@@ -37,6 +37,8 @@ test("cada bandera tiene su país escrito como se escribe, una sola vez, y su ca
   assert.match(de("Sudáfrica").nota, /Ciudad del Cabo.*Bloemfontein/);
   assert.deepEqual([de("Guinea Ecuatorial").capital, de("Guinea Ecuatorial").nota], ["Ciudad de la Paz", "desde 2026; antes era Malabo"]);
   assert.equal(de("Uruguay").nota, undefined);
+  // the four the list didn't have, with every member of the UN in it now
+  assert.deepEqual(["Alemania", "Arabia Saudita", "Macedonia del Norte", "Islas Salomón"].map((p) => de(p)?.capital), ["Berlín", "Riad", "Skopie", "Honiara"]);
 });
 
 test("al acertar, la respuesta va con la bandera y la capital; vale sin tildes ni mayúsculas", async (t) => {

@@ -145,7 +145,7 @@ test("juegoApagadoPara: solo lo que empieza el juego apagado; las respuestas y s
   const f = { juegosApagados: '["aura","poker","mines","4enlinea"]' };
   assert.equal(J.juegoApagadoPara(f, "aura", ["@alguien"])?.clave, "aura");
   assert.equal(J.juegoApagadoPara(f, "aura", [])?.clave, "aura", "el ranking también es del juego");
-  for (const palabra of ["si", "sí", "SI", "no"]) assert.equal(J.juegoApagadoPara(f, "aura", [palabra]), null, palabra);
+  for (const palabra of ["si", "sí", "SI", "no", "Sí!", "no."]) assert.equal(J.juegoApagadoPara(f, "aura", [palabra]), null, palabra);
   assert.equal(J.juegoApagadoPara(f, "poker", ["100"])?.clave, "poker");
   assert.equal(J.juegoApagadoPara(f, "poker", [])?.clave, "poker");
   for (const palabra of ["empezar", "arrancar"]) assert.equal(J.juegoApagadoPara(f, "poker", [palabra])?.clave, "poker", `repartir es jugar (${palabra})`);
@@ -174,16 +174,6 @@ test("los textos: el estado, el rechazo, y el aviso que sale una vez cada 10 min
   assert.equal(J.correspondeAvisarApagado(G, "ruleta", t0 + 1000), true, "otro juego, su propio aviso");
   assert.equal(J.correspondeAvisarApagado("otro@g.us", "mines", t0 + 1000), true, "otro grupo también");
   assert.equal(J.correspondeAvisarApagado(G, "mines", t0 + J.JUEGOS_APAGADOS.AVISO_CADA_MS), true);
-  for (const [palabra, valor] of [
-    ["on", true],
-    ["Prender", true],
-    ["sí", true],
-    ["off", false],
-    ["apagar", false],
-    ["no", false],
-    ["xyz", null],
-    ["", null],
-  ]) assert.equal(J.leerInterruptor(palabra), valor, palabra);
 });
 
 test(".juego: lista, apaga y prende por nombre o alias, invierte sin palabra, y explica lo que no entiende", async () => {

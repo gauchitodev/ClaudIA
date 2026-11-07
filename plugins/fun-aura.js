@@ -2,6 +2,7 @@ import { desafiarAura, aceptarAura, rechazarAura, retadoEn, textoAura } from "..
 import { mencionadoActual, comoLoEsperan, esElBot } from "../lib/identidad.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { modoDeNombre, nombrandoPor } from "../lib/menciones.js";
+import { limpiarPalabra } from "../lib/comandos.js";
 
 // .aura @persona, or replying to their message: an aura duel (lib/aura.js) · .aura si / .aura no: the answer of whoever
 // was challenged, and .aura no from whoever challenged takes it back · .aura alone, or replying to Claudia: the
@@ -11,7 +12,8 @@ plugin.cmd = ["aura"];
 plugin.juego = true; // .juegos off and .modo compraventa stop it
 plugin.onlyGroup = true;
 
-const RESPUESTAS = { si: "si", sí: "si", no: "no" };
+// The answer, read as the command's name is (lib/comandos.js): ".aura sí!" was no answer, and "sí" is "si".
+const RESPUESTAS = { si: "si", no: "no" };
 
 plugin.run = async (m, { client, text, participants }) => {
   // What goes out minutes later (the expiry, the result) goes through the socket of the moment: a reconnection in
@@ -21,7 +23,7 @@ plugin.run = async (m, { client, text, participants }) => {
   const responder = (r) => (r.ok ? client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions || [] }, { quoted: m }) : client.sendText(m.chat, `❌ ${r.error}`, m));
 
   const { modo, texto } = modoDeNombre(text);
-  const respuesta = RESPUESTAS[(texto.trim().split(/\s+/)[0] || "").toLowerCase()];
+  const respuesta = RESPUESTAS[limpiarPalabra(texto.trim().split(/\s+/)[0])];
   if (respuesta) {
     // Challenged by their LID, whoever writes from their number alone answers from it (lib/identidad.js).
     const como = await comoLoEsperan(client, m, participants, retadoEn(m.chat, m.sender));

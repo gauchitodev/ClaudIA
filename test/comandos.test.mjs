@@ -104,6 +104,26 @@ test("leerEntero: «1.000» es mil; un decimal, una coma, letras o un punto fuer
   assert.equal(C.leerEntero("--5", { negativos: true }), null);
 });
 
+// The word of every switch, read as a command's name is: ".juegos off." and ".iniciativa Sí!" said nothing they knew.
+// It used to live in lib/juegos-apagados.js, and .juegos and .iniciativa each kept their own copy of the words.
+test("leerInterruptor: on, off o nada, también con un signo pegado, con tilde o en mayúsculas", () => {
+  for (const [palabra, valor] of [
+    ["on", true],
+    ["Prender", true],
+    ["sí", true],
+    ["Sí!", true],
+    ["ON.", true],
+    ["off", false],
+    ["apagar", false],
+    ["no", false],
+    ["off.", false],
+    ["NO!", false],
+    ["xyz", null],
+    ["", null],
+    [undefined, null],
+  ]) assert.equal(C.leerInterruptor(palabra), valor, String(palabra));
+});
+
 // What comes after a command is read as its name is: ".ruleta 20." asked how much, and ".poker salir!" showed the help.
 test("un signo pegado al final no cambia un monto ni una palabra, como no cambia el nombre del comando", () => {
   for (const [texto, n] of [["20.", 20], ["20!", 20], ["1.000.", 1000], ["5,", 5], ["100?!", 100], ["\u200b30\u200b", 30]]) assert.equal(C.leerEntero(texto), n, texto);

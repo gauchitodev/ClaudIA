@@ -97,6 +97,10 @@ test("config: on y off fijan el interruptor, sin nada lo invierte, y otra palabr
   assert.equal(F.getChat(G).casino, 0);
   await correr("casino", ["OFF"]);
   assert.equal(F.getChat(G).casino, 0, "off dos veces lo deja apagado");
+  await correr("casino", ["on."]);
+  assert.equal(F.getChat(G).casino, 1, "con un signo pegado al final, también");
+  await correr("casino", ["Off!"]);
+  assert.equal(F.getChat(G).casino, 0);
   await correr("casino", ["prender"]);
   assert.equal(F.getChat(G).casino, 1);
   await correr("casino", []);

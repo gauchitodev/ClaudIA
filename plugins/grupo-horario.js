@@ -1,4 +1,5 @@
 import { fijarHorarioGrupo, quitarHorarioGrupo, textoHorarioGrupo, chequearHorariosGrupo } from "../lib/horario-grupo.js";
+import { limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["horariogrupo", "horario"];
@@ -12,7 +13,8 @@ plugin.onlyAdmin = true;
 plugin.run = async (m, { client, text }) => {
   const pedido = (text || "").trim().toLowerCase();
   if (!pedido) return client.sendText(m.chat, textoHorarioGrupo(m.chat), m);
-  if (/^(off|no|quitar|sacar|borrar|siempre)$/.test(pedido)) return client.sendText(m.chat, (await quitarHorarioGrupo(m.chat, client)).mensaje, m);
+  // the word, read as the command's name is (lib/comandos.js): ".horariogrupo off." was taken for a schedule
+  if (/^(off|no|quitar|sacar|borrar|siempre)$/.test(limpiarPalabra(pedido))) return client.sendText(m.chat, (await quitarHorarioGrupo(m.chat, client)).mensaje, m);
   const r = fijarHorarioGrupo(m.chat, pedido);
   if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
   await client.sendText(m.chat, r.mensaje, m);

@@ -1,13 +1,10 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 import txt from "../lib/strings.js";
+import { leerInterruptor, limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
 plugin.botAdmin = true;
-
-// The same words .iniciativa takes.
-const PRENDER = new Set(["on", "prender", "activar", "si", "sí"]);
-const APAGAR = new Set(["off", "apagar", "desactivar", "no"]);
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, isAdmin, chat, botSettings }) => {
   // Command map, with the real DB field
@@ -86,14 +83,15 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
   // casino's own notice (handle-message.js) tell people to use it. Any other word touches nothing: ".bc hola" used to
   // ban the chat.
   const nombreComando = command === "18" ? "modoadulto" : command;
-  const pedido = (args[0] || "").toLowerCase();
-  if (pedido && !PRENDER.has(pedido) && !APAGAR.has(pedido)) {
+  const pedido = limpiarPalabra(args[0]);
+  const prender = leerInterruptor(pedido);
+  if (pedido && prender === null) {
     return client.sendText(m.chat, `Usá ${usedPrefix}${nombreComando} on o ${usedPrefix}${nombreComando} off (sin nada, lo invierte).`, m);
   }
 
   // actualizar DB
   const actual = Boolean(esChat ? chat[opcion.key] : botSettings[opcion.key]);
-  const nuevoValor = PRENDER.has(pedido) ? true : APAGAR.has(pedido) ? false : !actual;
+  const nuevoValor = prender ?? !actual;
 
   if (nuevoValor !== actual) {
     if (esChat) updateChat(m.chat, { [opcion.key]: nuevoValor });

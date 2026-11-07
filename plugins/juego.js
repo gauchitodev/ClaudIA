@@ -3,7 +3,8 @@
 // it back; without on or off it flips, as .juegos does; .juego alone says how each one is. For the group's admins and
 // the bot's, like .horariojuegos: Claudia needn't be a WhatsApp admin to refuse her own games. .juegos and .casino
 // still turn everything off at once.
-import { JUEGOS, juegoDe, apagadosDe, apagar, prender, leerInterruptor, textoEstado, avisoGenerales } from "../lib/juegos-apagados.js";
+import { JUEGOS, juegoDe, apagadosDe, apagar, prender, textoEstado, avisoGenerales } from "../lib/juegos-apagados.js";
+import { leerInterruptor } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["juego"];

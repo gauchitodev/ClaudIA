@@ -346,7 +346,7 @@ test("comandos: .iniciativa muestra, prende y apaga; .vistazo prueba no toca nad
   const cita = client.salidas.find((s) => s.contenido.text === "(prueba de cita)");
   assert.equal(cita.quoted.key.id, "PA5");
 
-  await Iniciativa.run(m, { client, args: ["off"], isAdmin: true, isOwner: false });
+  await Iniciativa.run(m, { client, args: ["Off."], isAdmin: true, isOwner: false }); // with a sign at the end, too
   assert.equal(F.getChat(chat).iniciativa, 0);
   assert.equal(F.estadoIniciativa(chat).proximoVistazo, 0);
 });

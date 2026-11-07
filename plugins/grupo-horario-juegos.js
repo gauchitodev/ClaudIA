@@ -1,4 +1,5 @@
 import { fijarHorario, quitarHorario, horarioDe, textoHorario, juegosAbiertos } from "../lib/horario-juegos.js";
+import { limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["horariojuegos", "juegoshorario"];
@@ -18,7 +19,8 @@ plugin.run = async (m, { client, text, chat }) => {
     return client.sendText(m.chat, `🕒 En este grupo, el casino, el ta-te-ti y el 4 en línea van ${textoHorario(h)}; ${estado}.\n\n.horariojuegos off lo saca, .horariojuegos 21:00-00:00 lo cambia.${avisoApagados}`, m);
   }
 
-  if (/^(off|no|quitar|sacar|borrar|siempre)$/.test(pedido)) return client.sendText(m.chat, quitarHorario(m.chat).mensaje, m);
+  // the word, read as the command's name is (lib/comandos.js): ".horariojuegos off." was taken for a schedule
+  if (/^(off|no|quitar|sacar|borrar|siempre)$/.test(limpiarPalabra(pedido))) return client.sendText(m.chat, quitarHorario(m.chat).mensaje, m);
 
   const r = fijarHorario(m.chat, pedido);
   return client.sendText(m.chat, r.ok ? r.mensaje + avisoApagados : `❌ ${r.error}`, m);

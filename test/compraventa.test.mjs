@@ -573,7 +573,7 @@ test("compraventa: el horario del grupo sin admin avisa una vez, reintenta cada 
     admin = false; // and taken away again: .horariogrupo off works anyway
     const HGp = (await import("../plugins/grupo-horario.js")).default;
     assert.ok(!HGp.botAdmin, "sin admin, sacar el horario es justo lo que hace falta");
-    await HGp.run({ ...msg("111@lid", "off"), chat: H }, { client: cliente2, text: "off" });
+    await HGp.run({ ...msg("111@lid", "off."), chat: H }, { client: cliente2, text: "off." }); // a sign at the end, too
     assert.match(ultimo(), /Lo dejé cerrado porque no pude abrirlo \(no soy admin\): abrilo a mano\./);
     assert.equal(F.getChat(H).horarioGrupo, "");
   } finally {

@@ -1,5 +1,6 @@
 import { fijarVoz, textoVoz, hayVoz, nombreDeLaVoz } from "../lib/voz.js";
 import txt from "../lib/strings.js";
+import { limpiarPalabra } from "../lib/comandos.js";
 
 // .voz: whether Claudia answers with a voice note in this group (lib/voz.js). .voz on: when they talk to her by voice
 // note; .voz aveces: that, and now and then a short answer; .voz siempre: everything she says in the chat; .voz off: text. Admins change it; .voz alone shows how it is.
@@ -11,7 +12,8 @@ plugin.onlyGroup = true;
 const OPCIONES = { on: "audios", prender: "audios", activar: "audios", audios: "audios", audio: "audios", siempre: "siempre", todo: "siempre", aveces: "aveces", "a veces": "aveces", "de vez en cuando": "aveces", off: "", apagar: "", desactivar: "", no: "" };
 
 plugin.run = async (m, { client, args = [], isAdmin, isOwner }) => {
-  const opcion = args.join(" ").toLowerCase().trim();
+  // read as the command's name is (lib/comandos.js): ".voz on." and ".voz Siempre!" said nothing it knew
+  const opcion = limpiarPalabra(args.join(" "));
   if (!opcion) return client.sendText(m.chat, textoVoz(m.chat), m);
   if (!(opcion in OPCIONES)) return client.sendText(m.chat, "❌ Las opciones son .voz on (contesto con nota de voz cuando me hablan por nota de voz), .voz aveces (eso y, de vez en cuando, alguna respuesta corta), .voz siempre (todo por voz) y .voz off.", m);
   if (!isAdmin && !isOwner) return client.sendText(m.chat, txt.onlyAdmin, m);
