@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // .menu (lib/menu.js): a short index with what the group uses most (counted by lib/usos.js), one topic per .menu <tema>
 // and everything with .menu todo. It used to be a single message of 233 lines, with the admin and settings commands
@@ -279,12 +280,12 @@ test("lo más usado: cada comando de la lista fija tiene su línea para todos", 
 test(".menu: manda el índice citando y reacciona; con el modo blacklist marca lo bloqueado", async () => {
   F.initDataDB({ chat: G, sender: "111@lid", senderJid: "", pushName: "Ana" });
   const m = { chat: G, isGroup: true, pushName: "Ana", key: { id: "PEDIDO" } };
-  await Menu.run(m, { client: globalThis.client, usedPrefix: ".", args: [], chat: F.getChat(G), isMod: false, isOwner: false });
+  await Menu.run(m, { client: conexion.client, usedPrefix: ".", args: [], chat: F.getChat(G), isMod: false, isOwner: false });
   const [indice, reaccion] = globalThis.enviados.slice(-2);
   assert.match(indice.msg.text, /^👋 \*Hola, Ana\*/);
   assert.equal(reaccion.msg.react.text, "📚");
   F.addToChatBlacklist(G, "trivia");
-  await Menu.run(m, { client: globalThis.client, usedPrefix: ".", args: ["juegos"], chat: { ...F.getChat(G), blacklistMode: 1 }, isMod: false, isOwner: false });
+  await Menu.run(m, { client: conexion.client, usedPrefix: ".", args: ["juegos"], chat: { ...F.getChat(G), blacklistMode: 1 }, isMod: false, isOwner: false });
   assert.match(globalThis.enviados.at(-2).msg.text, /▸ \.trivia .+ 🔒/);
   assert.ok(ultimoEnviado().msg.react);
 });

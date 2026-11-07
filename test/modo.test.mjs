@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, fijarSaldo } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, M, U, A, R, Pf, Modo, Config;
 before(async () => {
@@ -27,22 +28,22 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   let c = F.getChat(chat);
   assert.deepEqual([c.charla, c.saludos, c.monedas, c.ascensos], [1, 1, 1, 1]);
   assert.equal(M.modoActual(c), "amigos");
-  await Modo.run(aca, { client: globalThis.client, text: "" });
+  await Modo.run(aca, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ charla de Claudia/);
   F.updateChat(chat, { iniciativa: 1 }); // opt-in, like the daily question: compraventa turns it off too
-  await Modo.run(aca, { client: globalThis.client, text: "compraventa" });
+  await Modo.run(aca, { client: conexion.client, text: "compraventa" });
   assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino/);
   c = F.getChat(chat);
   assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa], [0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
-  await Modo.run(aca, { client: globalThis.client, text: "cualquiera" });
+  await Modo.run(aca, { client: conexion.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
   // a single switch flipped from .config leaves it "mixto"
-  await Config.run(aca, { client: globalThis.client, command: "charla", isOwner: false, isAdmin: true, chat: F.getChat(chat), botSettings: {} });
+  await Config.run(aca, { client: conexion.client, command: "charla", isOwner: false, isAdmin: true, chat: F.getChat(chat), botSettings: {} });
   assert.match(ultimo(), /Opción: `charla`\n• Estado: Activado/);
   assert.equal(F.getChat(chat).charla, 1);
   assert.equal(M.modoActual(F.getChat(chat)), "mixto");
-  await Modo.run(aca, { client: globalThis.client, text: "amigos" });
+  await Modo.run(aca, { client: conexion.client, text: "amigos" });
   c = F.getChat(chat);
   assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1]);
 });
@@ -88,7 +89,7 @@ test("config: on y off fijan el interruptor, sin nada lo invierte, y otra palabr
   // It used to flip whatever came after the command: ".casino on" with the casino on switched it off, and on/off is
   // how the README, Claudia's manual and handle-message's own notice say to use it.
   F.initDataDB(persona(111));
-  const correr = (command, args) => Config.run(msg, { client: globalThis.client, command, args, usedPrefix: ".", isOwner: false, isAdmin: true, chat: F.getChat(G), botSettings: {} });
+  const correr = (command, args) => Config.run(msg, { client: conexion.client, command, args, usedPrefix: ".", isOwner: false, isAdmin: true, chat: F.getChat(G), botSettings: {} });
   F.updateChat(G, { casino: 1 });
   await correr("casino", ["on"]);
   assert.equal(F.getChat(G).casino, 1, ".casino on con el casino prendido lo apagaba");
@@ -116,7 +117,7 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   const chat = "antiubicacion@g.us";
   F.initDataDB({ chat, sender: "111@lid", senderJid: "111@s.whatsapp.net" });
   assert.equal(F.getChat(chat).antiLiveLocation, 0);
-  const config = (command, args) => Config.run({ ...msg, chat }, { client: globalThis.client, command, args, isOwner: false, isAdmin: true, chat: F.getChat(chat), botSettings: {} });
+  const config = (command, args) => Config.run({ ...msg, chat }, { client: conexion.client, command, args, isOwner: false, isAdmin: true, chat: F.getChat(chat), botSettings: {} });
   await config("antiubicacion", ["on"]);
   assert.match(ultimo(), /Opción: `antiubicacion`\n• Estado: Activado/);
   assert.equal(F.getChat(chat).antiLiveLocation, 1);
@@ -124,13 +125,13 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   await config("antiubicacion", ["off"]);
   assert.equal(F.getChat(chat).antiLiveLocation, 0);
   const VerConfig = (await import("../plugins/grupo-config.js")).default;
-  await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   assert.match(ultimo(), /\n❌ Anti ubicación en tiempo real \(\.antiubicacion\)\n/);
   // the switches that had no line: the status mentions, the stickers on her own, and how the voice is set
   assert.match(ultimo(), /\n❌ Anti menciones del grupo en estados \(\.antiestados\)\n✅ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: apagada \(\.voz\)\n/);
   await config("antiestados", ["on"]);
   F.updateChat(chat, { voz: "aveces", stickersAuto: 0 });
-  await VerConfig.run({ ...msg, chat }, { client: globalThis.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   assert.match(ultimo(), /\n✅ Anti menciones del grupo en estados \(\.antiestados\)\n❌ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: a veces \(\.voz\)\n/);
 });
 

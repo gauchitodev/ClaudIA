@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // The group's social links (lib/redes.js, plugins/redes.js): an admin loads them, anyone sees them, the welcome with
 // the rules points to them, and Claudia has them in her prompt (auto-ia.test.mjs).
@@ -14,7 +15,7 @@ before(async () => {
   F.initDataDB({ chat: G, sender: "a@lid", senderJid: "", pushName: "Ana" });
 });
 const TODAS = "instagram, facebook, x, tiktok, youtube, twitch, spotify, discord, telegram, canal, grupo, web";
-async function correr(text, { command = "redes", isAdmin = false, isOwner = false, isBotAdmin = false, chat = G, client = globalThis.client } = {}) {
+async function correr(text, { command = "redes", isAdmin = false, isOwner = false, isBotAdmin = false, chat = G, client = conexion.client } = {}) {
   globalThis.enviados = [];
   await P.run({ chat, sender: "a@lid", isGroup: true, text }, { client, text, command, isAdmin, isOwner, isBotAdmin });
   return ultimoEnviado()?.msg?.text;
@@ -95,7 +96,7 @@ test(".redes: cualquiera ve, un admin carga y borra; .redes instagram una sola; 
   assert.equal(await en("tiktok"), "🎵 Este grupo no tiene TikTok cargado. Un admin lo pone con .redes tiktok <link>.");
   assert.equal(await en("mastodon"), `❌ No conozco esa red. Las que van: ${TODAS}.`);
   // this group's invite link when the bot is admin and nobody loaded one; what's loaded wins
-  const client = { ...globalThis.client, groupInviteCode: async () => "INVITE" };
+  const client = { ...conexion.client, groupInviteCode: async () => "INVITE" };
   assert.match(await en("", { isBotAdmin: true, client }), /\n👥 Link de invitación: https:\/\/chat\.whatsapp\.com\/INVITE$/);
   assert.equal(await en("grupo", { isBotAdmin: true, client }), "👥 Link de invitación del grupo:\nhttps://chat.whatsapp.com/INVITE");
   assert.doesNotMatch(await en("", { isBotAdmin: false, client }), /chat\.whatsapp\.com/, "sin ser admin del grupo no lo puede pedir");

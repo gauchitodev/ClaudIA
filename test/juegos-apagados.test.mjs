@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // .juego <nombre> on|off (plugins/juego.js, lib/juegos-apagados.js): one game switched off at a time, per group. The
 // catalogue against the real plugins, how a name is read, what is kept in the database, the texts, the notice's limit,
@@ -36,7 +37,7 @@ beforeEach(() => {
 
 const fila = () => F.getChat(G);
 const ultimo = () => globalThis.enviados.at(-1)?.msg?.text;
-const juego = (args, extra = {}) => Plugin.run({ chat: G, sender: ADMIN, isGroup: true }, { client: globalThis.client, args, usedPrefix: ".", chat: fila(), ...extra });
+const juego = (args, extra = {}) => Plugin.run({ chat: G, sender: ADMIN, isGroup: true }, { client: conexion.client, args, usedPrefix: ".", chat: fila(), ...extra });
 
 // The commands of the game plugins that are not a start: moves, exits and information, which stay on with the game
 // off. Everything else a plugin with juego or casino declares has to be in the catalogue.
@@ -225,7 +226,7 @@ test(".juego: lista, apaga y prende por nombre o alias, invierte sin palabra, y 
 });
 
 test(".config: dice qué juegos están apagados de a uno", async () => {
-  const config = () => Config.run({ chat: G, sender: ADMIN, isGroup: true }, { client: globalThis.client, groupMetadata: { id: G, subject: "Grupo" }, chat: fila() });
+  const config = () => Config.run({ chat: G, sender: ADMIN, isGroup: true }, { client: conexion.client, groupMetadata: { id: G, subject: "Grupo" }, chat: fila() });
   await config();
   assert.match(ultimo(), /\n🎮 Juegos apagados de a uno: ninguno \(\.juego\)\n/);
   J.apagar(G, "tops");

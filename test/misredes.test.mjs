@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // Someone's own social links in their profile of a group (lib/redes-persona.js, plugins/misredes.js): by username or
 // by link, per group; nobody loads someone else's, an admin takes one out, and .perfil lists them.
@@ -17,7 +18,7 @@ before(async () => {
 });
 async function correr(sender, text, { quien = null, isAdmin = false, isOwner = false, chat = G } = {}) {
   globalThis.enviados = [];
-  await P.run({ chat, sender, senderJid: "", text, mentionedJid: quien ? [quien] : [], isGroup: true }, { client: globalThis.client, text, participants, isAdmin, isOwner });
+  await P.run({ chat, sender, senderJid: "", text, mentionedJid: quien ? [quien] : [], isGroup: true }, { client: conexion.client, text, participants, isAdmin, isOwner });
   return ultimoEnviado()?.msg ?? {};
 }
 
@@ -102,7 +103,7 @@ test(".misredes: las propias se cargan, se ven y se sacan; las de otro se ven po
   assert.equal((await correr(L(901), "@903", { quien: L(903) })).text, "🔗 Caro no tiene redes cargadas en este grupo.");
   // naming oneself is one's own, and Claudia has none of her own
   assert.match((await correr(L(901), "@901", { quien: L(901) })).text, /^🔗 No tenés redes cargadas en este grupo\./);
-  assert.equal((await correr(L(901), "@bot", { quien: globalThis.client.user.lid })).text, "❌ Esa soy yo: mis redes son las del grupo, .redes.");
+  assert.equal((await correr(L(901), "@bot", { quien: conexion.client.user.lid })).text, "❌ Esa soy yo: mis redes son las del grupo, .redes.");
 });
 
 test(".misredes es de los grupos, está entre los extras y el menú la nombra, junto con el perfil", async () => {

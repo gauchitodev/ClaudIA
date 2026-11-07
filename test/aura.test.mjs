@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, esperar } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // The aura duel (lib/aura.js, plugins/fun-aura.js, plugins/fun-noaura.js): .aura @persona challenges, .aura si opens
 // Claudia's ballot, and for five minutes the group votes reacting with 🔵 or 🔴; whoever gets more votes adds 1.000
@@ -37,7 +38,7 @@ before(async () => {
 // A command as handle-message runs it, by person n (their LID, with their number) in chat C. Returns what the bot
 // sent for it. globalThis.enviados is never emptied here: clienteFalso numbers its messages by it, and each one keeps
 // its id.
-async function correr(plugin, C, n, { command = "aura", texto = "", mentionedJid = [], quoted = null, participants = TODOS, sender = lid(n), senderJid = num(n), client = globalThis.client } = {}) {
+async function correr(plugin, C, n, { command = "aura", texto = "", mentionedJid = [], quoted = null, participants = TODOS, sender = lid(n), senderJid = num(n), client = conexion.client } = {}) {
   const antes = globalThis.enviados.length;
   const m = { chat: C, isGroup: true, sender, senderJid, pushName: nombre(n), text: `.${command} ${texto}`.trim(), mentionedJid, quoted, key: { id: `CMD${++k}` } };
   await plugin.run(m, { client, text: texto, args: texto.split(" ").filter(Boolean), command, usedPrefix: ".", participants });
@@ -50,7 +51,7 @@ const texto = (enviados) => enviados.map((msg) => msg?.text).join(" | ");
 // A reaction as Baileys hands it over (main.js -> contarReaccion): the key of the message reacted to, and who reacted,
 // by participant and, when the group brings it, participantAlt.
 const reaccionar = (C, mensajeId, reactor, emoji, { alt, fromMe = false } = {}) =>
-  R.contarReaccion(globalThis.client, { key: { remoteJid: C, id: mensajeId, participant: BOT, fromMe: true }, reaction: { text: emoji, key: { participant: reactor, participantAlt: alt, fromMe } } });
+  R.contarReaccion(conexion.client, { key: { remoteJid: C, id: mensajeId, participant: BOT, fromMe: true }, reaction: { text: emoji, key: { participant: reactor, participantAlt: alt, fromMe } } });
 const boleta = (C) => A.votaciones[C]?.mensajeId;
 const votosDe = (C) => [...A.votaciones[C].votos.values()].map((v) => v.lado).sort();
 
@@ -253,7 +254,7 @@ test("los topes: tres desafíos por día por persona, contados igual si no se ju
 
 test("si la votación no sale, la batalla queda sin efecto, el grupo libre y la pareja sin gastar", async (t) => {
   limpio(t);
-  const base = globalThis.client;
+  const base = conexion.client;
   const falla = (como) => Object.create(base, { sendMessage: { value: async (chat, msg, ...resto) => (String(msg?.text).startsWith("🗳️") ? como() : base.sendMessage(chat, msg, ...resto)) } });
   const logReal = console.error;
   console.error = () => {};

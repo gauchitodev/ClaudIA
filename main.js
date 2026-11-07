@@ -19,6 +19,7 @@ import { alCambiarParticipantes } from "./lib/participantes.js";
 import { recuperarMemoria } from "./lib/relevo-memoria.js";
 import qrcode from "qrcode-terminal";
 import txt from "./lib/strings.js";
+import { conexion } from "./lib/conexion.js";
 const handler = await import("./handle-message.js");
 
 serialize();
@@ -56,17 +57,17 @@ async function startBot() {
     // Without this, Baileys asks WhatsApp for the group's participant list on EVERY message the bot sends there,
     // which is how accounts get rate-limited. See lib/cache-grupos.js. It runs on the send path, so it never
     // throws: if the cache can't answer, Baileys asks on its own, exactly like it did before.
-    cachedGroupMetadata: (jid) => metadataDe(globalThis.client, jid),
+    cachedGroupMetadata: (jid) => metadataDe(conexion.client, jid),
   };
 
-  globalThis.client = makeWASocket(connectionOptions);
+  conexion.client = makeWASocket(connectionOptions);
 
-  client.ev.on("creds.update", saveCreds);
+  conexion.client.ev.on("creds.update", saveCreds);
 
-  if (!client.authState.creds.registered && configuracion.numberBot) {
+  if (!conexion.client.authState.creds.registered && configuracion.numberBot) {
     setTimeout(async () => {
       try {
-        let pairingCode = await client.requestPairingCode(configuracion.numberBot);
+        let pairingCode = await conexion.client.requestPairingCode(configuracion.numberBot);
         pairingCode = pairingCode?.match(/.{1,4}/g)?.join("-");
         console.log(`\n🔑 CÓDIGO DE VINCULACIÓN: ${pairingCode}\n`);
       } catch (e) {
@@ -75,11 +76,11 @@ async function startBot() {
     }, 3000);
   }
 
-  client.ev.on("connection.update", (update) => {
+  conexion.client.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (connection === "close") {
-      globalThis.botConectado = false;
-      if (!globalThis.horaCaida) globalThis.horaCaida = Date.now();
+      conexion.botConectado = false;
+      if (!conexion.horaCaida) conexion.horaCaida = Date.now();
     }
 
     if (!configuracion.numberBot && qr) {
@@ -110,14 +111,14 @@ async function startBot() {
       setTimeout(() => { reconectando = false; startBot(); }, espera);
     } else if (connection === "open") {
       horaConexion = Date.now();
-      globalThis.botConectado = true;
+      conexion.botConectado = true;
       console.log("🟢 Conexión exitosa a WhatsApp");
       intentosReconexion = 0;
       reconectando = false;
       resolverCanal();
       // Who the owners are by LID, as WhatsApp says (lib/identidad.js), and again every so often.
       confirmarOwnersCadaTanto();
-      globalThis.horaConexion = horaConexion;
+      conexion.horaConexion = horaConexion;
       // Coming back from a disconnection, the cached group metadata is dropped: promotes, joins and leaves that
       // happened while the bot was down never arrived as events, so the admin lists can't be trusted any more. The
       // last copy of each group stays, for who is who alone (ultimaCopia, lib/cache-grupos.js). On the first
@@ -128,10 +129,10 @@ async function startBot() {
       if (!globalThis.avisoArranqueEnviado) {
         globalThis.avisoArranqueEnviado = true;
         avisarOwner(`Arranqué (${configuracion.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
-      } else if (globalThis.horaCaida && Date.now() - globalThis.horaCaida > 5 * 60 * 1000) {
-        avisarOwner(`Volví después de ${Math.round((Date.now() - globalThis.horaCaida) / 60000)} min sin conexión.`, "reconexion");
+      } else if (conexion.horaCaida && Date.now() - conexion.horaCaida > 5 * 60 * 1000) {
+        avisarOwner(`Volví después de ${Math.round((Date.now() - conexion.horaCaida) / 60000)} min sin conexión.`, "reconexion");
       }
-      globalThis.horaCaida = 0;
+      conexion.horaCaida = 0;
       // The watcher is registered once: it used to re-register on every reconnect,
       // so each plugin change reloaded several times.
       if (!globalThis.watchPluginsIniciado) {
@@ -141,12 +142,12 @@ async function startBot() {
     }
   });
 
-  client.handler = handler.handleMessage.bind(globalThis.client);
+  conexion.client.handler = handler.handleMessage.bind(conexion.client);
 
   // ALL messages in the batch are processed (Baileys may deliver several at once), not just the last one: in order
   // within each chat, so replies there don't get interleaved, and the chats side by side (lib/tandas.js).
-  client.ev.on("messages.upsert", async (chatUpdate) => {
-    if (!client.handler) return;
+  conexion.client.ev.on("messages.upsert", async (chatUpdate) => {
+    if (!conexion.client.handler) return;
     // When the batch arrived: handle-message measures each message's age against this, not against the moment it
     // gets to it, which in a busy batch can be much later (see atrasoDeLlegada in lib/tiempo.js).
     const llegada = Date.now();
@@ -159,19 +160,19 @@ async function startBot() {
       // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.
       m._upsertType = chatUpdate.type;
       m._llegada = llegada;
-      await client.handler(m, chatUpdate);
+      await conexion.client.handler(m, chatUpdate);
     });
   });
 
   // Someone came into a group, left it, or was promoted or demoted: the group's metadata is asked for again, and what
   // changes for the bot (roles, posts, .inactivos, the blacklist, the rules) is in lib/participantes.js.
-  client.ev.on("group-participants.update", (evento) => alCambiarParticipantes(client, evento));
+  conexion.client.ev.on("group-participants.update", (evento) => alCambiarParticipantes(conexion.client, evento));
 
   // Reaction points: "received" for whoever wrote the message, "given" for whoever reacted (lib/reacciones.js).
-  client.ev.on("messages.reaction", (reactions) => {
+  conexion.client.ev.on("messages.reaction", (reactions) => {
     for (const r of reactions) {
       try {
-        contarReaccion(client, r);
+        contarReaccion(conexion.client, r);
       } catch (e) {
         console.error("[ranking] error procesando reacción:", e);
       }
@@ -180,31 +181,31 @@ async function startBot() {
 
   // Whole metadata is kept, a settings change invalidates: see aplicarCambioDeGrupo in lib/cache-grupos.js.
   // Participant changes are refreshed by lib/participantes.js.
-  client.ev.on("groups.update", (cambios) => {
-    for (const cambio of cambios || []) aplicarCambioDeGrupo(client, cambio);
+  conexion.client.ev.on("groups.update", (cambios) => {
+    for (const cambio of cambios || []) aplicarCambioDeGrupo(conexion.client, cambio);
   });
 
   // Disappearing messages turned on or off in a group arrive here, not as a group event: see aplicarCambioDeChat.
-  client.ev.on("chats.update", (cambios) => {
-    for (const cambio of cambios || []) aplicarCambioDeChat(client, cambio);
+  conexion.client.ev.on("chats.update", (cambios) => {
+    for (const cambio of cambios || []) aplicarCambioDeChat(conexion.client, cambio);
   });
 
-  return client;
+  return conexion.client;
 }
 
 // Resolves the internal ID of the channel configured under [canal] in config.toml from its invite link.
 // Done once per process; if it fails, files go out without the channel tag.
 async function resolverCanal() {
   const enlace = configuracion.canalConfig?.enlace;
-  if (!enlace || globalThis.canal) return;
+  if (!enlace || conexion.canal) return;
   const codigo = enlace.split("/channel/")[1]?.split(/[/?#]/)[0];
   if (!codigo) return console.error("[canal] el enlace del config no parece un link de canal (whatsapp.com/channel/...)");
   try {
-    const meta = await client.newsletterMetadata("invite", codigo);
+    const meta = await conexion.client.newsletterMetadata("invite", codigo);
     if (!meta?.id) throw new Error("WhatsApp no devolvió el ID del canal");
     const nombreReal = meta.name || meta.thread_metadata?.name?.text || "";
-    globalThis.canal = { jid: meta.id, nombre: configuracion.canalConfig.nombre || nombreReal };
-    console.log(`📣 Canal para la etiqueta de los archivos: ${globalThis.canal.nombre} (${meta.id})`);
+    conexion.canal = { jid: meta.id, nombre: configuracion.canalConfig.nombre || nombreReal };
+    console.log(`📣 Canal para la etiqueta de los archivos: ${conexion.canal.nombre} (${meta.id})`);
   } catch (e) {
     console.error("[canal] no se pudo resolver el link del canal:", e.message);
   }
@@ -238,7 +239,7 @@ iniciarTareasProgramadas();
 await installYtDlp();
 
 setInterval(() => {
-  if (!globalThis.client || !globalThis.client.user) return;
+  if (!conexion.client || !conexion.client.user) return;
   const borrados = limpiarTmp();
   if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
 }, 1000 * 60 * 30);

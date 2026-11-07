@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // .ping (plugins/ping.js): Pong, the round trip to WhatsApp timed on the ping Baileys keeps the connection alive with,
 // since when the bot is on and connected, and whether the message came late.
@@ -10,7 +11,7 @@ before(async () => {
   ({ default: P, PING } = await import("../plugins/ping.js"));
 });
 const correr = (client, m = {}) => P.run({ chat: G, sender: "a@lid", isGroup: true, ...m }, { client });
-const conQuery = (query) => ({ ...globalThis.client, query });
+const conQuery = (query) => ({ ...conexion.client, query });
 
 test(".ping: Pong, lo que tarda WhatsApp en contestar y desde cuándo está prendida y conectada", async () => {
   const pedidos = [];
@@ -23,7 +24,7 @@ test(".ping: Pong, lo que tarda WhatsApp en contestar y desde cuándo está pren
     tardo = Date.now() - antes;
     return { tag: "iq", attrs: { type: "result" } };
   });
-  globalThis.horaConexion = Date.now() - 5 * 3600e3;
+  conexion.horaConexion = Date.now() - 5 * 3600e3;
   try {
     globalThis.enviados = [];
     await correr(client);
@@ -34,7 +35,7 @@ test(".ping: Pong, lo que tarda WhatsApp en contestar y desde cuándo está pren
     assert.deepEqual(pedidos.map((p) => [p.nodo.tag, p.nodo.attrs.to, p.nodo.attrs.type, p.nodo.attrs.xmlns, p.nodo.content[0].tag, p.espera]), [["iq", "@s.whatsapp.net", "get", "w:p", "ping", PING.ESPERA_MS]]);
     assert.equal(globalThis.enviados.length, 1);
   } finally {
-    delete globalThis.horaConexion;
+    delete conexion.horaConexion;
   }
 });
 
@@ -54,16 +55,16 @@ test(".ping: si WhatsApp no contesta, o la conexión falla, lo dice igual; sin q
   } finally {
     PING.ESPERA_MS = esperaReal;
   }
-  await correr(globalThis.client); // the tests' fake client has no query
+  await correr(conexion.client); // the tests' fake client has no query
   assert.match(ultimoEnviado().msg.text, /^🏓 Pong\n📡 WhatsApp no me contestó el ping en 5 s, pero acá estoy\.\n🟢 Encendida hace [^·]+\.$/);
 });
 
 test(".ping: dice cuando el mensaje tardó en llegarle, y no cuando llegó al toque", async () => {
-  await correr(globalThis.client, { messageTimestamp: Math.floor(Date.now() / 1000) - 12 });
+  await correr(conexion.client, { messageTimestamp: Math.floor(Date.now() / 1000) - 12 });
   assert.match(ultimoEnviado().msg.text, /\n🐢 Tu mensaje salió hace 12 s: voy atrasada\.\n🟢 /);
-  await correr(globalThis.client, { messageTimestamp: Math.floor(Date.now() / 1000) });
+  await correr(conexion.client, { messageTimestamp: Math.floor(Date.now() / 1000) });
   assert.doesNotMatch(ultimoEnviado().msg.text, /🐢/);
-  await correr(globalThis.client, {}); // no timestamp at all: nothing to say
+  await correr(conexion.client, {}); // no timestamp at all: nothing to say
   assert.doesNotMatch(ultimoEnviado().msg.text, /🐢/);
 });
 

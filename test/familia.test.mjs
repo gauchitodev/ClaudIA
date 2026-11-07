@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, Fa, P, Pf;
 const DIA = 24 * 60 * 60 * 1000;
@@ -280,7 +281,7 @@ test("textos: .familia, .familias vacío y la línea del perfil", () => {
 
 test("plugins: .adoptar, .si/.no, .besar entre parientes, .apellido, .familia, .emancipar", async () => {
   desheredados();
-  const client = globalThis.client;
+  const client = conexion.client;
   const correr = (P, sender, text = "", command = P.cmd[0], mentioned = []) => P.run({ chat: G, sender, isGroup: true, mentionedJid: mentioned }, { client, text, usedPrefix: ".", command });
   // the last message with text (some plugins send a reaction after the text)
   const ultimoTexto = () => [...globalThis.enviados].reverse().find((e) => e.msg?.text)?.msg;

@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { limpiarNombre } from "../lib/comandos.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // The menus are written by hand and the plugin.cmd lists change on their own: this keeps them from drifting apart.
 // Until now the discipline was manual (the comment in lib/menu-ventas.js), and nothing warned when a menu ended
@@ -24,7 +25,7 @@ const comandosDe = new Map(); // plugin file -> its commands
 const declarados = new Map(); // plugin file -> its commands exactly as declared, for the check on how they're written
 
 before(async () => {
-  globalThis.client = { user: { lid: "999000@lid", id: "59899000000@s.whatsapp.net", jid: "59899000000@s.whatsapp.net" } };
+  conexion.client = { user: { lid: "999000@lid", id: "59899000000@s.whatsapp.net", jid: "59899000000@s.whatsapp.net" } };
   configuracion.owners = ["59899111222"];
 
   for (const archivo of fs.readdirSync(CARPETA).filter((f) => f.endsWith(".js"))) {

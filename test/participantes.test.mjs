@@ -1,8 +1,9 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { prepararBase, esperar, nodosQue } from "./helpers.mjs";
+import { prepararBase, esperar, nodosQue, esElCliente } from "./helpers.mjs";
 import { numeroReciclado, unaLid, unNumero } from "./identidad-escenarios.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // What changes for the bot when a group's participants do (lib/participantes.js), as main.js hands it each event. It
 // lived inline in main.js, and the tests read main.js's text instead: they passed with a cleanup commented out, or with
@@ -14,7 +15,7 @@ let grupos = {}; // chat -> what WhatsApp says of the group when the bot asks fo
 let demora = 0;
 before(async () => {
   ({ F } = await prepararBase("participantes"));
-  globalThis.client.groupMetadata = async (chat) => {
+  conexion.client.groupMetadata = async (chat) => {
     if (demora) await esperar(demora);
     if (!grupos[chat]) throw new Error("WhatsApp no contestó");
     return { id: chat, subject: "Grupo", announce: false, ...grupos[chat], participants: grupos[chat].participants.map((p) => ({ ...p })) };
@@ -31,7 +32,7 @@ beforeEach(() => {
   globalThis.enviados = [];
 });
 
-const cliente = () => globalThis.client;
+const cliente = () => conexion.client;
 const yo = (admin = "admin") => ({ id: cliente().user.lid, admin });
 const cambio = (chat, action, participants) => P.alCambiarParticipantes(cliente(), { id: chat, action, participants });
 // With the console quiet: a group WhatsApp doesn't answer for is logged.
@@ -209,7 +210,7 @@ test("main.js le pasa a lib/participantes.js cada cambio de participantes, con e
       let manejador = llamada.parent;
       while (manejador && !manejador.type.includes("Function")) manejador = manejador.parent;
       const [quien, evento] = llamada.arguments;
-      return manejador?.parent.arguments?.[1] === manejador && quien?.name === "client" && evento?.type === "Identifier" && evento.name === manejador.params[0]?.name;
+      return manejador?.parent.arguments?.[1] === manejador && esElCliente(quien) && evento?.type === "Identifier" && evento.name === manejador.params[0]?.name;
     });
   const en = (manejador, evento = "group-participants.update") => `client.ev.on("${evento}", ${manejador});`;
   const formas = [

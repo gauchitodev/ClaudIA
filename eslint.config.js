@@ -10,13 +10,12 @@ import * as url from "node:url";
 // is a decision and not a habit. One module's state goes in a variable of that module. A plugin's that has to outlive
 // the plugin being reloaded (load-functions.js imports it as a new module) goes in lib/estado-de-plugins.js: a lib/
 // module isn't reloaded, so a reloaded plugin gets the one it imports as it was. The settings (config.toml's and the
-// version) are imported from lib/configuracion.js. The globals used bare are another such list, below.
+// version) are imported from lib/configuracion.js, and the WhatsApp connection from lib/conexion.js. The globals used
+// bare are another such list, below.
 export const EN_GLOBALTHIS = {
-  // The process: the WhatsApp connection, the plugins and how the bot is doing.
-  proceso: [
-    ...["avisoArranqueEnviado", "botConectado", "canal", "client", "horaCaida", "horaConexion", "modeloActivo"],
-    ...["plugins", "watchPluginsIniciado"],
-  ],
+  // The process: the plugins (load-functions.js swaps them on a reload), the AI model answering (lib/ia.js), and two
+  // marks of main.js's start.
+  proceso: ["avisoArranqueEnviado", "modeloActivo", "plugins", "watchPluginsIniciado"],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 
@@ -129,10 +128,8 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.node,
-        // The one bot global used bare: the WhatsApp connection, which main.js sets. The settings aren't globals
-        // anymore (they're imported from lib/configuracion.js, and Baileys from its package), and the plugins go by
-        // globalThis.
-        client: "readonly",
+        // No bot global is used bare: the settings are imported from lib/configuracion.js, the WhatsApp connection
+        // from lib/conexion.js and Baileys from its package, and the plugins go by globalThis.
         // txt isn't one anymore: the texts are imported from lib/strings.js, and a bare txt is an error here.
       },
     },

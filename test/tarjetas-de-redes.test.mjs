@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // Sharing one's profile on a network with the group (lib/redes-persona.js, tarjetaPedida): .ig @usuario, .tt @usuario
 // and the commands of the other networks, with the username or the link; someone mentioned gets theirs as loaded with
@@ -29,14 +30,14 @@ async function correr(P, text, { sender = L(951), quien = null, command = P.cmd[
   globalThis.enviados = [];
   const reacciones = [];
   const archivos = [];
-  const client = { ...globalThis.client, sendFile: async (chat, archivo, nombre, caption) => (archivos.push({ archivo, caption }), {}) };
+  const client = { ...conexion.client, sendFile: async (chat, archivo, nombre, caption) => (archivos.push({ archivo, caption }), {}) };
   await P.run({ chat: G, sender, senderJid: "", text, mentionedJid: quien ? [quien] : [], isGroup: true, react: async (e) => reacciones.push(e) }, { client, text, command, participants });
   return { msg: ultimoEnviado()?.msg ?? {}, reacciones, archivos };
 }
 const m = (sender = L(951), quien = null) => ({ chat: G, sender, senderJid: "", mentionedJid: quien ? [quien] : [], isGroup: true });
 
 test("tarjetaPedida: el usuario o el link dan la tarjeta; la mención, la de esa persona; nada, la propia o el uso", async () => {
-  const pedir = (red, text, extra = {}) => RP.tarjetaPedida(red, { client: globalThis.client, m: m(extra.sender, extra.quien), text, participants, comando: extra.comando || red, uso: "USO." });
+  const pedir = (red, text, extra = {}) => RP.tarjetaPedida(red, { client: conexion.client, m: m(extra.sender, extra.quien), text, participants, comando: extra.comando || red, uso: "USO." });
   assert.deepEqual(await pedir("instagram", "@carlos_planchon", { comando: "ig" }), { texto: "📸 *Instagram de @951*\n👤 @carlos_planchon\n🔗 https://instagram.com/carlos_planchon", mentions: [L(951)] });
   assert.deepEqual(await pedir("instagram", "https://www.instagram.com/carlos_planchon/"), { texto: "📸 *Instagram de @951*\n👤 @carlos_planchon\n🔗 https://www.instagram.com/carlos_planchon/", mentions: [L(951)] });
   assert.deepEqual(await pedir("bluesky", "carlos"), { texto: "🦋 *Bluesky de @951*\n👤 @carlos.bsky.social\n🔗 https://bsky.app/profile/carlos.bsky.social", mentions: [L(951)] });

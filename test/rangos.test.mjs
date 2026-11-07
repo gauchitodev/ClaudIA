@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, R, P, Hook;
 const DIA = 24 * 60 * 60 * 1000;
@@ -64,7 +65,7 @@ test("rangos: progreso, ascenso anunciado con premio, y sin repetir", () => {
 
 // With people of its own, 444 just in and 555 a legend: it went by 222 and 111 as the tests above leave them.
 test("rangos: los comandos y el hook de mensajes", async () => {
-  const cliente = globalThis.client;
+  const cliente = conexion.client;
   for (const n of [444, 555]) F.initDataDB(persona(n));
   F.getUser("444@lid", G); // with a chat it starts their time in the group, now
   fijar(555, { messageCount: 10000, desde: Date.now() - 400 * DIA, rango: "leyenda" });

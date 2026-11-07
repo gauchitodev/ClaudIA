@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, G, fijarSaldo } from "./helpers.mjs";
 import { conDosFilas, soloPorNumero, filaVieja, numeroReciclado, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, I, Par, Fam, D, handleMessage;
 const P = {};
@@ -23,7 +24,7 @@ before(async () => {
   for (const [k, archivo] of Object.entries(archivos)) P[k] = (await import(`../plugins/${archivo}.js`)).default;
 });
 
-const cliente = () => globalThis.client;
+const cliente = () => conexion.client;
 
 // A command as handle-message runs it, in group G. Returns what the bot answered.
 async function correr(plugin, { sender, command, texto = "", mentionedJid = [], participants }) {
@@ -67,7 +68,7 @@ const BOT = { id: "59800000001:5@s.whatsapp.net", lid: "200000000000001@lid", ji
 // A connected socket, as far as handle-message goes (as in handle-message.test.mjs), in a group that lists people by
 // number.
 function clientePorNumero(t, participants) {
-  const antes = globalThis.client;
+  const antes = conexion.client;
   const base = clienteFalso();
   const client = {
     ...base,
@@ -79,9 +80,9 @@ function clientePorNumero(t, participants) {
     groupMetadata: async (id) => ({ id, subject: "Por número", addressingMode: "pn", participants }),
     sendPresenceUpdate: async () => {},
   };
-  globalThis.client = client;
+  conexion.client = client;
   t.after(() => {
-    globalThis.client = antes;
+    conexion.client = antes;
   });
   return client;
 }

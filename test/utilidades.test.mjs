@@ -5,6 +5,7 @@ import path from "path";
 import { prepararBase, G, ultimoEnviado, nodosQue, manejadorDe, dentroDe } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, Rec, C, B, Av, CC, Mem, E, LT;
 before(async () => {
@@ -32,7 +33,7 @@ test("recordatorios", async () => {
   assert.match(Rec.crearRecordatorio(G, "u", ["en", "1h", "otro"]).error, /Ya tenés 10/);
   assert.match(Rec.textoRecordatorios("u"), /#1 · /);
   assert.ok(Rec.olvidarRecordatorio("u", 1).ok && !Rec.olvidarRecordatorio("u", 1).ok && !Rec.olvidarRecordatorio("otro", 2).ok);
-  await Rec.ejecutarRecordatorio(globalThis.client, { chat: G, usuario: "598@lid", datos: { texto: "sacar la pizza" } });
+  await Rec.ejecutarRecordatorio(conexion.client, { chat: G, usuario: "598@lid", datos: { texto: "sacar la pizza" } });
   assert.match(ultimoEnviado().msg.text, /@598, me pediste que te recuerde: \*sacar la pizza\*/);
   void H;
 });
@@ -345,8 +346,8 @@ test("cumpleaños: el saludo no va para quien ya no está en el grupo, y sin la 
   for (const lid of ["7301@lid", "7302@lid"]) F.setCumple(Z, lid, 20, 6, 1990);
   F.setCumple(SIN_LISTA, "7303@lid", 20, 6, 1990);
   F.setCumple(VACIA, "7304@lid", 20, 6, 1990);
-  guardar(globalThis.client, Z, { id: Z, subject: "Cumples", participants: [{ id: "7301@lid" }, { id: "bot@lid" }] });
-  guardar(globalThis.client, VACIA, { id: VACIA, subject: "Sin gente", participants: [] }); // a list that came empty
+  guardar(conexion.client, Z, { id: Z, subject: "Cumples", participants: [{ id: "7301@lid" }, { id: "bot@lid" }] });
+  guardar(conexion.client, VACIA, { id: VACIA, subject: "Sin gente", participants: [] }); // a list that came empty
   const antes = globalThis.enviados.length;
   const errorReal = console.error;
   console.error = () => {}; // lib/cache-grupos.js says it couldn't get SIN_LISTA's list
@@ -483,14 +484,14 @@ test("limpieza de tmp: borra lo abandonado y no le saca el archivo a una descarg
 // Mentioning Claudia is talking to her, and plugins/_auto-ia.js answers it with the group's context
 // (test/auto-ia.test.mjs). Her number used to be a command of .ia, which answered without it.
 test("IA por mención: el número del bot no es un comando de .ia", async () => {
-  const previo = globalThis.client;
-  globalThis.client = { user: { lid: "59899111222@lid" } };
+  const previo = conexion.client;
+  conexion.client = { user: { lid: "59899111222@lid" } };
   const P = (await import("../plugins/tools-ia.js")).default;
   assert.deepEqual(P.cmd, ["gemini", "ia", "ai", "bot"]);
   // .ai is .ia too: the parser hands it over as written, and this plugin declares it
   const { parsearComando } = await import("../lib/comandos.js");
   assert.ok(P.cmd.includes(parsearComando(".AI ¿quién ganó el mundial del 50?", ["."]).comando));
-  globalThis.client = previo;
+  conexion.client = previo;
 });
 
 test("el .s no manda nada cuando la descarga del archivo viene vacía, y el log dice por qué", async () => {
@@ -684,7 +685,7 @@ test(".addowner y .removeowner cambian solo la línea de owners de config.toml",
   fs.writeFileSync("config.toml", ejemplo);
   const ownersAntes = configuracion.owners;
   try {
-    const correr = (command, text) => P.default.run({ chat: "59899111222@s.whatsapp.net", sender: "59899111222@s.whatsapp.net", mentionedJid: [], quoted: null }, { client: globalThis.client, text, usedPrefix: ".", command, participants: [] });
+    const correr = (command, text) => P.default.run({ chat: "59899111222@s.whatsapp.net", sender: "59899111222@s.whatsapp.net", mentionedJid: [], quoted: null }, { client: conexion.client, text, usedPrefix: ".", command, participants: [] });
     await correr("addowner", "+598 99 333 444");
     const despues = fs.readFileSync("config.toml", "utf8");
     assert.equal(despues, ejemplo.replace('owners = ["59899111222"]', 'owners = ["59899111222", "59899333444"]'), "todo lo demás, comentarios incluidos, queda igual");
@@ -721,18 +722,18 @@ test(".avisartodos: saltea los grupos con .banchat y espacia los envíos", async
   const esperas = [];
   const esperarReal = _dep.esperar;
   const azarReal = _dep.azar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   _dep.esperar = async (ms) => esperas.push(ms);
   _dep.azar = () => 0.5;
   const enviados = [];
   try {
     const client = { groupFetchAllParticipating: async () => ({ "uno@g.us": {}, "baneado@g.us": {}, "dos@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
-    globalThis.client = client; // what it sends goes through the socket of the moment
+    conexion.client = client; // what it sends goes through the socket of the moment
     await P.run({ chat: "59899111222@s.whatsapp.net" }, { client, text: "Hoy arranca el ranking 🏆", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
     _dep.azar = azarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
   assert.match(enviados[0][1], /^📣 Lo mando a 2 grupo\(s\), de a uno y espaciado: tarda unos 30 s\. Salteo 1 con \.banchat\. Para cortarlo: \.avisartodos cancelar\.$/);
   assert.deepEqual(enviados.slice(1, 3), [["uno@g.us", "Hoy arranca el ranking 🏆"], ["dos@g.us", "Hoy arranca el ranking 🏆"]]);
@@ -745,16 +746,16 @@ test(".avisartodos: el aviso sale con sus saltos de línea", async () => {
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   F.initDataDB({ chat: "renglones@g.us", sender: "111@lid", senderJid: "" });
   const esperarReal = _dep.esperar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   _dep.esperar = async () => {};
   const enviados = [];
   try {
     const client = { groupFetchAllParticipating: async () => ({ "renglones@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
-    globalThis.client = client;
+    conexion.client = client;
     await P.run({ chat: "59899111222@s.whatsapp.net" }, { client, text: "Hoy arranca el ranking 🏆 Todos a votar", textoCompleto: "Hoy arranca el ranking 🏆\nTodos a votar", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
   assert.deepEqual(enviados.find(([chat]) => chat === "renglones@g.us"), ["renglones@g.us", "Hoy arranca el ranking 🏆\nTodos a votar"]);
 });
@@ -765,7 +766,7 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   // Each wait between groups lasts until the notice is cut.
   let esperando = 0;
   _dep.esperar = (ms, valor, { signal } = {}) =>
@@ -775,7 +776,7 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
     });
   const enviados = [];
   const client = { groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }), sendText: async (chat, t) => enviados.push([chat, t]) };
-  globalThis.client = client;
+  conexion.client = client;
   const correr = (text) => P.run({ chat: DUENO }, { client, text, isOwner: true });
   const alDueno = () => enviados.filter(([chat]) => chat === DUENO).map(([, t]) => t);
   const aLosGrupos = () => enviados.filter(([chat]) => chat !== DUENO);
@@ -803,7 +804,7 @@ test(".avisartodos: .avisartodos cancelar lo corta, aun en medio de una espera, 
     assert.equal(alDueno().at(-1), "✅ Mensaje enviado a 3 grupo(s).", "cortado el anterior, sale uno nuevo");
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
 });
 
@@ -825,7 +826,7 @@ test(".avisartodos: cancelar contesta en el momento, aunque un envío esté sali
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   const enviados = [];
   let soltar = null;
   const client = {
@@ -836,7 +837,7 @@ test(".avisartodos: cancelar contesta en el momento, aunque un envío esté sali
       return chat === "b@g.us" && t === "Con un error" ? new Promise((r) => (soltar = r)) : Promise.resolve();
     },
   };
-  globalThis.client = client;
+  conexion.client = client;
   const correr = (text) => P.run({ chat: DUENO }, { client, text, isOwner: true });
   const alDueno = () => enviados.filter(([chat]) => chat === DUENO).map(([, t]) => t);
   const grupos = (texto) => enviados.filter(([, t]) => t === texto).map(([chat]) => chat);
@@ -860,17 +861,17 @@ test(".avisartodos: cancelar contesta en el momento, aunque un envío esté sali
     assert.deepEqual(alDueno().filter((t) => t.startsWith("⏹️")), ["⏹️ Corté el aviso: llegó a 1 de 3 grupo(s), más el que estaba saliendo.", "⏹️ Corté el aviso: llegó a 1 de 3 grupo(s)."], "una respuesta por cada corte");
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
 });
 
 // After a reconnection the socket that took the command is closed, and whatever goes through it fails: the rest goes
-// through the new one (globalThis.client, which main.js replaces).
+// through the new one (conexion.client, which main.js replaces).
 test(".avisartodos: si el bot se reconecta a mitad del aviso, sigue por la conexión nueva", async () => {
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   const enviados = [];
   const socket = (nombre) => {
     const s = { abierto: true, groupFetchAllParticipating: async () => ({ "a@g.us": {}, "b@g.us": {}, "c@g.us": {} }) };
@@ -880,20 +881,20 @@ test(".avisartodos: si el bot se reconecta a mitad del aviso, sigue por la conex
       // Right after the first group, the connection drops and main.js makes a new socket.
       if (chat === "a@g.us") {
         s.abierto = false;
-        globalThis.client = nuevo;
+        conexion.client = nuevo;
       }
     };
     return s;
   };
   const viejo = socket("viejo");
   const nuevo = socket("nuevo");
-  globalThis.client = viejo;
+  conexion.client = viejo;
   _dep.esperar = async () => {};
   try {
     await P.run({ chat: DUENO }, { client: viejo, text: "Mañana no hay ranking", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
   assert.deepEqual(enviados.slice(1), ["viejo → a@g.us: Mañana no hay ranking", "nuevo → b@g.us: Mañana no hay ranking", "nuevo → c@g.us: Mañana no hay ranking", `nuevo → ${DUENO}: ✅ Mensaje enviado a 3 grupo(s).`]);
 });
@@ -905,32 +906,32 @@ test(".avisartodos: sin conexión espera a que vuelva, y dice a qué grupos no l
   const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const enviados = [];
   const esperas = [];
   let vuelveEn = 0; // waits until the connection is back
   _dep.esperar = async (ms) => {
     esperas.push(ms);
-    if (vuelveEn && --vuelveEn === 0) globalThis.botConectado = true;
+    if (vuelveEn && --vuelveEn === 0) conexion.botConectado = true;
   };
   const client = {
     groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" }, "c@g.us": { subject: "Fútbol" }, "d@g.us": { subject: "Laburo" } }),
     sendText: async (chat, t) => {
-      if (!globalThis.botConectado) throw cerrada();
+      if (!conexion.botConectado) throw cerrada();
       if (chat === "c@g.us") throw rechazada(403, "forbidden"); // a group where it never goes out: the bot isn't in it
       enviados.push([chat, t]);
       // Right after the first group the connection drops, and it's back two waits later.
-      if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2];
+      if (chat === "a@g.us") [conexion.botConectado, vuelveEn] = [false, 2];
     },
   };
-  globalThis.client = client;
+  conexion.client = client;
   console.error = () => {};
   try {
     await P.run({ chat: DUENO }, { client, text: "Mañana no hay ranking", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
-    globalThis.botConectado = true;
+    [conexion.client, console.error] = [clientReal, errorReal];
+    conexion.botConectado = true;
   }
   assert.deepEqual(enviados.slice(1).map(([chat]) => chat), ["a@g.us", "b@g.us", "d@g.us", DUENO], "el de mientras estuvo caída sale al volver");
   assert.ok(esperas.includes(AVISO_TODOS.REVISAR_CONEXION_MS), "esperó a la conexión");
@@ -952,7 +953,7 @@ test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si
   const { default: P, AVISO_TODOS, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const intentos = {};
   const esperas = [];
   const errores = [];
@@ -973,14 +974,14 @@ test(".avisartodos: vuelve a probar lo que seguro no salió, y lo que no sabe si
     if (chat === DUENO) finales.push(t);
     return enviarFinal(chat, t, ...resto);
   };
-  globalThis.client = client;
+  conexion.client = client;
   _dep.esperar = async (ms) => esperas.push(ms);
   console.error = (...partes) => errores.push(partes.join(" "));
   try {
     await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
   assert.deepEqual(intentos, { "a@g.us": 2, "b@g.us": 1, "c@g.us": 1, "d@g.us": 2, "e@g.us": 2 }, "Amigos y Laburo salen al segundo intento, Barrio prueba dos veces; Familia, una sola vez");
   assert.equal(esperas.length, 7, "una espera antes de cada grupo después del primero, y otra antes de cada segundo intento");
@@ -994,7 +995,7 @@ test(".avisartodos: cortado con un grupo que falló, dice cuál", async () => {
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const al = [];
   const client = {
     groupFetchAllParticipating: async () => ({ "a@g.us": { subject: "Amigos" }, "b@g.us": { subject: "Familia" } }),
@@ -1003,7 +1004,7 @@ test(".avisartodos: cortado con un grupo que falló, dice cuál", async () => {
       if (chat === "a@g.us") throw cerrada();
     },
   };
-  globalThis.client = client;
+  conexion.client = client;
   _dep.esperar = esperaHastaCortar;
   console.error = () => {};
   try {
@@ -1013,7 +1014,7 @@ test(".avisartodos: cortado con un grupo que falló, dice cuál", async () => {
     await corre;
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
   assert.equal(al.filter(([chat]) => chat === DUENO).at(-1)[1], "⏹️ Corté el aviso: llegó a 0 de 2 grupo(s) (no salió en Amigos).");
 });
@@ -1024,7 +1025,7 @@ test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no 
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const al = [];
   let soltar = null;
   let intentosB = 0;
@@ -1038,7 +1039,7 @@ test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no 
     },
   };
   const alDueno = () => al.filter(([chat]) => chat === DUENO).map(([, t]) => t);
-  globalThis.client = client;
+  conexion.client = client;
   _dep.esperar = async () => {};
   console.error = () => {};
   try {
@@ -1052,7 +1053,7 @@ test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no 
     await corre;
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
 
   // The summary, once the connection is back.
@@ -1061,21 +1062,21 @@ test(".avisartodos: durante el segundo intento dice cómo va, y si lo cortan no 
   const conCaida = {
     groupFetchAllParticipating: async () => ({ "a@g.us": {} }),
     sendText: async (chat, t) => {
-      if (chat === DUENO && !globalThis.botConectado) throw cerrada();
+      if (chat === DUENO && !conexion.botConectado) throw cerrada();
       if (chat === DUENO) finales.push(t);
-      if (chat === "a@g.us") [globalThis.botConectado, vuelveEn] = [false, 2]; // it drops right after the last group
+      if (chat === "a@g.us") [conexion.botConectado, vuelveEn] = [false, 2]; // it drops right after the last group
     },
   };
-  globalThis.client = conCaida;
+  conexion.client = conCaida;
   _dep.esperar = async () => {
-    if (vuelveEn && --vuelveEn === 0) globalThis.botConectado = true;
+    if (vuelveEn && --vuelveEn === 0) conexion.botConectado = true;
   };
   try {
     await P.run({ chat: DUENO }, { client: conCaida, text: "Chau", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
-    globalThis.botConectado = true;
+    conexion.client = clientReal;
+    conexion.botConectado = true;
   }
   assert.equal(finales.at(-1), "✅ Mensaje enviado a 1 grupo(s).", "esperó a la conexión para avisar");
 });
@@ -1086,7 +1087,7 @@ test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const vencido = () => Object.assign(new Error("Timed Out"), { output: { statusCode: 408 } });
   const al = [];
   const client = {
@@ -1097,7 +1098,7 @@ test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde
     },
   };
   const alDueno = () => al.filter(([chat]) => chat === DUENO).map(([, t]) => t);
-  globalThis.client = client;
+  conexion.client = client;
   _dep.esperar = esperaHastaCortar;
   console.error = () => {};
   try {
@@ -1110,7 +1111,7 @@ test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde
     await corre;
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
 
   // Closed the first time (it surely didn't go out) and failed while going out the second: it may have got there.
@@ -1124,14 +1125,14 @@ test(".avisartodos: lo que no sabe si llegó cuenta en cómo va, en hasta dónde
       if (chat === "a@g.us") throw vencido();
     },
   };
-  globalThis.client = otra;
+  conexion.client = otra;
   _dep.esperar = async () => {};
   console.error = () => {};
   try {
     await P.run({ chat: DUENO }, { client: otra, text: "Hola", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
   assert.equal(intentosA, 2);
   assert.equal(finales.at(-1), "✅ Mensaje enviado a 1 grupo(s). No sé si llegó a 1 (falló mientras salía), y no lo repetí para no mandarlo dos veces: Amigos.");
@@ -1145,7 +1146,7 @@ test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega i
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const DUENO = "59899111222@s.whatsapp.net";
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   for (const [rechazo, log] of [[1006, "1006"], [null, "null"], [new Error(""), "Error"], [new Error("Connection Closed"), "Connection Closed"]]) {
     const enviados = [];
     const errores = [];
@@ -1156,14 +1157,14 @@ test(".avisartodos: si no sale el aviso de que arranca, a los grupos les llega i
         enviados.push([chat, t]);
       },
     };
-    globalThis.client = client;
+    conexion.client = client;
     _dep.esperar = async () => {};
     console.error = (...partes) => errores.push(partes.map(String).join(" ")); // as it prints them: null is "null"
     try {
       await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
     } finally {
       _dep.esperar = esperarReal;
-      [globalThis.client, console.error] = [clientReal, errorReal];
+      [conexion.client, console.error] = [clientReal, errorReal];
     }
     assert.deepEqual(enviados, [["a@g.us", "Hola"], ["b@g.us", "Hola"], [DUENO, "✅ Mensaje enviado a 2 grupo(s)."]], log);
     assert.deepEqual(errores, [`[avisar-todos] no salió el aviso de que arranca: ${log}`], "el log dice con qué se rechazó");
@@ -1179,7 +1180,7 @@ test(".avisartodos: el log de cada grupo, los nombres sin menciones y la lista d
   const DUENO = "59899111222@s.whatsapp.net";
   const [VENTAS, OTRO] = ["avisar-ventas@g.us", "avisar-otro@g.us"];
   const esperarReal = _dep.esperar;
-  const [clientReal, errorReal] = [globalThis.client, console.error];
+  const [clientReal, errorReal] = [conexion.client, console.error];
   const enviados = [];
   const errores = [];
   const client = {
@@ -1190,7 +1191,7 @@ test(".avisartodos: el log de cada grupo, los nombres sin menciones y la lista d
       enviados.push([chat, t]);
     },
   };
-  globalThis.client = client;
+  conexion.client = client;
   _dep.esperar = async () => {};
   console.error = (...partes) => errores.push(partes.map(String).join(" "));
   const antes = Date.now();
@@ -1198,7 +1199,7 @@ test(".avisartodos: el log de cada grupo, los nombres sin menciones y la lista d
     await P.run({ chat: DUENO }, { client, text: "Hola", isOwner: true });
   } finally {
     _dep.esperar = esperarReal;
-    [globalThis.client, console.error] = [clientReal, errorReal];
+    [conexion.client, console.error] = [clientReal, errorReal];
   }
   assert.ok(errores.includes(`[avisar-todos] falló en ${VENTAS}: Error`), JSON.stringify(errores));
   assert.equal(enviados.at(-1)[1], "✅ Mensaje enviado a 1 grupo(s). No sé si llegó a 1 (falló mientras salía), y no lo repetí para no mandarlo dos veces: Ventas 59899123456.");
@@ -1213,11 +1214,11 @@ test(".avisartodos: cortado desde otro chat, les avisa a los dos; cortado antes 
   const { default: P, _dep } = await import("../plugins/avisar-todos.js");
   const [A, B] = ["59899111222@s.whatsapp.net", "59899333444@s.whatsapp.net"];
   const esperarReal = _dep.esperar;
-  const clientReal = globalThis.client;
+  const clientReal = conexion.client;
   const enviados = [];
   let lista = async () => ({ "a@g.us": {}, "b@g.us": {} });
   const client = { groupFetchAllParticipating: () => lista(), sendText: async (chat, t) => enviados.push([chat, t]) };
-  globalThis.client = client;
+  conexion.client = client;
   const a = (chat) => enviados.filter(([c]) => c === chat).map(([, t]) => t);
   _dep.esperar = esperaHastaCortar;
   try {
@@ -1239,6 +1240,6 @@ test(".avisartodos: cortado desde otro chat, les avisa a los dos; cortado antes 
     assert.deepEqual(enviados, [[A, "⏹️ Corté el aviso: no salió a ningún grupo."]], "ni el 📣 de que arranca");
   } finally {
     _dep.esperar = esperarReal;
-    globalThis.client = clientReal;
+    conexion.client = clientReal;
   }
 });

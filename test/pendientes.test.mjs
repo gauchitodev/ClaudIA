@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // What the bot owes for later (lib/pendientes.js): reminders, lightning trivias, download retries, markets. Every
 // minute it runs whatever is due. A send that failed once used to leave the item as "error" for good: a reminder the
@@ -13,7 +14,7 @@ before(async () => {
 });
 beforeEach(() => {
   db.exec("DELETE FROM pendientes");
-  globalThis.botConectado = true;
+  conexion.botConectado = true;
 });
 
 const fila = (id) => db.prepare("SELECT * FROM pendientes WHERE id = ?").get(id);
@@ -77,7 +78,7 @@ test("pendientes: si se corta la conexión a mitad de la pasada, lo que falta vu
   const enviar = client.sendMessage;
   client.sendMessage = async (...args) => {
     const r = await enviar(...args);
-    globalThis.botConectado = false; // the connection drops right after the first send
+    conexion.botConectado = false; // the connection drops right after the first send
     return r;
   };
   await P.procesarPendientes(client);

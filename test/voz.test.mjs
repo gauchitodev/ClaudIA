@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import txt from "../lib/strings.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // Claudia's voice (lib/voz.js): edge-tts as a command, the text cleaned for it, the voice from config.toml, and what
 // happens without the command or when it fails; .voz (plugins/voz.js) per group; and .tts with that voice when it's
@@ -114,7 +115,7 @@ test("hablar: sin el comando, null y no se insiste por un rato; si falla, null y
 test(".voz: muestra cómo está; un admin la pone en on, siempre y off; avisa si edge-tts no está", async () => {
   const correr = async (args, { isAdmin = false } = {}) => {
     globalThis.enviados = [];
-    await P.run({ chat: G, sender: "a@lid", isGroup: true }, { client: globalThis.client, args, isAdmin, isOwner: false });
+    await P.run({ chat: G, sender: "a@lid", isGroup: true }, { client: conexion.client, args, isAdmin, isOwner: false });
     return ultimoEnviado().msg.text;
   };
   V._dep.ejecutar = edgeFalso();

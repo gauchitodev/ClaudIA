@@ -4,6 +4,7 @@
 // database prepararBase (helpers.mjs) publishes. And the commands that name someone.
 import { G } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 export const unaLid = (n, k = 1) => `3${String(n).padStart(6, "0")}${String(k).padStart(8, "0")}@lid`;
 export const unNumero = (n) => `59899${String(n).padStart(6, "0")}@s.whatsapp.net`;
@@ -78,14 +79,14 @@ export function owner(t, n, { comoEnConfig = null, filaAjena = false } = {}) {
 }
 
 // The bot as a group lists it: by LID with the number, by number with the LID, and by number alone.
-export function botEnGrupo(client = globalThis.client) {
+export function botEnGrupo(client = conexion.client) {
   const { lid, jid } = client.user;
   return { porLid: { id: lid, phoneNumber: jid, admin: "admin" }, porNumero: { id: jid, lid, admin: "admin" }, porNumeroSinLid: { id: jid, admin: "admin" } };
 }
 
 // WhatsApp's answer to who has a number (USync's LID query, lidSegunWhatsApp): mapa is number -> LID, and a number not
 // in it comes back without one. Returns the questions asked.
-export function usyncFalso(t, mapa, client = globalThis.client) {
+export function usyncFalso(t, mapa, client = conexion.client) {
   const consultas = [];
   client.executeUSyncQuery = async (consulta) => {
     consultas.push(consulta);

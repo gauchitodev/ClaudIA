@@ -8,6 +8,7 @@ import { owner, unaLid, unNumero, digitos, usyncFalso } from "./identidad-escena
 import "@whiskeysockets/baileys";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const listaNegraMostrada = estadoDe("grupo-lista-negra", () => new Map());
@@ -20,8 +21,8 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("lista-negra"));
-  globalThis.client.decodeJid = (j) => j;
-  globalThis.client.user.lid = "999000@lid";
+  conexion.client.decodeJid = (j) => j;
+  conexion.client.user.lid = "999000@lid";
   LN = await import("../lib/lista-negra.js");
   B = await import("../lib/bienvenida.js");
   P = (await import("../plugins/grupo-lista-negra.js")).default;
@@ -41,7 +42,7 @@ beforeEach(() => {
   statusExpulsion = "200";
   globalThis.enviados = [];
   db.exec("DELETE FROM lista_negra");
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
@@ -69,7 +70,7 @@ const mensaje = (extra = {}) => ({
 
 // Run by 100, the group's creator, as the dispatcher would pass it along.
 const correr = (command, text, extra = {}, opciones = {}) =>
-  P.run(mensaje(extra), { client: globalThis.client, text, command, usedPrefix: ".", participants, isBotAdmin: true, isOwner: false, isWaAdmin: true, ...opciones });
+  P.run(mensaje(extra), { client: conexion.client, text, command, usedPrefix: ".", participants, isBotAdmin: true, isOwner: false, isWaAdmin: true, ...opciones });
 
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
 
@@ -143,7 +144,7 @@ test("quien está anotado por número se reconoce por su LID cuando escribe", as
 
   // The message arrives with the LID only, no number: this is the case that was never detected before.
   const m = mensaje({ sender: "111@lid", senderJid: "", messageStubType: null });
-  const frenado = await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
+  const frenado = await Manejador.before(m, { client: conexion.client, participants, isBotAdmin: true, isRAdmin: false });
 
   assert.equal(frenado, true);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
@@ -160,7 +161,7 @@ test("al entrar al grupo se lo echa sin esperar a que escriba", async () => {
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
 
   const nuevos = entran("111@lid", "222@lid");
-  const { expulsados, fallados } = await LN.expulsarDeListaNegra(globalThis.client, G, nuevos, participants);
+  const { expulsados, fallados } = await LN.expulsarDeListaNegra(conexion.client, G, nuevos, participants);
 
   assert.equal(expulsados.length, 1);
   assert.equal(fallados.length, 0);
@@ -182,7 +183,7 @@ test("al entrar: el anotado sale y los demás reciben las reglas", async () => {
   conReglas();
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
 
-  await B.recibirNuevos(globalThis.client, G, entran("111@lid", "222@lid"), { participants });
+  await B.recibirNuevos(conexion.client, G, entran("111@lid", "222@lid"), { participants });
 
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["111@lid"], accion: "remove" }]);
   assert.deepEqual(bienvenida()?.mentions, ["222@lid"], "la bienvenida es solo para el que no está anotado");
@@ -194,7 +195,7 @@ test("al entrar: si la lista negra falla, la bienvenida sale igual", async () =>
   console.error = () => {};
   try {
     // Metadata that can't be read: the blacklist step blows up, whatever the reason.
-    await B.recibirNuevos(globalThis.client, G, entran("222@lid"), { participants: "roto" });
+    await B.recibirNuevos(conexion.client, G, entran("222@lid"), { participants: "roto" });
   } finally {
     console.error = errorReal;
   }
@@ -206,7 +207,7 @@ test("al entrar: si el bot no es admin no echa a nadie, pero da la bienvenida", 
   F.addToBlacklist("59899111111@s.whatsapp.net", "spam", "100@s.whatsapp.net", G, "111@lid");
   const sinAdmin = participants.map((p) => (p.id === "999000@lid" ? { ...p, admin: null } : p));
 
-  await B.recibirNuevos(globalThis.client, G, entran("111@lid"), { participants: sinAdmin });
+  await B.recibirNuevos(conexion.client, G, entran("111@lid"), { participants: sinAdmin });
 
   assert.deepEqual(expulsiones, [], "sin ser admin no lo puede echar");
   assert.deepEqual(bienvenida()?.mentions, ["111@lid"], "lo echará el manejador cuando escriba, si le dan admin al bot");
@@ -260,7 +261,7 @@ test(".vln en un grupo nombra sin números ni menciones, y .ln2 saca por el núm
   await correr("ln2", "9");
   assert.match(ultimo(), /No hay ningún 9 en la lista negra de este grupo\./);
 
-  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: conexion.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.match(ultimo(), /\+59899444444/, "por privado, el owner ve los números");
 });
 const PRIVADO_VLN = "59899100100@s.whatsapp.net";
@@ -309,7 +310,7 @@ test(".ln por número también nombra a los otros mencionados, y .vln no muestra
   await correr("vln", "");
   assert.match(ultimo(), /\d\. Gabi\n📝 Razón: estafa, lo vio @Eli\n/);
   assert.doesNotMatch(ultimo(), /5989|@3000/, "ni su número ni la LID del otro");
-  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: conexion.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.match(ultimo(), /📝 Razón: @59899577577 estafa, lo vio @300000000000005\n/);
 });
 
@@ -368,7 +369,7 @@ test(".ln anota a quien va justo después del comando, el número o la mención,
   await correr("ln2", "ya no @222", { mentionedJid: ["222@lid"] });
   assert.equal(ultimo(), "Poné a quién sacar justo después de .ln2: .ln2 @persona o .ln2 +59899999999.");
   assert.ok(F.isBlacklisted("222@lid", G), "y no sacó a nadie");
-  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "estafa +59899111111", command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: conexion.client, text: "estafa +59899111111", command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.equal(ultimo(), "Poné a quién anotar justo después de .ln: .ln +59899999999 motivo.", "por privado no hay a quién mencionar");
 });
 
@@ -390,7 +391,7 @@ test(".vln en el grupo no muestra números de otros, y deja los mails y lo que n
   F.addToBlacklist("59899579579@s.whatsapp.net", "le vendió a +59899777777 y a +598 99 777 778, la cuenta 300000000000779, escribe desde pepe@12345.com, entradas a @2000 y $ 50000, +1000 de recargo", "59899100100@s.whatsapp.net", "*");
   await correr("vln", "");
   assert.match(ultimo(), /📝 Razón: le vendió a \(número oculto\) y a \(número oculto\), la cuenta \(número oculto\), escribe desde pepe@12345\.com, entradas a @2000 y \$ 50000, \+1000 de recargo\n/);
-  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: globalThis.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: conexion.client, text: "", command: "vln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   assert.match(ultimo(), /📝 Razón: le vendió a \+59899777777 y a \+598 99 777 778, la cuenta 300000000000779, /);
 });
 
@@ -464,7 +465,7 @@ test(".ln por número: ocho dígitos y un motivo con dígitos, un conocido que p
   await correr("ln", "+598 99 666 951 2 veces");
   assert.deepEqual(anotado(), [["59899666951@s.whatsapp.net", "2 veces"]], "conocido por la base");
   db.exec("DELETE FROM lista_negra");
-  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899666952@s.whatsapp.net", lid: "300000000000952@lid", admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899666952@s.whatsapp.net", lid: "300000000000952@lid", admin: null }, { id: conexion.client.user.jid, lid: "999000@lid", admin: "admin" }];
   await correr("ln", "+598 99 666 952 3 veces", {}, { participants: porNumero });
   assert.deepEqual(anotado(), [["59899666952@s.whatsapp.net", "3 veces"]], "conocido en un grupo por número");
   db.exec("DELETE FROM lista_negra");
@@ -493,19 +494,19 @@ test(".ln por número: ocho dígitos y un motivo con dígitos, un conocido que p
 
 const PRIVADO = "59899100100@s.whatsapp.net";
 const desdeElPrivado = (text) =>
-  P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: globalThis.client, text, command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: conexion.client, text, command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
 const bot = { id: "999000@lid", admin: "admin" };
 const anotado = { id: "111@lid", admin: null, phoneNumber: "59899111111@s.whatsapp.net" };
 
 test("lista de todos los grupos: le pide los grupos a WhatsApp, lo saca de donde está y le cuenta al dueño", async () => {
-  globalThis.client.chats = {}; // nothing in memory: the old sweep found no group at all
-  globalThis.client.groupFetchAllParticipating = async () => ({
+  conexion.client.chats = {}; // nothing in memory: the old sweep found no group at all
+  conexion.client.groupFetchAllParticipating = async () => ({
     "a@g.us": { id: "a@g.us", subject: "Grupo A", participants: [anotado, bot] },
     "b@g.us": { id: "b@g.us", subject: "Grupo B", participants: [anotado, bot] },
     "c@g.us": { id: "c@g.us", subject: "Grupo C", participants: [anotado, { ...bot, admin: null }] },
     "d@g.us": { id: "d@g.us", subject: "Grupo D", participants: [{ id: "222@lid", admin: null }, bot] },
   });
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     return ids.map((jid) => ({ status: chat === "b@g.us" ? "403" : "200", jid }));
   };
@@ -521,16 +522,16 @@ test("lista de todos los grupos: le pide los grupos a WhatsApp, lo saca de donde
     "donde el bot no es admin ni lo intenta, y donde no está no hace nada",
   );
   assert.equal(ultimo(), "Anotado en la lista negra de todos los grupos.\nLo saqué de: Grupo A.\nNo lo pude sacar de: Grupo B (error 403), Grupo C (no soy admin). Ahí sacalo a mano.");
-  assert.equal(globalThis.client.chats["d@g.us"]?.metadata?.subject, "Grupo D", "la consulta de paso llenó la caché");
+  assert.equal(conexion.client.chats["d@g.us"]?.metadata?.subject, "Grupo D", "la consulta de paso llenó la caché");
 });
 
 test("lista de todos los grupos: si no está en ninguno, o WhatsApp no pasa los grupos, lo dice", async () => {
-  globalThis.client.groupFetchAllParticipating = async () => ({ "d@g.us": { id: "d@g.us", subject: "Grupo D", participants: [bot] } });
+  conexion.client.groupFetchAllParticipating = async () => ({ "d@g.us": { id: "d@g.us", subject: "Grupo D", participants: [bot] } });
   await desdeElPrivado("+59899111111 estafa");
   assert.equal(ultimo(), "Anotado en la lista negra de todos los grupos.\nNo está en ninguno de mis grupos ahora: lo echo apenas entre en uno.");
 
   db.exec("DELETE FROM lista_negra");
-  globalThis.client.groupFetchAllParticipating = async () => {
+  conexion.client.groupFetchAllParticipating = async () => {
     throw new Error("timed out");
   };
   await desdeElPrivado("+59899111111 estafa");
@@ -546,12 +547,12 @@ test("a un admin de WhatsApp o a un dueño anotados no se los echa cuando escrib
   let borrado = false;
   const m = mensaje({ sender: "777@lid", senderJid: "59899777777@s.whatsapp.net", messageStubType: null, delete: async () => (borrado = true) });
   for (const rango of [{ isWaAdmin: true }, { isOwner: true }]) {
-    assert.equal(await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false, ...rango }), undefined);
+    assert.equal(await Manejador.before(m, { client: conexion.client, participants, isBotAdmin: true, isRAdmin: false, ...rango }), undefined);
   }
   assert.deepEqual(expulsiones, []);
   assert.equal(borrado, false);
   // Without admin, the same person is removed, as before.
-  assert.equal(await Manejador.before(m, { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false }), true);
+  assert.equal(await Manejador.before(m, { client: conexion.client, participants, isBotAdmin: true, isRAdmin: false }), true);
   assert.deepEqual(expulsiones, [{ chat: G, ids: ["777@lid"], accion: "remove" }]);
 });
 
@@ -563,12 +564,12 @@ test("el aviso de que lo saqué lo nombra, sin su número ni su LID", async () =
   // initDataDB keeps the name a row already has: another test makes 111 with another one, and run first, the notice
   // named them by it.
   F.updateUser("111@lid", { pushName: "Pedro" });
-  await Manejador.before(mensaje({ sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
+  await Manejador.before(mensaje({ sender: "111@lid", senderJid: "59899111111@s.whatsapp.net", messageStubType: null }), { client: conexion.client, participants, isBotAdmin: true, isRAdmin: false });
   assert.equal(ultimo(), "*[⚠️] Saqué a Pedro: estaba en la lista negra.*\n\n*[❗] Razón:* spam");
 
   // Someone the bot has no name for.
   F.addToBlacklist("333@lid", "molesta", "100@s.whatsapp.net", G);
-  await Manejador.before(mensaje({ sender: "333@lid", senderJid: "", messageStubType: null }), { client: globalThis.client, participants, isBotAdmin: true, isRAdmin: false });
+  await Manejador.before(mensaje({ sender: "333@lid", senderJid: "", messageStubType: null }), { client: conexion.client, participants, isBotAdmin: true, isRAdmin: false });
   assert.equal(ultimo(), "*[⚠️] Saqué a alguien: estaba en la lista negra.*\n\n*[❗] Razón:* molesta");
 });
 
@@ -585,24 +586,24 @@ test(".ln por número anota a quien el grupo lista con él, no a quien la base r
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]]);
   assert.deepEqual(expulsiones, [{ chat: G, ids: [AHORA], accion: "remove" }]);
   expulsiones = [];
-  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
+  await B.recibirNuevos(conexion.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
   assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]], "al volver, se lo echa");
   assert.equal(F.isBlacklisted([ANTES, "59899000909@s.whatsapp.net"], G), null, "y quien lo tuvo antes no quedó anotado");
 
   // A group that lists people by number brings the LID apart.
   db.exec("DELETE FROM lista_negra");
-  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: X, lid: AHORA, admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  const porNumero = [{ id: "59899100100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: X, lid: AHORA, admin: null }, { id: conexion.client.user.jid, lid: "999000@lid", admin: "admin" }];
   await correr("ln", "+59899000901 estafa", {}, { participants: porNumero });
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]], "en un grupo por número");
 
   db.exec("DELETE FROM lista_negra");
-  globalThis.client.groupFetchAllParticipating = async () => ({ "e@g.us": { id: "e@g.us", subject: "Grupo E", participants: [{ id: ANTES, admin: null, phoneNumber: "59899000909@s.whatsapp.net" }, { id: AHORA, admin: null, phoneNumber: X }, bot] } });
+  conexion.client.groupFetchAllParticipating = async () => ({ "e@g.us": { id: "e@g.us", subject: "Grupo E", participants: [{ id: ANTES, admin: null, phoneNumber: "59899000909@s.whatsapp.net" }, { id: AHORA, admin: null, phoneNumber: X }, bot] } });
   expulsiones = [];
   await desdeElPrivado("+59899000901 estafa");
   assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid]), [[X, null]], "por privado, sin la LID de la base");
   assert.deepEqual(expulsiones, [{ chat: "e@g.us", ids: [AHORA], accion: "remove" }], "y de cada grupo saca a quien tiene el número");
   expulsiones = [];
-  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
+  await B.recibirNuevos(conexion.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: conAhora });
   assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]]);
 });
 
@@ -613,12 +614,12 @@ test("al entrar sin la LID, la entrada no se queda con la que la base recuerda p
   const [ANTES, AHORA, X] = ["300000000000911@lid", "300000000000912@lid", "59899000911@s.whatsapp.net"];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
   F.addToBlacklist(X, "estafa", "100@s.whatsapp.net", G);
-  const yo = { id: globalThis.client.user.jid, admin: "admin" };
-  await B.recibirNuevos(globalThis.client, G, [{ id: X, admin: null }], { participants: [{ id: X, admin: null }, yo] });
+  const yo = { id: conexion.client.user.jid, admin: "admin" };
+  await B.recibirNuevos(conexion.client, G, [{ id: X, admin: null }], { participants: [{ id: X, admin: null }, yo] });
   assert.deepEqual(expulsiones.map((e) => e.ids), [[X]]);
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, null]]);
   expulsiones = [];
-  await B.recibirNuevos(globalThis.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: [{ id: AHORA, phoneNumber: X, admin: null }, { id: "999000@lid", admin: "admin" }] });
+  await B.recibirNuevos(conexion.client, G, [{ id: AHORA, phoneNumber: X, admin: null }], { participants: [{ id: AHORA, phoneNumber: X, admin: null }, { id: "999000@lid", admin: "admin" }] });
   assert.deepEqual(expulsiones.map((e) => e.ids), [[AHORA]], "con su LID también");
   assert.deepEqual(F.getBlacklist(G).map((e) => [e.jid, e.lid]), [[X, AHORA]], "y esa sí la aprende: vino con la persona");
 });
@@ -663,7 +664,7 @@ test("anotar a quien tiene ahora un número no le saca la entrada a quien lo tuv
   // From private the LID is only the database's (the number's owner now): the new entry doesn't keep it, and it still
   // tells that the one under the number is someone else's.
   F.addToBlacklist(X, "tres", "100@s.whatsapp.net", "*", "300000000000933@lid");
-  globalThis.client.groupFetchAllParticipating = async () => ({});
+  conexion.client.groupFetchAllParticipating = async () => ({});
   await desdeElPrivado("+59899000931 cuatro");
   assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid, e.reason]).sort(), [["300000000000933@lid", "300000000000933@lid", "tres"], [X, null, "cuatro"]]);
 });
@@ -677,7 +678,7 @@ test("por privado, .ln2 saca la entrada como la muestra .vln", async () => {
   F.syncUserInfo({ chat: G, sender: NUEVO, senderJid: X, pushName: "Nuevo" });
   F.addToBlacklist(A, "uno", "59899100100@s.whatsapp.net", "*", A);
   F.addToBlacklist(X, "dos", "59899100100@s.whatsapp.net", "*", C);
-  const enPrivado = (command, text) => P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: globalThis.client, text, command, usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  const enPrivado = (command, text) => P.run(mensaje({ chat: PRIVADO, isGroup: false }), { client: conexion.client, text, command, usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
   await enPrivado("vln", "");
   assert.match(ultimo(), /\d\. @300000000000941 🌐 todos los grupos\n/);
   assert.match(ultimo(), /\d\. \+59899000941 🌐 todos los grupos\n/);
@@ -703,10 +704,10 @@ test(".ln por número le pregunta a WhatsApp quién lo tiene, si el grupo no lo 
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
   const consultas = [];
   let responde = async () => ({ list: [{ id: X, lid: "300000000000962:3@lid" }], sideList: [] }); // with a device, even
-  globalThis.client.executeUSyncQuery = (consulta) => (consultas.push(consulta), responde());
+  conexion.client.executeUSyncQuery = (consulta) => (consultas.push(consulta), responde());
   const consultaReal = I.IDENTIDAD?.CONSULTA_MS;
   t.after(() => {
-    delete globalThis.client.executeUSyncQuery;
+    delete conexion.client.executeUSyncQuery;
     if (I.IDENTIDAD) I.IDENTIDAD.CONSULTA_MS = consultaReal;
   });
   const sinNumeros = [participants[0], { id: VIEJO, admin: null }, { id: NUEVO, admin: null }, participants.at(-1)];
@@ -719,7 +720,7 @@ test(".ln por número le pregunta a WhatsApp quién lo tiene, si el grupo no lo 
 
   // From private the entry keeps it too, and the number's owner writing doesn't hand it to whoever had it before.
   db.exec("DELETE FROM lista_negra");
-  globalThis.client.groupFetchAllParticipating = async () => ({});
+  conexion.client.groupFetchAllParticipating = async () => ({});
   await desdeElPrivado("+59899000961 estafa");
   assert.deepEqual(F.getBlacklist("*").map((e) => [e.jid, e.lid]), [[X, NUEVO]]);
   const m = { chat: G, isGroup: true, sender: NUEVO, senderJid: X, pushName: "Nuevo", delete: async () => {}, react: async () => {} };
@@ -767,8 +768,8 @@ test(".ln @<número tipeado> respondiendo a alguien anota a ese número, no a qu
 test(".ln con una mención o un mensaje citado por número le pregunta a WhatsApp quién lo tiene", async (t) => {
   const [VIEJO, NUEVO, X] = ["300000000000971@lid", "300000000000972@lid", "59899000971@s.whatsapp.net"];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
-  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: NUEVO }] });
-  t.after(() => delete globalThis.client.executeUSyncQuery);
+  conexion.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: NUEVO }] });
+  t.after(() => delete conexion.client.executeUSyncQuery);
   const porNumero = [participants[0], { id: X, admin: null }, participants.at(-1)];
   await correr("ln", "@59899000971 spam", { mentionedJid: [X] }, { participants: porNumero });
   assert.deepEqual([F.getBlacklist(G).map((e) => [e.jid, e.lid]), expulsiones.map((e) => e.ids)], [[[X, NUEVO]], [[X]]]);
@@ -787,13 +788,13 @@ test(".ln con una mención o un mensaje citado por número le pregunta a WhatsAp
 test(".ln por número no anota ni echa a quien la base recuerda si el grupo lo lista con otro número", async (t) => {
   const [VIEJO, X, Y] = ["300000000000981@lid", "59899000981@s.whatsapp.net", "59899000989@s.whatsapp.net"];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
-  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X }] }); // it answers, without a LID
-  t.after(() => delete globalThis.client.executeUSyncQuery);
+  conexion.client.executeUSyncQuery = async () => ({ list: [{ id: X }] }); // it answers, without a LID
+  t.after(() => delete conexion.client.executeUSyncQuery);
   const conOtroNumero = [participants[0], { id: VIEJO, phoneNumber: Y, admin: null }, participants.at(-1)];
   await correr("ln", "+59899000981 estafa", {}, { participants: conOtroNumero });
   assert.deepEqual([F.getBlacklist(G), expulsiones], [[], []]);
   assert.match(ultimo(), /^No sé de quién es ese número ahora/);
-  globalThis.client.groupFetchAllParticipating = async () => ({ "otro@g.us": { id: "otro@g.us", subject: "Otro", participants: [{ id: VIEJO, phoneNumber: Y, admin: null }, bot] } });
+  conexion.client.groupFetchAllParticipating = async () => ({ "otro@g.us": { id: "otro@g.us", subject: "Otro", participants: [{ id: VIEJO, phoneNumber: Y, admin: null }, bot] } });
   await desdeElPrivado("+59899000981 estafa");
   assert.deepEqual(expulsiones, []);
 });
@@ -806,7 +807,7 @@ test("la lista negra deja en paz a los dueños como para sus poderes, al entrar 
   // AJENA, someone else's row that still has the owner's number, listed in the group.
   const o = owner(t, 830, { filaAjena: true });
   F.addToBlacklist(o.AJENA, "estafa", "100@lid", G, o.AJENA);
-  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: o.AJENA }], [...participants, { id: o.AJENA, admin: null }]);
+  await LN.expulsarDeListaNegra(conexion.client, G, [{ id: o.AJENA }], [...participants, { id: o.AJENA, admin: null }]);
   const visto = { ajenaAlEntrar: expulsiones.map((e) => e.ids[0]) };
   // Another owner, whose row has no number and whom WhatsApp hasn't confirmed yet: their number was listed back when it
   // was someone else's, and the group lists them with it.
@@ -816,9 +817,9 @@ test("la lista negra deja en paz a los dueños como para sus poderes, al entrar 
   F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);
   const conDueno = [...participants, { id: OL, phoneNumber: Z, admin: null }];
   expulsiones = [];
-  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: OL }], conDueno);
+  await LN.expulsarDeListaNegra(conexion.client, G, [{ id: OL }], conDueno);
   visto.duenoAlEntrar = expulsiones.length;
-  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: globalThis.client, participants: conDueno, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
+  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: conexion.client, participants: conDueno, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
   visto.duenoAlEscribir = expulsiones.length;
   assert.deepEqual(visto, { ajenaAlEntrar: [o.AJENA], duenoAlEntrar: 0, duenoAlEscribir: 0 });
 });
@@ -845,7 +846,7 @@ test("al entrar, a un owner sin confirmar con una entrada bajo su número se lo 
   const entrar = async (mapa, yaDijo = null) => {
     const consultas = conLaEntradaDeAntes(t, o, mapa);
     if (yaDijo) Identidad.ownersConfirmados.set(o.X, yaDijo);
-    await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: o.LID }], conOwner);
+    await LN.expulsarDeListaNegra(conexion.client, G, [{ id: o.LID }], conOwner);
     return [consultas.length, expulsiones.map((e) => e.ids[0]), F.isBlacklisted(o.X, G).lid];
   };
   const visto = {
@@ -873,7 +874,7 @@ test("al escribir, a un owner sin confirmar con una entrada bajo su número se l
     const m = mensaje({ sender: o.LID, senderJid: "", messageStubType: null });
     // As handle-message has it, from before WhatsApp answers.
     const isOwner = Identidad.esOwnerConfirmado([m.senderJid, m.sender]);
-    await Manejador.before(m, { client: globalThis.client, participants: conOwner, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner });
+    await Manejador.before(m, { client: conexion.client, participants: conOwner, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner });
     return [consultas.length, expulsiones.map((e) => e.ids[0]), F.isBlacklisted(o.X, G).lid];
   };
   const visto = { confirmado: await escribir({ [o.X]: o.LID }), deOtro: await escribir({ [o.X]: unaLid(841, 5) }), sinRespuesta: await escribir({}) };
@@ -893,13 +894,13 @@ test("el owner que el grupo lista con su número no le deja su LID a la entrada 
   F.addToBlacklist(Z, "el que tenía el número antes", "100@lid", G);
   const consultas = usyncFalso(t, {}); // WhatsApp doesn't answer
   const conSuNumero = [...participants, { id: OL, phoneNumber: Z, admin: null }];
-  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: globalThis.client, participants: conSuNumero, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
+  await Manejador.before(mensaje({ sender: OL, senderJid: "", messageStubType: null }), { client: conexion.client, participants: conSuNumero, isBotAdmin: true, isRAdmin: false, isWaAdmin: false, isOwner: false });
   const visto = { alEscribir: [consultas.length, expulsiones.length, F.isBlacklisted(Z, G).lid] };
   // Later, still unconfirmed, the owner comes into a group that doesn't bring their number, and so does VIEJO.
-  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: OL }], [...participants, { id: OL, admin: null }]);
+  await LN.expulsarDeListaNegra(conexion.client, G, [{ id: OL }], [...participants, { id: OL, admin: null }]);
   visto.ownerAlEntrar = expulsiones.length;
   expulsiones = [];
-  await LN.expulsarDeListaNegra(globalThis.client, G, [{ id: VIEJO }], [...participants, { id: VIEJO, admin: null }]);
+  await LN.expulsarDeListaNegra(conexion.client, G, [{ id: VIEJO }], [...participants, { id: VIEJO, admin: null }]);
   visto.viejoAlEntrar = expulsiones.map((e) => e.ids[0]);
   assert.deepEqual(visto, { alEscribir: [0, 0, null], ownerAlEntrar: 0, viejoAlEntrar: [VIEJO] });
 });
@@ -911,17 +912,17 @@ test("el pedido de entrada de un owner no lo rechaza una entrada bajo su número
   t.after(() => Identidad.ownersConfirmados.delete(o.X));
   let pendientes = [];
   const rechazos = [];
-  globalThis.client.groupRequestParticipantsList = async () => pendientes;
-  globalThis.client.groupRequestParticipantsUpdate = async (chat, ids, accion) => rechazos.push(...ids.map((id) => [id, accion]));
+  conexion.client.groupRequestParticipantsList = async () => pendientes;
+  conexion.client.groupRequestParticipantsUpdate = async (chat, ids, accion) => rechazos.push(...ids.map((id) => [id, accion]));
   t.after(() => {
-    delete globalThis.client.groupRequestParticipantsList;
-    delete globalThis.client.groupRequestParticipantsUpdate;
+    delete conexion.client.groupRequestParticipantsList;
+    delete conexion.client.groupRequestParticipantsUpdate;
   });
   const pedir = async (pedido, mapa) => {
     const consultas = conLaEntradaDeAntes(t, o, mapa);
     pendientes = [pedido];
     rechazos.length = 0;
-    await Detect.before({ chat: G, isGroup: true, sender: "", messageStubType: 172, messageStubParameters: [] }, { client: globalThis.client, participants, isBotAdmin: true, chat: { detect: false } });
+    await Detect.before({ chat: G, isGroup: true, sender: "", messageStubType: 172, messageStubParameters: [] }, { client: conexion.client, participants, isBotAdmin: true, chat: { detect: false } });
     return [consultas.length, [...rechazos], F.isBlacklisted(o.X, G).lid];
   };
   const visto = { conSuNumero: await pedir({ jid: o.LID, phone_number: o.X }, {}), soloLaLid: await pedir({ jid: o.LID }, { [o.X]: o.LID }), sinRespuesta: await pedir({ jid: o.LID }, {}) };

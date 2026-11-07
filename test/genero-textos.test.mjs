@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { prepararBase, G, fijarSaldo } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { conexion } from "../lib/conexion.js";
 
 // The bot's fixed texts about one person agree with the gender set with .genero (lib/genero.js, concordar): kinship,
 // trades, raffles, the welcome with the rules, kisses, the couple, adoptions, the jail card and the moderation notices.
@@ -40,7 +41,7 @@ async function correr(archivo, sender, { quien = null, text = quien ? `@${quien.
   const P = (await import(`../plugins/${archivo}.js`)).default;
   globalThis.enviados = [];
   const m = { chat: G, sender, senderJid: "", text, mentionedJid: quien ? [quien] : [], isGroup: true, react: async () => {} };
-  await P.run(m, { client: globalThis.client, text, args: text.split(" ").filter(Boolean), command: command || P.cmd[0], usedPrefix: ".", participants: [801, 802, 803, 804, 805].map((n) => ({ id: L(n), admin: null })), ...extra });
+  await P.run(m, { client: conexion.client, text, args: text.split(" ").filter(Boolean), command: command || P.cmd[0], usedPrefix: ".", participants: [801, 802, 803, 804, 805].map((n) => ({ id: L(n), admin: null })), ...extra });
   return globalThis.enviados.map((e) => e.msg).find((msg) => msg?.text) ?? {};
 }
 // A run with Math.random fixed, for what's drawn.

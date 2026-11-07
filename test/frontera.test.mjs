@@ -59,16 +59,18 @@ test("un plugin que resuelve a quién nombra un mensaje sin preguntarle a WhatsA
 });
 
 // One way only: lib/menciones.js and the rest import lib/identidad.js, which imports nothing of the bot's but the
-// database. When it imported lib/menciones.js, whatever both needed had to live there, where it didn't belong. Every
-// file named in its code, as a string or a template, whichever way it's brought in: import, export … from, import(),
-// require or createRequire's, or new URL. Read as text, only paths with ./ or ../ in front counted, and
-// new URL("menciones.js", import.meta.url) got past.
-test("lib/identidad.js no importa nada del bot más que la base", async () => {
+// database and the connection, lib/conexion.js, which imports nothing at all (the socket and who the bot is used to be
+// read off globalThis). When it imported lib/menciones.js, whatever both needed had to live there, where it didn't
+// belong. Every file named in its code, as a string or a template, whichever way it's brought in: import, export …
+// from, import(), require or createRequire's, or new URL. Read as text, only paths with ./ or ../ in front counted,
+// and new URL("menciones.js", import.meta.url) got past.
+test("lib/identidad.js no importa nada del bot más que la base y la conexión, que no importa nada", async () => {
   const archivos = async (codigo) => (await nodosQue("Literal[value=/\\.[cm]?js$/], TemplateElement[value.raw=/\\.[cm]?js$/]", codigo)).map((n) => (n.type === "Literal" ? n.value : n.value.raw));
   const formas = ['import "./a.js";', "import { b } from './b.js';", 'export * from "./c.js";', "await import(`./d.js`);", "require('./e.js');", 'createRequire(import.meta.url)("./f.js");', 'await import(new URL("g.js", import.meta.url));', '// import "./comentado.js";', "import.meta.url;"];
   assert.deepEqual(await archivos(formas.join("\n")), ["./a.js", "./b.js", "./c.js", "./d.js", "./e.js", "./f.js", "g.js"]);
   const fuente = fs.readFileSync(new URL("../lib/identidad.js", import.meta.url), "utf8");
-  assert.deepEqual([...new Set(await archivos(fuente))], ["../database-functions.js"]);
+  assert.deepEqual([...new Set(await archivos(fuente))].sort(), ["../database-functions.js", "./conexion.js"]);
+  assert.deepEqual(await archivos(fs.readFileSync(new URL("../lib/conexion.js", import.meta.url), "utf8")), []);
 });
 
 // Whichever way the import is written: by name, the whole module, handed on, or through import() or a call that isn't

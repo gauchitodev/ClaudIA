@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, C, Reg, HG, Pf, Hook, Cmd, Cal;
 const DIA = 24 * 3600e3;
@@ -24,7 +25,7 @@ let k = 0;
 const msg = (sender, text, quoted = null, chat = G) => ({ chat, sender, text, isGroup: true, key: { id: `K${++k}` }, quoted });
 // A quoted message as lib/wa-socket.js builds it: its id, who sent it and its text (the caption, if it's a photo).
 const cita = (sender, text, extra = {}) => ({ id: `Q${++k}`, sender, text, fromMe: false, isBaileys: false, ...extra });
-const cliente = () => globalThis.client;
+const cliente = () => conexion.client;
 const ultimo = () => ultimoEnviado().msg.text;
 const correr = (sender, command, text = "", { quoted = null, chat = G, ...extra } = {}) =>
   Cmd.run(msg(sender, text, quoted, chat), { client: cliente(), command, args: text.trim() ? text.trim().split(/\s+/) : [], text, isMod: false, ...extra });

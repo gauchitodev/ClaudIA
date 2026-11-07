@@ -3,6 +3,7 @@ import { mencionadoActual, comoLoEsperan, esElBot } from "../lib/identidad.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 import { limpiarPalabra } from "../lib/comandos.js";
+import { conexion } from "../lib/conexion.js";
 
 // .aura @persona, or replying to their message: an aura duel (lib/aura.js) · .aura si / .aura no: the answer of whoever
 // was challenged, and .aura no from whoever challenged takes it back · .aura alone, or replying to Claudia: the
@@ -18,7 +19,7 @@ const RESPUESTAS = { si: "si", no: "no" };
 plugin.run = async (m, { client, text, participants }) => {
   // What goes out minutes later (the expiry, the result) goes through the socket of the moment: a reconnection in
   // between replaces the one this command came with.
-  const socket = () => globalThis.client || client;
+  const socket = () => conexion.client || client;
   const avisar = (r) => socket().sendMessage(m.chat, { text: r.texto, mentions: r.mentions || [] }, r.citar ? { quoted: r.citar } : undefined);
   const responder = (r) => (r.ok ? client.sendMessage(m.chat, { text: r.texto, mentions: r.mentions || [] }, { quoted: m }) : client.sendText(m.chat, `❌ ${r.error}`, m));
 

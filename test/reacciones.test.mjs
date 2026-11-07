@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, G, nodosQue, recorreElEvento, esElCliente } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // Reactions (lib/reacciones.js): "received" and UruCoins for whoever wrote the message, "given" and UruCoins for
 // whoever reacted. A reaction to one of Claudia's messages paid her too, with no daily cap: she could top .baltop and
@@ -15,7 +16,7 @@ const reaccion = (autor, reactor, { fromMe = false, id = `M${++k}`, chat = G } =
   key: { remoteJid: chat, id, participant: autor, fromMe },
   reaction: { text: "😂", key: { participant: reactor, fromMe: reactor === BOT } },
 });
-const contar = (r) => R.contarReaccion(globalThis.client, r);
+const contar = (r) => R.contarReaccion(conexion.client, r);
 
 before(async () => {
   ({ F } = await prepararBase("reacciones"));

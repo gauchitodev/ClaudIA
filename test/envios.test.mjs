@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // What the bot sends: the pace every send goes through (lib/ritmo.js) and the count of what went out (lib/envios.js).
 // Claudia was blocked by WhatsApp for volume, and the pace used to apply only to sendText: the roulette, reactions and
@@ -298,7 +299,7 @@ test(".enviados en un grupo: días, horas pico y tipos de lo que mandó ahí", a
   sembrar(G1, 0, 13, "multimedia", 5);
   sembrar(G1, 1, 22, "texto", 20);
 
-  const { texto } = await E.textoEnviados(globalThis.client, { chat: G1, ahora: AHORA });
+  const { texto } = await E.textoEnviados(conexion.client, { chat: G1, ahora: AHORA });
   assert.match(texto, /LO QUE MANDÉ EN ESTE GRUPO/);
   assert.match(texto, /Hoy: \*45\* mensajes · ayer 20/);
   assert.match(texto, /Últimos 2 días: \*65\* · 33 por día/, "el promedio, sobre los días que contó");
@@ -306,7 +307,7 @@ test(".enviados en un grupo: días, horas pico y tipos de lo que mandó ahí", a
   assert.match(texto, /\*Por tipo:\* 50 textos · 10 reacciones · 5 multimedia/);
   assert.doesNotMatch(texto, /\*Dónde\*/, "el de un grupo no lista los demás");
 
-  const vacio = await E.textoEnviados(globalThis.client, { chat: "mudo@g.us", ahora: AHORA });
+  const vacio = await E.textoEnviados(conexion.client, { chat: "mudo@g.us", ahora: AHORA });
   assert.match(vacio.texto, /No tengo envíos contados de los últimos 7 días en este grupo/);
 });
 
@@ -317,9 +318,9 @@ test(".enviados general: todos juntos, con los grupos que más la hacen hablar",
   const sembrarEn = (chat, atras, hora, tipo, n) => {
     for (let i = 0; i < n; i++) F.sumarEnvioBot(chat, A.claveDia(new Date(OTRA.getTime() - atras * 24 * 3600e3)), hora, tipo);
   };
-  globalThis.client.chats["panel@g.us"] = { subject: "Panel" };
-  globalThis.client.chats["casino@g.us"] = { subject: "Casino de los pibes" };
-  globalThis.client.chats["ventas@g.us"] = { subject: "Compraventa Pocitos" };
+  conexion.client.chats["panel@g.us"] = { subject: "Panel" };
+  conexion.client.chats["casino@g.us"] = { subject: "Casino de los pibes" };
+  conexion.client.chats["ventas@g.us"] = { subject: "Compraventa Pocitos" };
   sembrarEn("panel@g.us", 0, 21, "texto", 30);
   sembrarEn("panel@g.us", 0, 21, "reaccion", 10);
   sembrarEn("panel@g.us", 0, 13, "multimedia", 5);
@@ -328,7 +329,7 @@ test(".enviados general: todos juntos, con los grupos que más la hacen hablar",
   sembrarEn("ventas@g.us", 0, 10, "texto", 25);
   sembrarEn("privado", 0, 9, "texto", 15);
 
-  const { texto } = await E.textoEnviados(globalThis.client, { ahora: OTRA });
+  const { texto } = await E.textoEnviados(conexion.client, { ahora: OTRA });
   assert.match(texto, /🤖 \*LO QUE MANDÉ\*\n/);
   assert.match(texto, /Hoy: \*145\* mensajes/, "todos los chats juntos");
   assert.match(
@@ -345,7 +346,7 @@ test(".enviados general: todos juntos, con los grupos que más la hacen hablar",
 test(".enviados: en un grupo muestra ese grupo; con todo, o por privado, el general", async () => {
   const P = (await import("../plugins/owner-enviados.js")).default;
   assert.equal(P.onlyOwner, true, "el general lista todos los grupos: solo el owner");
-  const correr = (m, args = []) => P.run(m, { client: globalThis.client, args });
+  const correr = (m, args = []) => P.run(m, { client: conexion.client, args });
 
   await correr({ chat: "panel@g.us", isGroup: true });
   assert.match(ultimoEnviado().msg.text, /LO QUE MANDÉ EN ESTE GRUPO/);

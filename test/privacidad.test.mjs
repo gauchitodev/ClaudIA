@@ -4,6 +4,7 @@ import fs from "fs";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -156,7 +157,7 @@ test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo
   F.getUser(ANA, SUYO);
   F.updateUserInGroup(ANA, SUYO, { memoria: "tiene un perro que se llama Toto" });
   const pedir = async (accion) => {
-    await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: globalThis.client, text: accion, args: [accion], command: "memoria", isAdmin: false, isOwner: false });
+    await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: conexion.client, text: accion, args: [accion], command: "memoria", isAdmin: false, isOwner: false });
     return ultimoEnviado().msg.text;
   };
   assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .memoria olvidame");
@@ -180,7 +181,7 @@ test(".memoria olvidame no deja lo que sabía en el archivo de la base", async (
   F.initDataDB({ chat: GRANDE, sender: ANA, senderJid: "", pushName: "Ana" });
   F.updateUserInGroup(ANA, GRANDE, { memoria: `NO-LO-OLVIDES ${"le encanta contar sus vacaciones | ".repeat(200)}` });
   assert.ok(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), "antes está");
-  await Memoria.run({ chat: GRANDE, sender: ANA, isGroup: true }, { client: globalThis.client, text: "olvidame", args: ["olvidame"], command: "memoria", isAdmin: false, isOwner: false });
+  await Memoria.run({ chat: GRANDE, sender: ANA, isGroup: true }, { client: conexion.client, text: "olvidame", args: ["olvidame"], command: "memoria", isAdmin: false, isOwner: false });
   assert.equal(MP.memoriaDe(ANA, GRANDE), "");
   assert.equal(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), false, "ni en el archivo");
 });
@@ -227,7 +228,7 @@ test(".inactivos encuentra a cada uno aunque el grupo lo liste por número", asy
   F.registrarMensajeGrupo(G, ["333@lid"], Date.now() - 20 * 24 * 60 * 60 * 1000); // the bot keeps track of it since 20 days ago
   F.registrarMensajeGrupo(G, ["111@lid"]); // what counts is when they last wrote, stamped under their LID
   const correr = async (participants) => {
-    await Inactivos.run({ chat: G, sender: "111@lid", isGroup: true }, { client: globalThis.client, participants });
+    await Inactivos.run({ chat: G, sender: "111@lid", isGroup: true }, { client: conexion.client, participants });
     return ultimoEnviado().msg.mentions;
   };
   const porNumero = [{ id: "59899000111@s.whatsapp.net", lid: "111@lid" }, { id: "59899000222@s.whatsapp.net", lid: "222@lid" }];
@@ -393,9 +394,9 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
   const NADIE = "300000000000096@lid"; // mentioned, and never wrote
   const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
-  const lidReal = globalThis.client.user.lid;
+  const lidReal = conexion.client.user.lid;
   client.user = { ...client.user, lid: YO };
-  globalThis.client.user.lid = YO;
+  conexion.client.user.lid = YO;
   respuestaIA = { comando: "ninguno", respuesta: "todo bien" };
   CC.contextoChat.delete(AMIGOS);
   const habla = async (extra) => {
@@ -415,7 +416,7 @@ test("lo que le dicen a Claudia llega a la IA y a su memoria con nombres, no con
     const respuesta = await habla({ text: "jaja sí, ¿y @300000000000003?", mentionedJid: [BETO], key: { id: "NOMBRES2" }, quoted: { fromMe: true, id: "DECLAUDIA1", text: "¡Bien ahí @300000000000096!", contextInfo: { mentionedJid: [NADIE] } } });
     assert.match(respuesta, /responde a este mensaje tuyo: "¡Bien ahí @alguien!"\n\nSu mensaje: "jaja sí, ¿y @Beto\?"/);
   } finally {
-    globalThis.client.user.lid = lidReal;
+    conexion.client.user.lid = lidReal;
   }
 });
 
@@ -426,7 +427,7 @@ test(".recordá y .ia le pasan a la IA las menciones como nombres", async () => 
   conBeto();
   const NADIE = "300000000000094@lid"; // mentioned, and never wrote
   const texto = "que @300000000000003 y @300000000000094 siempre llegan tarde";
-  await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true, mentionedJid: [BETO, NADIE] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
+  await Memoria.run({ chat: FAMILIA, sender: ANA, isGroup: true, mentionedJid: [BETO, NADIE] }, { client: conexion.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
   assert.match(ultimoEnviado().msg.text, /Anotado \(#\d+\): @Beto y @alguien siempre llegan tarde$/);
   F.agregarMemoriaGrupo(FAMILIA, "@300000000000003 trae el mate", ANA); // one kept before, as it came
   const { textoParaPrompt } = await import("../lib/memoria-grupo.js");
@@ -455,8 +456,8 @@ test("nombreDe: un nombre con @ y dígitos no arroba a nadie, y Claudia es Claud
   conBeto();
   assert.equal(M.conNombres("che @300000000000092", ["300000000000092@lid"]), "che 300000000000003");
   assert.equal(M.conNombres("che @300000000000095 y @300000000000003", []), "che 300000000000003 y 0 y @Beto", "con letras, con su @");
-  assert.equal(M.nombreDe(globalThis.client.user.lid), "Claudia");
-  assert.equal(M.nombreDe(globalThis.client.user.jid), "Claudia");
+  assert.equal(M.nombreDe(conexion.client.user.lid), "Claudia");
+  assert.equal(M.nombreDe(conexion.client.user.jid), "Claudia");
 });
 
 // sinMenciones took out one "@": asked to repeat "@@<digits>", Claudia answered with "@<digits>", a mention again, in a
@@ -623,7 +624,7 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
 // In a group of its own: the note it leaves went into the prompt of the next test about Familia.
 test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {
   const texto = "que @300000000000096 debe una ronda, y @3000@00000000091 también";
-  await Memoria.run({ chat: "recorda-eco@g.us", sender: ANA, isGroup: true, mentionedJid: [] }, { client: globalThis.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
+  await Memoria.run({ chat: "recorda-eco@g.us", sender: ANA, isGroup: true, mentionedJid: [] }, { client: conexion.client, text: texto, args: texto.split(" "), command: "recordá", isAdmin: false, isOwner: false });
   assert.match(ultimoEnviado().msg.text, /^🧠 Anotado \(#\d+\): 300000000000096 debe una ronda, y @3000 00000000091 también$/);
   assert.equal(menciones(ultimoEnviado().msg.text), 0);
 });

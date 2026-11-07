@@ -4,6 +4,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 export const G = "grupo@g.us";
 export { setTimeout as esperar } from "node:timers/promises";
@@ -33,7 +34,7 @@ export function clienteFalso() {
 }
 
 // Creates a fresh database in a temp folder, and sets the settings the tests start from (lib/configuracion.js: an
-// owner, no AI keys) and the globals the bot expects.
+// owner, no AI keys) and the connection (lib/conexion.js: a fake socket, connected).
 export async function prepararBase(nombre = "prueba") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudia-test-${nombre}-`));
   process.chdir(dir);
@@ -42,8 +43,8 @@ export async function prepararBase(nombre = "prueba") {
   configuracion.geminiApiKey = "";
   configuracion.groqApiKey = "";
   configuracion.cerebrasApiKey = "";
-  globalThis.botConectado = true;
-  globalThis.client = clienteFalso();
+  conexion.botConectado = true;
+  conexion.client = clienteFalso();
   // The plugins' pauses for show (lib/pausas.js) pass at once, after a turn of the event loop as a timer would give:
   // waited out, they were most of what the slowest files took. A test that checks one sets its own.
   (await import("../lib/pausas.js"))._dep.esperar = () => new Promise((r) => setImmediate(r));
@@ -75,8 +76,9 @@ export function manejadorDe(nodo) {
   return null;
 }
 
-// Whether a node is the client as main.js names it: bare (a global there), or off globalThis.
-export const esElCliente = (nodo) => nodo?.name === "client" || (nodo?.object?.name === "globalThis" && nodo.property?.name === "client");
+// Whether a node is the client as main.js names it, off lib/conexion.js (conexion.client), or bare, as the tests' own
+// examples write it.
+export const esElCliente = (nodo) => nodo?.name === "client" || (nodo?.object?.name === "conexion" && nodo.property?.name === "client");
 
 // Whether a node is inside another one, of the same tree.
 export function dentroDe(nodo, otro) {

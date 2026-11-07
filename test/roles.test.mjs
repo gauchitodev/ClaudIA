@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, R, P, Pf;
 before(async () => {
@@ -9,8 +10,8 @@ before(async () => {
   R = await import("../lib/roles.js");
   P = (await import("../plugins/grupo-roles.js")).default;
   Pf = await import("../lib/perfil.js");
-  globalThis.client.decodeJid = (j) => j;
-  globalThis.client.user.lid = "999000@lid";
+  conexion.client.decodeJid = (j) => j;
+  conexion.client.user.lid = "999000@lid";
 });
 const persona = (n) => ({ chat: G, sender: `${n}@lid`, senderJid: `${n}@s.whatsapp.net`, pushName: `Persona ${n}` });
 // 100 is a WhatsApp admin; 111, 222 and 333 are ordinary people; the bot is a group admin too
@@ -20,7 +21,7 @@ const correr = (sender, command, text = "", { esOwner = false, chat = G } = {}) 
   const esAdminWhatsApp = !!participants.find((p) => p.id === sender)?.admin;
   const { isAdmin } = R.permisosDe(chat, sender, { esOwner, esAdminWhatsApp });
   const args = text.trim() ? text.trim().split(/\s+/) : [];
-  return P.run({ chat, sender, isGroup: true }, { client: globalThis.client, command, args, text, participants, isOwner: esOwner, isWaAdmin: esAdminWhatsApp, isAdmin });
+  return P.run({ chat, sender, isGroup: true }, { client: conexion.client, command, args, text, participants, isOwner: esOwner, isWaAdmin: esAdminWhatsApp, isAdmin });
 };
 // The three tests that give, list and take roles away each go in a group of their own, with the roles they look at:
 // they were one story in G, where the next one went by the roles the one before left, and other tests give roles in G.
@@ -106,7 +107,7 @@ test("roles: validaciones del objetivo y listado", async () => {
   assert.match(ultimo(), /🧹 \*Moderadores:\* @111/);
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["111@lid", "222@lid", "333@lid"]);
   // replying to a message works too
-  await P.run({ chat, sender: "100@lid", isGroup: true, quoted: { sender: "111@lid" } }, { client: globalThis.client, command: "moderador", args: ["quitar"], text: "quitar", participants, isOwner: false, isWaAdmin: true, isAdmin: true });
+  await P.run({ chat, sender: "100@lid", isGroup: true, quoted: { sender: "111@lid" } }, { client: conexion.client, command: "moderador", args: ["quitar"], text: "quitar", participants, isOwner: false, isWaAdmin: true, isAdmin: true });
   assert.match(ultimo(), /@111 ya no es moderador acá/);
 });
 
@@ -163,7 +164,7 @@ test("roles: en un grupo que lista por número, a un admin de WhatsApp no se le 
   const porNumero = participants.map((p) => ({ ...p, id: `${p.id.split("@")[0]}@s.whatsapp.net`, lid: p.id }));
   F.setRolGrupo(G, "333@lid", "admin", "100@lid"); // a bot admin
   const { isAdmin } = R.permisosDe(G, "333@lid", {});
-  await P.run({ chat: G, sender: "333@lid", isGroup: true, mentionedJid: ["100@lid"] }, { client: globalThis.client, command: "moderador", args: ["@100"], text: "@100", participants: porNumero, isOwner: false, isWaAdmin: false, isAdmin });
+  await P.run({ chat: G, sender: "333@lid", isGroup: true, mentionedJid: ["100@lid"] }, { client: conexion.client, command: "moderador", args: ["@100"], text: "@100", participants: porNumero, isOwner: false, isWaAdmin: false, isAdmin });
   assert.match(ultimo(), /@100 ya es admin de WhatsApp: tiene todo sin necesidad de rol/);
   assert.equal(F.rolGrupo(G, "100@lid"), null);
 });
@@ -240,8 +241,8 @@ test("roles: en un grupo por número, el rol va a quien el grupo lista con ese n
   const chat = "roles-703@g.us";
   const [ANTES, AHORA, X] = ["300000000000703@lid", "300000000000704@lid", "59899000703@s.whatsapp.net"];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
-  const porNumero = [{ id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899000709@s.whatsapp.net", lid: ANTES, admin: null }, { id: X, lid: AHORA, admin: null }, { id: globalThis.client.user.jid, lid: "999000@lid", admin: "admin" }];
-  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [X] }, { client: globalThis.client, command: "moderador", args: ["@59899000703"], text: "@59899000703", participants: porNumero, isOwner: false, isWaAdmin: true, isAdmin: true });
+  const porNumero = [{ id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, { id: "59899000709@s.whatsapp.net", lid: ANTES, admin: null }, { id: X, lid: AHORA, admin: null }, { id: conexion.client.user.jid, lid: "999000@lid", admin: "admin" }];
+  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [X] }, { client: conexion.client, command: "moderador", args: ["@59899000703"], text: "@59899000703", participants: porNumero, isOwner: false, isWaAdmin: true, isAdmin: true });
   assert.equal(F.rolGrupo(chat, AHORA), "mod");
   assert.equal(F.rolGrupo(chat, ANTES), null);
 });
@@ -253,10 +254,10 @@ test("roles: con un número tipeado que el grupo no empareja con una LID, el rol
   const chat = "roles-705@g.us";
   const [ANTES, AHORA, X] = ["300000000000705@lid", "300000000000706@lid", "59899000705@s.whatsapp.net"];
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(ANTES, X, "Antes", 1);
-  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: AHORA }], sideList: [] });
-  t.after(() => delete globalThis.client.executeUSyncQuery);
+  conexion.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: AHORA }], sideList: [] });
+  t.after(() => delete conexion.client.executeUSyncQuery);
   const sinNumeros = [{ id: "100@lid", admin: "superadmin" }, { id: ANTES, admin: null }, { id: AHORA, admin: null }, { id: "999000@lid", admin: "admin" }];
-  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [] }, { client: globalThis.client, command: "moderador", args: ["@59899000705"], text: "@59899000705", participants: sinNumeros, isOwner: false, isWaAdmin: true, isAdmin: true });
+  await P.run({ chat, sender: "100@lid", isGroup: true, mentionedJid: [] }, { client: conexion.client, command: "moderador", args: ["@59899000705"], text: "@59899000705", participants: sinNumeros, isOwner: false, isWaAdmin: true, isAdmin: true });
   assert.equal(F.rolGrupo(chat, AHORA), "mod");
   assert.equal(F.rolGrupo(chat, ANTES), null);
 });

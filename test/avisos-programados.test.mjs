@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // The scheduled announcements (lib/tareas-programadas.js, every 5 minutes) are marked as done before they go out, so
 // two passes can't both send one. When the send failed the mark stayed, and the announcement was lost: the birthday
@@ -32,7 +33,7 @@ after(() => {
 
 // The next "n" sends fail, the way they do over a socket that just died. "intentos" keeps the texts they tried.
 function fallarEnvios(n) {
-  const client = globalThis.client;
+  const client = conexion.client;
   const real = client.sendMessage;
   const intentos = [];
   client.sendMessage = async (chat, contenido, ...resto) => {

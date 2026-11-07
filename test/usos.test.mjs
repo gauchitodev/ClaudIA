@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // The commands people use (lib/usos.js): counted by chat, day and command each time one runs (handle-message.js),
 // shown by .usos and trimmed by .podar. The menu's "lo más usado" is built from it (lib/menu.js).
@@ -57,7 +58,7 @@ test("usos: contar nunca rompe un comando, aunque la base falle", () => {
 });
 
 test(".usos: en un grupo, lo de ese grupo; en general, todo junto y dónde", async () => {
-  const client = globalThis.client;
+  const client = conexion.client;
   client.chats = { [G1]: { id: G1, subject: "Los Uno" } };
   client.user.lid = "59899000001@lid";
   // Two .audio and a .s in G1, and a .clima from each of two private chats: what the first test counts, which this
@@ -85,7 +86,7 @@ test(".usos: los últimos 30 días, ni uno más", async () => {
   U.registrarUso(G2, "trivia", dia(29));
   U.registrarUso(G2, "clima", dia(30));
   U.registrarUso(G2, "clima", dia(45)); // so counting started before the window
-  const texto = (await U.textoUsos(globalThis.client, { chat: G2, ahora: AHORA })).texto;
+  const texto = (await U.textoUsos(conexion.client, { chat: G2, ahora: AHORA })).texto;
   assert.match(texto, /Últimos 30 días: \*1\* comando\n\n1\. \.trivia — 1 · 100%$/);
 });
 
@@ -93,9 +94,9 @@ test(".usos: es para mods y el owner, y en privado muestra el general", async ()
   assert.equal(Usos.onlyMod, true);
   assert.equal(Usos.onlyGroup, undefined, "el owner lo usa por privado");
   U.registrarUso(G1, "sorteo", new Date()); // .usos looks at the real last 30 days
-  await Usos.run({ chat: G1, isGroup: true }, { client: globalThis.client });
+  await Usos.run({ chat: G1, isGroup: true }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /^📈 \*LO MÁS USADO EN ESTE GRUPO\*[\s\S]*\.sorteo — 1/);
-  await Usos.run({ chat: "59899111222@s.whatsapp.net", isGroup: false }, { client: globalThis.client });
+  await Usos.run({ chat: "59899111222@s.whatsapp.net", isGroup: false }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /^📈 \*LO MÁS USADO\*\n[\s\S]*\*Dónde\*/);
 });
 

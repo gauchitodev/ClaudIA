@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, G } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // A person's data in each group (users.inGroup: messages, rank, AFK, mute, warnings) lives in a single JSON column.
 // handle-message reads the person once, when the message arrives, and hands that copy to every hook. The hooks used to
@@ -28,7 +29,7 @@ const mensaje = (n) => ({ chat: G, sender: `${n}@lid`, isGroup: true, message: {
 // Someone of its own: another test takes 222 to 101 messages, and run first, this one found them counted.
 test("datos por grupo: las reacciones, los borrados y las ediciones no cuentan como mensajes", async () => {
   F.initDataDB(persona(555));
-  const contar = (mtype) => Conteo.before({ chat: G, sender: "555@lid", isGroup: true, message: { [mtype]: {} }, mtype }, { client: globalThis.client, user: F.getUser("555@lid", G) });
+  const contar = (mtype) => Conteo.before({ chat: G, sender: "555@lid", isGroup: true, message: { [mtype]: {} }, mtype }, { client: conexion.client, user: F.getUser("555@lid", G) });
   for (const mtype of ["reactionMessage", "protocolMessage", "editedMessage", "pollUpdateMessage"]) await contar(mtype);
   assert.equal(F.getUser("555@lid").inGroup[G].messageCount, 0);
   for (const mtype of ["conversation", "stickerMessage", "imageMessage"]) await contar(mtype);
@@ -40,7 +41,7 @@ test("datos por grupo: contar un mensaje no deshace un .silenciar ni un .adv dad
   const foto = F.getUser("111@lid", G); // what handle-message hands the hooks when the message arrives
   F.updateUserInGroup("111@lid", G, { mute: true }); // .silenciar (grupo-silenciar.js) while it's being handled
   F.setAdvertencias("111@lid", G, 2); // two .adv
-  await Conteo.before(mensaje(111), { client: globalThis.client, user: foto });
+  await Conteo.before(mensaje(111), { client: conexion.client, user: foto });
   const fila = F.getUser("111@lid").inGroup[G];
   assert.equal(fila.mute, true, "el silencio se deshacía");
   assert.equal(fila.warn, 2, "las advertencias se borraban");
@@ -57,8 +58,8 @@ test("datos por grupo: dos mensajes cruzados de la misma persona cuentan los dos
   const segundo = F.getUser("222@lid", G);
   const saldoAntes = F.getSaldoCoins(G, "222@lid");
   for (const foto of [segundo, primero]) {
-    await Conteo.before(mensaje(222), { client: globalThis.client, user: foto });
-    await Rangos.before(mensaje(222), { client: globalThis.client, user: foto, chat: { monedas: 1, ascensos: 1 } });
+    await Conteo.before(mensaje(222), { client: conexion.client, user: foto });
+    await Rangos.before(mensaje(222), { client: conexion.client, user: foto, chat: { monedas: 1, ascensos: 1 } });
   }
   const fila = F.getUser("222@lid").inGroup[G];
   assert.equal(fila.messageCount, 101, "se perdía uno de los dos mensajes");
@@ -74,8 +75,8 @@ test("datos por grupo: volver del AFK no pisa lo que cambió mientras tanto, y s
   const segundo = F.getUser("333@lid", G);
   F.setAdvertencias("333@lid", G, 1);
   const antes = globalThis.enviados.length;
-  await Afk.before(mensaje(333), { client: globalThis.client, user: primero });
-  await Afk.before(mensaje(333), { client: globalThis.client, user: segundo });
+  await Afk.before(mensaje(333), { client: conexion.client, user: primero });
+  await Afk.before(mensaje(333), { client: conexion.client, user: segundo });
   assert.equal(globalThis.enviados.length - antes, 1, "el segundo mensaje volvía a anunciar que volvió");
   assert.match(globalThis.enviados.at(-1).msg.text, /durmiendo/);
   const fila = F.getUser("333@lid").inGroup[G];
@@ -87,7 +88,7 @@ test("datos por grupo: .afk guarda solo lo suyo", async () => {
   F.initDataDB(persona(444));
   const foto = F.getUser("444@lid", G);
   F.updateUserInGroup("444@lid", G, { mute: true });
-  await AfkCmd.run({ chat: G, sender: "444@lid", isGroup: true }, { client: globalThis.client, text: "a comer", args: ["a", "comer"], user: foto });
+  await AfkCmd.run({ chat: G, sender: "444@lid", isGroup: true }, { client: conexion.client, text: "a comer", args: ["a", "comer"], user: foto });
   const fila = F.getUser("444@lid").inGroup[G];
   assert.equal(fila.afkReason, "a comer");
   assert.ok(fila.afk > 0);

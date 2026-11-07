@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // .parentesco, the relatives .familia lists and .listaparejas (lib/familia.js, lib/parejas.js). Families and couples
 // are the same in every group; the lists only show the group's own people.
@@ -67,7 +68,7 @@ test("parentesco: sangre, políticos, la pareja, los ex y los lejanos", () => {
 });
 
 test(".parentesco: con una mención, con dos, respondiendo a alguien, y sin nadie", async () => {
-  const client = globalThis.client;
+  const client = conexion.client;
   const correr = (sender, mencionados = [], quoted = null) => Parentesco.run({ chat: G, sender, isGroup: true, mentionedJid: mencionados, quoted }, { client, text: "", usedPrefix: "." });
   await correr(L(8), [L(1)]);
   assert.equal(ultimoEnviado().msg.text, "🧬 Persona 1 es tu abuelo/a.");
@@ -97,7 +98,7 @@ test(".familia: bisabuelos, bisnietos, yernos y nueras, y consuegros", () => {
 });
 
 test(".listaparejas: las del grupo, por nombre y sin arrobar, las casadas primero", async () => {
-  const client = globalThis.client;
+  const client = conexion.client;
   const participantes = [1, 2, 3, 11, 12].map((n) => ({ id: L(n), admin: null }));
   assert.equal(
     P.textoParejas((lid) => participantes.some((p) => p.id === lid), T0),
@@ -132,13 +133,13 @@ test(".ex: nombra a los ex y a la pareja actual sin arrobarlos; solo arroba a qu
   P.terminarPareja(L(40));
   P.fijarPareja(L(40), L(42), T0 - DIA); // 40 broke up with 41, and now goes out with 42
   try {
-    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: globalThis.client, text: "@40", usedPrefix: ".", command: "ex" });
+    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: conexion.client, text: "@40", usedPrefix: ".", command: "ex" });
     const { text, mentions } = ultimoEnviado().msg;
     assert.equal(text, "*Historial de relaciones de @40:*\n\nPersona 41\n\n*Pareja actual:* Persona 42");
     assert.deepEqual(mentions, [L(40)]);
     // With "numeros" next to the mention (lib/menciones.js): the exes by their number, which these, known by their LID
     // alone, haven't got; whoever it's about is still the only one tagged.
-    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: globalThis.client, text: "@40 numeros", usedPrefix: ".", command: "ex" });
+    await Ex.run({ chat: G, sender: L(1), isGroup: true, mentionedJid: [L(40)], quoted: null }, { client: conexion.client, text: "@40 numeros", usedPrefix: ".", command: "ex" });
     assert.equal(ultimoEnviado().msg.text, "*Historial de relaciones de @40:*\n\nPersona 41 (sin número)\n\n*Pareja actual:* Persona 42 (sin número)");
     assert.deepEqual(ultimoEnviado().msg.mentions, [L(40)]);
   } finally {

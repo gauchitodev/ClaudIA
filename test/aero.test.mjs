@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let A, P, Cc;
 before(async () => {
@@ -83,7 +84,7 @@ test("aero: pide a la NOAA con caché, y arma los textos de .metar y .taf", asyn
   assert.match(t, /Sin TAF para SUMO/);
   assert.match(A.textoMenuAero(), /✈️ \*MENÚ AERO\*[\s\S]*carrasco → SUMU/);
   // the plugin
-  const cliente = globalThis.client;
+  const cliente = conexion.client;
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "metar", text: "" });
   assert.match(ultimoEnviado().msg.text, /Carrasco Intl/);
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "menuaero", text: "" });
@@ -173,7 +174,7 @@ test("aero: salida y puesta del sol contra referencias de Open-Meteo, y el coman
   t = await A.textoSolDe("montevideo", Date.parse("2026-09-06T23:00:00Z"));
   assert.match(t, /Ahora: ya es de noche\./);
   assert.match(await A.textoSolDe("Xyzzy", ahora), /No encontré "Xyzzy"/);
-  const cliente = globalThis.client;
+  const cliente = conexion.client;
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "cruzado", text: "06 190 19" });
   assert.match(ultimoEnviado().msg.text, /Viento cruzado/);
   await P.run({ chat: G, sender: "111@lid" }, { client: cliente, command: "sol", text: "Montevideo" });

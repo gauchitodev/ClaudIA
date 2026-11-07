@@ -11,6 +11,3 @@ process.env.TZ ||= "America/Montevideo";
 // globals set here, read off globalThis by some twenty files, and each test set up the ones its files read; so were
 // the bot's texts (txt, imported now from lib/strings.js), which 91 files read.
 cargarConfiguracion();
-
-// The WhatsApp channel's ID: main.js asks WhatsApp for it on connect, from the link in config.toml ([canal]).
-if (!globalThis.canal) globalThis.canal = null;

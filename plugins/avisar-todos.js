@@ -4,6 +4,7 @@ import { duracion } from "../lib/tiempo.js";
 import { sinMenciones } from "../lib/menciones.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { conexion } from "../lib/conexion.js";
 
 // The same text to every group, spaced out and at an uneven pace: a burst of identical messages to many chats is what
 // WhatsApp's spam filter looks for, and the number was already blocked once for volume. It used to go every 1.5 s, and
@@ -44,7 +45,7 @@ function hastaDonde(aviso) {
 // it was cut meanwhile). Without a signal it just waits: if main.js can't reconnect it ends the process, and
 // start-process.js starts it again, the notice gone with it.
 async function conectado(signal) {
-  while (!globalThis.botConectado && !signal?.aborted) await _dep.esperar(AVISO_TODOS.REVISAR_CONEXION_MS, undefined, { signal }).catch(() => {});
+  while (!conexion.botConectado && !signal?.aborted) await _dep.esperar(AVISO_TODOS.REVISAR_CONEXION_MS, undefined, { signal }).catch(() => {});
   return !signal?.aborted;
 }
 
@@ -74,8 +75,8 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
   avisos.enCurso = aviso;
   const { signal } = aviso.control;
   // Through the socket of the moment: after a reconnection, the one that took the command is closed, and everything
-  // sent through it fails (main.js makes a new one, globalThis.client).
-  const socket = () => globalThis.client || client;
+  // sent through it fails (main.js puts each new one in lib/conexion.js).
+  const socket = () => conexion.client || client;
   const pausa = () => _dep.esperar(AVISO_TODOS.ESPERA_MIN_MS + Math.floor(_dep.azar() * (AVISO_TODOS.ESPERA_MAX_MS - AVISO_TODOS.ESPERA_MIN_MS)), undefined, { signal }).catch(() => {});
   // One group: "ok", "reintentar" when it surely didn't go out, or "dudoso". Before writing the message Baileys asks
   // WhatsApp the group's devices (and its metadata, if the cache doesn't have it), and what fails up to there didn't

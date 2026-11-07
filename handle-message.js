@@ -89,7 +89,7 @@ export async function handleMessage(nMsg) {
     // Fetch the user's data, the chat's, and the bot settings.
     const user = getUser(m.sender, m.chat) || { inGroup: {} };
     const chat = getChat(m.chat);
-    const botSettings = getBotSettings(client.user.lid);
+    const botSettings = getBotSettings(this.user.lid);
 
     // autoRead msg
     if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
@@ -111,7 +111,7 @@ export async function handleMessage(nMsg) {
     // Whoever wrote, and the bot, by either identity (lib/identidad.js): a group that lists people by number names them
     // by it, and the message may bring their LID.
     const userSender = (m.isGroup ? identidadesDe([m.sender, m.senderJid], participants).participante : {}) || {};
-    const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: client.user.lid, jid: client.user.jid }) : {}) || {};
+    const bot = (m.isGroup ? buscarEnGrupo(participants, { lid: this.user.lid, jid: this.user.jid }) : {}) || {};
     // By the number the message brings, or by the LID WhatsApp says has an owner's number (lib/identidad.js), so the
     // owner is recognized when the message only carries their LID, and nobody else is for having the number on a row.
     const isOwner = m.fromMe || esOwnerConfirmado([m.senderJid, m.sender]);
@@ -202,7 +202,7 @@ export async function handleMessage(nMsg) {
     if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
     // A name that looks like a command, after "." or "/", that no plugin declares.
-    if (matchPlugins.length === 0) return client.sendText(m.chat, txt.noCommandMatch(command), m);
+    if (matchPlugins.length === 0) return this.sendText(m.chat, txt.noCommandMatch(command), m);
 
     // Run every matching plugin.
     // A missing permission stops ONLY the plugin that asks for it, not the others sharing the command: hence the
@@ -219,13 +219,13 @@ export async function handleMessage(nMsg) {
 
       // Check whether the command requires being the OWNER
       if (plugin.onlyOwner && !isOwner) {
-        rechazar(() => client.sendText(m.chat, txt.onlyOwner, m));
+        rechazar(() => this.sendText(m.chat, txt.onlyOwner, m));
         continue;
       }
 
       // Check whether the command requires a group
       if (plugin.onlyGroup && !m.isGroup) {
-        rechazar(() => client.sendText(m.chat, txt.onlyGroup, m));
+        rechazar(() => this.sendText(m.chat, txt.onlyGroup, m));
         continue;
       }
 
@@ -234,9 +234,9 @@ export async function handleMessage(nMsg) {
         // The stored metadata may be stale. Before rejecting, ask WhatsApp; the cache keeps the answer, so the
         // next command doesn't ask again.
         const metadataFresca = await metadataDe(this, m.chat, { fresca: true });
-        const botFresco = buscarEnGrupo(metadataFresca?.participants, { lid: client.user.lid, jid: client.user.jid });
+        const botFresco = buscarEnGrupo(metadataFresca?.participants, { lid: this.user.lid, jid: this.user.jid });
         if (!botFresco?.admin) {
-          rechazar(() => client.sendText(m.chat, txt.botAdmin, m));
+          rechazar(() => this.sendText(m.chat, txt.botAdmin, m));
           continue;
         }
         isBotAdmin = true;
@@ -244,27 +244,27 @@ export async function handleMessage(nMsg) {
 
       // Check whether the command requires the user to be admin
       if (plugin.onlyAdmin && !isAdmin) {
-        rechazar(() => client.sendText(m.chat, txt.onlyAdmin, m));
+        rechazar(() => this.sendText(m.chat, txt.onlyAdmin, m));
         continue;
       }
 
       // Check whether the command requires being a bot moderator (admins pass too)
       if (plugin.onlyMod && !isMod) {
-        rechazar(() => client.sendText(m.chat, txt.onlyMod, m));
+        rechazar(() => this.sendText(m.chat, txt.onlyMod, m));
         continue;
       }
 
       // Games (plugin.juego): turned off with .juegos. Each game plugin used to check chat.games on its own; here it's
       // stopped once for all of them.
       if (plugin.juego && !chat.games) {
-        rechazar(() => client.sendText(m.chat, txt.disabledGames, m));
+        rechazar(() => this.sendText(m.chat, txt.disabledGames, m));
         continue;
       }
 
       // Casino (plugin.casino): its own switch, separate from .juegos. Lets you turn off just the betting —roulette,
       // slots, blackjack, poker, duels, races, lottery, markets and the 4 en línea's bets— leaving the rest running.
       if (plugin.casino && m.isGroup && chat.casino === 0) {
-        rechazar(() => client.sendText(m.chat, CASINO_APAGADO, m));
+        rechazar(() => this.sendText(m.chat, CASINO_APAGADO, m));
         continue;
       }
 
@@ -275,7 +275,7 @@ export async function handleMessage(nMsg) {
       if ((plugin.juego || plugin.casino) && m.isGroup) {
         const apagado = juegoApagadoPara(chat, command, args);
         if (apagado) {
-          rechazar(() => (correspondeAvisarApagado(m.chat, apagado.clave) ? client.sendText(m.chat, textoJuegoApagado(apagado, usedPrefix), m) : m.react("⛔")));
+          rechazar(() => (correspondeAvisarApagado(m.chat, apagado.clave) ? this.sendText(m.chat, textoJuegoApagado(apagado, usedPrefix), m) : m.react("⛔")));
           continue;
         }
       }
@@ -288,13 +288,13 @@ export async function handleMessage(nMsg) {
       // correspondeAvisar() marks the group as already notified, so it goes inside the notice and not here: if the
       // command ends up running through another plugin, the 10-minute notice isn't spent.
       if ((plugin.casino || plugin.conHorario) && m.isGroup && !juegosAbiertos(chat)) {
-        rechazar(() => (correspondeAvisar(m.chat) ? client.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
+        rechazar(() => (correspondeAvisar(m.chat) ? this.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
         continue;
       }
 
       // Economy (plugin.economia): with .monedas off (marketplace mode) the UruCoins commands don't run.
       if (plugin.economia && m.isGroup && chat.monedas === 0) {
-        rechazar(() => client.sendText(m.chat, txt.disabledEconomy, m));
+        rechazar(() => this.sendText(m.chat, txt.disabledEconomy, m));
         continue;
       }
 

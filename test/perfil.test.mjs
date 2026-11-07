@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, A, H, L, Pf, P, Pj, MESES;
 const DIA = 24 * 60 * 60 * 1000;
@@ -104,7 +105,7 @@ test("perfil: la racha de otra persona habla de ella, no a quien mira", () => {
 
 // In a group of its own, with 111 and 222 there: it went by the people the tests above make, and their coins.
 test("perfil: el comando resuelve a quién mirar", async () => {
-  const cliente = globalThis.client;
+  const cliente = conexion.client;
   const chat = "perfil-comando@g.us";
   for (const n of [111, 222]) F.initDataDB({ ...persona(n), chat });
   fijarSaldo(F, chat, "222@lid", 300);

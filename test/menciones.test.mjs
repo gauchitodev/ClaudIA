@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, fijarSaldo } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // Who a command points at when the "@" was typed by hand instead of picked from WhatsApp's list: then the message
 // carries no mentionedJid, only the digits. Those digits may be a LID or a phone number, and lidMencionado, then in
@@ -37,7 +38,7 @@ test("dosPersonas acepta los dos teléfonos tipeados con @", () => {
 test("de punta a punta: .regalar @teléfono le llega a esa persona", async () => {
   fijarSaldo(F, G, "a@lid", 100);
   const text = `@${TEL} 30`;
-  await Regalar.run({ chat: G, sender: "a@lid", text, mentionedJid: [], isGroup: true }, { client: globalThis.client, text, args: text.split(" ") });
+  await Regalar.run({ chat: G, sender: "a@lid", text, mentionedJid: [], isGroup: true }, { client: conexion.client, text, args: text.split(" ") });
   assert.match(ultimoEnviado().msg.text, /Le regalaste \*30 UruCoins\*/);
   assert.equal(F.getSaldoCoins(G, LID), 30);
 });
@@ -70,7 +71,7 @@ test("nombreDe por nombre o por número: la palabra del comando, los paréntesis
   // by number: the one they're known by, with what they're called; without a number the bot knows, it says so
   assert.deepEqual(M.nombrandoPor("numeros", () => [LID, OTRO, "a@lid"].map(M.nombreDe)), [`+${TEL} (Tito)`, "+59899333444 (Ana)", "Pepe (sin número)"]);
   // Claudia is Claudia, number or not
-  assert.equal(M.nombrandoPor("numeros", () => M.nombreDe(globalThis.client.user.lid)), "Claudia");
+  assert.equal(M.nombrandoPor("numeros", () => M.nombreDe(conexion.client.user.lid)), "Claudia");
   // the mode holds through the awaits of the text being built, and not past it, nor over another built in the meantime
   const lento = M.nombrandoPor("numeros", async () => {
     await new Promise((r) => setTimeout(r, 5));

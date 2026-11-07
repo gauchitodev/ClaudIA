@@ -8,6 +8,7 @@ import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
 import { colaDescargas } from "../lib/cola-descargas.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
@@ -17,7 +18,7 @@ plugin.run = async (m, { client }) => {
   // Started first so its wait (up to 8 s without Termux:API) overlaps the groups query below instead of adding to it.
   const leyendoBateria = leerBateria();
   const ahora = Date.now();
-  const conectada = globalThis.horaConexion ? duracion(ahora - globalThis.horaConexion) : "?";
+  const conectada = conexion.horaConexion ? duracion(ahora - conexion.horaConexion) : "?";
 
   const enPausa = modelosEnPausa(ahora).map((p) => `${p.modelo} (vuelve en ${duracion(p.faltaMs)})`);
   const ia = `${globalThis.modeloActivo || "todavía no respondió ninguno"}${enPausa.length ? ` · en pausa por cuota: ${enPausa.join(", ")}` : ""}`;

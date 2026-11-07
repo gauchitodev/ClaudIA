@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let P;
 before(async () => {
@@ -10,7 +11,7 @@ before(async () => {
 
 test(".estado muestra lo que guarda client.chats al lado de la memoria", async () => {
   // client.chats has no ceiling but a restart; this line is how to tell, on the tablet, whether it needs one.
-  const client = globalThis.client;
+  const client = conexion.client;
   client.groupFetchAllParticipating = async () => ({ "g1@g.us": { id: "g1@g.us", subject: "Uno", participants: [] } });
   client.chats = {
     "g1@g.us": { id: "g1@g.us", messages: { A: {}, B: {}, C: {} } },
@@ -28,7 +29,7 @@ test(".estado muestra lo que guarda client.chats al lado de la memoria", async (
 
 test(".estado dice qué modelo de Gemini está en pausa por cuota y cuánto le falta", async () => {
   const { MODELOS, geminiEnPausa } = await import("../lib/gemini.js");
-  const client = globalThis.client;
+  const client = conexion.client;
   client.groupFetchAllParticipating = async () => ({});
   geminiEnPausa.set(MODELOS[0], { hasta: Date.now() + 90 * 1000, seguidos: 2 });
   try {
@@ -40,7 +41,7 @@ test(".estado dice qué modelo de Gemini está en pausa por cuota y cuánto le f
 });
 
 test(".estado dice con qué zona horaria anda el bot", async () => {
-  const client = globalThis.client;
+  const client = conexion.client;
   client.groupFetchAllParticipating = async () => ({});
   await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
   const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -50,7 +51,7 @@ test(".estado dice con qué zona horaria anda el bot", async () => {
 // The queue is lib/cola-descargas.js's, and .estado reads it from there.
 test(".estado dice cuántas descargas hay en curso y en cola", async () => {
   const { colaDescargas } = await import("../lib/cola-descargas.js");
-  const client = globalThis.client;
+  const client = conexion.client;
   client.groupFetchAllParticipating = async () => ({});
   colaDescargas.procesando = true;
   colaDescargas.tareas.push(async () => {}, async () => {});

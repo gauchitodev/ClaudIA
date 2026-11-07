@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, H;
 before(async () => {
@@ -66,7 +67,7 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   assert.ok(P.onlyGroup && P.onlyAdmin && P.cmd.includes("horariojuegos"));
   F.initDataDB({ chat: G, sender: "a@lid", senderJid: "a@s.whatsapp.net" });
   const m = { chat: G, sender: "a@lid", isGroup: true };
-  const correr = (text) => P.run(m, { client: globalThis.client, text, chat: F.getChat(G) });
+  const correr = (text) => P.run(m, { client: conexion.client, text, chat: F.getChat(G) });
   await correr("");
   assert.match(ultimoEnviado().msg.text, /no tiene horario de juegos/);
   await correr("20:00-23:00");

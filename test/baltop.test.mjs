@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, fijarSaldo, ultimoEnviado } from "./helpers.mjs";
 import { numeroReciclado, digitos, usyncFalso } from "./identidad-escenarios.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, A, Bal, Top, Racha, Inv;
 before(async () => {
@@ -12,7 +13,7 @@ before(async () => {
   Racha = (await import("../plugins/coins-racha.js")).default;
   Inv = (await import("../plugins/coins-inventario.js")).default;
 });
-const correr = (P, sender, chat = G) => P.run({ chat, sender, isGroup: true }, { client: globalThis.client, user: {} });
+const correr = (P, sender, chat = G) => P.run({ chat, sender, isGroup: true }, { client: conexion.client, user: {} });
 
 test(".bal muestra solo tu saldo", async () => {
   fijarSaldo(F, G, "a@lid", 120);
@@ -29,7 +30,7 @@ test(".bal muestra solo tu saldo", async () => {
 // In a group of its own: .baltop's ranking, further down, counts everyone with coins in G.
 const OTRO = "bal@g.us";
 const pedir = (sender, { text = "", mentionedJid = [], quoted, participants = [] } = {}, P = Bal) =>
-  P.run({ chat: OTRO, sender, text, mentionedJid, quoted, isGroup: true }, { client: globalThis.client, text, args: text.split(/\s+/).filter(Boolean), participants, user: {} });
+  P.run({ chat: OTRO, sender, text, mentionedJid, quoted, isGroup: true }, { client: conexion.client, text, args: text.split(/\s+/).filter(Boolean), participants, user: {} });
 
 test(".bal @persona muestra el saldo de esa persona, sin arrobarla", async () => {
   const TERO = "300000000000021@lid";
@@ -49,20 +50,20 @@ test(".bal @persona muestra el saldo de esa persona, sin arrobarla", async () =>
   }
 
   const tuyo = "🪙 Tenés *120 UruCoins* · podés apostar hasta 100 por jugada";
-  await pedir("a@lid", { quoted: { sender: globalThis.client.user.lid } });
+  await pedir("a@lid", { quoted: { sender: conexion.client.user.lid } });
   assert.equal(ultimoEnviado().msg.text, tuyo, "respondiendo un resultado del casino, el tuyo: el bot no juega");
-  await pedir("a@lid", { quoted: { sender: globalThis.client.user.jid } });
+  await pedir("a@lid", { quoted: { sender: conexion.client.user.jid } });
   assert.equal(ultimoEnviado().msg.text, tuyo, "también si el bot viene por número");
   await pedir("a@lid", { text: "@a", mentionedJid: ["a@lid"] });
   assert.equal(ultimoEnviado().msg.text, tuyo, "nombrándote a vos");
   // The bot's phone number typed by hand, which nothing on record has: only the group, listing it, says it's the bot.
-  const user = globalThis.client.user;
-  globalThis.client.user = { ...user, lid: "300000000000050@lid", jid: "59899000050@s.whatsapp.net" };
+  const user = conexion.client.user;
+  conexion.client.user = { ...user, lid: "300000000000050@lid", jid: "59899000050@s.whatsapp.net" };
   try {
     await pedir("a@lid", { text: "@59899000050", participants: [{ id: "300000000000050@lid", phoneNumber: "59899000050@s.whatsapp.net" }] });
     assert.equal(ultimoEnviado().msg.text, tuyo, "el número del bot tipeado");
   } finally {
-    globalThis.client.user = user;
+    conexion.client.user = user;
   }
 
   // Someone who never wrote has no row and is still not you: before, this was your own balance.
@@ -143,7 +144,7 @@ test(".inventario y .racha @persona muestran los de esa persona, sin arrobarla",
   }
 
   // With nobody named, or replying to the bot, yours.
-  for (const pedido of [{}, { quoted: { sender: globalThis.client.user.lid } }]) {
+  for (const pedido of [{}, { quoted: { sender: conexion.client.user.lid } }]) {
     await pedir("a@lid", pedido, Inv);
     assert.equal(ultimoEnviado().msg.text, "🎒 Tu inventario está vacío. Mirá qué hay en .tienda");
     await pedir("a@lid", pedido, Racha);
@@ -176,7 +177,7 @@ test(".baltop nombres y .baltop numeros: por nombre de WhatsApp o por número, s
   F.updateUser(RICA, { apodo: "La Capa" });
   fijarSaldo(F, T, RICA, 500);
   const top = async (text) => {
-    await Top.run({ chat: T, sender: RICA, text, isGroup: true }, { client: globalThis.client, text, user: {} });
+    await Top.run({ chat: T, sender: RICA, text, isGroup: true }, { client: conexion.client, text, user: {} });
     return ultimoEnviado().msg;
   };
   assert.match((await top("")).text, /\n1\. La Capa — \*500\*\n/);

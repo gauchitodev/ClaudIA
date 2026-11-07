@@ -6,6 +6,7 @@ import strings from "../lib/strings.js";
 // asks WhatsApp, and that fell inside the first test that asks, under a time limit of its own.
 import "@whiskeysockets/baileys";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, Kick, Silenciar, Ban, Llamar;
 let expulsiones = [];
@@ -13,7 +14,7 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("moderacion"));
-  globalThis.client.user.lid = "999@lid";
+  conexion.client.user.lid = "999@lid";
   // A round of the owners' questions that leaves one of them without an answer asks again REINTENTO_MS later: from a
   // test, an hour later, past the end of the file. At 60 s, on a slow machine, that was still this file, and the
   // question went to whatever test ran then. Here .addowner starts one for the owner it adds, and nothing answers it.
@@ -31,7 +32,7 @@ beforeEach(() => {
   expulsiones = [];
   statusExpulsion = "200";
   globalThis.enviados = [];
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
@@ -60,7 +61,7 @@ const ultimo = () => ultimoEnviado()?.msg?.text || "";
 // moderation only goes from strictly above (lib/roles.js). Done when it returns, .kick's pauses and the removal
 // included: there's nothing to wait for after it.
 const correr = (P, text, command, opciones = {}) =>
-  P.run(m(text, opciones), { client: globalThis.client, text, command, usedPrefix: ".", participants, groupMetadata, isOwner: false, isWaAdmin: true, ...opciones.rango });
+  P.run(m(text, opciones), { client: conexion.client, text, command, usedPrefix: ".", participants, groupMetadata, isOwner: false, isWaAdmin: true, ...opciones.rango });
 
 test(".kick expulsa con el id del grupo y avisa si WhatsApp no deja", async () => {
   await correr(Kick, "@111", "kick", { mentionedJid: ["111@lid"] });
@@ -106,10 +107,10 @@ test("los comandos que le hacen algo a alguien nombrado por un número le pregun
   const [VIEJO, NUEVO, X] = ["300000000000881@lid", "300000000000882@lid", "59899000881@s.whatsapp.net"];
   let consultas = 0;
   let responde = async () => ({ list: [{ id: X, lid: NUEVO }], sideList: [] });
-  globalThis.client.executeUSyncQuery = () => (consultas++, responde());
+  conexion.client.executeUSyncQuery = () => (consultas++, responde());
   const consultaReal = I.IDENTIDAD?.CONSULTA_MS;
   t.after(() => {
-    delete globalThis.client.executeUSyncQuery;
+    delete conexion.client.executeUSyncQuery;
     if (I.IDENTIDAD) I.IDENTIDAD.CONSULTA_MS = consultaReal;
   });
   const grupo = [{ id: VIEJO, admin: null }, { id: NUEVO, admin: null }, { id: "999@lid", admin: "admin" }];
@@ -122,7 +123,7 @@ test("los comandos que le hacen algo a alguien nombrado por un número le pregun
   const correrA = async (P, command, text, extra = {}) => {
     expulsiones = [];
     globalThis.enviados = [];
-    await P.run(m(text, extra), { client: globalThis.client, text, args: text.split(" "), command, usedPrefix: ".", participants: extra.participants || grupo, groupMetadata: { owner: "100@lid", participants: extra.participants || grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+    await P.run(m(text, extra), { client: conexion.client, text, args: text.split(" "), command, usedPrefix: ".", participants: extra.participants || grupo, groupMetadata: { owner: "100@lid", participants: extra.participants || grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
   };
   const datos = (id) => F.getUser(id, G);
   const [Warn, Unwarn, Promote, Demote, Rd] = await Promise.all(["grupo-advertir", "grupo-advertir-delete", "grupo-promote", "grupo-demote", "owner-restaurar-usuario"].map(async (p) => (await import(`../plugins/${p}.js`)).default));
@@ -132,7 +133,7 @@ test("los comandos que le hacen algo a alguien nombrado por un número le pregun
   assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick");
   // Typed with an "@", the group's creator being who had the number: it's not them who is removed, nor who's spared.
   expulsiones = [];
-  await Kick.run(m("@59899000881"), { client: globalThis.client, text: "@59899000881", command: "kick", usedPrefix: ".", participants: grupo, groupMetadata: { owner: VIEJO, participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  await Kick.run(m("@59899000881"), { client: conexion.client, text: "@59899000881", command: "kick", usedPrefix: ".", participants: grupo, groupMetadata: { owner: VIEJO, participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
   assert.deepEqual(expulsiones, [{ chat: G, ids: [NUEVO], accion: "remove" }], ".kick @número, con el creador del grupo como dueño anterior");
   for (const [P, command, cambio] of [[Promote, "promote", "promote"], [Demote, "demote", "demote"]]) {
     await correrA(P, command, "+59899000881");
@@ -296,7 +297,7 @@ test(".p y .d miran lo que contesta WhatsApp", async () => {
   const Promote = (await import("../plugins/grupo-promote.js")).default;
   const Demote = (await import("../plugins/grupo-demote.js")).default;
   const cambios = [];
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     cambios.push({ ids, accion });
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
@@ -319,10 +320,10 @@ test(".p y .d miran lo que contesta WhatsApp", async () => {
 test(".bloquear le pasa el número a Baileys con la LID que WhatsApp dice que lo tiene", async (t) => {
   const Bloquear = (await import("../plugins/owner-bloquear.js")).default;
   const pasos = [];
-  globalThis.client.updateBlockStatus = async (jid, accion) => pasos.push(["bloquea", jid, accion]);
-  globalThis.client.signalRepository = { lidMapping: { storeLIDPNMappings: async (pares) => pasos.push(["guarda", pares]) } };
-  globalThis.client.executeUSyncQuery = async (c) => ({ list: c.users.map((u) => ({ id: u.id, lid: u.id === "5989911111@s.whatsapp.net" ? "111@lid" : undefined })) });
-  t.after(() => ["updateBlockStatus", "signalRepository", "executeUSyncQuery"].forEach((k) => delete globalThis.client[k]));
+  conexion.client.updateBlockStatus = async (jid, accion) => pasos.push(["bloquea", jid, accion]);
+  conexion.client.signalRepository = { lidMapping: { storeLIDPNMappings: async (pares) => pasos.push(["guarda", pares]) } };
+  conexion.client.executeUSyncQuery = async (c) => ({ list: c.users.map((u) => ({ id: u.id, lid: u.id === "5989911111@s.whatsapp.net" ? "111@lid" : undefined })) });
+  t.after(() => ["updateBlockStatus", "signalRepository", "executeUSyncQuery"].forEach((k) => delete conexion.client[k]));
 
   await correr(Bloquear, "@111", "bloquear", { mentionedJid: ["111@lid"] });
   assert.deepEqual(pasos, [
@@ -374,11 +375,11 @@ test(".fr parte el texto por el @ que está escrito, no por el id resuelto", asy
   // It forges a quote from someone else: moderators only (the dispatcher enforces the flag).
   assert.equal(FakeReply.onlyMod, true, ".fr no puede quedar abierto a cualquiera");
   const enviados = [];
-  globalThis.client.sendMessage = async (chat, msg, opciones) => {
+  conexion.client.sendMessage = async (chat, msg, opciones) => {
     enviados.push({ msg, opciones });
     return { key: { id: "X" } };
   };
-  globalThis.client.parseMention = () => [];
+  conexion.client.parseMention = () => [];
 
   await correr(FakeReply, "hola a todos @5989911111 qué tal", "fr");
   assert.equal(enviados.length, 1);
@@ -467,7 +468,7 @@ const como = (sender, P, command, objetivo, text = "") => {
   const texto = `@${objetivo.split("@")[0]} ${text}`.trim();
   const esAdminWhatsApp = Boolean(jerarquia.find((p) => p.id === sender)?.admin);
   const msg = { chat: J, sender, text: texto, mentionedJid: [objetivo], quoted: null, isGroup: true, react: async () => {}, delete: async () => {} };
-  return P.run(msg, { client: globalThis.client, text: texto, command, usedPrefix: ".", participants: jerarquia, groupMetadata: { owner: "100@lid", participants: jerarquia }, isOwner: false, isWaAdmin: esAdminWhatsApp });
+  return P.run(msg, { client: conexion.client, text: texto, command, usedPrefix: ".", participants: jerarquia, groupMetadata: { owner: "100@lid", participants: jerarquia }, isOwner: false, isWaAdmin: esAdminWhatsApp });
 };
 
 test("jerarquía: un moderador no puede sacar, advertir ni silenciar a un admin de WhatsApp", async () => {
@@ -528,7 +529,7 @@ test("jerarquía: la ruleta del ban no se lleva a nadie que quien la gira no pod
   F.setRolGrupo(J, "888@lid", "admin", "100@lid");
   // Besides the admins, only two bot admins: the one spinning it and another one. Neither is fair game.
   const grupo = [{ id: "100@lid", admin: "superadmin" }, { id: "555@lid", admin: null }, { id: "888@lid", admin: null }, { id: "999@lid", admin: "admin" }];
-  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
+  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: conexion.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
 });
@@ -542,10 +543,10 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al bot ni a
     { id: "100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" },
     { id: "555@s.whatsapp.net", lid: "555@lid", admin: null }, // bot admin, who spins it
     { id: "888@s.whatsapp.net", lid: "888@lid", admin: null }, // another bot admin
-    { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: null }, // the bot
+    { id: conexion.client.user.jid, lid: conexion.client.user.lid, admin: null }, // the bot
   ];
   F.setRolGrupo(J, "888@lid", "admin", "100@lid");
-  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
+  await Ruleta.run({ chat: J, sender: "555@lid", isGroup: true }, { client: conexion.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: false });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
 });
@@ -557,9 +558,9 @@ test("ruleta del ban: en un grupo que lista por número, no se lleva al owner", 
   const grupo = [
     { id: "59899000100@s.whatsapp.net", lid: "100@lid", admin: "superadmin" }, // who spins it
     { id: `${configuracion.owners[0]}@s.whatsapp.net`, lid: "770077@lid", admin: null }, // the owner, LID unknown to the bot
-    { id: globalThis.client.user.jid, lid: globalThis.client.user.lid, admin: "admin" },
+    { id: conexion.client.user.jid, lid: conexion.client.user.lid, admin: "admin" },
   ];
-  await Ruleta.run({ chat: J, sender: "100@lid", isGroup: true }, { client: globalThis.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: true });
+  await Ruleta.run({ chat: J, sender: "100@lid", isGroup: true }, { client: conexion.client, groupMetadata: { participants: grupo }, isOwner: false, isWaAdmin: true });
   assert.match(ultimo(), /No se encontraron candidatos/);
   assert.deepEqual(expulsiones, []);
 });
@@ -579,7 +580,7 @@ test("ruleta del ban: el anuncio sale antes de la expulsión, y si WhatsApp no d
   const soltar = {};
   for (const chat of Object.keys(lineas)) compuertas[chat] = new Promise((resolve) => (soltar[chat] = resolve));
   const client = {
-    ...globalThis.client,
+    ...conexion.client,
     sendText: async (chat, texto) => {
       if (/ruleta de la muerte/.test(texto)) await compuertas[chat];
       lineas[chat].push(texto);
@@ -615,7 +616,7 @@ test(".del: con un rol del bot se borra solo hacia abajo; los admins de WhatsApp
   const borrar = async (autor, { fromMe = false, rango = { isWaAdmin: false } } = {}) => {
     const borrados = [];
     const msg = { chat: G, sender: "400@lid", isGroup: true, delete: async () => {}, quoted: { sender: autor, fromMe, delete: async () => borrados.push(autor) } };
-    await Del.run(msg, { client: globalThis.client, participants: conAdmin, isMod: true, isOwner: false, ...rango });
+    await Del.run(msg, { client: conexion.client, participants: conAdmin, isMod: true, isOwner: false, ...rango });
     return borrados.length > 0;
   };
   assert.ok(await borrar("111@lid"), "un moderador borra a un miembro");
@@ -636,7 +637,7 @@ test(".detect no avisa del promote ni del demote del owner, lo traiga el grupo p
   F.initDataDB({ chat: G, sender: "7070@lid", senderJid: OWNER, pushName: "Dueño" });
   const avisa = async (participante, sender = "105@lid") => {
     globalThis.enviados = [];
-    await Det.before({ isGroup: true, chat: G, sender, senderJid: "", messageStubType: 29, messageStubParameters: [JSON.stringify(participante)] }, { client: globalThis.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+    await Det.before({ isGroup: true, chat: G, sender, senderJid: "", messageStubType: 29, messageStubParameters: [JSON.stringify(participante)] }, { client: conexion.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
     return globalThis.enviados.length > 0;
   };
   assert.equal(await avisa({ id: OWNER, lid: "7070@lid", admin: null }), false, "en un grupo por número");
@@ -645,7 +646,7 @@ test(".detect no avisa del promote ni del demote del owner, lo traiga el grupo p
   assert.equal(await avisa({ id: "7171@lid", phoneNumber: OWNER, admin: null }), false, "por un LID que la base no tiene, con el número al lado");
   assert.equal(await avisa({ id: "59899000444@s.whatsapp.net", admin: null }, OWNER), false, "si lo hizo el owner, en un grupo por número");
   globalThis.enviados = [];
-  await Det.before({ isGroup: true, chat: G, sender: "7272@lid", senderJid: OWNER, messageStubType: 30, messageStubParameters: [JSON.stringify({ id: "444@lid", admin: null })] }, { client: globalThis.client, participants: [], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+  await Det.before({ isGroup: true, chat: G, sender: "7272@lid", senderJid: OWNER, messageStubType: 30, messageStubParameters: [JSON.stringify({ id: "444@lid", admin: null })] }, { client: conexion.client, participants: [], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
   assert.deepEqual(globalThis.enviados, [], "si lo hizo el owner con un LID que la base no tiene, y el número al lado");
   assert.equal(await avisa({ id: "444@lid", admin: null }), true, "con cualquier otra persona, avisa");
 });
@@ -657,7 +658,7 @@ test(".detect no avisa de un cambio cuando no sabe quién lo hizo", async () => 
   const Det = (await import("../plugins/_detect-events.js")).default;
   for (const [tipo, parametros] of [[23, ["CodigoNuevo"]], [29, [JSON.stringify({ id: "444@lid", admin: "admin" })]], [30, [JSON.stringify({ id: "444@lid", admin: null })]]]) {
     globalThis.enviados = [];
-    await Det.before({ isGroup: true, chat: G, sender: "", senderJid: "", messageStubType: tipo, messageStubParameters: parametros }, { client: globalThis.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
+    await Det.before({ isGroup: true, chat: G, sender: "", senderJid: "", messageStubType: tipo, messageStubParameters: parametros }, { client: conexion.client, participants: [{ id: "105@lid", admin: "admin" }], isBotAdmin: true, chat: { detect: 1, isBanned: 0 } });
     assert.deepEqual(globalThis.enviados, [], `tipo ${tipo}`);
   }
 });
@@ -685,14 +686,14 @@ test("por número y sin respuesta de WhatsApp, no se toca a quien la base recuer
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
   const consultaReal = I.IDENTIDAD.CONSULTA_MS;
   I.IDENTIDAD.CONSULTA_MS = 20;
-  globalThis.client.executeUSyncQuery = () => new Promise(() => {});
+  conexion.client.executeUSyncQuery = () => new Promise(() => {});
   t.after(() => {
-    delete globalThis.client.executeUSyncQuery;
+    delete conexion.client.executeUSyncQuery;
     I.IDENTIDAD.CONSULTA_MS = consultaReal;
   });
   const grupo = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: "999@lid", admin: "admin" }];
   const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
-  const correrA = (P, command, text) => P.run(m(text), { client: globalThis.client, text, args: text.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
+  const correrA = (P, command, text) => P.run(m(text), { client: conexion.client, text, args: text.split(" "), command, usedPrefix: ".", participants: grupo, groupMetadata: { owner: "100@lid", participants: grupo }, isOwner: true, isWaAdmin: true, isAdmin: true });
   await correrA(Kick, "kick", "+59899000891");
   assert.ok(!expulsiones.some((e) => e.ids.includes(VIEJO)), ".kick no saca a VIEJO");
   await correrA(Silenciar, "mute", "+59899000891");
@@ -704,10 +705,10 @@ test("por número y sin respuesta de WhatsApp, no se toca a quien la base recuer
 // .rd by a number whose LID, as WhatsApp gives it, has no row resets nothing: it said "Se reinició" all the same.
 test(".rd por número no dice que reinició si no había nada que borrar", async (t) => {
   const [X, L] = ["59899000893@s.whatsapp.net", "300000000000893@lid"];
-  globalThis.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: L }] });
-  t.after(() => delete globalThis.client.executeUSyncQuery);
+  conexion.client.executeUSyncQuery = async () => ({ list: [{ id: X, lid: L }] });
+  t.after(() => delete conexion.client.executeUSyncQuery);
   const Rd = (await import("../plugins/owner-restaurar-usuario.js")).default;
-  await Rd.run(m("+59899000893"), { client: globalThis.client, text: "+59899000893", command: "rd", usedPrefix: ".", participants, isOwner: true });
+  await Rd.run(m("+59899000893"), { client: conexion.client, text: "+59899000893", command: "rd", usedPrefix: ".", participants, isOwner: true });
   assert.equal(ultimo(), "No tengo registro de esa persona.");
 });
 

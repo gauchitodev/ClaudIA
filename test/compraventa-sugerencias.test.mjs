@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // The marketplace connects buyers and sellers (lib/compraventa.js): whoever looks for something is reminded of who
 // sells something like it, and whoever sells hears who was looking. In a buy-and-sell group (.modo compraventa) it also
@@ -10,7 +11,7 @@ let F, C, Hook;
 const V = "ventas@g.us"; // a group in buy-and-sell mode; G stays a group of friends
 let k = 0;
 const msg = (chat, sender, text) => ({ chat, sender, text, isGroup: true, key: { id: `K${++k}` } });
-const escribir = (chat, sender, text) => Hook.before(msg(chat, sender, text), { client: globalThis.client, chat: F.getChat(chat) });
+const escribir = (chat, sender, text) => Hook.before(msg(chat, sender, text), { client: conexion.client, chat: F.getChat(chat) });
 // What .modo compraventa does.
 const MODO_COMPRAVENTA = { games: 0, charla: 0, saludos: 0, monedas: 0, ascensos: 0, recapSemanal: 0 };
 // Everyone in a group of a test's own: a test that counts what's published goes in one, since the posts are numbered
@@ -113,7 +114,7 @@ test("modo compraventa: lo que se escribe suelto se lee", async () => {
 test("con .banchat, .modoadmin o una persona baneada, ni publica ni sugiere", async () => {
   const fila = F.getChat(V);
   const pasar = (sender, text, { chat = {}, user = {}, isMod = false } = {}) =>
-    Hook.before(msg(V, sender, text), { client: globalThis.client, chat: { ...fila, ...chat }, user, isOwner: false, isMod });
+    Hook.before(msg(V, sender, text), { client: conexion.client, chat: { ...fila, ...chat }, user, isOwner: false, isMod });
   const antes = globalThis.enviados.length;
   await pasar("444@lid", "¿alguien vende una silla?", { chat: { isBanned: 1 } });
   await pasar("555@lid", "#vendo silla de playa", { chat: { adminMode: 1 } });
@@ -157,7 +158,7 @@ test("modo compraventa: prender los saludos no apaga las ventas sueltas, y .menu
   const Modo = await import("../lib/modo.js");
   const Menu = (await import("../plugins/menu-ventas.js")).default;
   const menu = async () => {
-    await Menu.run({ chat: M }, { client: globalThis.client, chat: F.getChat(M) });
+    await Menu.run({ chat: M }, { client: conexion.client, chat: F.getChat(M) });
     return ultimoEnviado().msg.text;
   };
   Modo.aplicarModo(M, "compraventa");

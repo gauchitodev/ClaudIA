@@ -2,6 +2,7 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, G, clienteFalso, ultimoEnviado, fijarSaldo, esperar } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // .play / .video (plugins/dl-youtube.js) with a fake yt-dlp. .playya and .videoya charge for skipping the wait and
 // didn't give it back when nothing came out; and when the "here you go" after a song failed, the next candidate was
@@ -52,7 +53,7 @@ async function terminarCola() {
 async function pedir(command, { enEspera = true } = {}) {
   const m = { chat: G, sender: YO, isGroup: true, react: () => {} };
   const user = { lastmining: enEspera ? Date.now() : 0, commandAttempts: 0 };
-  await D.default.run(m, { client: globalThis.client, args: ["tema"], text: "tema", isOwner: false, command, user, groupMetadata: { participants: [] } });
+  await D.default.run(m, { client: conexion.client, args: ["tema"], text: "tema", isOwner: false, command, user, groupMetadata: { participants: [] } });
   await terminarCola();
   return ultimoEnviado().msg.text;
 }
@@ -110,13 +111,13 @@ test("la cola de .play no se la cuelga al bot ni a quien pidió, aunque el grupo
   const { encolarDescarga } = await import("../lib/cola-descargas.js");
   let soltar;
   encolarDescarga(() => new Promise((resolve) => (soltar = resolve)));
-  const bot = globalThis.client.user;
+  const bot = conexion.client.user;
   const participants = [
     { id: bot.jid, lid: bot.lid, admin: "admin" },
     { id: "59899000071@s.whatsapp.net", lid: YO, admin: null },
   ];
   const m = { chat: G, sender: YO, senderJid: "59899000071@s.whatsapp.net", isGroup: true, react: () => {} };
-  await D.default.run(m, { client: globalThis.client, args: ["tema"], text: "tema", isOwner: false, command: "play", user: { lastmining: 0, commandAttempts: 0 }, groupMetadata: { participants } });
+  await D.default.run(m, { client: conexion.client, args: ["tema"], text: "tema", isOwner: false, command: "play", user: { lastmining: 0, commandAttempts: 0 }, groupMetadata: { participants } });
   assert.match(ultimoEnviado().msg.text, /^⏳ Tu descarga está en la cola\. Hay 1 antes que la tuya/);
   soltar();
   await terminarCola();
@@ -144,7 +145,7 @@ test("el aviso de envío no le pasa a sendFile nada que no sea un link", async (
   fs.writeFileSync("config.toml", 'geminiApiKey = "secreta"'); // in the test's temp folder, not the repo's
   resultados = [{ title: "Tema raro", id: "corto", thumbnail: "config.toml" }]; // not an 11-character id: the field is used
   const antes = globalThis.enviados.length;
-  await D.descargarMultimedia({ client: globalThis.client, chat: G, usuario: YO, texto: "tema raro", tipo: "audio" });
+  await D.descargarMultimedia({ client: conexion.client, chat: G, usuario: YO, texto: "tema raro", tipo: "audio" });
   const nuevos = globalThis.enviados.slice(antes);
   assert.ok(!nuevos.some((e) => "archivo" in e), "sendFile no se usó");
   assert.match(nuevos[0].msg.text, /^Tema raro\n/, "el aviso salió como texto");

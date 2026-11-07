@@ -1,5 +1,6 @@
 import { S_WHATSAPP_NET } from "@whiskeysockets/baileys";
 import { duracion, enviadoEn } from "../lib/tiempo.js";
+import { conexion } from "../lib/conexion.js";
 
 // .ping: whether Claudia is up, and how far WhatsApp is. The round trip is the same iq Baileys keeps the connection
 // alive with (lib/Socket/socket.js, keepAlive), timed; nothing goes to the group for it. Then since when she's on and
@@ -33,7 +34,7 @@ plugin.run = async (m, { client }) => {
   const salio = enviadoEn(m);
   const atraso = salio ? ahora - salio : 0;
   if (atraso >= PING.ATRASO_MIN_MS) lineas.push(`🐢 Tu mensaje salió hace ${duracion(atraso)}: voy atrasada.`);
-  const conectada = globalThis.horaConexion ? ` · conectada hace ${duracion(ahora - globalThis.horaConexion)}` : "";
+  const conectada = conexion.horaConexion ? ` · conectada hace ${duracion(ahora - conexion.horaConexion)}` : "";
   lineas.push(`🟢 Encendida hace ${duracion(process.uptime() * 1000)}${conectada}.`);
   await client.sendText(m.chat, lineas.join("\n"), m);
 };

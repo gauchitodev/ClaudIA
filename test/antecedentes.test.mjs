@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { numeroReciclado, unaLid, unNumero } from "./identidad-escenarios.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // Each one's record of warnings in a group (.antecedentes): .adv notes the reason, who gave it and when, .unwarn which
 // one it took away, and the third one which got them removed; .clearantecedentes erases it. The count of warnings
@@ -16,8 +17,8 @@ const BOT = "999@lid";
 
 before(async () => {
   ({ F } = await prepararBase("antecedentes"));
-  globalThis.client.user.lid = BOT;
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.user.lid = BOT;
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
@@ -43,7 +44,7 @@ function grupo(chat, ...gente) {
 async function correr(P, chat, participants, { text = "", mencion = [], sender = MOD, isMod = true, isOwner = false, isWaAdmin = sender === MOD } = {}) {
   globalThis.enviados = [];
   const m = { chat, sender, senderJid: "", text, mentionedJid: mencion, isGroup: true, react: async (emoji) => globalThis.enviados.push({ chat, msg: { react: emoji } }) };
-  await P.run(m, { client: globalThis.client, text, args: text.split(" "), command: P.cmd[0], usedPrefix: ".", participants, isMod, isOwner, isWaAdmin, isAdmin: isWaAdmin || isOwner });
+  await P.run(m, { client: conexion.client, text, args: text.split(" "), command: P.cmd[0], usedPrefix: ".", participants, isMod, isOwner, isWaAdmin, isAdmin: isWaAdmin || isOwner });
   return ultimoEnviado()?.msg ?? {};
 }
 

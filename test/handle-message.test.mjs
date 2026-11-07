@@ -7,6 +7,7 @@ import { WAMessageStubType } from "@whiskeysockets/baileys";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import txt from "../lib/strings.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // The whole of handle-message, from the message as Baileys hands it over: the hooks in their order (hooksEnOrden,
 // load-functions.js) and then the command. The plugins of each test are the real ones (or a spy standing in for a
@@ -64,7 +65,7 @@ function cliente({ turnos = false } = {}) {
     sendPresenceUpdate: async () => {},
   };
   if (turnos) for (const f of ["sendMessage", "sendText"]) client[f] = async (chat, ...resto) => (await esperarTurno(chat), base[f](chat, ...resto));
-  globalThis.client = client; // handle-message reads the bot's own ids from it
+  conexion.client = client; // handle-message reads the bot's own ids from it
   return client;
 }
 
@@ -1015,5 +1016,23 @@ test("el despachador: un .reglas set en varias líneas se guarda con sus saltos 
   } finally {
     F.quitarRolGrupo(GRUPO, ANA);
     F.updateChat(GRUPO, { reglas: "" });
+  }
+});
+
+// A message is answered through the socket it came in on (this), not through lib/conexion.js's: in the middle of a
+// reconnection they're two, and handle-message answered some things through one and some through the other (it read
+// the global client).
+test("handle-message contesta por el socket por el que llegó el mensaje, aunque lib/conexion.js ya tenga otro", async () => {
+  const client = cliente();
+  const porElOtro = [];
+  conexion.client = { ...client, sendMessage: async (...a) => (porElOtro.push(a), {}), sendText: async (...a) => (porElOtro.push(a), {}) };
+  try {
+    const antes = globalThis.enviados.length;
+    await llega(client, ANA, ".comandoquenoexiste").hecho;
+    const texto = txt.noCommandMatch("comandoquenoexiste");
+    assert.ok(globalThis.enviados.slice(antes).some((e) => e.msg?.text === texto), "por el socket del mensaje");
+    assert.ok(!porElOtro.some(([, contenido]) => contenido === texto || contenido?.text === texto), "y no por el otro");
+  } finally {
+    conexion.client = client;
   }
 });

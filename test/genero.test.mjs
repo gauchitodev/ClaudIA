@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // .genero (plugins/genero.js, lib/genero.js): hombre or mujer, set by oneself or by an admin for someone else. .perfil
 // says it and the rank agrees (Nueva, Veterana); the AI is told how to address them (tested with its prompts, in
@@ -26,7 +27,7 @@ before(async () => {
 // The command as the dispatcher runs it: by sender, with the text, and what it answered.
 async function correr(sender, text, { mentionedJid = [], isAdmin = false, isOwner = false } = {}) {
   globalThis.enviados = [];
-  await P.run({ chat: G, sender, senderJid: "", text, mentionedJid, isGroup: true }, { client: globalThis.client, text, participants, isAdmin, isOwner });
+  await P.run({ chat: G, sender, senderJid: "", text, mentionedJid, isGroup: true }, { client: conexion.client, text, participants, isAdmin, isOwner });
   return ultimoEnviado()?.msg ?? {};
 }
 const en = (lid) => ({ mentionedJid: [lid] });
@@ -69,7 +70,7 @@ test(".genero @persona: solo un admin (o el owner), a alguien que conozco y que 
   assert.match((await correr("701@lid", "@703 hombre", { ...en("703@lid"), isOwner: true })).text, /^✅ Listo: a @703 lo trato en masculino/);
   assert.equal(Ge.tratoPara("703@lid", "Caro"), "Caro es hombre: tratalo en masculino.");
   F.updateUser("703@lid", { genero: "" });
-  assert.equal((await correr("702@lid", "@bot mujer", { mentionedJid: [globalThis.client.user.lid], isAdmin: true })).text, "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo.");
+  assert.equal((await correr("702@lid", "@bot mujer", { mentionedJid: [conexion.client.user.lid], isAdmin: true })).text, "❌ Esa soy yo: mencioná a la persona, o respondé un mensaje suyo.");
   assert.match((await correr("702@lid", "@999 mujer", { mentionedJid: ["999@lid"], isAdmin: true })).text, /^❌ No tengo datos de esa persona todavía/);
   // naming oneself is one's own
   assert.equal((await correr("701@lid", "@701 mujer", en("701@lid"))).text, "✅ Listo: te trato en femenino, y tu perfil lo dice.");

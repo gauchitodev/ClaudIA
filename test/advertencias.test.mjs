@@ -2,6 +2,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, Warn, Unwarn, Lista;
 const H = "otro@g.us";
@@ -10,8 +11,8 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("advertencias"));
-  globalThis.client.user.lid = "999@lid";
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.user.lid = "999@lid";
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     return ids.map((jid) => ({ status: statusExpulsion, jid }));
   };
@@ -41,7 +42,7 @@ const m = (text, { mentionedJid = [], chat = G } = {}) => ({ chat, sender: "100@
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
 // Run by 100, a WhatsApp admin, as the dispatcher would say: warning only goes from strictly above.
 const correr = (P, text, opciones = {}) =>
-  P.run(m(text, opciones), { client: globalThis.client, text, command: "adv", usedPrefix: ".", participants, isOwner: false, isWaAdmin: true });
+  P.run(m(text, opciones), { client: conexion.client, text, command: "adv", usedPrefix: ".", participants, isOwner: false, isWaAdmin: true });
 
 test("una razón que empieza con número no le cambia el destinatario", async () => {
   // The old bug: the regex included \s and kept swallowing digits, so ".adv @5989911111 3 veces" warned
@@ -129,7 +130,7 @@ test("la lista de advertidos es la del grupo donde se pide", async () => {
   F.setAdvertencias("111@lid", G, 2);
   F.setAdvertencias("222@lid", H, 1);
 
-  await Lista.run(m(""), { client: globalThis.client });
+  await Lista.run(m(""), { client: conexion.client });
   assert.match(ultimo(), /Total : 1/);
   assert.match(ultimo(), /Fulano \*\(2\/3\)\*/, "se lo nombra sin etiquetarlo");
   assert.doesNotMatch(ultimo(), /222/, "los del otro grupo no salen acá");
@@ -143,10 +144,10 @@ test("la lista de advertidos es la del grupo donde se pide", async () => {
 test("la lista de advertidos: por privado, el número de quien no tiene nombre; en un grupo, no", async () => {
   F.setAdvertencias("111@lid", G, 2);
   F.setAdvertencias("222@lid", H, 1);
-  await Lista.run({ chat: "59899111222@s.whatsapp.net", sender: "100@lid", text: "", mentionedJid: [], isGroup: false }, { client: globalThis.client });
+  await Lista.run({ chat: "59899111222@s.whatsapp.net", sender: "100@lid", text: "", mentionedJid: [], isGroup: false }, { client: conexion.client });
   assert.match(ultimo(), /│ Fulano \*\(2\/3\)\*/);
   assert.match(ultimo(), /│ \+5989911222 \*\(1\/3\)\*/);
-  await Lista.run(m("", { chat: H }), { client: globalThis.client });
+  await Lista.run(m("", { chat: H }), { client: conexion.client });
   assert.match(ultimo(), /│ alguien \*\(1\/3\)\*/);
   assert.doesNotMatch(ultimo(), /5989911222|222@lid/);
 });
@@ -169,7 +170,7 @@ test("unwarn: nadie se saca sus propias advertencias, y un moderador no se las s
     F.setAdvertencias(`${n}@lid`, G, 2);
   }
   const comoModerador = (text, mentionedJid) =>
-    Unwarn.run({ ...m(text, { mentionedJid }), sender: "300@lid" }, { client: globalThis.client, text, command: "unwarn", usedPrefix: ".", participants, isOwner: false, isWaAdmin: false });
+    Unwarn.run({ ...m(text, { mentionedJid }), sender: "300@lid" }, { client: conexion.client, text, command: "unwarn", usedPrefix: ".", participants, isOwner: false, isWaAdmin: false });
   await comoModerador("@300", ["300@lid"]);
   assert.match(ultimo(), /Tus propias advertencias no te las podés sacar vos/);
   await comoModerador("@301", ["301@lid"]);
@@ -185,11 +186,11 @@ test("unwarn: nadie se saca sus propias advertencias, y un moderador no se las s
 test("la lista de advertidos con «numeros»: el número de cada uno, también en un grupo", async () => {
   F.setAdvertencias("111@lid", G, 2);
   F.setAdvertencias("222@lid", H, 1);
-  await Lista.run(m("numeros"), { client: globalThis.client, text: "numeros" });
+  await Lista.run(m("numeros"), { client: conexion.client, text: "numeros" });
   assert.match(ultimo(), /│ \+5989911111 \(Fulano\) \*\(2\/3\)\*/);
-  await Lista.run(m("numeros", { chat: H }), { client: globalThis.client, text: "numeros" });
+  await Lista.run(m("numeros", { chat: H }), { client: conexion.client, text: "numeros" });
   assert.match(ultimo(), /│ \+5989911222 \(alguien\) \*\(1\/3\)\*/);
-  await Lista.run(m("nombres"), { client: globalThis.client, text: "nombres" });
+  await Lista.run(m("nombres"), { client: conexion.client, text: "nombres" });
   assert.match(ultimo(), /│ Fulano \*\(2\/3\)\*/);
   assert.doesNotMatch(ultimo(), /5989911111/);
 });
@@ -201,7 +202,7 @@ test("la lista de advertidos va por nombre de WhatsApp; con «alias», el apodo;
   F.updateUser("111@lid", { apodo: "Fula" });
   t.after(() => F.updateUser("111@lid", { apodo: "" }));
   const pedir = async (text, chat = G, isGroup = true) => {
-    await Lista.run({ ...m(text, { chat }), isGroup }, { client: globalThis.client, text });
+    await Lista.run({ ...m(text, { chat }), isGroup }, { client: conexion.client, text });
     assert.equal(ultimoEnviado()?.msg?.mentions, undefined, `sin arrobar (${text || "sin palabra"})`);
     return ultimo();
   };

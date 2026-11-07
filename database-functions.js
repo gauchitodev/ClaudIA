@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from "fs";
 import Database from "better-sqlite3";
 import { ponerAlDia } from "./database-schema.js";
 import { configuracion } from "./lib/configuracion.js";
+import { idsDelBot, lidDelBot, nombreDelBot } from "./lib/conexion.js";
 
 // The connection every function here uses, loadDatabase's. It used to be a global main.js set (globalThis.db), and this
 // module only worked once someone had set it; what else needs the connection imports it from here.
@@ -101,7 +102,7 @@ export function juntarFilasDeDispositivo(base) {
 // Called on every message
 export function initDataDB(m) {
   const chatJid = m.chat;
-  const botJid = client?.user?.lid;
+  const botJid = lidDelBot();
   const pushName = m?.pushName || "";
 
   // Make sure the user's default data exists. A message that came with only the number, from someone the database
@@ -224,7 +225,7 @@ export function getBotSettings(botJid) {
 export function syncUserInfo(m) {
   const lid = m.sender;
   const newJid = m.senderJid;
-  const newPush = m.pushName || (m.fromMe ? client.user.name : null);
+  const newPush = m.pushName || (m.fromMe ? nombreDelBot() : null);
   const timestamp = Date.now();
 
   // A LID with a device ("…:12@lid") is nobody's row: with the number on it, it took it away from the real one.
@@ -662,7 +663,7 @@ export function sumarInteraccion(mes, chat, usuario, tipo) {
 // Claudia's own ids, to leave her out of the rankings, the tops and the totals. Reactions to her messages paid her
 // UruCoins and "received" points until lib/reacciones.js stopped it, and what she gathered is still in the tables.
 function sinClaudia() {
-  const ids = [globalThis.client?.user?.lid, globalThis.client?.user?.jid].filter(Boolean);
+  const ids = idsDelBot();
   return { sql: ids.length ? ` AND usuario NOT IN (${ids.map(() => "?").join(", ")})` : "", ids };
 }
 

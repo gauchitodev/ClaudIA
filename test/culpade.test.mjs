@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // .culpade (plugins/fun-culpa-de.js): "Culpa de @persona", with someone from the group at random, never the bot, and
 // tagged by the id the group lists them under.
@@ -12,7 +13,7 @@ before(async () => {
 });
 
 const BOT = { id: "bot@lid", admin: "admin" };
-const pedir = (participants, sender = "300000000000001@lid") => Culpa.run({ chat: G, sender, isGroup: true }, { client: globalThis.client, participants, command: "culpade" });
+const pedir = (participants, sender = "300000000000001@lid") => Culpa.run({ chat: G, sender, isGroup: true }, { client: conexion.client, participants, command: "culpade" });
 
 test(".culpade: le echa la culpa a alguien del grupo al azar, a veces a quien la pidió, nunca al bot, y lo arroba", async () => {
   const ANA = "300000000000001@lid";

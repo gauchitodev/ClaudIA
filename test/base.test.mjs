@@ -6,10 +6,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 const G = "grupo@g.us";
 configuracion.owners = ["59899111222"];
-globalThis.client = { user: { lid: "bot@lid" } };
+conexion.client = { user: { lid: "bot@lid" } };
 
 test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista negra global)", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-migracion-"));

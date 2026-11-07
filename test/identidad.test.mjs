@@ -11,6 +11,7 @@ import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFals
 import "@whiskeysockets/baileys";
 import txt from "../lib/strings.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 // Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
 // and what was wrong and got fixed. Each of those was a todo until its tanda of the identity frontier plan, and failed
@@ -43,7 +44,7 @@ before(async () => {
   };
 });
 
-const cliente = () => globalThis.client;
+const cliente = () => conexion.client;
 
 // ---------- right today ----------
 
@@ -180,8 +181,8 @@ test("confirmarOwners: le pregunta a WhatsApp por cada owner y se queda con lo q
 test("el bot le pregunta a WhatsApp por los owners al conectarse, y .addowner por el que agrega", async (t) => {
   const AL_ABRIRSE = 'CallExpression[callee.property.name="on"][arguments.0.value="connection.update"] IfStatement[test.right.value="open"] > BlockStatement.consequent CallExpression[callee.name="confirmarOwnersCadaTanto"]';
   const cuantas = async (codigo) => (await nodosQue(AL_ABRIRSE, codigo)).length;
-  const conexion = (alAbrirse, enCadaTanda = "") => `client.ev.on("connection.update", ({ connection }) => {\n  if (connection === "close") {\n  } else if (connection === "open") {\n    ${alAbrirse}\n  }\n});\nclient.ev.on("messages.upsert", () => {\n  ${enCadaTanda}\n});`;
-  const formas = [conexion("confirmarOwnersCadaTanto();"), conexion("// confirmarOwnersCadaTanto();"), conexion("", "confirmarOwnersCadaTanto();")];
+  const codigoDeConexion = (alAbrirse, enCadaTanda = "") => `client.ev.on("connection.update", ({ connection }) => {\n  if (connection === "close") {\n  } else if (connection === "open") {\n    ${alAbrirse}\n  }\n});\nclient.ev.on("messages.upsert", () => {\n  ${enCadaTanda}\n});`;
+  const formas = [codigoDeConexion("confirmarOwnersCadaTanto();"), codigoDeConexion("// confirmarOwnersCadaTanto();"), codigoDeConexion("", "confirmarOwnersCadaTanto();")];
   assert.deepEqual(await Promise.all(formas.map(cuantas)), [1, 0, 0]);
   assert.equal(await cuantas(fs.readFileSync(new URL("../main.js", import.meta.url), "utf8")), 1, "main.js no le pregunta por los owners al abrirse la conexión");
   const antes = configuracion.owners;

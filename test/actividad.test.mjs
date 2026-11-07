@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, esperar, ultimoEnviado } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 let F, A, P, T, R;
 before(async () => {
@@ -74,7 +75,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   F.updateChat(G2, { juegosApagados: "[]" });
   assert.equal(T.programarTriviasDelDia(mediodia), 2, "prendida de nuevo, la pasada siguiente la agenda");
   F.updateChat(G2, { triviaRelampago: false });
-  await T.lanzarTriviaRelampago(globalThis.client, G, mediodia);
+  await T.lanzarTriviaRelampago(conexion.client, G, mediodia);
   const lanzada = ultimoEnviado();
   assert.match(lanzada.msg.text, /^⚡ \*TRIVIA RELÁMPAGO\* — 15 UruCoins para el primero que acierte\n\n.+\nA\) /);
   const ronda = Tr.rondaDe(G);
@@ -90,7 +91,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n🪙 \+15 UruCoins\.$/);
   assert.equal(saldo("b"), 15);
   assert.equal(Tr.rondaDe(G), null);
-  await T.lanzarTriviaRelampago(globalThis.client, G, mediodia);
+  await T.lanzarTriviaRelampago(conexion.client, G, mediodia);
   await esperar(120);
   assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.$/);
 });
@@ -108,7 +109,7 @@ test("recap semanal", async () => {
   const mediodia = new Date();
   mediodia.setHours(12, 0, 0, 0);
   F.updateChat(chat, { triviaRelampago: true });
-  await T.lanzarTriviaRelampago(globalThis.client, chat, mediodia);
+  await T.lanzarTriviaRelampago(conexion.client, chat, mediodia);
   F.updateChat(chat, { triviaRelampago: false });
   assert.equal(Tr.responderTrivia({ chat, sender: "b", text: `${Tr.rondaDe(chat).pregunta.correcta.toUpperCase()})` }).reaccion, "✅");
   F.guardarPreguntaDia(chat, A.claveDia(), "¿Qué comieron el finde?", "pregunta-del-recap");
@@ -160,7 +161,7 @@ test("el panel de actividad resume días y horas", async () => {
   // the command sends that same text. It reads the real clock, not the pinned one, so it gets something from today:
   // the days above drop out of its week as time goes by (this test broke once a week after September 20).
   F.sumarMensajeHora(H, A.claveDia(new Date()), 12);
-  await Panel.run({ chat: H, isGroup: true }, { client: globalThis.client });
+  await Panel.run({ chat: H, isGroup: true }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /ACTIVIDAD DEL GRUPO/);
 });
 
@@ -227,8 +228,8 @@ test(".podar saca el detalle viejo y deja el reciente", async () => {
   const P = "poda@g.us";
   A.podarActividad();
   F.sumarMensajeHora(P, A.claveDia(new Date(Date.now() - 200 * DIA)), 9);
-  await Podar.run({ chat: P, isGroup: true }, { client: globalThis.client });
+  await Podar.run({ chat: P, isGroup: true }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /Podé 1 fila de actividad por hora/);
-  await Podar.run({ chat: P, isGroup: true }, { client: globalThis.client });
+  await Podar.run({ chat: P, isGroup: true }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /No había actividad por hora, envíos del bot ni usos de comandos de más de 90 días/);
 });

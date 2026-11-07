@@ -2,6 +2,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, mazoDe, fijarSaldo } from "./helpers.mjs";
 import { COINS } from "../lib/urucoins.js";
+import { conexion } from "../lib/conexion.js";
 
 let F, T, Timba, MiTimba, B;
 before(async () => {
@@ -22,7 +23,7 @@ beforeEach(() => {
 // Seeds a movement: negative is what's staked, positive what comes back.
 const mov = (usuario, cantidad, motivo) => F.moverCoins(G, usuario, cantidad, motivo);
 const correr = (P, sender, text = "", mentionedJid = []) =>
-  P.run({ chat: G, sender, text, mentionedJid, isGroup: true }, { client: globalThis.client, args: text.trim() ? text.trim().split(/\s+/) : [], text, participants: [] });
+  P.run({ chat: G, sender, text, mentionedJid, isGroup: true }, { client: conexion.client, args: text.trim() ? text.trim().split(/\s+/) : [], text, participants: [] });
 const ultimo = () => ultimoEnviado()?.msg?.text || "";
 
 test(".mitimba desglosa por juego y da el balance", async () => {
@@ -100,10 +101,10 @@ test(".mitimba de otra persona, y de quien no apostó nunca", async () => {
 test(".mitimba respondiendo un mensaje del bot muestra la tuya, no la del bot", async () => {
   // Replying to a casino result is the natural way to ask, and the bot has its own row in users: without this the
   // answer was "Claudia no apostó nada".
-  F.initDataDB({ chat: G, sender: globalThis.client.user.lid, senderJid: globalThis.client.user.jid, pushName: "Claudia" });
+  F.initDataDB({ chat: G, sender: conexion.client.user.lid, senderJid: conexion.client.user.jid, pushName: "Claudia" });
   mov("a@lid", -30, "casino_ruleta");
-  const m = { chat: G, sender: "a@lid", text: "", mentionedJid: [], isGroup: true, quoted: { sender: globalThis.client.user.lid } };
-  await MiTimba.run(m, { client: globalThis.client, args: [], text: "", participants: [] });
+  const m = { chat: G, sender: "a@lid", text: "", mentionedJid: [], isGroup: true, quoted: { sender: conexion.client.user.lid } };
+  await MiTimba.run(m, { client: conexion.client, args: [], text: "", participants: [] });
   assert.match(ultimo(), /Tu timba/);
   assert.match(ultimo(), /Ruleta\* — 30 apostados/);
 });

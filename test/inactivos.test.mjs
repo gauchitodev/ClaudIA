@@ -5,6 +5,7 @@ import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { numeroReciclado, unNumero, unaLid } from "./identidad-escenarios.mjs";
 import { COINS } from "../lib/urucoins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
 
 const DIA = 24 * 60 * 60 * 1000;
 let F, I, CG, Inactivos, Kick;
@@ -15,13 +16,13 @@ const cerrados = new Set(); // chats whose fake metadata says only the admins wr
 
 before(async () => {
   ({ F } = await prepararBase("inactivos"));
-  globalThis.client.user.lid = "999@lid";
-  globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
+  conexion.client.user.lid = "999@lid";
+  conexion.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });
     await alExpulsar?.(ids[0]);
     return ids.map((jid) => ({ status: "200", jid }));
   };
-  globalThis.client.groupMetadata = async (chat) => ({ id: chat, subject: "Los Pibes", announce: cerrados.has(chat), participants: miembros.get(chat) || [] });
+  conexion.client.groupMetadata = async (chat) => ({ id: chat, subject: "Los Pibes", announce: cerrados.has(chat), participants: miembros.get(chat) || [] });
   I = await import("../lib/inactivos.js");
   I.INACTIVOS.PAUSA_MS = 0;
   CG = await import("../lib/cache-grupos.js");
@@ -60,7 +61,7 @@ function armarGrupo(chat, ahora = Date.now()) {
 
 const m = (chat, text, sender = "105@lid") => ({ chat, sender, text, isGroup: true, react: async () => {}, delete: async () => {} });
 const textoEnviado = () => ultimoEnviado()?.msg?.text || "";
-const kick = (chat, participants, text, rango = {}) => Kick.run(m(chat, text), { client: globalThis.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true, ...rango });
+const kick = (chat, participants, text, rango = {}) => Kick.run(m(chat, text), { client: conexion.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true, ...rango });
 const avisar = (chat, ...ids) => {
   for (const id of ids) F.marcarAvisoInactivo(chat, [id], Date.now() - 4 * DIA); // warned 4 days ago: the grace period went by
 };
@@ -68,7 +69,7 @@ const avisar = (chat, ...ids) => {
 test(".inactivos etiqueta solo a los callados de verdad: ni admins, ni roles, ni el bot, ni recién llegados", async () => {
   const chat = "inactivos-1@g.us";
   const participants = armarGrupo(chat);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
 
   const { msg } = ultimoEnviado();
   assert.deepEqual(msg.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
@@ -82,10 +83,10 @@ test(".inactivos 30 cambia el corte, y un número que no es de días se rechaza"
   const chat = "inactivos-2@g.us";
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA); // here the bot keeps track since 40 days ago
   const participants = armarGrupo(chat);
-  await Inactivos.run(m(chat, "30"), { client: globalThis.client, participants, text: "30" });
+  await Inactivos.run(m(chat, "30"), { client: conexion.client, participants, text: "30" });
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["102@lid", "109@lid"]); // 101 wrote 20 days ago: not 30 yet
 
-  await Inactivos.run(m(chat, "mucho"), { client: globalThis.client, participants, text: "mucho" });
+  await Inactivos.run(m(chat, "mucho"), { client: conexion.client, participants, text: "mucho" });
   assert.match(textoEnviado(), /cuántos días/);
 });
 
@@ -93,24 +94,24 @@ test("un segundo .inactivos no reinicia el plazo del primero", async () => {
   const chat = "inactivos-3@g.us";
   const ahora = Date.now();
   const participants = armarGrupo(chat, ahora);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora });
-  const { listos } = I.paraSacar(chat, participants, globalThis.client, ahora);
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora });
+  const { listos } = I.paraSacar(chat, participants, conexion.client, ahora);
   assert.deepEqual(listos.map((e) => e.participante.id).sort(), ["101@lid", "102@lid", "109@lid"]);
 });
 
 test("el avisado que vuelve a escribir se salva y cobra una sola vez", async () => {
   const chat = "inactivos-4@g.us";
   const participants = armarGrupo(chat);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants);
   const antes = F.getSaldoCoins(chat, "101@lid");
 
-  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
   assert.equal(textoEnviado(), `🎉 Volvió @101: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.`);
   assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + COINS.REGRESO);
 
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "101@lid" });
   assert.equal(globalThis.enviados.length, 0);
   assert.equal(F.getSaldoCoins(chat, "101@lid"), antes + COINS.REGRESO);
 });
@@ -119,10 +120,10 @@ test("con la economía apagada el que vuelve se salva igual, sin monedas", async
   const chat = "inactivos-5@g.us";
   const participants = armarGrupo(chat);
   F.updateChat(chat, { monedas: 0 });
-  const { texto } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
+  const { texto } = await I.avisarInactivos(conexion.client, m(chat, ""), participants);
   assert.doesNotMatch(texto, /🪙/);
 
-  await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "102@lid" });
   assert.equal(textoEnviado(), "🎉 Volvió @102: sale de la lista de inactivos.");
   assert.equal(F.getSaldoCoins(chat, "102@lid"), 0);
 });
@@ -163,25 +164,25 @@ test(".k inactivos: solo admins, respeta el plazo y primero le dice al admin por
 test(".k inactivos confirmar saca a los avisados callados, no al que volvió, y les borra el aviso", async () => {
   const chat = "inactivos-7@g.us";
   const participants = armarGrupo(chat);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
-  await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
+  await I.registrarPresencia(conexion.client, { chat, sender: "102@lid" });
 
   await kick(chat, participants, "inactivos");
   await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]).sort(), ["101@lid", "109@lid"]);
   assert.equal(textoEnviado(), "🧹 Saqué a 2 personas.");
-  assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0);
+  assert.equal(I.paraSacar(chat, participants, conexion.client).listos.length, 0);
 });
 
 test("saca de a tandas y dice cuántos quedan", async () => {
   const chat = "inactivos-8@g.us";
   const participants = armarGrupo(chat);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
   const tanda = I.INACTIVOS.POR_TANDA;
   I.INACTIVOS.POR_TANDA = 2;
   try {
-    await I.sacarInactivos(globalThis.client, m(chat, ""), participants);
-    await I.sacarInactivos(globalThis.client, m(chat, ""), participants, { confirmar: true });
+    await I.sacarInactivos(conexion.client, m(chat, ""), participants);
+    await I.sacarInactivos(conexion.client, m(chat, ""), participants, { confirmar: true });
   } finally {
     I.INACTIVOS.POR_TANDA = tanda;
   }
@@ -192,11 +193,11 @@ test("saca de a tandas y dice cuántos quedan", async () => {
 test("el que vuelve a entrar arranca de cero: el aviso de antes de irse no cuenta", async () => {
   const chat = "inactivos-9@g.us";
   const participants = armarGrupo(chat);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora: Date.now() - 4 * DIA });
   F.registrarIngresoGrupo(chat, ["101@lid"]);
-  const { listos } = I.paraSacar(chat, participants, globalThis.client);
+  const { listos } = I.paraSacar(chat, participants, conexion.client);
   assert.deepEqual(listos.map((e) => e.participante.id).sort(), ["102@lid", "109@lid"]);
-  assert.ok(!I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "101@lid"));
+  assert.ok(!I.inactivosDe(chat, participants, conexion.client).some((e) => e.participante.id === "101@lid"));
 });
 
 test("cuenta la charla de antes de la tabla nueva (actividad_diaria)", () => {
@@ -205,7 +206,7 @@ test("cuenta la charla de antes de la tabla nueva (actividad_diaria)", () => {
   const hace3 = new Date(Date.now() - 3 * DIA);
   const dia = `${hace3.getFullYear()}-${String(hace3.getMonth() + 1).padStart(2, "0")}-${String(hace3.getDate()).padStart(2, "0")}`;
   F.sumarMensajeDiario(chat, "102@lid", dia);
-  assert.ok(!I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "102@lid"));
+  assert.ok(!I.inactivosDe(chat, participants, conexion.client).some((e) => e.participante.id === "102@lid"));
 });
 
 // Before the bot kept track of a group, nobody can be told apart from someone silent. It used to go by the first time
@@ -231,7 +232,7 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
   const ayer = "inactivos-11@g.us";
   let participants = deAntes(ayer, 131, 132);
   F.registrarMensajeGrupo(ayer, ["105@lid"], Date.now() - DIA);
-  await Inactivos.run(m(ayer, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(ayer, ""), { client: conexion.client, participants, text: "" });
   assert.equal(textoEnviado(), "Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 1 día. Probá en 14 días.");
   assert.equal(ultimoEnviado().msg.mentions, undefined);
 
@@ -241,7 +242,7 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
   participants = deAntes(antes, 131, 132);
   F.registrarMensajeGrupo(antes, ["105@lid"], Date.now() - 16 * DIA);
   F.registrarMensajeGrupo(antes, ["131@lid"], Date.now() - 5 * DIA);
-  await Inactivos.run(m(antes, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(antes, ""), { client: conexion.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions, ["132@lid"]);
   assert.match(textoEnviado(), /@132 — hace 16 días o más/);
 });
@@ -251,10 +252,10 @@ test("sin datos de antes de que el bot anote un grupo, nadie cuenta como callado
 test("cuando el bot entra o sale de un grupo, la cuenta de .inactivos empieza de nuevo", () => {
   const chat = "inactivos-13@g.us";
   const participants = armarGrupo(chat);
-  assert.ok(I.inactivosDe(chat, participants, globalThis.client).length > 0);
-  assert.equal(I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "101@lid" }]), false, "si no es el bot, nada");
-  assert.equal(I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]), true);
-  assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), []);
+  assert.ok(I.inactivosDe(chat, participants, conexion.client).length > 0);
+  assert.equal(I.reiniciarSiEsElBot(conexion.client, chat, [{ id: "101@lid" }]), false, "si no es el bot, nada");
+  assert.equal(I.reiniciarSiEsElBot(conexion.client, chat, [{ id: "999@lid", admin: null }]), true);
+  assert.deepEqual(I.inactivosDe(chat, participants, conexion.client), []);
   F.registrarMensajeGrupo(chat, ["103@lid"]);
   assert.ok(Math.abs(F.inicioPresencia(chat) - Date.now()) < 5000, "el próximo mensaje la arranca");
 });
@@ -269,9 +270,9 @@ test(".k inactivos confirmar vuelve a mirar a cada uno justo antes de sacarlo", 
   // While the first one goes: 102 writes, and 109 is made admin (main.js refreshes the group on a promotion).
   alExpulsar = async (id) => {
     if (id !== "101@lid") return;
-    await I.registrarPresencia(globalThis.client, { chat, sender: "102@lid" });
+    await I.registrarPresencia(conexion.client, { chat, sender: "102@lid" });
     miembros.set(chat, participants.map((p) => (p.id === "109@lid" ? { ...p, admin: "admin" } : p)));
-    await CG.metadataDe(globalThis.client, chat, { fresca: true });
+    await CG.metadataDe(conexion.client, chat, { fresca: true });
   };
   await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]), ["101@lid"]);
@@ -283,7 +284,7 @@ test("si el aviso de .inactivos no sale, nadie queda avisado", async () => {
   const chat = "inactivos-15@g.us";
   const participants = armarGrupo(chat);
   const client = {
-    ...globalThis.client,
+    ...conexion.client,
     sendMessage: async () => {
       throw new Error("Connection Closed");
     },
@@ -301,7 +302,7 @@ test("un segundo .inactivos no vuelve a etiquetar a los ya avisados, que siguen 
   F.registrarMensajeGrupo(chat, ["110@lid"], Date.now() - 17 * DIA);
   participants.push({ id: "110@lid", admin: null });
   avisar(chat, "101@lid", "102@lid", "109@lid");
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   const { msg } = ultimoEnviado();
   assert.deepEqual(msg.mentions, ["110@lid"]);
   assert.match(msg.text, /Inactivos \(1\)/);
@@ -310,7 +311,7 @@ test("un segundo .inactivos no vuelve a etiquetar a los ya avisados, que siguen 
   // And who was warned a moment ago is still within their days.
   for (const id of ["101@lid", "102@lid", "109@lid"]) F.quitarAvisoInactivo(chat, [id]);
   for (const id of ["101@lid", "102@lid", "109@lid", "110@lid"]) F.marcarAvisoInactivo(chat, [id], Date.now());
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.equal(textoEnviado(), "No hay inactivos nuevos. 4 personas ya estaban avisadas y siguen en su plazo.");
 });
 
@@ -319,7 +320,7 @@ test("quien avisó con .afk que no está no entra en .inactivos", async () => {
   const participants = armarGrupo(chat);
   F.getUser("101@lid", chat);
   F.updateUserInGroup("101@lid", chat, { afk: Date.now() - 16 * DIA, afkReason: "me voy de viaje un mes" });
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["102@lid", "109@lid"]);
 });
 
@@ -335,7 +336,7 @@ test("en un grupo por número sin la LID en la lista, quien tiene una fila vieja
   F.registrarMensajeGrupo(chat, ["222@lid", PN], Date.now() - DIA); // yesterday, a message that brought the LID
   const participants = [{ id: PN, admin: null }];
   miembros.set(chat, participants);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.match(textoEnviado(), /^No hay inactivos/);
 });
 
@@ -345,7 +346,7 @@ test("el «Volvió» no hace esperar a los hooks que vienen después", async () 
   const chat = "inactivos-30@g.us";
   armarGrupo(chat);
   avisar(chat, "101@lid");
-  const client = { ...globalThis.client, sendText: () => new Promise(() => {}) }; // its turn never comes
+  const client = { ...conexion.client, sendText: () => new Promise(() => {}) }; // its turn never comes
   const llego = await Promise.race([I.registrarPresencia(client, { chat, sender: "101@lid" }).then(() => "siguió"), new Promise((r) => setTimeout(() => r("esperando"), 200))]);
   assert.equal(llego, "siguió");
   assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === "101@lid").avisado, null, "y lo salvó igual");
@@ -357,8 +358,8 @@ test("un aviso guardado bajo la LID y el número se levanta entero: el regreso s
   const chat = "inactivos-31@g.us";
   armarGrupo(chat);
   F.marcarAvisoInactivo(chat, ["101@lid", "59899000101@s.whatsapp.net"], Date.now() - DIA);
-  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "" });
-  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "101@lid", senderJid: "" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "101@lid", senderJid: "59899000101@s.whatsapp.net" });
   assert.equal(F.getSaldoCoins(chat, "101@lid"), COINS.REGRESO);
 });
 
@@ -369,7 +370,7 @@ test("un aviso guardado solo bajo el número lo levanta un mensaje que trae solo
   const chat = "inactivos-aviso-por-numero@g.us";
   armarGrupo(chat);
   F.marcarAvisoInactivo(chat, ["59899000101@s.whatsapp.net"], Date.now() - DIA);
-  await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid", senderJid: "" });
+  await I.registrarPresencia(conexion.client, { chat, sender: "101@lid", senderJid: "" });
   assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === "59899000101@s.whatsapp.net")?.avisado ?? null, null);
 });
 
@@ -385,7 +386,7 @@ test("un moderador listado por un número que otra LID también tiene no entra e
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA);
   const participants = [{ id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.ok(!(ultimoEnviado()?.msg?.mentions || []).includes(X), textoEnviado());
 });
 
@@ -395,13 +396,13 @@ test("el premio por volver va una vez cada 30 días, y .inactivos pide 7 días c
   const participants = armarGrupo(chat);
   for (let vez = 0; vez < 2; vez++) {
     avisar(chat, "101@lid");
-    await I.registrarPresencia(globalThis.client, { chat, sender: "101@lid" });
+    await I.registrarPresencia(conexion.client, { chat, sender: "101@lid" });
     // They came back 10 days ago: the next warning, 4 days ago, is after that (one from before isn't a warning).
     db.prepare("UPDATE presencia_grupo SET ultimo_mensaje = ? WHERE chat = ? AND usuario = ?").run(Date.now() - 10 * DIA, chat, "101@lid");
   }
   assert.equal(F.getSaldoCoins(chat, "101@lid"), COINS.REGRESO);
   assert.equal(textoEnviado(), "🎉 Volvió @101: sale de la lista de inactivos.", "la segunda vez, sin premio");
-  await Inactivos.run(m(chat, "1"), { client: globalThis.client, participants, text: "1" });
+  await Inactivos.run(m(chat, "1"), { client: conexion.client, participants, text: "1" });
   assert.match(textoEnviado(), /de 7 a 365/);
 });
 
@@ -422,11 +423,11 @@ test("reconoce al owner y a quien tiene rol aunque la base no los conozca, con e
   const lidMapping = { getLIDsForPNs: async (pns) => pns.filter((pn) => mapa[pn]).map((pn) => ({ pn, lid: mapa[pn] })), getPNsForLIDs: async (lids) => lids.filter((lid) => mapa[lid]).map((lid) => ({ lid, pn: mapa[lid] })) };
   lidMapping.getLIDForPN = async (pn) => (await lidMapping.getLIDsForPNs([pn]))?.[0]?.lid || null;
   lidMapping.getPNForLID = async (lid) => (await lidMapping.getPNsForLIDs([lid]))?.[0]?.pn || null;
-  globalThis.client.signalRepository = { lidMapping };
+  conexion.client.signalRepository = { lidMapping };
   try {
-    await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+    await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   } finally {
-    delete globalThis.client.signalRepository;
+    delete conexion.client.signalRepository;
     configuracion.owners = ownersReales;
   }
   assert.deepEqual(ultimoEnviado().msg.mentions, ["666@lid"]);
@@ -457,17 +458,17 @@ test("al mapa de WhatsApp le pregunta por todos de una vez, con un solo tope de 
   // Put back by t.after, which runs also when the test runs out of its time: a finally after the hang never came, and
   // the next test ran with all of this still in place.
   t.after(() => {
-    delete globalThis.client.signalRepository;
+    delete conexion.client.signalRepository;
     [configuracion.owners, I.INACTIVOS.CONSULTA_MS, ID._dep.esperar] = [ownersReales, consultaReal, esperarReal];
   });
   configuracion.owners = [...ownersReales, ...nuevos];
-  globalThis.client.signalRepository = { lidMapping: mapa };
+  conexion.client.signalRepository = { lidMapping: mapa };
   I.INACTIVOS.CONSULTA_MS = 100;
   // The time limit, without the clock: it goes by once what's already answered is in. Measured, it failed under load.
   // The wait is lib/identidad.js's, which asks the map (conElMapaDeWhatsApp), for as long as .inactivos says.
   const topes = [];
   ID._dep.esperar = (ms, valor) => (topes.push(ms), new Promise((r) => setImmediate(() => r(valor))));
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions, ["7709@lid"], "los owners, aunque la otra pregunta no tuvo respuesta");
   assert.deepEqual(preguntas.map(([lado]) => lado).sort(), ["lid", "pn"], "una pregunta para cada lado");
   assert.ok(nuevos.every((n) => preguntas.find(([lado]) => lado === "pn")[1].includes(`${n}@s.whatsapp.net`)));
@@ -479,7 +480,7 @@ test("en un grupo cerrado, donde solo escriben los admins, no etiqueta ni saca a
   const participants = armarGrupo(chat);
   cerrados.add(chat);
   avisar(chat, "101@lid");
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.match(textoEnviado(), /^Este grupo está cerrado: solo escriben los admins/);
   await kick(chat, participants, "inactivos");
   assert.match(textoEnviado(), /^El grupo está cerrado: los avisados no pueden escribir para salvarse/);
@@ -517,7 +518,7 @@ test("con muchos miembros, .inactivos le pregunta poco a la base", () => {
     return prepareReal.call(this, sql);
   };
   try {
-    I.inactivosDe(chat, participants, globalThis.client);
+    I.inactivosDe(chat, participants, conexion.client);
   } finally {
     delete db.prepare;
   }
@@ -528,7 +529,7 @@ test("el bot no entra en la lista aunque no sea admin del grupo", async () => {
   const chat = "inactivos-37@g.us";
   const participants = armarGrupo(chat).map((p) => (p.id === "999@lid" ? { ...p, admin: null } : p));
   miembros.set(chat, participants);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
 });
 
@@ -557,7 +558,7 @@ test("no saca a quien escribió después del aviso con una identidad que el avis
   const chat = "inactivos-39@g.us";
   const participants = armarGrupo(chat); // 108 wrote yesterday, under their LID
   F.marcarAvisoInactivo(chat, ["59899000108@s.whatsapp.net"], Date.now() - 4 * DIA);
-  assert.ok(!I.paraSacar(chat, participants, globalThis.client).listos.some((e) => e.participante.id === "59899000108@s.whatsapp.net"));
+  assert.ok(!I.paraSacar(chat, participants, conexion.client).listos.some((e) => e.participante.id === "59899000108@s.whatsapp.net"));
 });
 
 test("entre una expulsión y la siguiente espera la pausa", async () => {
@@ -586,7 +587,7 @@ test("una fila con inGroup roto no rompe .inactivos", () => {
   F.initDataDB({ chat, sender: "8001@lid", senderJid: "", pushName: "Roto" });
   db.prepare("UPDATE users SET inGroup = ? WHERE lid = ?").run("{roto", "8001@lid");
   participants.push({ id: "8001@lid", admin: null });
-  assert.ok(I.inactivosDe(chat, participants, globalThis.client).some((e) => e.participante.id === "8001@lid"));
+  assert.ok(I.inactivosDe(chat, participants, conexion.client).some((e) => e.participante.id === "8001@lid"));
 });
 
 // The bot leaving the group and coming back starts the count over, and its warnings from before don't stand. Whoever it
@@ -597,14 +598,14 @@ test("los avisos de antes de que el bot vuelva al grupo no dejan a nadie afuera,
   const volver = (chat) => {
     const participants = armarGrupo(chat, ahora); // 101 wrote 20 days ago
     F.marcarAvisoInactivo(chat, ["101@lid"], ahora - 19 * DIA);
-    I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]); // it left the group…
+    I.reiniciarSiEsElBot(conexion.client, chat, [{ id: "999@lid", admin: null }]); // it left the group…
     F.registrarIngresoGrupo(chat, ["999@lid"], ahora - 16 * DIA); // …and came back 16 days ago
     return participants;
   };
 
   const chat = "inactivos-42@g.us";
   const participants = volver(chat);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.deepEqual(ultimoEnviado().msg.mentions.sort(), ["101@lid", "102@lid", "109@lid"]);
   await kick(chat, participants, "inactivos");
   assert.equal(textoEnviado(), "No hay a quién sacar: nadie fue avisado con .inactivos hace 3 días o más y siguió callado. Hay 3 personas avisadas que todavía están en plazo.");
@@ -612,7 +613,7 @@ test("los avisos de antes de que el bot vuelva al grupo no dejan a nadie afuera,
   const otro = "inactivos-43@g.us";
   volver(otro);
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, { chat: otro, sender: "101@lid" });
+  await I.registrarPresencia(conexion.client, { chat: otro, sender: "101@lid" });
   assert.deepEqual(globalThis.enviados, [], "sin «Volvió»");
   assert.equal(F.getSaldoCoins(otro, "101@lid"), 0);
 });
@@ -624,10 +625,10 @@ test("quien escribe mientras sale el aviso no queda afuera de los .inactivos que
   const avisarMientras = async (chat, antes) => {
     const participants = armarGrupo(chat, antes);
     const client = {
-      ...globalThis.client,
+      ...conexion.client,
       sendMessage: async (...args) => {
         if (args[1]?.mentions?.length) F.registrarMensajeGrupo(chat, ["101@lid"], antes + 2000); // 101 writes meanwhile
-        return globalThis.client.sendMessage(...args);
+        return conexion.client.sendMessage(...args);
       },
     };
     await I.avisarInactivos(client, m(chat, ""), participants, { ahora: antes });
@@ -638,16 +639,16 @@ test("quien escribe mientras sale el aviso no queda afuera de los .inactivos que
   // grace period ahead. 102 and 109, warned then, can be removed.
   const chat = "inactivos-44@g.us";
   const participants = await avisarMientras(chat, Date.now() - 25 * DIA);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.ok(ultimoEnviado().msg.mentions.includes("101@lid"), JSON.stringify(ultimoEnviado().msg.mentions));
   assert.match(textoEnviado(), /A 2 personas avisadas antes ya se las puede sacar/);
-  assert.ok(I.paraSacar(chat, participants, globalThis.client).enPlazo.some((e) => e.participante.id === "101@lid"));
+  assert.ok(I.paraSacar(chat, participants, conexion.client).enPlazo.some((e) => e.participante.id === "101@lid"));
 
   // And writing again isn't coming back: they had written already.
   const otro = "inactivos-47@g.us";
   await avisarMientras(otro, Date.now() - DIA);
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, { chat: otro, sender: "101@lid" });
+  await I.registrarPresencia(conexion.client, { chat: otro, sender: "101@lid" });
   assert.deepEqual(globalThis.enviados, [], "sin «Volvió»");
   assert.equal(F.getSaldoCoins(otro, "101@lid"), 0);
 });
@@ -662,13 +663,13 @@ test("las noches que .horariogrupo cierra el grupo no cuentan para el plazo de l
   const avisada = ahora - 3.5 * DIA;
   F.marcarAvisoInactivo(chat, ["101@lid"], avisada);
   assert.ok(HG.fijarHorarioGrupo(chat, "8:00-22:00").ok);
-  const client = { ...globalThis.client, groupSettingUpdate: async () => {} };
+  const client = { ...conexion.client, groupSettingUpdate: async () => {} };
   try {
     for (let t = avisada; t <= ahora; t += 15 * 60 * 1000) await HG.chequearHorariosGrupo(new Date(t), client); // as tareas-programadas runs it
   } finally {
     await HG.quitarHorarioGrupo(chat, client);
   }
-  const { listos, enPlazo } = I.paraSacar(chat, participants, globalThis.client, ahora);
+  const { listos, enPlazo } = I.paraSacar(chat, participants, conexion.client, ahora);
   assert.deepEqual([listos, enPlazo.map((e) => e.participante.id)], [[], ["101@lid"]], "con tres noches cerradas, sigue en plazo");
 
   const G = (await import("../plugins/grupo-abrir-cerrar.js")).default;
@@ -723,7 +724,7 @@ test(".k inactivos confirmar es del admin que recibió la lista", async () => {
   miembros.set(chat, participants);
   F.initDataDB({ chat, sender: "112@lid", senderJid: "59899000112@s.whatsapp.net", pushName: "Persona112" });
   avisar(chat, "101@lid", "102@lid");
-  const kickDe = (sender, text) => Kick.run(m(chat, text, sender), { client: globalThis.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true });
+  const kickDe = (sender, text) => Kick.run(m(chat, text, sender), { client: conexion.client, participants, text, command: "k", usedPrefix: ".", groupMetadata: { participants }, isOwner: false, isWaAdmin: true, isAdmin: true });
   await kickDe("105@lid", "inactivos"); // the list goes to 105
   await kickDe("112@lid", "inactivos confirmar");
   assert.equal(textoEnviado(), "La lista de quiénes saldrían se la mandé a otro admin. Pedí la tuya con .k inactivos (te la mando por privado), y después confirmá.");
@@ -761,7 +762,7 @@ test(".k inactivos confirmar encuentra a cada uno por cualquiera de sus ids", as
     miembros.set(chat, lista(antes));
     await kick(chat, lista(antes), "inactivos");
     miembros.set(chat, lista(despues));
-    CG.invalidar(globalThis.client, chat);
+    CG.invalidar(conexion.client, chat);
     await kick(chat, lista(despues), "inactivos confirmar");
     assert.deepEqual(expulsiones.map((e) => e.ids[0]), ns.map((n) => `${n}@lid`), chat);
     assert.equal(textoEnviado(), "🧹 Saqué a 2 personas.");
@@ -775,7 +776,7 @@ test(".k inactivos confirmar dice cuántos ya no estaban, y al que el grupo list
   alExpulsar = async (id) => {
     if (id !== "59899000301@s.whatsapp.net") return;
     miembros.set(chat, porLid50([301, 302])); // while the first one goes: the group is listed by LID now, and 303 left
-    await CG.metadataDe(globalThis.client, chat, { fresca: true });
+    await CG.metadataDe(conexion.client, chat, { fresca: true });
   };
   await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]), ["59899000301@s.whatsapp.net", "302@lid"], "con el id con que lo lista el grupo");
@@ -822,18 +823,18 @@ test("si el bot vuelve a un grupo cerrado, el cierre cuenta desde que volvió", 
   F.registrarMensajeGrupo(chat, ["101@lid", "102@lid"], ahora - 25 * DIA);
   cerrados.add(chat);
   // Removed and added back 18 days ago, with the group closed (main.js, group-participants.update).
-  I.reiniciarSiEsElBot(globalThis.client, chat, [{ id: "999@lid", admin: null }]);
-  await CG.metadataDe(globalThis.client, chat, { fresca: true, ahora: ahora - 18 * DIA });
+  I.reiniciarSiEsElBot(conexion.client, chat, [{ id: "999@lid", admin: null }]);
+  await CG.metadataDe(conexion.client, chat, { fresca: true, ahora: ahora - 18 * DIA });
   F.registrarIngresoGrupo(chat, ["999@lid"], ahora - 18 * DIA);
   // It opened a minute ago.
   cerrados.delete(chat);
   F.anotarCierreGrupo(chat, false, ahora - 60 * 1000);
-  CG.invalidar(globalThis.client, chat);
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  CG.invalidar(conexion.client, chat);
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.match(textoEnviado(), /^Todavía no sé quién no escribe hace 15 días: empecé a anotar quién escribe en este grupo hace 18 días, y el tiempo que estuvo cerrado no cuenta\./);
 
   const otro = "inactivos-57@g.us";
-  CG.guardarVarios(globalThis.client, { [otro]: { id: otro, subject: "Otro", announce: true, participants } }, ahora - 2 * DIA);
+  CG.guardarVarios(conexion.client, { [otro]: { id: otro, subject: "Otro", announce: true, participants } }, ahora - 2 * DIA);
   assert.deepEqual(F.cierresGrupo(otro).map((c) => [Math.round((ahora - c.desde) / DIA), c.hasta]), [[2, null]], "al reconectar, de todos los grupos");
 });
 
@@ -842,9 +843,9 @@ test("si el bot vuelve a un grupo cerrado, el cierre cuenta desde que volvió", 
 test("un grupo que se cerró después de la copia que tiene el bot cuenta como cerrado", async () => {
   const chat = "inactivos-55@g.us";
   const participants = armarGrupo(chat);
-  await CG.metadataDe(globalThis.client, chat, { fresca: true }); // the copy: open
+  await CG.metadataDe(conexion.client, chat, { fresca: true }); // the copy: open
   F.anotarCierreGrupo(chat, true, Date.now()); // the notice, right after: closed
-  await Inactivos.run(m(chat, ""), { client: globalThis.client, participants, text: "" });
+  await Inactivos.run(m(chat, ""), { client: conexion.client, participants, text: "" });
   assert.match(textoEnviado(), /^Este grupo está cerrado/);
   await kick(chat, participants, "inactivos");
   assert.match(textoEnviado(), /^El grupo está cerrado/);
@@ -884,7 +885,7 @@ test("quien cambió de número no queda como callado en un grupo que lo lista po
   const participants = [{ id: NUEVO, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   // As handle-message hands over a late one, ahead of syncUserInfo.
   I.anotarPresencia({ chat, isGroup: true, sender: L, senderJid: NUEVO, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 }, { antesDelNumero: true });
-  assert.deepEqual(I.inactivosDe(chat, participants, globalThis.client), [], "con el mensaje atrasado");
+  assert.deepEqual(I.inactivosDe(chat, participants, conexion.client), [], "con el mensaje atrasado");
   F.syncUserInfo({ chat, sender: L, senderJid: NUEVO, pushName: "Carla" });
   assert.deepEqual([F.jidDeLid(L), F.lidDeNumero(NUEVO), F.lidDeNumero(VIEJO)], [NUEVO, L, null]);
 });
@@ -898,11 +899,11 @@ test("el premio por volver va una vez cada 30 días aunque un regreso llegue con
   F.initDataDB({ chat, sender: L, senderJid: N, pushName: "Carla" });
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 60 * DIA);
   F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
-  await I.registrarPresencia(globalThis.client, { chat, sender: L, senderJid: N });
+  await I.registrarPresencia(conexion.client, { chat, sender: L, senderJid: N });
   db.prepare("UPDATE presencia_grupo SET ultimo_mensaje = ? WHERE chat = ?").run(Date.now() - 17 * DIA, chat); // silent since
   db.prepare("UPDATE urucoins_log SET fecha = ? WHERE chat = ?").run(Date.now() - 16 * DIA, chat); // paid 16 days ago
   F.marcarAvisoInactivo(chat, [L, N], Date.now() - DIA);
-  await I.registrarPresencia(globalThis.client, { chat, sender: N, senderJid: N }); // back again, with only the number
+  await I.registrarPresencia(conexion.client, { chat, sender: N, senderJid: N }); // back again, with only the number
   assert.deepEqual([F.getSaldoCoins(chat, L), F.getSaldoCoins(chat, N)], [COINS.REGRESO, 0]);
   // In a group whose messages come with only the number, the person's coins are under it, and .saldo reads it: paid to
   // the LID, the prize never showed up there. And with a recycled number the bot hadn't seen with its new LID yet, it
@@ -910,7 +911,7 @@ test("el premio por volver va una vez cada 30 días aunque un regreso llegue con
   const [L2, N2] = ["300000000000559@lid", "59899000559@s.whatsapp.net"];
   F.initDataDB({ chat, sender: L2, senderJid: N2, pushName: "Dani" });
   F.marcarAvisoInactivo(chat, [L2, N2], Date.now() - DIA);
-  await I.registrarPresencia(globalThis.client, { chat, sender: N2, senderJid: N2 });
+  await I.registrarPresencia(conexion.client, { chat, sender: N2, senderJid: N2 });
   assert.deepEqual([F.getSaldoCoins(chat, L2), F.getSaldoCoins(chat, N2)], [0, COINS.REGRESO]);
 });
 
@@ -924,9 +925,9 @@ test("una copia del grupo que llega por groups.update no termina un cierre", () 
   const participants = [{ id: "101@lid", admin: null }, { id: "999@lid", admin: "admin" }];
   F.anotarCierreGrupo(chat, true, ahora - 20_000); // the closing's notice
   CG.vaciar(); // the cache empty, as after reconnecting
-  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: chat, subject: "Grupo", announce: false, participants }), "la copia se guarda");
+  assert.ok(CG.aplicarCambioDeGrupo(conexion.client, { id: chat, subject: "Grupo", announce: false, participants }), "la copia se guarda");
   assert.deepEqual(F.cierresGrupo(chat).map((c) => c.hasta), [null], "y el grupo sigue cerrado");
-  CG.invalidar(globalThis.client, chat);
+  CG.invalidar(conexion.client, chat);
 });
 
 // A closing nothing else told the bot of (its notice lost while it was off, and found on reconnecting through the copy
@@ -939,13 +940,13 @@ test("una copia cerrada que llega por groups.update anota el cierre, desde lo an
   const [chat, otro] = ["inactivos-60@g.us", "inactivos-61@g.us"];
   const antes = Date.now();
   CG.vaciar();
-  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: chat, subject: "Grupo", announce: true, participants }));
+  assert.ok(CG.aplicarCambioDeGrupo(conexion.client, { id: chat, subject: "Grupo", announce: true, participants }));
   const [cierre] = F.cierresGrupo(chat);
   assert.equal(cierre?.hasta, null, "queda cerrado");
   assert.ok(Math.abs(cierre.desde - (antes - CG.CACHE_GRUPOS.RETENIDA_MAX_MS)) < 5000, `desde hace ${Math.round((antes - cierre.desde) / 1000)} s`);
   F.anotarCierreGrupo(otro, true, antes - 3_600_000);
   F.anotarCierreGrupo(otro, false, antes - 20_000); // the opening's notice
-  assert.ok(CG.aplicarCambioDeGrupo(globalThis.client, { id: otro, subject: "Grupo", announce: true, participants }));
+  assert.ok(CG.aplicarCambioDeGrupo(conexion.client, { id: otro, subject: "Grupo", announce: true, participants }));
   assert.deepEqual(F.cierresGrupo(otro).map((c) => c.hasta === null), [false], "una copia de antes de que abriera no lo cierra de nuevo");
   CG.vaciar();
 });
@@ -961,7 +962,7 @@ test(".k inactivos confirmar saca a quien avisó en el grupo, no al primero que 
   F.registrarMensajeGrupo(chat, ["105@lid"], ahora - 20 * DIA);
   const participants = [{ id: unNumero(61), lid: VIEJO, admin: "admin" }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
-  await I.avisarInactivos(globalThis.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
+  await I.avisarInactivos(conexion.client, m(chat, ""), participants, { ahora: ahora - 4 * DIA });
   await kick(chat, participants, "inactivos");
   await kick(chat, participants, "inactivos confirmar");
   assert.deepEqual(expulsiones.map((e) => e.ids[0]), [X]);
@@ -977,8 +978,8 @@ test("el aviso de quien tuvo un número no cuenta para quien lo tiene ahora, aun
   F.marcarAvisoInactivo(chat, [VIEJO, X], Date.now() - 4 * DIA); // while the number was VIEJO's
   const participants = [...porLid, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
-  assert.deepEqual(I.paraSacar(chat, participants, globalThis.client).listos, [], "NUEVO no está avisado");
-  const { mentions } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
+  assert.deepEqual(I.paraSacar(chat, participants, conexion.client).listos, [], "NUEVO no está avisado");
+  const { mentions } = await I.avisarInactivos(conexion.client, m(chat, ""), participants);
   assert.deepEqual(mentions, [NUEVO], "y .inactivos lo etiqueta");
 });
 
@@ -995,10 +996,10 @@ test("un aviso bajo un número es de la LID con la que salió: no paga el «Volv
     F.initDataDB(msj);
     F.syncUserInfo(msj);
     globalThis.enviados = [];
-    await I.registrarPresencia(globalThis.client, msj); // after syncUserInfo, as handle-message runs them
+    await I.registrarPresencia(conexion.client, msj); // after syncUserInfo, as handle-message runs them
     return [globalThis.enviados.map((e) => e.msg?.text).join(""), F.getSaldoCoins(chat, sender)];
   };
-  const listos = (lid, numero) => I.paraSacar(chat, [{ id: lid, phoneNumber: numero, admin: null }], globalThis.client).listos.length;
+  const listos = (lid, numero) => I.paraSacar(chat, [{ id: lid, phoneNumber: numero, admin: null }], conexion.client).listos.length;
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 20 * DIA); // the bot keeps track of the group since then
 
   const [X, VIEJO, NUEVO] = [unNumero(71), unaLid(71, 1), unaLid(71, 2)];
@@ -1036,7 +1037,7 @@ test("a quien tenía el número no se le pasan los avisos que había bajo él", 
   F.marcarAvisoInactivo(chat, [C, N], Date.now() - 4 * DIA);
   F.initDataDB({ chat, sender: B, senderJid: N, pushName: "B" });
   F.syncUserInfo({ chat, sender: B, senderJid: N, pushName: "B" }); // N is B's now, and what was under it goes to A
-  const avisados = (g, lid) => I.paraSacar(g, [{ id: lid, admin: null }], globalThis.client).listos.length;
+  const avisados = (g, lid) => I.paraSacar(g, [{ id: lid, admin: null }], conexion.client).listos.length;
   assert.equal(avisados(chat, A), 0, "A no queda avisado con el aviso de C");
   assert.equal(avisados(chat, C), 1, "C sigue con el suyo");
   assert.equal(avisados(otro, A), 0, "ni el que fue solo al número");
@@ -1060,8 +1061,8 @@ test("cuando un número cambia de dueño, lo anotado bajo él no le pasa al que 
   F.initDataDB(msj);
   F.syncUserInfo(msj); // X is B's now: what was under it goes
   const de = (lista) => lista.map((e) => e.participante.id);
-  assert.ok(!de(I.paraSacar(chat, participants, globalThis.client).listos).includes(A), "A no queda avisado con el aviso de B");
-  assert.ok(de(I.inactivosDe(chat, participants, globalThis.client)).includes(A), "y la entrada de B no lo saca de .inactivos");
+  assert.ok(!de(I.paraSacar(chat, participants, conexion.client).listos).includes(A), "A no queda avisado con el aviso de B");
+  assert.ok(de(I.inactivosDe(chat, participants, conexion.client)).includes(A), "y la entrada de B no lo saca de .inactivos");
 });
 
 // In a group listed by number alone, the warning goes under the number the group gives, and not under the LID the
@@ -1075,7 +1076,7 @@ test("en un grupo que lista por número solo, el aviso no va a la LID que la bas
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
   const participants = [{ id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
-  const { mentions } = await I.avisarInactivos(globalThis.client, m(chat, ""), participants);
+  const { mentions } = await I.avisarInactivos(conexion.client, m(chat, ""), participants);
   assert.deepEqual(mentions, [X]);
   assert.equal(F.presenciaDelGrupo(chat).find((r) => r.usuario === VIEJO)?.avisado ?? null, null, "VIEJO no queda avisado");
   const escribe = async (sender, senderJid) => {
@@ -1083,11 +1084,11 @@ test("en un grupo que lista por número solo, el aviso no va a la LID que la bas
     F.initDataDB(msj);
     F.syncUserInfo(msj);
     globalThis.enviados = [];
-    await I.registrarPresencia(globalThis.client, msj);
+    await I.registrarPresencia(conexion.client, msj);
     return [textoEnviado(), F.getSaldoCoins(chat, sender)];
   };
   assert.deepEqual(await escribe(NUEVO, X), [`🎉 Volvió @${NUEVO.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.`, COINS.REGRESO], "NUEVO vuelve con su «Volvió»: el aviso bajo el número pasó a su LID");
-  assert.equal(I.paraSacar(chat, participants, globalThis.client).listos.length, 0, "NUEVO se salvó");
+  assert.equal(I.paraSacar(chat, participants, conexion.client).listos.length, 0, "NUEVO se salvó");
   assert.deepEqual(await escribe(VIEJO, Y), ["", 0], "VIEJO no cobra un aviso que no era suyo");
 });
 
@@ -1112,7 +1113,7 @@ test("un mensaje atrasado de quien tiene ahora un número no le levanta el aviso
   F.registrarMensajeGrupo(chat, [VIEJO], Date.now() - 30 * DIA);
   F.marcarAvisoInactivo(chat, [VIEJO, Y], Date.now() - 4 * DIA);
   const participants = [{ id: VIEJO, phoneNumber: Y, admin: null }, { id: NUEVO, phoneNumber: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
-  const listos = () => I.paraSacar(chat, participants, globalThis.client).listos.map((e) => e.participante.id);
+  const listos = () => I.paraSacar(chat, participants, conexion.client).listos.map((e) => e.participante.id);
   assert.deepEqual(listos(), [VIEJO]);
   I.anotarPresencia({ chat, isGroup: true, sender: NUEVO, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 }, { antesDelNumero: true });
   assert.deepEqual(listos(), [VIEJO], "VIEJO sigue avisado");
@@ -1136,18 +1137,18 @@ test("después de reconectar, un mensaje de quien tiene ahora un número no le l
     miembros.set(chat, participants);
     await prepararGrupo(chat);
     const m = { chat, isGroup: true, sender: X, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(Date.now() / 1000) - 90 };
-    return { m, Y, avisados: () => I.paraSacar(chat, participants, globalThis.client).listos.map((e) => e.participante.id) };
+    return { m, Y, avisados: () => I.paraSacar(chat, participants, conexion.client).listos.map((e) => e.participante.id) };
   };
   const reconectar = async (chat) => {
-    await CG.metadataDe(globalThis.client, chat); // the copy from before
+    await CG.metadataDe(conexion.client, chat); // the copy from before
     CG.vaciar();
   };
   const atrasado = await escenario(120, reconectar);
   I.anotarPresencia(atrasado.m, { antesDelNumero: true });
-  const vencida = await escenario(122, (chat) => CG.metadataDe(globalThis.client, chat, { ahora: Date.now() - CG.CACHE_GRUPOS.VIDA_MS - 1000 }));
+  const vencida = await escenario(122, (chat) => CG.metadataDe(conexion.client, chat, { ahora: Date.now() - CG.CACHE_GRUPOS.VIDA_MS - 1000 }));
   I.anotarPresencia(vencida.m, { antesDelNumero: true });
   const sinGrupo = await escenario(124, reconectar);
-  await I.registrarPresencia(globalThis.client, sinGrupo.m, []);
+  await I.registrarPresencia(conexion.client, sinGrupo.m, []);
   const visto = { atrasado: atrasado.avisados(), conLaCopiaVencida: vencida.avisados(), sinElGrupo: [sinGrupo.avisados(), textoEnviado()] };
   assert.deepEqual(visto, { atrasado: [atrasado.Y], conLaCopiaVencida: [vencida.Y], sinElGrupo: [[sinGrupo.Y], ""] });
 });
@@ -1177,10 +1178,10 @@ test("quien cambia su propio número se lleva lo que .inactivos anotó bajo el v
     miembros.set(chat, participants);
     return participants;
   };
-  const { listos, enPlazo } = I.paraSacar(entro, porNumero(entro), globalThis.client);
+  const { listos, enPlazo } = I.paraSacar(entro, porNumero(entro), conexion.client);
   const visto = {
-    escribio: I.inactivosDe(escribio, porNumero(escribio), globalThis.client).length,
-    entro: I.inactivosDe(entro, porNumero(entro), globalThis.client).length,
+    escribio: I.inactivosDe(escribio, porNumero(escribio), conexion.client).length,
+    entro: I.inactivosDe(entro, porNumero(entro), conexion.client).length,
     avisoAjeno: listos.length + enPlazo.length,
     bajoElViejo: F.presenciaDelGrupo(escribio).find((r) => r.usuario === X1)?.ultimo_mensaje ?? null,
     avisosBajoElViejo: [entro, avisado].map((g) => F.presenciaDelGrupo(g).find((r) => r.usuario === X1)?.avisado ?? null),
@@ -1190,7 +1191,7 @@ test("quien cambia su propio número se lleva lo que .inactivos anotó bajo el v
   F.initDataDB(vuelve);
   F.syncUserInfo(vuelve);
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, vuelve, porNumero(avisado));
+  await I.registrarPresencia(conexion.client, vuelve, porNumero(avisado));
   visto.volvio = /^🎉 Volvió/.test(textoEnviado());
   assert.deepEqual(visto, { escribio: 0, entro: 0, avisoAjeno: 0, bajoElViejo: ahora - 3 * DIA, avisosBajoElViejo: [null, null], volvio: true });
 });
@@ -1213,12 +1214,12 @@ test("un aviso de antes de la última entrada no cuenta, ni para .k inactivos ni
   I.anotarIngresos(chat, [{ id: X, admin: null }]);
   const participants = [{ id: X, admin: null }, ...admins];
   miembros.set(chat, participants);
-  const visto = { nuevoParaSacar: I.paraSacar(chat, participants, globalThis.client).listos.length };
+  const visto = { nuevoParaSacar: I.paraSacar(chat, participants, conexion.client).listos.length };
   const msj = { chat, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true };
   F.initDataDB(msj);
   F.syncUserInfo(msj);
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, msj, participants);
+  await I.registrarPresencia(conexion.client, msj, participants);
   visto.volvio = textoEnviado();
   // The person's own, warned while the group listed them with their LID: they left, and come back with the number
   // alone.
@@ -1228,7 +1229,7 @@ test("un aviso de antes de la última entrada no cuenta, ni para .k inactivos ni
   F.registrarMensajeGrupo(otro, ["105@lid"], ahora - 60 * DIA);
   F.marcarAvisoInactivo(otro, [Z, A], ahora - 10 * DIA);
   I.anotarIngresos(otro, [{ id: Z, admin: null }]);
-  visto.vuelveParaSacar = I.paraSacar(otro, [{ id: Z, lid: A, admin: null }, ...admins], globalThis.client).listos.length;
+  visto.vuelveParaSacar = I.paraSacar(otro, [{ id: Z, lid: A, admin: null }, ...admins], conexion.client).listos.length;
   assert.deepEqual(visto, { nuevoParaSacar: 0, volvio: "", vuelveParaSacar: 0 });
 });
 
@@ -1246,20 +1247,20 @@ test("la LID que la base supone para un número no es suya si el grupo la lista 
   const participants = [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
   F.marcarAvisoInactivo(chat, [Y, VIEJO], ahora - 4 * DIA); // VIEJO warned, as the group lists him
-  const listos = () => I.paraSacar(chat, participants, globalThis.client).listos.map((e) => e.participante.id);
+  const listos = () => I.paraSacar(chat, participants, conexion.client).listos.map((e) => e.participante.id);
   const visto = { antes: listos() };
   // A late message of theirs, with the copy of the group at hand, as handle-message's early cuts have it.
-  CG.guardar(globalThis.client, chat, { id: chat, subject: "Los Pibes", participants });
+  CG.guardar(conexion.client, chat, { id: chat, subject: "Los Pibes", participants });
   I.anotarPresencia({ chat, isGroup: true, sender: X, senderJid: X, message: { conversation: "hola" }, mtype: "conversation", messageTimestamp: Math.floor(ahora / 1000) - 90 }, { antesDelNumero: true });
   visto.atrasado = listos();
   // Whoever has X writes with it alone, through the hook, which handle-message hands the group: without the copy, so
   // it's the group the hook passes on that counts.
-  CG.invalidar(globalThis.client, chat);
+  CG.invalidar(conexion.client, chat);
   const msj = { chat, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true, message: { conversation: "hola" }, mtype: "conversation" };
   F.initDataDB(msj);
   F.syncUserInfo(msj);
   globalThis.enviados = [];
-  await (await import("../plugins/_messsage-count.js")).default.before(msj, { client: globalThis.client, user: {}, participants });
+  await (await import("../plugins/_messsage-count.js")).default.before(msj, { client: conexion.client, user: {}, participants });
   visto.volvio = textoEnviado();
   visto.despues = listos();
   assert.deepEqual(visto, { antes: [Y], atrasado: [Y], volvio: "", despues: [Y] });
@@ -1288,14 +1289,14 @@ test("a quien tiene ahora un número le pasa lo que .inactivos anotó bajo él, 
     miembros.set(chat, participants);
     return participants;
   };
-  const { listos, enPlazo } = I.paraSacar(avisado, conX(avisado), globalThis.client);
-  const visto = { escribio: I.inactivosDe(escribio, conX(escribio), globalThis.client).length, avisoParaSacar: listos.length + enPlazo.length };
+  const { listos, enPlazo } = I.paraSacar(avisado, conX(avisado), conexion.client);
+  const visto = { escribio: I.inactivosDe(escribio, conX(escribio), conexion.client).length, avisoParaSacar: listos.length + enPlazo.length };
   // NUEVO writes where they were tagged, with X alone.
   const vuelve = { chat: avisado, sender: X, senderJid: X, pushName: "Nuevo", isGroup: true };
   F.initDataDB(vuelve);
   F.syncUserInfo(vuelve);
   globalThis.enviados = [];
-  await I.registrarPresencia(globalThis.client, vuelve, conX(avisado));
+  await I.registrarPresencia(conexion.client, vuelve, conX(avisado));
   visto.volvio = textoEnviado();
   assert.deepEqual(visto, { escribio: 0, avisoParaSacar: 0, volvio: `🎉 Volvió @${X.split("@")[0]}: sale de la lista de inactivos y se lleva 🪙 ${COINS.REGRESO}.` });
 });
@@ -1315,8 +1316,8 @@ test("un aviso que pasó de un número no deja sacar a nadie: lo vuelven a etiqu
   F.syncUserInfo(msj); // A changes numbers, and takes the warning along
   const participants = [{ id: X2, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }];
   miembros.set(chat, participants);
-  const { listos, enPlazo } = I.paraSacar(chat, participants, globalThis.client);
-  const visto = { paraSacar: listos.length + enPlazo.length, etiquetado: (await I.avisarInactivos(globalThis.client, m(chat, ""), participants)).mentions };
+  const { listos, enPlazo } = I.paraSacar(chat, participants, conexion.client);
+  const visto = { paraSacar: listos.length + enPlazo.length, etiquetado: (await I.avisarInactivos(conexion.client, m(chat, ""), participants)).mentions };
   assert.deepEqual(visto, { paraSacar: 0, etiquetado: [X2] });
 });
 
@@ -1359,7 +1360,7 @@ test("el premio por volver no se cobra dos veces aunque la persona se cambie de 
     F.initDataDB(msj);
     F.syncUserInfo(msj);
     globalThis.enviados = [];
-    await I.registrarPresencia(globalThis.client, msj, [{ id: senderJid, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }]);
+    await I.registrarPresencia(conexion.client, msj, [{ id: senderJid, admin: null }, { id: "105@lid", admin: "admin" }, { id: "999@lid", admin: "admin" }]);
     return textoEnviado();
   };
   F.marcarAvisoInactivo(chat, [X1], Date.now() - 4 * DIA); // tagged by the number, as the group lists them
@@ -1420,6 +1421,6 @@ test(".inactivos busca a cada miembro en el grupo sin recorrerlo entero por cada
     return new Proxy({ id: unNumero(1000 + i), admin: null }, { get: (t, k, r) => (lecturas++, Reflect.get(t, k, r)) });
   });
   F.registrarMensajeGrupo(chat, ["105@lid"], Date.now() - 40 * DIA);
-  I.paraSacar(chat, grupo, globalThis.client);
+  I.paraSacar(chat, grupo, conexion.client);
   assert.ok(lecturas <= 40 * N, `${lecturas} lecturas para ${N} miembros`);
 });

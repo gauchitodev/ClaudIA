@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { prepararBase, ultimoEnviado, esperar } from "./helpers.mjs";
+import { conexion } from "../lib/conexion.js";
 
 // The battery of the phone or tablet the bot runs on (lib/bateria.js), for .bat and .estado. termux-battery-status and
 // the system files are swapped for canned answers: neither exists outside the tablet.
@@ -166,15 +167,15 @@ test(".bat: para los admins y el owner, con porcentaje, estado y temperatura", a
   // onlyAdmin lets the owner through anywhere, in private too (permisosDe counts them as an admin).
   assert.deepEqual([Bat.onlyAdmin, Bat.onlyOwner], [true, undefined]);
   simular({ termux: { status: "CHARGING", temperature: 31.04, percentage: 80 } });
-  await Bat.run({ chat: "owner@s.whatsapp.net" }, { client: globalThis.client });
+  await Bat.run({ chat: "owner@s.whatsapp.net" }, { client: conexion.client });
   assert.equal(ultimoEnviado().msg.text, "🔋 Batería: *80%* (cargando ⚡)\n🌡️ Temperatura: 31.0 °C");
   simular();
-  await Bat.run({ chat: "owner@s.whatsapp.net" }, { client: globalThis.client });
+  await Bat.run({ chat: "owner@s.whatsapp.net" }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /^No pude leer la batería\. Falta instalar termux-api \(pkg install termux-api\)/);
 });
 
 test(".estado: tiene una línea con la batería", async () => {
-  const client = globalThis.client;
+  const client = conexion.client;
   client.groupFetchAllParticipating = async () => ({});
   client.chats = {};
   simular({ termux: { status: "DISCHARGING", temperature: 28.5, percentage: 64 } });
@@ -250,11 +251,11 @@ test("batería baja: cargando pero bajando, avisa que el cargador no da abasto",
   B.entreChequeos.noAlcanzaAvisada.clear();
   B.entreChequeos.lecturaAnterior = null;
   await chequear(10, "CHARGING");
-  globalThis.botConectado = false;
+  conexion.botConectado = false;
   try {
     assert.deepEqual(await chequear(9, "CHARGING"), { umbral: null, textos: [] });
   } finally {
-    globalThis.botConectado = true;
+    conexion.botConectado = true;
   }
   assert.equal((await chequear(9, "CHARGING")).umbral, 10, "al volver la conexión");
 
@@ -295,11 +296,11 @@ test("batería baja: de golpe por debajo del 5 %, un solo aviso; sin conexión, 
   assert.deepEqual(await chequear(3), { umbral: null, textos: [] }, "ni el del 10 % después");
 
   B.entreChequeos.bajaAvisada.clear();
-  globalThis.botConectado = false;
+  conexion.botConectado = false;
   try {
     assert.deepEqual(await chequear(8), { umbral: null, textos: [] });
   } finally {
-    globalThis.botConectado = true;
+    conexion.botConectado = true;
   }
   assert.deepEqual(await chequear(8), { umbral: 10, textos: [DIEZ(8)] }, "al volver la conexión");
 
