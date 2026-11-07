@@ -146,7 +146,7 @@ _Para todos. Se abre con `.menu juegos`, `.menu juego`._
 | `.ahorcado` 💬 | Adivina la palabra en 8 intentos. |
 | `.acertijo` ❔ | Un acertijo, 30 segundos y 3 intentos cada uno; la respuesta vale con o sin artículo (pez o un pez). |
 | `.ordenar` 🔠 | Ordená la palabra. |
-| `.bandera` 🌍 | ¿De qué país es la bandera? |
+| `.bandera` 🌍 | ¿De qué país es la bandera? Al terminar, también su capital. |
 | `.ttt` 🕹️ | TaTeTi; .delttt borra la sala. |
 | `.4enlinea` 🔴 | 4 en línea entre dos; se juega mandando el número de la columna. Con .4enlinea 100, por UruCoins. .rendirse abandona y .del4enlinea borra la mesa. |
 | `.formarpareja` 👩‍❤️‍💋‍👨 | Forma pareja al azar entre dos participantes. |
