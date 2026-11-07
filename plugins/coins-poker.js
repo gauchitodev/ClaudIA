@@ -6,7 +6,7 @@ import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 //   .poker            the table if there is one, or how it's played
 //   .poker 100        opens the table with that buy-in (50 to 100), or sits you down at the one open (same buy-in)
 //   .poker empezar    the opener deals the first hand, with two or more seated (.poker arrancar too; lib/poker.js)
-//   .poker salir      stands you up with your chips (.levantarme does the same; plugins/coins-poker-mesa.js)
+//   .poker salir      stands you up with your chips (.levantarme and .pleave do the same; plugins/coins-poker-mesa.js)
 //   .poker cancelar   an admin closes the table (.delpoker does the same)
 // Money comes in here, so it carries the casino's flags like the blackjack: the casino switch, the game hours and the
 // coins switch stop it. The actions and leaving live in coins-poker-mesa.js, without the casino flag, so a hand that
@@ -23,8 +23,8 @@ const AYUDA = `🃏 *Póker (Texas Hold'em)* — uso: .${CMD.poker[0]} <entrada>
 Una mesa por grupo, de 2 a ${POKER.ASIENTOS_MAX}. El primero fija la entrada (de ${POKER.ENTRADA_MIN} a ${POKER.ENTRADA_MAX} UruCoins) y los demás se sientan con .${CMD.poker[0]} <esa entrada>. Cuando están todos, el que abrió la mesa la arranca con .${CMD.poker[0]} ${EMPEZAR[0]}; si no, reparto yo a los ${Math.round(POKER.ARRANQUE_MS / 60_000)} minutos de sentarse el segundo, o apenas se llena. Las fichas son tus UruCoins: las ciegas son el 5 % y el 10 % de la entrada, y no hay límite para subir.
 Las cartas te las digo por privado: en cada mano, escribime .${CMD.cartas[0]} a mí.
 
-▸ .${CMD.paso[0]} · .${CMD.pago[0]} · .${CMD.subo[0]} 20 (subís 20 por encima de la apuesta) · .${CMD.allin[0]} · .${CMD.novoy[0]}
-▸ .${CMD.levantarme[0]} te retira con tus fichas (si estás en una mano, al terminarla) · .${CMD.mesa[0]} muestra la mesa · .${CMD.cancelar[0]} (admins) la cierra
+▸ .${CMD.paso[0]} pasás · .${CMD.pago[0]} igualás · .${CMD.subo[0]} 20 subís 20 por encima de la apuesta · .${CMD.allin[0]} vas con todo · .${CMD.novoy[0]} no vas
+▸ .${CMD.levantarme[0]} o .${CMD.levantarme[1]} te retira con tus fichas (si estás en una mano, al terminarla) · .${CMD.mesa[0]} muestra la mesa · .${CMD.cancelar[0]} (admins) la cierra
 
 Tenés ${Math.round(POKER.TURNO_MS / 1000)} segundos por turno: si no decidís, pasás o te retirás, y a la segunda seguida te levanto de la mesa. Sin dos para jugar durante 10 minutos, la mesa se cierra y cada uno cobra sus fichas. La entrada cuenta para el tope diario del casino; el escudo acá no corre.
 Ej: .${CMD.poker[0]} ${POKER.ENTRADA_MAX}`;

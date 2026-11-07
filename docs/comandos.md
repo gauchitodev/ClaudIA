@@ -72,7 +72,7 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.tragamonedas 20` 🍒 | Tres rodillos y cinco líneas de pago. |
 | `.blackjack 20` 🃏 | Contra la banca: .pedir, .plantarse, .doblar, .dividir, .seguro o .rendirse. |
 | `.mines 20 3` 💣 | Grilla con minas: .destapar B3 sube el multiplicador y .retirar cobra; con una mina perdés. |
-| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .paso, .pago, .subo 20, .allin y .novoy; .levantarme te retira con tus fichas. |
+| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .pcheck, .pcall, .praise 20, .allin y .pfold; .levantarme o .pleave te retira con tus fichas. |
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |

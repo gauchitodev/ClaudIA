@@ -46,7 +46,7 @@ const NO_EMPIEZAN = {
   "coins-duelo": ["acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"],
   "coins-mercado": ["mercados", "mercado"],
   "coins-mercado-admin": ["resolver"],
-  "coins-poker-mesa": ["paso", "pago", "igualo", "voy", "subo", "allin", "novoy", "levantarme", "mesa", "delpoker"],
+  "coins-poker-mesa": ["pcheck", "pcall", "praise", "allin", "pfold", "levantarme", "pleave", "mesa", "delpoker"],
   "fun-4enlinea-del": ["del4enlinea"],
   "fun-rendirse": ["rendirse", "rendirme"],
 };
