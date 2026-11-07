@@ -148,6 +148,7 @@ test("juegoApagadoPara: solo lo que empieza el juego apagado; las respuestas y s
   for (const palabra of ["si", "sí", "SI", "no"]) assert.equal(J.juegoApagadoPara(f, "aura", [palabra]), null, palabra);
   assert.equal(J.juegoApagadoPara(f, "poker", ["100"])?.clave, "poker");
   assert.equal(J.juegoApagadoPara(f, "poker", [])?.clave, "poker");
+  for (const palabra of ["empezar", "arrancar"]) assert.equal(J.juegoApagadoPara(f, "poker", [palabra])?.clave, "poker", `repartir es jugar (${palabra})`);
   for (const palabra of ["salir", "levantarme", "cancelar", "cerrar"]) assert.equal(J.juegoApagadoPara(f, "poker", [palabra]), null, palabra);
   assert.equal(J.juegoApagadoPara(f, "mines", ["10"])?.clave, "mines");
   for (const cmd of ["destapar", "retirar", "del4enlinea", "rendirse", "ruleta", "levantarme"]) assert.equal(J.juegoApagadoPara(f, cmd, []), null, cmd);

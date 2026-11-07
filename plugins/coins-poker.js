@@ -1,10 +1,11 @@
-import { CMD, POKER, mesaDe, abrirOSentarse, levantarse, cancelar, textoMesa } from "../lib/poker.js";
-import { leerEntero } from "../lib/comandos.js";
+import { CMD, POKER, EMPEZAR, mesaDe, abrirOSentarse, arrancar, levantarse, cancelar, textoMesa } from "../lib/poker.js";
+import { leerEntero, limpiarNombre } from "../lib/comandos.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 // .poker: Texas Hold'em among the group (lib/poker.js has the table, the hands and the chips).
 //   .poker            the table if there is one, or how it's played
 //   .poker 100        opens the table with that buy-in (50 to 100), or sits you down at the one open (same buy-in)
+//   .poker empezar    the opener deals the first hand, with two or more seated (.poker arrancar too; lib/poker.js)
 //   .poker salir      stands you up with your chips (.levantarme does the same; plugins/coins-poker-mesa.js)
 //   .poker cancelar   an admin closes the table (.delpoker does the same)
 // Money comes in here, so it carries the casino's flags like the blackjack: the casino switch, the game hours and the
@@ -19,7 +20,7 @@ plugin.onlyGroup = true;
 
 const AYUDA = `🃏 *Póker (Texas Hold'em)* — uso: .${CMD.poker[0]} <entrada>
 
-Una mesa por grupo, de 2 a ${POKER.ASIENTOS_MAX}. El primero fija la entrada (de ${POKER.ENTRADA_MIN} a ${POKER.ENTRADA_MAX} UruCoins) y los demás se sientan con .${CMD.poker[0]} <esa entrada>. Las fichas son tus UruCoins: las ciegas son el 5 % y el 10 % de la entrada, y no hay límite para subir.
+Una mesa por grupo, de 2 a ${POKER.ASIENTOS_MAX}. El primero fija la entrada (de ${POKER.ENTRADA_MIN} a ${POKER.ENTRADA_MAX} UruCoins) y los demás se sientan con .${CMD.poker[0]} <esa entrada>. Cuando están todos, el que abrió la mesa la arranca con .${CMD.poker[0]} ${EMPEZAR[0]}; si no, reparto yo a los ${Math.round(POKER.ARRANQUE_MS / 60_000)} minutos de sentarse el segundo, o apenas se llena. Las fichas son tus UruCoins: las ciegas son el 5 % y el 10 % de la entrada, y no hay límite para subir.
 Las cartas te las digo por privado: en cada mano, escribime .${CMD.cartas[0]} a mí.
 
 ▸ .${CMD.paso[0]} · .${CMD.pago[0]} · .${CMD.subo[0]} 20 (subís 20 por encima de la apuesta) · .${CMD.allin[0]} · .${CMD.novoy[0]}
@@ -44,6 +45,10 @@ plugin.run = async (m, { client, args = [], isAdmin, botSettings }) => {
     }
     if (palabra === "cancelar" || palabra === "cerrar") {
       const r = cancelar(m.chat, m.sender, isAdmin);
+      return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
+    }
+    if (EMPEZAR.includes(limpiarNombre(palabra))) {
+      const r = arrancar(m.chat, m.sender);
       return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
     }
     const mesa = mesaDe(m.chat);

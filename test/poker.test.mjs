@@ -17,11 +17,12 @@ const GUS = "300000000000047@lid";
 const TODOS = [ANA, BETO, CARLA, DANI, ELI, FEDE, GUS];
 const CHAT = { games: 1, casino: 1, monedas: 1 };
 
-let F, P, MJ, Poker, Mesa, Cartas, client, avisos;
+let F, P, PM, MJ, Poker, Mesa, Cartas, client, avisos;
 before(async () => {
   ({ F } = await prepararBase("poker"));
   globalThis.txt = (await import("../lib/strings.js")).default;
   P = await import("../lib/poker.js");
+  PM = await import("../lib/poker-manos.js");
   MJ = await import("../lib/mensajes-de-juego.js");
   Poker = (await import("../plugins/coins-poker.js")).default;
   Mesa = (await import("../plugins/coins-poker-mesa.js")).default;
@@ -34,7 +35,7 @@ after(() => P.olvidarMesas());
 let ids = 0;
 beforeEach(() => {
   P.olvidarMesas();
-  Object.assign(P.POKER, { TURNO_MS: 600_000, ENTRE_MANOS_MS: 600_000, INACTIVIDAD_MS: 600_000 });
+  Object.assign(P.POKER, { TURNO_MS: 600_000, ENTRE_MANOS_MS: 600_000, INACTIVIDAD_MS: 600_000, ARRANQUE_MS: 600_000 });
   P._dep.mazo = () => mazoDe("A♠", "K♠", "A♦", "K♦", "2♣", "7♥", "9♠", "J♦", "3♣");
   avisos = [];
   P._dep.avisar = async (chat, texto, mentions) => {
@@ -77,21 +78,25 @@ async function sentar(...gente) {
 
 test(".poker: el primero abre con la entrada, los demás se sientan con la misma, y la mesa se muestra o explica", async () => {
   for (const entrada of ["49", "101"]) assert.equal((await comando(ANA, `poker ${entrada}`)).text, "❌ La entrada va de 50 a 100 UruCoins: .poker 100", entrada);
-  assert.equal((await comando(ANA, "poker 100")).text, "🃏 *Mesa de póker* · entrada *100* UruCoins · ciegas 5/10\n@300000000000041 se sentó y espera gente (de 2 a 6).\nPara sentarte: .poker 100. Si en 10 minutos no se sienta nadie más, se cierra y cobra sus fichas.");
+  assert.equal((await comando(ANA, "poker 100")).text, "🃏 *Mesa de póker* · entrada *100* UruCoins · ciegas 5/10\n@300000000000041 se sentó y espera gente (de 2 a 6).\nPara sentarte: .poker 100. Cuando estén todos, @300000000000041 arranca con .poker empezar. Si en 10 minutos no se sienta nadie más, se cierra y cobra sus fichas.");
   assert.deepEqual([ultimo().mentions, saldo(ANA), mesa().estado, fichas(ANA)], [[ANA], 400, "ESPERANDO", 100]);
   assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "poker", "sus mensajes son del juego");
   assert.equal((await comando(ANA, "poker 100")).text, "❌ Ya estás en la mesa, con 100 fichas.");
   assert.equal((await comando(BETO, "poker 50")).text, "❌ Esta mesa es por 100 de entrada: para sentarte, .poker 100");
   fijarSaldo(F, G, CARLA, 20);
   assert.equal((await comando(CARLA, "poker 100")).text, "❌ No te alcanza: tenés 20 UruCoins.");
-  assert.equal((await comando(BETO, "poker 100")).text, "🪑 @300000000000042 se sienta con 100. En la mesa: @300000000000041 (100), @300000000000042 (100). La mano arranca en unos segundos.");
+  assert.equal((await comando(BETO, "poker 100")).text, "🪑 @300000000000042 se sienta con 100. En la mesa: @300000000000041 (100), @300000000000042 (100).\nLa primera mano la arranca @300000000000041 con .poker empezar; si no, la reparto yo en 10 minutos.");
   assert.deepEqual([ultimo().mentions, saldo(BETO)], [[ANA, BETO], 400]);
-  assert.equal((await comando(ANA, "poker")).text, "🃏 *Mesa de póker* · entrada 100 · ciegas 5/10\nSentados: @300000000000041 (100), @300000000000042 (100). Para sentarte: .poker 100.");
+  assert.equal((await comando(ANA, "poker")).text, "🃏 *Mesa de póker* · entrada 100 · ciegas 5/10\nSentados: @300000000000041 (100), @300000000000042 (100). Para sentarte: .poker 100.\nLa primera mano la arranca @300000000000041 con .poker empezar; si no, la reparto yo en 10 minutos.");
   assert.equal((await comando(CARLA, "mesa")).text, (await comando(ANA, "poker")).text, ".mesa muestra lo mismo");
-  // the table fills up at six
+  assert.equal((await comando(ANA, "paso")).text, "Todavía no arrancó la mano.");
+  // the table fills up at six, and full there's nobody left to wait for: the hand is dealt right away
   fijarSaldo(F, G, CARLA, 500);
-  await sentar(CARLA, DANI, ELI, FEDE);
-  assert.equal(mesa().asientos.length, 6);
+  P._dep.mazo = PM.mazoNuevo;
+  await sentar(CARLA, DANI, ELI);
+  assert.equal((await comando(FEDE, "poker 100")).text, "🪑 @300000000000046 se sienta con 100. En la mesa: @300000000000041 (100), @300000000000042 (100), @300000000000043 (100), @300000000000044 (100), @300000000000045 (100), @300000000000046 (100). La mesa está llena: reparto.\n\n🃏 *Mano 1* · botón @300000000000041 · ciegas @300000000000042 5 / @300000000000043 10 · pozo 15\nPedime tus cartas por privado con .cartas\n👉 @300000000000044: 10 para igualar · .pago · .subo 10 · .allin · .novoy (600 s)");
+  assert.deepEqual([ultimo().mentions, mesa().asientos.length, mesa().estado], [[ANA, BETO, CARLA, DANI, ELI, FEDE], 6, "MANO"]);
+  assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "poker");
   assert.equal((await comando(GUS, "poker 100")).text, "❌ La mesa está llena (6 lugares).");
   assert.equal(saldo(GUS), 500);
   // another group: no table, the help; and a word that isn't an amount, the help too
@@ -103,9 +108,66 @@ test(".poker: el primero abre con la entrada, los demás se sientan con la misma
   assert.equal((await comando(ANA, "mesa", { chat: G2 })).text, "No hay mesa de póker en este grupo: .poker 100 abre una.");
   assert.equal((await comando(ANA, "paso", { chat: G2 })).text, "No hay mesa de póker en este grupo: .poker 100 abre una.");
   assert.equal((await comando(GUS, "paso")).text, "No estás en la mesa de póker.");
-  assert.equal((await comando(ANA, "paso")).text, "Todavía no arrancó la mano.");
   assert.equal(P.ciegasDe(50).chica, 3);
   assert.deepEqual(P.ciegasDe(70), { grande: 7, chica: 4 });
+});
+
+// A clock of the test's own for the wait's minutes; the real one back at the end.
+function relojDePrueba(t, desde) {
+  const real = P._dep.ahora;
+  const reloj = { ms: desde };
+  P._dep.ahora = () => reloj.ms;
+  t.after(() => {
+    P._dep.ahora = real;
+  });
+  return reloj;
+}
+
+test("la primera mano la arranca el que abrió, con .poker empezar, cuando están todos; si no, reparto a los 10 minutos del segundo", async (t) => {
+  const reloj = relojDePrueba(t, 1_000_000);
+  assert.equal((await comando(ANA, "poker empezar")).text, "No hay mesa de póker en este grupo: .poker 100 abre una.");
+  await comando(ANA, "poker 100");
+  assert.equal((await comando(ANA, "poker empezar")).text, "Falta gente: se juega de 2 a 6. Para sentarse: .poker 100.");
+  // the second one starts the wait, and a few seconds later nothing is dealt anymore
+  Object.assign(P.POKER, { ENTRE_MANOS_MS: 20 });
+  assert.equal((await comando(BETO, "poker 100")).text, "🪑 @300000000000042 se sienta con 100. En la mesa: @300000000000041 (100), @300000000000042 (100).\nLa primera mano la arranca @300000000000041 con .poker empezar; si no, la reparto yo en 10 minutos.");
+  await esperar(60);
+  assert.deepEqual([mesa().estado, avisos], ["ESPERANDO", []]);
+  // whoever comes later doesn't stretch the wait: it counts from the second one
+  reloj.ms += 3 * 60_000 + 1;
+  assert.equal((await comando(CARLA, "poker 100")).text, "🪑 @300000000000043 se sienta con 100. En la mesa: @300000000000041 (100), @300000000000042 (100), @300000000000043 (100).\nLa primera mano la arranca @300000000000041 con .poker empezar; si no, la reparto yo en 7 minutos.");
+  reloj.ms += 6 * 60_000;
+  assert.match((await comando(DANI, "mesa")).text, /\(100\)\. Para sentarte: \.poker 100\.\nLa primera mano la arranca @300000000000041 con \.poker empezar; si no, la reparto yo en 1 minuto\.$/);
+  // only the one who opened deals it; the rest, at the table or not, are told who does
+  for (const [quien, palabra] of [[BETO, "empezar"], [CARLA, "Arrancá"], [DANI, "empezar"]]) {
+    assert.equal((await comando(quien, `poker ${palabra}`)).text, "La primera mano la arranca @300000000000041 con .poker empezar; si no, la reparto yo en 1 minuto.", palabra);
+  }
+  assert.equal(mesa().estado, "ESPERANDO");
+  const inicio = await comando(ANA, "poker empezar");
+  assert.match(inicio.text, /^🃏 \*Mano 1\* · botón @300000000000041 · ciegas @300000000000042 5 \/ @300000000000043 10 · pozo 15\n/);
+  assert.deepEqual(inicio.mentions, [BETO, CARLA, ANA]);
+  assert.equal(MJ.juegoDelMensaje(globalThis.enviados.at(-1).id), "poker", "es un mensaje del juego");
+  assert.deepEqual([mesa().estado, mesa().esperaHasta], ["MANO", null]);
+  // from then on the hands follow on their own
+  assert.equal((await comando(ANA, "poker arrancar")).text, "La mesa ya arrancó: las manos se reparten solas mientras haya dos para jugar.");
+});
+
+test("si el que abrió se levanta antes de repartir, la arranca el que sigue; con uno solo la espera se corta, y vuelve a contar con el próximo", async (t) => {
+  const reloj = relojDePrueba(t, 5_000_000);
+  await sentar(ANA, BETO, CARLA);
+  reloj.ms += 2 * 60_000;
+  assert.equal((await comando(ANA, "levantarme")).text, "💰 @300000000000041 se levanta con 100 UruCoins.\nLa primera mano la arranca @300000000000042 con .poker empezar; si no, la reparto yo en 8 minutos.");
+  assert.deepEqual([ultimo().mentions, saldo(ANA)], [[ANA, BETO], 500]);
+  assert.equal((await comando(CARLA, "poker empezar")).text, "La primera mano la arranca @300000000000042 con .poker empezar; si no, la reparto yo en 8 minutos.");
+  // anyone else standing up says nothing more; with one left the wait stops, and the table waits for people again
+  assert.equal((await comando(CARLA, "poker salir")).text, "💰 @300000000000043 se levanta con 100 UruCoins.");
+  assert.equal(mesa().esperaHasta, null);
+  assert.equal((await comando(BETO, "mesa")).text, "🃏 *Mesa de póker* · entrada 100 · ciegas 5/10\nSentados: @300000000000042 (100). Para sentarte: .poker 100. Falta gente: se juega de 2 a 6.");
+  assert.equal((await comando(BETO, "poker empezar")).text, "Falta gente: se juega de 2 a 6. Para sentarse: .poker 100.");
+  // the next second one starts it over
+  reloj.ms += 4 * 60_000;
+  assert.match((await comando(DANI, "poker 100")).text, /\nLa primera mano la arranca @300000000000042 con \.poker empezar; si no, la reparto yo en 10 minutos\.$/);
+  assert.match((await comando(BETO, "poker empezar")).text, /^🃏 \*Mano 1\* · botón @300000000000042 · ciegas @300000000000042 5 \/ @300000000000044 10/);
 });
 
 test("mano a mano: el botón pone la ciega chica y habla primero antes del flop y último después; la ciega grande tiene su opción", async () => {
@@ -228,11 +290,12 @@ test("el reloj: sin jugar a tiempo pasa o se retira, a la segunda seguida se lev
   assert.deepEqual(avisos.at(-1), { chat: G, texto: "⌛ Nadie se sentó a la mesa de póker de @300000000000043 en 10 minutos: recupera sus 100 UruCoins.", mentions: [CARLA] });
   assert.equal(saldo(CARLA), 500);
   assert.deepEqual([devoluciones().entradas - antesDeCarla.entradas, devoluciones().n - antesDeCarla.n], [100, 1], "una devolución, no un cobro");
-  // the real timers, shrunk: the turn runs out on its own, the next hand is dealt on its own
-  Object.assign(P.POKER, { TURNO_MS: 30, ENTRE_MANOS_MS: 30 });
+  // the real timers, shrunk: with nobody dealing the first hand, it's dealt when the wait runs out; the turn runs out
+  // on its own, and the next hand is dealt on its own
+  Object.assign(P.POKER, { TURNO_MS: 30, ENTRE_MANOS_MS: 30, ARRANQUE_MS: 30 });
   await sentar(ANA, BETO);
   await esperar(120);
-  assert.ok(avisos.some((a) => /^🃏 \*Mano 1\*/.test(a.texto)), "la mano arrancó sola");
+  assert.ok(avisos.some((a) => /^🃏 \*Mano 1\*/.test(a.texto)), "la primera mano salió sola al terminarse la espera");
   assert.ok(avisos.some((a) => /se quedó sin tiempo/.test(a.texto)), "y el turno venció solo");
   P.olvidarMesas();
 });
