@@ -338,6 +338,32 @@ test("trivia: una pregunta de la IA con opciones repetidas o vacías no se usa",
   }
 });
 
+// The answer alone says what but not why: the AI's question brings a short fact about it, told when the round closes,
+// whether someone got it or not. One that goes on and on is left out, and the question stays.
+test("trivia: la pregunta de la IA trae un dato, y la ronda lo dice al cerrar, se acierte o no", async (t) => {
+  const respuesta = { pregunta: "¿Cuál es la capital de Japón?", opciones: ["Osaka", "Kioto", "Tokio", "Hiroshima"], correcta: "C", dato: "Tokio se llamó Edo hasta 1868." };
+  const cuerpos = iaFalsa(t, respuesta);
+  t.mock.method(Math, "random", () => 0.99); // with these draws the options stay as they came
+  const pedir = async (chat) => (Tr.triviaConIa.delete(chat), Tr.generarPregunta(chat));
+  const p = await pedir("dato-1@g.us");
+  assert.equal(p.dato, "Tokio se llamó Edo hasta 1868.");
+  assert.match(cuerpos.at(-1), /y \\"dato\\": una sola oración corta que sume algo cierto e interesante sobre la respuesta/);
+  const client = clienteFalso();
+  Tr.abrirRonda("dato-1@g.us", { tipo: "trivia", pregunta: p, mensajeId: "Q-DATO-1", segundos: 30, client });
+  assert.equal(Tr.responderTrivia({ chat: "dato-1@g.us", sender: "1@lid", text: "c" }).texto, "✅ ¡Acertó @1! Era *C) Tokio*.\n💡 Tokio se llamó Edo hasta 1868.");
+  // nobody gets it: the same fact when time runs out
+  globalThis.enviados = [];
+  Tr.abrirRonda("dato-2@g.us", { tipo: "trivia", pregunta: await pedir("dato-2@g.us"), mensajeId: "Q-DATO-2", segundos: 0.02, client });
+  await esperar(80);
+  assert.equal(ultimoEnviado()?.msg?.text, "⏳ Nadie acertó. Era *C) Tokio*.\n💡 Tokio se llamó Edo hasta 1868.");
+  // one that goes on and on is left out, and the question stays, without it
+  respuesta.dato = "x".repeat(Tr.TRIVIA.DATO_MAX + 1);
+  const larga = await pedir("dato-3@g.us");
+  assert.deepEqual([larga.pregunta, larga.dato], ["¿Cuál es la capital de Japón?", undefined]);
+  // the bank's questions have none, and their closing is as before
+  assert.ok(globalThis.BANCO.every((q) => q.dato === undefined));
+});
+
 // Math and physics joined the AI's topics, and those ask for a question answered from memory in a .trivia's time: a
 // long sum on a phone only frustrates, and one the AI gets wrong makes the "right" answer wrong.
 test("trivia: matemática y física están entre los temas de la IA, y se piden para responder de cabeza", async (t) => {
