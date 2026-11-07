@@ -3,6 +3,7 @@ import { abrirJuego, limpiarRespuesta } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { esComando } from "../lib/comandos.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 const plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
 plugin.juego = true;
@@ -12,7 +13,8 @@ plugin.botAdmin = true;
 // "árbol" both count). Exported for the tests.
 export const PALABRAS = ["sol", "casa", "perro", "gato", "luz", "río", "árbol", "flor", "mesa", "silla", "puerta", "ventana", "camino", "cielo", "nube", "estrella", "luna", "día", "noche", "hora", "minuto", "segundo", "reloj", "libro", "papel", "lápiz", "pluma", "cuaderno", "escuela", "maestro", "alumno", "clase", "tarea", "juego", "pelota", "carro", "bici", "calle", "ciudad", "pueblo", "montaña", "valle", "lago", "mar", "playa", "arena", "roca", "piedra", "bosque", "hoja", "rama", "tronco", "fruta", "manzana", "naranja", "banana", "uva", "pera", "mango", "sandía", "comida", "pan", "agua", "leche", "jugo", "café", "té", "sopa", "carne", "pescado", "arroz", "frijol", "huevo", "sal", "azúcar", "torta", "helado", "dulce", "chocolate", "galletas", "amigo", "familia", "madre", "padre", "hermano", "hermana", "abuelo", "abuela", "tío", "tía", "primo", "vecino", "persona", "niño", "niña", "hombre", "mujer", "risa", "amor", "felicidad", "zapato", "camisa", "pantalón", "sombrero", "bufanda", "guante", "cinturón", "bolsa", "mochila", "remera", "falda", "vestido", "chaqueta", "abrigo", "calcetín", "lentes", "anillo", "collar", "pulsera", "arete", "cama", "almohada", "sábana", "cobija", "lámpara", "espejo", "alfombra", "cortina", "techo", "piso", "cocina", "estufa", "sartén", "cuchara", "tenedor", "cuchillo", "plato", "vaso", "taza", "servilleta", "jardín", "planta", "semilla", "tierra", "regadera", "pala", "maceta", "césped", "baila", "canción", "música", "guitarra", "piano", "tambor", "flauta", "baile", "cine", "teatro", "pintura", "color", "rojo", "azul", "verde", "amarillo", "blanco", "negro", "gris", "rosa", "morado", "naranjo", "viaje", "tren", "avión", "barco", "bus", "taxista", "puente", "rioja", "isla", "volcán", "lluvia", "viento", "nieve", "trueno", "rayo", "solana", "calor", "frío", "niebla", "humedad", "sueño", "despertar", "cansancio", "energía", "salud", "doctor", "enfermo", "medicina", "rueda", "suerte"];
 
-const ordenarPalabra = {};
+// chat -> the word in play, kept where a reload of this file doesn't lose it (lib/estado-de-plugins.js)
+const ordenarPalabra = estadoDe("fun-ordenar-palabra", () => ({}));
 
 plugin.run = async (m, { client, chat }) => {
   const palabra = elegirAlAzar(PALABRAS);

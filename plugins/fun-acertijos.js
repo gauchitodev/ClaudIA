@@ -6,13 +6,15 @@ import { abrirJuego } from "../lib/juego-rapido.js";
 import { esComando } from "../lib/comandos.js";
 import { ACERTIJO, elegirAcertijo, esRespuesta } from "../lib/acertijos.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
 const plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];
 plugin.juego = true;
 plugin.botAdmin = true;
 
-const acertijos = {}; // chat -> the riddle in play
+// chat -> the riddle in play, kept where a reload of this file doesn't lose it (lib/estado-de-plugins.js)
+const acertijos = estadoDe("fun-acertijos", () => ({}));
 
 plugin.run = async (m, { client }) => {
   // Before choosing: a riddle chosen for nothing would count among the group's latest.

@@ -1,6 +1,9 @@
 import { lidsMencionadosActual } from "../lib/identidad.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 
-const activeTimers = {};
+// chat -> the calls on their way, kept where a reload of this file doesn't lose them: .cancelar has to find them
+// (lib/estado-de-plugins.js)
+const activeTimers = estadoDe("grupo-llamar", () => ({}));
 
 const plugin = {};
 plugin.cmd = ["llamar", "mencionar", "cancelar"];

@@ -3,6 +3,7 @@ import { abrirJuego } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { esComando } from "../lib/comandos.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 const plugin = {};
 plugin.cmd = ["adivinabandera", "bandera", "banderas"];
 plugin.juego = true;
@@ -213,7 +214,8 @@ const normalizar = (texto) =>
     .toLowerCase()
     .trim();
 
-const banderas = {};
+// chat -> the flag in play, kept where a reload of this file doesn't lose it (lib/estado-de-plugins.js)
+const banderas = estadoDe("fun-banderas", () => ({}));
 
 // The capital's line, said when the round ends either way.
 const lineaCapital = (bandera) => `🏛️ Capital: *${bandera.capital}*${bandera.nota ? ` (${bandera.nota})` : ""}`;

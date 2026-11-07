@@ -22,7 +22,8 @@ export const EN_GLOBALTHIS = {
     ...["avisoArranqueEnviado", "botConectado", "canal", "client", "horaCaida", "horaConexion", "modeloActivo"],
     ...["owners", "plugins", "watchPluginsIniciado"],
   ],
-  // A plugin's state, which outlives a reload of the plugin (autoIaCooldown is shared with lib/vistazos.js).
+  // A plugin's state, which outlives a reload of the plugin (autoIaCooldown is shared with lib/vistazos.js). New state
+  // like this goes in lib/estado-de-plugins.js, which needs no globalThis.
   estadoDePlugins: [
     ...["autoIaAvisoFalla", "autoIaCooldown", "avisoATodos", "avisoUbicacionCooldown", "blGroupListCache", "esperaIa"],
     ...["listaNegraMostrada", "vistazoAdminCooldown"],

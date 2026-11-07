@@ -3,6 +3,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { marcarMensajeDeJuego, citaOtroJuego } from "../lib/mensajes-de-juego.js";
 import { esComando } from "../lib/comandos.js";
 import txt from "../lib/strings.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;
@@ -13,7 +14,8 @@ plugin.jugadas = true;
 // Word list for hangman
 const palabras = ["solido", "camino", "flores", "arboles", "ciudad", "puente", "montaña", "valle", "playas", "nubes", "viento", "lluvia", "trueno", "rayos", "nieve", "bosque", "selva", "desierto", "oasis", "lunas", "estrellas", "planeta", "galaxia", "cometa", "orbita", "satelite", "cohete", "avion", "barco", "trenes", "carros", "motos", "bicicleta", "camion", "ruedas", "motor", "frenos", "luces", "ventana", "puerta", "techo", "piso", "muros", "ladrillo", "cemento", "arena", "piedra", "madera", "vidrio", "metal", "plata", "oro", "bronce", "hierro", "acero", "cobre", "alambre", "clavos", "tornillo", "martillo", "sierra", "taladro", "pintura", "brocha", "lienzo", "cuadro", "pincel", "colores", "tinta", "papel", "libro", "hojas", "pluma", "lapiz", "borrador", "cuaderno", "escuela", "maestro", "alumnos", "clase", "leccion", "tarea", "examen", "nota", "grado", "titulo", "fiesta", "musica", "baile", "canto", "guitarra", "piano", "tambor", "flauta", "sonido", "ritmo", "melodia", "armonia", "silencio", "fuente", "laguna", "cascada", "cerros", "prados", "campos", "granja", "animal", "perros", "gatos", "peces", "tigre", "leones", "osos", "lobos", "zorros", "ciervo", "caballo", "burro", "vacas", "ovejas", "gallina", "patos", "cerdo", "conejo", "hormiga", "abeja", "mosca", "grillo", "saltamontes", "mariposa", "escarabajo", "araña", "serpiente", "lagarto", "rana", "sapo", "tortuga", "cocodrilo", "ballena", "pulpo", "medusa", "coral", "ostra", "cangrejo", "islas", "costas", "olas", "mareas", "arena", "roca", "faro", "puerto", "nave", "velero", "remo", "ancla", "buzos", "tesoro", "mapas", "reloj", "hora", "minuto", "semana", "meses", "año", "siglo", "pasado", "futuro", "ayer", "hoy", "mañana", "noche", "dawn", "tarde", "sol", "calor", "hielo", "fuego", "ceniza", "humo", "sombra", "luz", "rayo", "tormenta", "niebla", "charco", "pozo", "riego", "cosecha"];
 
-const ahorcado = {};
+// sender -> their game, kept where a reload of this file doesn't lose it (lib/estado-de-plugins.js)
+const ahorcado = estadoDe("fun-ahorcado", () => ({}));
 
 plugin.run = async (m, { client, chat }) => {
   if (ahorcado[m.sender]) return client.sendText(m.chat, txt.gameAlready, m);
