@@ -1,6 +1,7 @@
 import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS, quitarUltimaAdvertencia } from "../database-functions.js";
 import { destinatarioActual, esElBot } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import txt from "../lib/strings.js";
 
 // Removes one of this group's warnings.
 const plugin = {};

@@ -1,5 +1,6 @@
 import { destinatarioActual } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["del"];

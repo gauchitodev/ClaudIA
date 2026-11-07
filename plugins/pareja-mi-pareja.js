@@ -1,6 +1,7 @@
 import { parejaDe, solicitudDe, cancelarSolicitud, exParejasDe } from "../lib/parejas.js";
 import { duracionLarga } from "../lib/tiempo.js";
 import { generoDeVarios, concordarPlural } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 // .mipareja: who you're with, since when, and whether you're married. An unanswered request is voided on lookup.
 const plugin = {};

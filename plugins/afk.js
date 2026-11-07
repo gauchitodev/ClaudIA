@@ -1,4 +1,5 @@
 import { updateUserInGroup } from "../database-functions.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["afk"];

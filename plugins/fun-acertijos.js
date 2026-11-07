@@ -5,6 +5,7 @@ import { juegoTerminado } from "../lib/urucoins.js";
 import { abrirJuego } from "../lib/juego-rapido.js";
 import { esComando } from "../lib/comandos.js";
 import { ACERTIJO, elegirAcertijo, esRespuesta } from "../lib/acertijos.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["acertijo", "acertijos"];

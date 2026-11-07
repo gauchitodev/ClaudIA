@@ -1,4 +1,5 @@
 import { sticker } from "../lib/sticker.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["emojimix"];

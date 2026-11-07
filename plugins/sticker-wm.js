@@ -1,5 +1,6 @@
 import { addExif } from "../lib/sticker.js";
 import { conNombres } from "../lib/menciones.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["wm"];

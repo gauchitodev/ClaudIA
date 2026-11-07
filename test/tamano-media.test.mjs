@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { proto } from "@whiskeysockets/baileys";
 import { Jimp, JimpMime } from "jimp";
-import strings from "../lib/strings.js";
 import { serialize, smsg } from "../lib/wa-socket.js";
 import { G } from "./helpers.mjs";
 
@@ -14,7 +13,6 @@ import { G } from "./helpers.mjs";
 // text on a canvas as wide as itself. They now refuse first, with the size and length the message itself carries.
 // The quoted messages go through the real serializer, as decoded protobufs, the way Baileys delivers them.
 
-globalThis.txt = strings;
 serialize();
 
 const plugins = {};

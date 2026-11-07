@@ -1,4 +1,5 @@
 import { pausa } from "../lib/pausas.js";
+import txt from "../lib/strings.js";
 
 const linkRegex = /chat.whatsapp.com\/([0-9A-Za-z]{20,24})/i;
 

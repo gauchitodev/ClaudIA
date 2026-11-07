@@ -2,7 +2,6 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, G, clienteFalso, ultimoEnviado, fijarSaldo, esperar } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // .play / .video (plugins/dl-youtube.js) with a fake yt-dlp. .playya and .videoya charge for skipping the wait and
 // didn't give it back when nothing came out; and when the "here you go" after a song failed, the next candidate was
@@ -17,7 +16,6 @@ const errorReal = console.error;
 
 before(async () => {
   ({ F } = await prepararBase("descargas-youtube"));
-  globalThis.txt = strings;
   console.log = () => {};
   console.error = () => {};
   fs.mkdirSync("tmp", { recursive: true });

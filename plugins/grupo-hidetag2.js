@@ -1,4 +1,5 @@
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["hidetag2", "ht2"];

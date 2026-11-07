@@ -15,7 +15,6 @@ const participants = [
 ];
 before(async () => {
   ({ F } = await prepararBase("genero"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   Ge = await import("../lib/genero.js");
   Pf = await import("../lib/perfil.js");
   R = await import("../lib/rangos.js");

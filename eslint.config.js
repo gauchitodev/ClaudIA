@@ -15,7 +15,7 @@ export const EN_GLOBALTHIS = {
   configuracion: [
     ...["authFile", "baileys", "botVersion", "canalConfig", "cerebrasApiKey", "geminiApiKey"],
     ...["groqApiKey", "numberBot", "nvidiaApiKey", "openrouterApiKey", "prefix", "tarjetaGrupo", "tenorApiKey"],
-    ...["textoFaggi", "txt", "vozConfig"],
+    ...["textoFaggi", "vozConfig"],
   ],
   // The process: the WhatsApp connection, the plugins, how the bot is doing, and its owners (.addowner adds one).
   proceso: [
@@ -148,7 +148,7 @@ export default defineConfig([
         owners: "readonly",
         plugins: "readonly",
         prefix: "readonly",
-        txt: "readonly",
+        // txt isn't one anymore: the texts are imported from lib/strings.js, and a bare txt is an error here.
       },
     },
     rules: {

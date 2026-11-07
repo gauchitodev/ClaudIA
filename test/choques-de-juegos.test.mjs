@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // One message, one game. The games played with plain messages (the tic-tac-toe, the 4 en línea, the hangman) take
 // their moves before any other game sees them and mark them (m.respuestaDeJuego, hooksEnOrden in load-functions.js),
@@ -17,7 +18,6 @@ const NUMERICA = { pregunta: "¿Cuántos días tiene una semana?", opciones: ["7
 let L, Tr, C4, J, Trivia, Ahorcado, CuatroEnLinea, TttHook, Ttt, hooks, client;
 before(async () => {
   await prepararBase("choques-de-juegos");
-  globalThis.txt = (await import("../lib/strings.js")).default;
   L = await import("../load-functions.js");
   Tr = await import("../lib/trivia.js");
   C4 = await import("../lib/cuatro-en-linea.js");
@@ -104,7 +104,7 @@ test("ahorcado y un tablero: el dígito es la jugada, sin el aviso de la letra",
   const antes = globalThis.enviados.length;
   await pasar(mensaje(ANA, "4"));
   assert.equal(C4.salas.get(G).tablero[5][3], 1, "jugó el 4 en línea");
-  assert.ok(!textos().slice(antes).includes(globalThis.txt.ahorcadoLetra), "y el ahorcado no le pidió una letra");
+  assert.ok(!textos().slice(antes).includes(txt.ahorcadoLetra), "y el ahorcado no le pidió una letra");
   t.mock.timers.tick(5 * 60 * 1000);
 });
 

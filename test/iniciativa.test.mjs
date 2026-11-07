@@ -16,7 +16,6 @@ const tipeoReal = {};
 
 before(async () => {
   ({ F } = await prepararBase("iniciativa"));
-  globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];

@@ -2,7 +2,6 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 import { numeroReciclado, unNumero, unaLid } from "./identidad-escenarios.mjs";
 import { COINS } from "../lib/urucoins.js";
 
@@ -15,7 +14,6 @@ const cerrados = new Set(); // chats whose fake metadata says only the admins wr
 
 before(async () => {
   ({ F } = await prepararBase("inactivos"));
-  globalThis.txt = strings;
   globalThis.client.user.lid = "999@lid";
   globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });

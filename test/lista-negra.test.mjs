@@ -1,7 +1,6 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 import { owner, unaLid, unNumero, digitos, usyncFalso } from "./identidad-escenarios.mjs";
 // Loaded with the file, as the bot has it by the time anyone asks: lidSegunWhatsApp imports Baileys the first time it
 // asks WhatsApp, and inside the first test that asks, under a time limit of its own, loading it was most of that
@@ -16,7 +15,6 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("lista-negra"));
-  globalThis.txt = strings;
   globalThis.client.decodeJid = (j) => j;
   globalThis.client.user.lid = "999000@lid";
   LN = await import("../lib/lista-negra.js");

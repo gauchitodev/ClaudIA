@@ -1,5 +1,6 @@
 import { getUser } from "../database-functions.js";
 import { numeroActual } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["id"];

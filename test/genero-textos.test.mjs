@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { prepararBase, G, fijarSaldo } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The bot's fixed texts about one person agree with the gender set with .genero (lib/genero.js, concordar): kinship,
 // trades, raffles, the welcome with the rules, kisses, the couple, adoptions, the jail card and the moderation notices.
@@ -13,7 +14,6 @@ const persona = (n, pushName) => ({ chat: G, sender: L(n), senderJid: `5989900${
 const fuente = (ruta) => fs.readFileSync(new URL(`../${ruta}`, import.meta.url), "utf8");
 before(async () => {
   ({ F } = await prepararBase("genero-textos"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   Ge = await import("../lib/genero.js");
   Fa = await import("../lib/familia.js");
   Pj = await import("../lib/parejas.js");

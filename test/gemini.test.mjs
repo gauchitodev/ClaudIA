@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // A 429 from Gemini pauses that model (lib/gemini.js): a minute, doubling while the 429s keep coming, up to 4 hours.
 // It used to be 4 hours after any 429, and a 429 is also what a per-minute limit answers: one burst of messages left
@@ -20,7 +21,6 @@ const HORA = 60 * MIN;
 before(async () => {
   await prepararBase("gemini");
   globalThis.geminiApiKey = "clave";
-  globalThis.txt = (await import("../lib/strings.js")).default;
   console.log = () => {}; // the AI modules narrate which model they try
   console.error = () => {};
   globalThis.fetch = async (url, opciones) => {
@@ -246,7 +246,7 @@ test(".ia: una pregunta cada 20 s por chat, contestada o no; en otro chat no se 
   assert.match(await pedir(C, "otra"), /^Recién me preguntaron algo; probá de nuevo en (19|20) s\.$/, "la que falló también cuenta");
 
   globalThis.esperaIa.set(C, Date.now() - 20000);
-  assert.equal(await pedir(C, ""), globalThis.txt.iaPeticion);
+  assert.equal(await pedir(C, ""), txt.iaPeticion);
   assert.equal(await pedir(C, "hola"), `soy ${A}`, "un .ia sin pregunta no arranca la espera");
 });
 

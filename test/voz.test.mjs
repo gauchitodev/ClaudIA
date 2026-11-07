@@ -2,6 +2,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // Claudia's voice (lib/voz.js): edge-tts as a command, the text cleaned for it, the voice from config.toml, and what
 // happens without the command or when it fails; .voz (plugins/voz.js) per group; and .tts with that voice when it's
@@ -22,7 +23,6 @@ const edgeFalso = ({ falla = null, bytes = Buffer.from("MP3") } = {}) => {
 const enoent = () => Object.assign(new Error("spawn edge-tts ENOENT"), { code: "ENOENT" });
 before(async () => {
   ({ F } = await prepararBase("voz"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   V = await import("../lib/voz.js");
   P = (await import("../plugins/voz.js")).default;
   Tts = (await import("../plugins/convert-text-to-ptt.js")).default;

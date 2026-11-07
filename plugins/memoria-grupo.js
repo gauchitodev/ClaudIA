@@ -1,6 +1,7 @@
 import { recordar, textoMemoria, borrar, limpiar, leible } from "../lib/memoria-grupo.js";
 import { memoriaDe, olvidarDe } from "../lib/memoria-persona.js";
 import { conNombres } from "../lib/menciones.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["recorda", "memoria"];

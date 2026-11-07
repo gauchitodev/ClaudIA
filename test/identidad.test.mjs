@@ -9,6 +9,7 @@ import { numeroReciclado, filaVieja, soloPorNumero, owner, botEnGrupo, usyncFals
 // entera"), loading it took most of that limit. It was loaded already only because a plugin these tests import loads
 // it too.
 import "@whiskeysockets/baileys";
+import txt from "../lib/strings.js";
 
 // Who is who (lib/identidad.js, lib/menciones.js and the database's rows): what was right and had no test of its own,
 // and what was wrong and got fixed. Each of those was a todo until its tanda of the identity frontier plan, and failed
@@ -17,7 +18,6 @@ import "@whiskeysockets/baileys";
 let F, I, M, R, S, P;
 before(async () => {
   ({ F } = await prepararBase("identidad"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   I = await import("../lib/identidad.js");
   // A round of the owners' questions that leaves one of them without an answer asks again REINTENTO_MS later: from a
   // test, an hour later, past the end of the file. At 60 s, on a slow machine, that was still this file, and the
@@ -758,7 +758,7 @@ test("el santo de .gay2 es quien el grupo lista con el número del segundo owner
 test(".besar al bot nombrado por su número: la respuesta de siempre para el bot", async () => {
   globalThis.enviados = [];
   await P.besar.run(mensaje({ sender: unaLid(50), mentionedJid: [cliente().user.jid] }), { client: cliente(), text: "@bot", usedPrefix: ".", command: "besar" });
-  assert.equal(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, globalThis.txt.besarBot);
+  assert.equal(globalThis.enviados.find((e) => e.msg?.text)?.msg.text, txt.besarBot);
 });
 
 test(".addowner reconoce al owner escrito con + y espacios", async (t) => {
@@ -871,9 +871,9 @@ test("el bot nombrado por su número tiene la respuesta de siempre para el bot",
     D.duelos.clear();
   });
   const casos = [
-    ["pareja-elegir", "pareja", () => globalThis.txt.parejaWhoBot],
-    ["pareja-aceptar", "aceptar", () => globalThis.txt.parejaWhoBotNull(".", "aceptar", jid)],
-    ["pareja-rechazar", "rechazar", () => globalThis.txt.parejaWhoBotNull(".", "rechazar", jid)],
+    ["pareja-elegir", "pareja", () => txt.parejaWhoBot],
+    ["pareja-aceptar", "aceptar", () => txt.parejaWhoBotNull(".", "aceptar", jid)],
+    ["pareja-rechazar", "rechazar", () => txt.parejaWhoBotNull(".", "rechazar", jid)],
     ["familia-adoptar", "adoptar", () => "A mí no me adopta nadie: yo los adopté a todos ustedes 😌"],
     ["coins-duelo", "duelo", () => "❌ Conmigo no, que la banca soy yo."],
   ];

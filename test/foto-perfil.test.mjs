@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { Jimp } from "jimp";
 import { prepararBase, G } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The effects on someone's profile photo (.gay, .trans, .bi, .cárcel, .licenciahot, .simp) and .gpu, when the bot can't
 // see that photo: lib/foto-perfil.js gave a grey generic avatar instead, and the effects went on it as if it were that
@@ -30,7 +31,6 @@ const bajadas = [];
 let noBaja = () => false;
 before(async () => {
   await prepararBase("foto-perfil");
-  globalThis.txt = (await import("../lib/strings.js")).default;
   Foto = await import("../lib/foto-perfil.js");
   const cuadrado = await new Jimp({ width: 64, height: 64, color: 0xff0000ff }).getBuffer("image/png");
   // Neither the photo nor the flags come from the internet: every image asked for is the same red square, unless

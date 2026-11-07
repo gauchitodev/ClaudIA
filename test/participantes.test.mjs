@@ -14,7 +14,6 @@ let grupos = {}; // chat -> what WhatsApp says of the group when the bot asks fo
 let demora = 0;
 before(async () => {
   ({ F } = await prepararBase("participantes"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   globalThis.client.groupMetadata = async (chat) => {
     if (demora) await esperar(demora);
     if (!grupos[chat]) throw new Error("WhatsApp no contestó");

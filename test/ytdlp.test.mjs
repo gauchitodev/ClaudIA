@@ -164,7 +164,6 @@ test("ytdlp: .tiktok acepta videos y no perfiles ni colecciones, y yt-dlp baja u
     assert.ok(!esVideoDeTikTok(url), url);
   }
 
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const P = (await import("../plugins/dl-tiktok.js")).default;
   const client = clienteFalso();
   // A profile's link is the profile's card now (lib/redes-persona.js); a collection is still refused.

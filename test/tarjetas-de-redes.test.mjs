@@ -10,7 +10,6 @@ const L = (n) => `${n}@lid`;
 const participants = [{ id: L(951), admin: null }, { id: L(952), admin: null }];
 before(async () => {
   ({ F } = await prepararBase("tarjetas-de-redes"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   RP = await import("../lib/redes-persona.js");
   Y = await import("../lib/ytdlp.js");
   Ig = (await import("../plugins/insta-usuario.js")).default;

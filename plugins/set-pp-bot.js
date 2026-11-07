@@ -1,5 +1,6 @@
 import { S_WHATSAPP_NET } from "@whiskeysockets/baileys";
 import { fotoDePerfil } from "../lib/canvas.js";
+import txt from "../lib/strings.js";
 
 const updatePictureProfile = async (content, client) => {
   try {

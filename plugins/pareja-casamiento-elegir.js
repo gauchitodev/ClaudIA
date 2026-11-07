@@ -1,4 +1,5 @@
 import { proponerCasamiento } from "../lib/parejas.js";
+import txt from "../lib/strings.js";
 
 // .casarse: proposes marriage to your partner. A week of relationship is required.
 const plugin = {};

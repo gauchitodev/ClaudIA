@@ -1,5 +1,6 @@
 import { estaEnListaNegra } from "../lib/lista-negra.js";
 import { idsDeParticipante, esOwnerDe } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = (m) => m;
 plugin.before = async (m, { client, participants, isBotAdmin, chat }) => {

@@ -12,7 +12,6 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("moderacion"));
-  globalThis.txt = strings;
   globalThis.client.user.lid = "999@lid";
   // A round of the owners' questions that leaves one of them without an answer asks again REINTENTO_MS later: from a
   // test, an hour later, past the end of the file. At 60 s, on a slow machine, that was still this file, and the

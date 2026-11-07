@@ -16,6 +16,7 @@ import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 const execFileAsync = promisify(execFile);
 // Swappable in the tests, like lib/ytdlp.js: a fake yt-dlp instead of the real one.

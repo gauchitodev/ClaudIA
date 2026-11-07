@@ -1,6 +1,7 @@
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { bajarYEnviar, esInstagram } from "../lib/ytdlp.js";
 import { tarjetaPedida } from "../lib/redes-persona.js";
+import txt from "../lib/strings.js";
 
 // .instagram <link>: downloads the post, reel or video with yt-dlp. It used to use Delirius's API, whose domain no
 // longer exists. Instagram demands a logged-in session: Instagram cookies are needed in cookies.txt, the same file

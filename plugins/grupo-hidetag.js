@@ -1,5 +1,6 @@
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["hidetag", "ht"];

@@ -1,6 +1,7 @@
 // Anti-links de Instagram, TikTok y Telegram. Each pattern (lib/enlaces.js) demands the full domain with the slash:
 // "tiktok.com/..." yes, "hablemos de tiktok" no.
 import { LINK_TIKTOK, LINK_TELEGRAM, LINK_INSTAGRAM } from "../lib/enlaces.js";
+import txt from "../lib/strings.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)

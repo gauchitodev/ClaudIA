@@ -2,6 +2,7 @@ import { juegoTerminado } from "../lib/urucoins.js";
 import { abrirJuego, limpiarRespuesta } from "../lib/juego-rapido.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { esComando } from "../lib/comandos.js";
+import txt from "../lib/strings.js";
 const plugin = {};
 plugin.cmd = ["ordenapalabra", "ordenarpalabra", "ordenar"];
 plugin.juego = true;

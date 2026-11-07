@@ -1,5 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 import { generoDe, generoDeVarios, concordar, concordarPlural } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 // .sortear <premio> draws one of the group; .sortear2 to .sortear10, that many (someone may come out twice, as always).
 // The header goes in the winners' gender when they set it (.genero, lib/genero.js): GANADORA, and GANADORAS when they

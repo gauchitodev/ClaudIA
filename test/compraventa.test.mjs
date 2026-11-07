@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 let F, C, Reg, HG, Pf, Hook, Cmd, Cal;
 const DIA = 24 * 3600e3;
@@ -165,11 +166,10 @@ test("compraventa: calificaciones y reputación", async () => {
 test("compraventa: reglas y plantilla", async () => {
   const Reglas = (await import("../plugins/grupo-reglas.js")).default;
   const run = (sender, command, text, isAdmin) => Reglas.run(msg(sender, text), { client: cliente(), command, args: text.trim() ? text.trim().split(/\s+/) : [], text, isAdmin });
-  globalThis.txt = { onlyAdmin: "solo admins" };
   await run("111@lid", "reglas", "", false);
   assert.match(ultimo(), /no tiene reglas cargadas/);
   await run("111@lid", "reglas", "set no se aceptan reventas", false);
-  assert.equal(ultimo(), "solo admins");
+  assert.equal(ultimo(), txt.onlyAdmin);
   await run("111@lid", "reglas", "set 1. Publicá con precio y zona\n2. Nada de reventas", true);
   assert.match(ultimo(), /reglas cargadas/);
   await run("222@lid", "reglas", "", false);

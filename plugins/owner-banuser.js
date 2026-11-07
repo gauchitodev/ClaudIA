@@ -1,5 +1,6 @@
 import { updateUser } from "../database-functions.js";
 import { destinatarioActual, esElBot, esOwnerDe } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["banuser", "unbanuser"];

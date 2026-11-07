@@ -13,6 +13,7 @@ import { hooksEnOrden } from "./load-functions.js";
 import { buscarEnGrupo, identidadesDe, esOwnerConfirmado } from "./lib/identidad.js";
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 import { guardarAtrasado, aplicarAMemoria } from "./lib/memoria-corta.js";
+import txt from "./lib/strings.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();

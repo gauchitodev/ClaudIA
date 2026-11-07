@@ -1,6 +1,7 @@
 import { redimensionar, dimensionesImagen } from "../lib/canvas.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
+import txt from "../lib/strings.js";
 
 // jimp works synchronously, with the whole bot waiting. So both the picture that comes in (a file of a few KB can be a
 // PNG thousands of pixels a side) and the one that goes out (4096 a side held it for 7 s) have a ceiling.

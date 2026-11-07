@@ -1,4 +1,5 @@
 import { pausa } from "../lib/pausas.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["leave"];

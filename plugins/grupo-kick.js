@@ -2,6 +2,7 @@ import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identid
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { sacarInactivos } from "../lib/inactivos.js";
 import { pausa } from "../lib/pausas.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["k", "kick", "rifle", "andate", "morite", "chau"];

@@ -17,6 +17,7 @@ import { confirmarOwnersCadaTanto } from "./lib/identidad.js";
 import { alCambiarParticipantes } from "./lib/participantes.js";
 import { recuperarMemoria } from "./lib/relevo-memoria.js";
 import qrcode from "qrcode-terminal";
+import txt from "./lib/strings.js";
 const handler = await import("./handle-message.js");
 
 serialize();

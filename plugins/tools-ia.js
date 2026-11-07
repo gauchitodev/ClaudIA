@@ -1,5 +1,6 @@
 import { preguntarGemini } from "../lib/gemini.js";
 import { sinMenciones, conNombres } from "../lib/menciones.js";
+import txt from "../lib/strings.js";
 
 // One question at a time per chat: each one is a request to the models Claudia chats with, and .ia over and over spent
 // the quota of the whole bot. It counts from the question, answered or not.

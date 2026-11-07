@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso, fijarSaldo, mazoDe } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The 4 en línea (lib/cuatro-en-linea.js, plugins/fun-4enlinea.js and fun-4enlinea-del.js): the board, the turns, the
 // commands, the bets, and how it lives next to the tic-tac-toe, which takes plain numbers as moves too. And .rendirse
@@ -20,7 +21,6 @@ const CHAT = { games: 1 };
 let F, C4, Plugin, Del, Rendirse, Ttt, BJ, client;
 before(async () => {
   ({ F } = await prepararBase("cuatro-en-linea"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   C4 = await import("../lib/cuatro-en-linea.js");
   Plugin = (await import("../plugins/fun-4enlinea.js")).default;
   Del = (await import("../plugins/fun-4enlinea-del.js")).default;
@@ -472,7 +472,7 @@ test("4 en línea por UruCoins: .casino off y .monedas off frenan la apuesta, y 
   await comando(ANA, "4enlinea", { text: "100", datosChat: sinCasino });
   assert.equal(ultimo().text, "🎰 El casino está apagado en este grupo. Un admin lo prende con .casino on");
   await comando(ANA, "4enlinea", { text: "100", datosChat: { games: 1, monedas: 0 } });
-  assert.equal(ultimo().text, globalThis.txt.disabledEconomy);
+  assert.equal(ultimo().text, txt.disabledEconomy);
   assert.deepEqual([saldo(ANA), C4.salas.has(G)], [500, false]);
 
   await comando(ANA, "4enlinea", { datosChat: sinCasino });
@@ -505,7 +505,7 @@ test(".rendirse: en el 4 en línea anda con el casino apagado; si no, va a la ma
   await comando(CARLA, "rendirse", { datosChat: { games: 1, horarioJuegos: horario } });
   assert.match(ultimo().text, /^🕒 Acá los juegos van de /);
   await comando(CARLA, "rendirse", { datosChat: { games: 1, monedas: 0 } });
-  assert.equal(ultimo().text, globalThis.txt.disabledEconomy);
+  assert.equal(ultimo().text, txt.disabledEconomy);
   assert.ok(BJ.estadoMano(G, CARLA), "la mano sigue");
 
   await comando(CARLA, "rendirme");

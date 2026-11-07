@@ -1,4 +1,5 @@
 import { elegirAlAzar } from "../lib/azar.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["siono"];

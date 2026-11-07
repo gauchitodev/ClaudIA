@@ -1,7 +1,6 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 let F, Warn, Unwarn, Lista;
 const H = "otro@g.us";
@@ -10,7 +9,6 @@ let statusExpulsion = "200";
 
 before(async () => {
   ({ F } = await prepararBase("advertencias"));
-  globalThis.txt = strings;
   globalThis.client.user.lid = "999@lid";
   globalThis.client.groupParticipantsUpdate = async (chat, ids, accion) => {
     expulsiones.push({ chat, ids, accion });

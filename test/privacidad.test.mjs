@@ -2,7 +2,6 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // What Claudia learns of each person stays in the group it was learned in (lib/memoria-persona.js); what the AI writes
 // can't tag anyone (sinMenciones in lib/menciones.js); .encuesta and .inactivos only tag who they should; and the
@@ -27,7 +26,6 @@ const AMIGOS = "amigos@g.us";
 
 before(async () => {
   ({ F } = await prepararBase("privacidad"));
-  globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // The group's stickers (lib/stickers-grupo.js): kept as people send them, sent back at random by .stickerazar, when
 // someone answers Claudia with one (plugins/_stickers-grupo.js) and on her own in a glance (lib/vistazos.js). Gemini
@@ -17,7 +16,6 @@ const logReal = console.log;
 
 before(async () => {
   ({ F } = await prepararBase("stickers"));
-  globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   globalThis.autoIaCooldown = new Map();
   ({ RITMO } = await import("../lib/ritmo.js"));

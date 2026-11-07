@@ -1,4 +1,3 @@
-import strings from "./lib/strings.js";
 import fs from "fs";
 import toml from "@iarna/toml";
 
@@ -53,8 +52,8 @@ globalThis.botVersion = `v${versionPaquete}`;
 // Baileys
 globalThis.baileys = "@whiskeysockets/baileys";
 
-// Strings // Texts
-globalThis.txt = strings;
+// The bot's texts are imported from lib/strings.js wherever they're used: as a global (txt), 91 files depended on this
+// file having run first, and every test had to set it up before anything else.
 
 // WhatsApp channel for the "forwarded from the channel" tag on files the bot sends.
 // In config.toml: a [canal] section with enlace = "https://whatsapp.com/channel/..." and, optionally, nombre = "..."

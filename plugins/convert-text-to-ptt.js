@@ -2,6 +2,7 @@ import { sintetizar } from "../lib/tts.js";
 import { hablar } from "../lib/voz.js";
 import { conNombres } from "../lib/menciones.js";
 import { esAudio } from "../lib/audios.js";
+import txt from "../lib/strings.js";
 
 // Claudia's own voice (lib/voz.js, edge-tts) for a Spanish text when the command is there and the text isn't too long
 // for it; Google's, as always, otherwise and for the other languages.

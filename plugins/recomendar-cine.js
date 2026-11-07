@@ -1,5 +1,6 @@
 import { elegirAlAzar } from "../lib/azar.js";
 import { mandarConImagen } from "../lib/con-imagen.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["serie", "pelicula"];

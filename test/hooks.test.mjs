@@ -21,7 +21,6 @@ const logReal = console.log;
 
 before(async () => {
   ({ F } = await prepararBase("hooks"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   globalThis.geminiApiKey = "clave";
   globalThis.baileys = "@whiskeysockets/baileys"; // the dynamic import in plugins/_anti-delete-messages.js expects it
   const { RITMO } = await import("../lib/ritmo.js");

@@ -2,6 +2,7 @@ import { getUser } from "../database-functions.js";
 import { nombreDe, modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 import { lidMencionadoActual } from "../lib/identidad.js";
 import { parejaDe, exParejasDe } from "../lib/parejas.js";
+import txt from "../lib/strings.js";
 
 // .ex [@x]: someone's exes (or yours) and their current partner. Only whoever it's about is tagged: the rest go by
 // name, since tagging the whole list notified every ex. With "nombres" or "numeros", by their WhatsApp name or by their

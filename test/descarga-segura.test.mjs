@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import dns from "node:dns";
 import { prepararBase, G, clienteFalso, ultimoEnviado } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // .imagen (plugins/dl-imagen.js) downloads a Google result's image through lib/descarga-segura.js. It used to hand the
 // link to sendFile, whose fetch followed redirects anywhere: a result that redirected to the router, or to another
@@ -15,7 +14,6 @@ const pedidos = []; // what reached the server
 
 before(async () => {
   await prepararBase("descarga-segura");
-  globalThis.txt = strings;
   D = await import("../lib/descarga-segura.js");
   Imagen = (await import("../plugins/dl-imagen.js")).default;
   D.DESCARGA.TIMEOUT_MS = 2000; // a connection that shouldn't happen fails fast instead of hanging the test

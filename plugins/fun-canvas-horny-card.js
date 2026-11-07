@@ -1,6 +1,7 @@
 import { licenciaHot } from "../lib/canvas.js";
 import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 import { destinatarioActual } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["hornycard", "licenciahot", "hotlicense", "hotlicencia"];

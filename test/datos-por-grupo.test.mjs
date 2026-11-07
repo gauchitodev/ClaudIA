@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, G } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // A person's data in each group (users.inGroup: messages, rank, AFK, mute, warnings) lives in a single JSON column.
 // handle-message reads the person once, when the message arrives, and hands that copy to every hook. The hooks used to
@@ -17,7 +16,6 @@ let F, Conteo, Rangos, Afk, AfkCmd;
 const DIA = 24 * 60 * 60 * 1000;
 before(async () => {
   ({ F } = await prepararBase("datos-por-grupo"));
-  globalThis.txt = strings;
   Conteo = (await import("../plugins/_messsage-count.js")).default;
   Rangos = (await import("../plugins/_rangos.js")).default;
   Afk = (await import("../plugins/_afk.js")).default;

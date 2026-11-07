@@ -1,6 +1,7 @@
 import { estaEnListaNegra } from "../lib/lista-negra.js";
 import { expulsar } from "../lib/identidad.js";
 import { nombreDe } from "../lib/menciones.js";
+import txt from "../lib/strings.js";
 
 // The blacklist's safety net: if someone on it got in anyway, they're removed as soon as they write. Removal on
 // joining is handled by lib/bienvenida.js through the participants event; this covers whoever was already inside when

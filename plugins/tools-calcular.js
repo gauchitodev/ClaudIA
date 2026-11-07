@@ -1,4 +1,5 @@
 import { evaluar } from "../lib/calculadora.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["calc", "calcular"];

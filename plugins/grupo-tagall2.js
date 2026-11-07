@@ -1,4 +1,5 @@
 import { mencionesParaTodos, separarForzado, textoTagall, textoSinNadie } from "../lib/menciones-generales.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["tagall2", "todos2"];

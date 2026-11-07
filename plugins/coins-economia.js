@@ -2,6 +2,7 @@ import { textoEconomia } from "../lib/economia.js";
 import { getUser, ganarCoins, gastarCoins, getSaldoCoins } from "../database-functions.js";
 import { lidMencionadoActual } from "../lib/identidad.js";
 import { leerEntero } from "../lib/comandos.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["economia", "ajustar"];

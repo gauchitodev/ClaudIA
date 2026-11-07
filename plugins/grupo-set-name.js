@@ -1,3 +1,5 @@
+import txt from "../lib/strings.js";
+
 const plugin = {};
 plugin.cmd = ["setname"];
 plugin.onlyGroup = true;

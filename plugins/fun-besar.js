@@ -3,6 +3,7 @@ import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { parejaDe, enojarPareja, besoEntrePareja } from "../lib/parejas.js";
 import { parentescoDe } from "../lib/familia.js";
 import { generoDe, generoDeVarios, concordar, concordarPlural } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 // .besar @x: a virtual kiss, unless either of them is partnered with someone else. A pending couple request doesn't
 // count as a couple. Between partners or spouses the kiss always lands, unless the partner is in a huff: over an

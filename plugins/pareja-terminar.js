@@ -1,5 +1,6 @@
 import { esOwnerDe } from "../lib/identidad.js";
 import { parejaDe, terminarPareja } from "../lib/parejas.js";
+import txt from "../lib/strings.js";
 
 // .terminar: ends the relationship; each of them lands on the other's list of exes.
 const plugin = {};

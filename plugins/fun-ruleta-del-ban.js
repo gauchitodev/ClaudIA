@@ -3,6 +3,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { expulsar, esElBot, identidadDelGrupo } from "../lib/identidad.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["ruletadelban", "ruletaban", "banruleta"];

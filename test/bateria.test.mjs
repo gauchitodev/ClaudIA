@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { prepararBase, ultimoEnviado, esperar } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // The battery of the phone or tablet the bot runs on (lib/bateria.js), for .bat and .estado. termux-battery-status and
 // the system files are swapped for canned answers: neither exists outside the tablet.
@@ -12,7 +11,6 @@ let B, Bat, Estado;
 const reales = {};
 before(async () => {
   await prepararBase("bateria");
-  globalThis.txt = strings;
   B = await import("../lib/bateria.js");
   Bat = (await import("../plugins/owner-bateria.js")).default;
   Estado = (await import("../plugins/estado.js")).default;

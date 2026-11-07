@@ -1,6 +1,7 @@
 import { responderCasamiento } from "../lib/parejas.js";
 import { responderAdopcion, textoRespuestaAdopcion, porAdoptar } from "../lib/familia.js";
 import { comoLoEsperan } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 // .no: turns down your partner's marriage proposal, or the adoption you were offered.
 const plugin = {};

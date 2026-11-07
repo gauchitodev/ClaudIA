@@ -617,7 +617,6 @@ test("con imagen: si la imagen no llega, manda el texto igual, y sin imagen ni l
 // A picture from the internet that doesn't come down: since sendFile throws, .pelicula, .serie and .ig lost their text
 // with it, and .getpp and .gpu went quiet. Now the text goes alone, or they say they couldn't.
 test("una imagen que no baja: .pelicula e .ig mandan el texto igual, y .getpp y .gpu lo avisan", async () => {
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const Cine = (await import("../plugins/recomendar-cine.js")).default;
   const Ig = (await import("../plugins/insta-usuario.js")).default;
   const FotoGrupo = (await import("../plugins/get-pp-group.js")).default;

@@ -9,7 +9,6 @@ const AHORA = new Date(2026, 10, 2, 12); // 2 de noviembre de 2026
 let F, C, Plugin;
 before(async () => {
   ({ F } = await prepararBase("edades"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   C = await import("../lib/cumpleanos.js");
   Plugin = (await import("../plugins/cumple-edades.js")).default;
 });

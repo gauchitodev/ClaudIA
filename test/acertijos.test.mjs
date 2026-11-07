@@ -1,6 +1,7 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The riddles (lib/acertijos.js, plugins/fun-acertijos.js): how an answer is read, the bank, which riddle comes next,
 // the tries per person. And .ordenar (plugins/fun-ordenar-palabra.js), whose answers are read without accents too.
@@ -11,7 +12,6 @@ const BETO = "300000000000062@lid";
 let A, JR, Acertijo, Ordenar, client;
 before(async () => {
   await prepararBase("acertijos");
-  globalThis.txt = (await import("../lib/strings.js")).default;
   A = await import("../lib/acertijos.js");
   JR = await import("../lib/juego-rapido.js");
   Acertijo = (await import("../plugins/fun-acertijos.js")).default;
@@ -141,7 +141,7 @@ test(".acertijo: con uno en juego no abre otro, y lo elegido no cuenta como vist
   await Acertijo.run({ chat: G, sender: ANA, isGroup: true }, { client });
   const pregunta = `MSG${globalThis.enviados.length}`;
   await Acertijo.run({ chat: G, sender: BETO, isGroup: true }, { client });
-  assert.equal(textos().at(-1), globalThis.txt.gameAlready);
+  assert.equal(textos().at(-1), txt.gameAlready);
   assert.deepEqual(A.recientesDe(G), [de("una nube")], "el pedido que no abrió nada no gastó un acertijo");
   await responder(BETO, "las nubes", { pregunta, reacciones: [] });
   assert.match(textos().at(-1), /RESPUESTA CORRECTA/);

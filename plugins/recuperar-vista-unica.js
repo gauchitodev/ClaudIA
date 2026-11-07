@@ -1,6 +1,7 @@
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
 import { esElBot } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["r", "recovery", "recuperar"];

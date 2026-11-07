@@ -3,6 +3,7 @@ import { elegirAlAzar } from "../lib/azar.js";
 import { lidMencionadoActual, esElBot } from "../lib/identidad.js";
 import { pedirPareja } from "../lib/parejas.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 // .pareja @x: asks x to be your partner. It stays pending until x answers with .aceptar or .rechazar.
 const plugin = {};

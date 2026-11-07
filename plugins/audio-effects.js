@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
+import txt from "../lib/strings.js";
 
 const execAsync = promisify(exec);
 

@@ -12,7 +12,6 @@ let F, I, Par, Fam, D, handleMessage;
 const P = {};
 before(async () => {
   ({ F } = await prepararBase("desde-su-numero"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   globalThis.baileys = "@whiskeysockets/baileys";
   (await import("../lib/wa-socket.js")).serialize(); // what turns Baileys' message into the bot's m
   ({ handleMessage } = await import("../handle-message.js"));

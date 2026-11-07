@@ -1,6 +1,7 @@
 // General anti-links: it deletes messages containing any link. What looks like one (and what "no.se" or "si.no"
 // doesn't) is in lib/enlaces.js.
 import { detectarLink } from "../lib/enlaces.js";
+import txt from "../lib/strings.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)

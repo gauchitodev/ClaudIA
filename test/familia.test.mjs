@@ -27,7 +27,6 @@ before(async () => {
   Fa = await import("../lib/familia.js");
   P = await import("../lib/parejas.js");
   Pf = await import("../lib/perfil.js");
-  globalThis.txt = (await import("../lib/strings.js")).default; // the couple plugins use the global texts
   for (let n = 1; n <= 14; n++) F.initDataDB(persona(n));
 });
 // Each test starts with no couples, families nor requests, and everyone with 100 coins, and puts up the families it

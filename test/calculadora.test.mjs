@@ -11,7 +11,6 @@ import { evaluar } from "../lib/calculadora.js";
 // nothing else.
 
 before(() => {
-  globalThis.txt = strings;
 });
 
 test("calculadora: las cuentas de siempre, con la precedencia de siempre", () => {

@@ -1,6 +1,7 @@
 import { borrarAntecedentes } from "../database-functions.js";
 import { destinatarioActual, esElBot } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import txt from "../lib/strings.js";
 
 // .clearantecedentes @persona: their record in this group goes (.antecedentes), and so do the warnings standing, which
 // the record no longer accounts for. Only admins: it erases what the mods noted. And as .unwarn, only from strictly

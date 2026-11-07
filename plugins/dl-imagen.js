@@ -1,5 +1,6 @@
 import { mezclar } from "../lib/azar.js";
 import { bajarImagen } from "../lib/descarga-segura.js";
+import txt from "../lib/strings.js";
 
 // Results tried, at random, until one comes down: links that died or that don't lead to an image are common.
 const INTENTOS = 3;

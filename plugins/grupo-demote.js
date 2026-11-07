@@ -1,4 +1,5 @@
 import { destinatarioActual, cambiarParticipante, esElBot, esOwnerDe } from "../lib/identidad.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["d", "demote"];

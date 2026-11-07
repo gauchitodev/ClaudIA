@@ -20,7 +20,6 @@ const CHAT = { games: 1, casino: 1, monedas: 1 };
 let F, P, PM, MJ, Poker, Mesa, Cartas, client, avisos;
 before(async () => {
   ({ F } = await prepararBase("poker"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   P = await import("../lib/poker.js");
   PM = await import("../lib/poker-manos.js");
   MJ = await import("../lib/mensajes-de-juego.js");

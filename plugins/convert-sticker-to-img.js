@@ -1,6 +1,7 @@
 import { exec } from "child_process";
 import { promises } from "fs";
 import { promisify } from "util";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["toimg", "img", "jpg"];

@@ -8,7 +8,6 @@ import { prepararBase, G, clienteFalso, fijarSaldo } from "./helpers.mjs";
 let F, C;
 before(async () => {
   ({ F } = await prepararBase("comandos"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   C = await import("../lib/comandos.js");
 });
 

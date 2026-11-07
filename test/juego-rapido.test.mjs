@@ -10,7 +10,6 @@ import strings from "../lib/strings.js";
 let J;
 before(async () => {
   await prepararBase("juego-rapido");
-  globalThis.txt = strings;
   J = await import("../lib/juego-rapido.js");
 });
 

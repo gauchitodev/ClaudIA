@@ -2,7 +2,6 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import { numeroReciclado, soloPorNumero, unNumero, digitos } from "./identidad-escenarios.mjs";
-import strings from "../lib/strings.js";
 
 // Asking Claudia in plain words ("claudia, llamá a @111") runs .llamar or .tagall straight from the _auto-ia hook, past
 // the dispatcher's checks. So the hook has to apply the same rule the command has: .tagall for moderators, .llamar
@@ -17,7 +16,6 @@ const tipeoReal = {};
 
 before(async () => {
   ({ F } = await prepararBase("auto-ia"));
-  globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];

@@ -130,7 +130,6 @@ test("tiempo: duracionLarga y parsearDuracion", () => {
 });
 
 test("besar: un pedido de pareja pendiente no bloquea el beso, una pareja de verdad sí", async () => {
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const { default: besar } = await import("../plugins/fun-besar.js");
   const client = clienteFalso();
   const besa = async (de, a) => {
@@ -212,7 +211,6 @@ test("parejas: enojo por infidelidad, reconciliación con regalo y rechazo por a
   assert.equal(P.parejaDe("1@lid").ultimoBeso, luego + 5 * DIA_MS);
 
   // the plugin: infidelity leaves the partner in a huff, the kiss is turned down with the reason, the gift makes up
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const { default: besar } = await import("../plugins/fun-besar.js");
   const { default: regalar } = await import("../plugins/coins-regalar.js");
   const client = clienteFalso();

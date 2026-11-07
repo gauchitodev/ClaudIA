@@ -1,3 +1,5 @@
+import txt from "../lib/strings.js";
+
 const plugin = {};
 plugin.cmd = ["delttt"];
 plugin.onlyGroup = true;

@@ -1,6 +1,7 @@
 import { getUser } from "../database-functions.js";
 import { lidMencionadoActual, esElBot, comoLoEsperan } from "../lib/identidad.js";
 import { rechazarPareja, solicitudDe } from "../lib/parejas.js";
+import txt from "../lib/strings.js";
 
 // .rechazar @x: turns down x's couple request.
 const plugin = {};

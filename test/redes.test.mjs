@@ -7,7 +7,6 @@ import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
 let F, R, Re, P;
 before(async () => {
   ({ F } = await prepararBase("redes"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   R = await import("../lib/redes.js");
   Re = await import("../lib/reglas.js");
   P = (await import("../plugins/redes.js")).default;

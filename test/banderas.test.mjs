@@ -8,7 +8,6 @@ import strings from "../lib/strings.js";
 let P, BANDERAS;
 before(async () => {
   await prepararBase("banderas");
-  globalThis.txt = strings;
   ({ default: P, BANDERAS } = await import("../plugins/fun-banderas.js"));
 });
 

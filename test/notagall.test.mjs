@@ -2,6 +2,7 @@ import { test, before, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import { prepararBase, G, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The calls to everyone (.tagall, .tagall2, .ht, .ht2, a poll's call to vote and Claudia's .tagall) leave out whoever
 // opted out in the group with .notagall; .sitagall brings them back, and an admin's .tagall -f reaches everyone
@@ -17,7 +18,6 @@ const ADMIN = { isMod: true, isAdmin: true, isOwner: false };
 
 before(async () => {
   ({ F } = await prepararBase("notagall"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   MG = await import("../lib/menciones-generales.js");
   I = await import("../lib/identidad.js");
   NoTag = (await import("../plugins/grupo-notagall.js")).default;
@@ -79,7 +79,7 @@ test(".tagall -f: de un admin les llega a todos y dice que es forzado; de un mod
   await tagall("-f mañana no hay reunión", MOD);
   assert.deepEqual(ultimoEnviado().msg, { text: "❌ El -f (forzar el aviso) es solo para los admins del grupo." });
   await tagall("-f aviso", ADMIN, { chat: { mentions: 0 } });
-  assert.equal(ultimoEnviado().msg.text, globalThis.txt.mentionsDisabled, "con las menciones apagadas, tampoco");
+  assert.equal(ultimoEnviado().msg.text, txt.mentionsDisabled, "con las menciones apagadas, tampoco");
   await tagall("-f aviso", { ...ADMIN, isOwner: true }, { chat: { mentions: 0 } });
   assert.equal(ultimoEnviado().msg.mentions.length, 4, "el owner pasa, como siempre");
   await tagall("hola -f", ADMIN);

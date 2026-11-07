@@ -8,7 +8,6 @@ import strings from "../lib/strings.js";
 // The database is for .tts, which reads mentions out as names (lib/menciones.js).
 before(async () => {
   await prepararBase("tts");
-  globalThis.txt = strings;
 });
 
 test("tts: parte el texto como node-gtts y concatena los pedazos de audio", async () => {

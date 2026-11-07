@@ -1,5 +1,6 @@
 import { pausa } from "../lib/pausas.js";
 import { fijarCasamiento, dosPersonasActual, tiempoIndicado, AVISO_DOS_PERSONAS } from "../lib/parejas.js";
+import txt from "../lib/strings.js";
 
 // .setmarry @a @b [| 3 días]: the owner marries a couple, with however long they've been married.
 const plugin = {};

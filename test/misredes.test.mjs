@@ -10,7 +10,6 @@ const participants = [901, 902, 903].map((n) => ({ id: L(n), admin: n === 902 ? 
 const TODAS = "instagram, x, tiktok, threads, bluesky, mastodon, facebook, youtube, twitch, spotify, github, steam, linkedin, telegram, discord, web";
 before(async () => {
   ({ F } = await prepararBase("misredes"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   RP = await import("../lib/redes-persona.js");
   Pf = await import("../lib/perfil.js");
   P = (await import("../plugins/misredes.js")).default;

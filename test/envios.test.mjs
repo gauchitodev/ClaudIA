@@ -270,7 +270,6 @@ test("reacciones automáticas: no frenan al resto del mensaje", async () => {
 });
 
 test("anti-links: borra antes de avisar", async () => {
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const orden = [];
   const client = {
     sendText: async () => {

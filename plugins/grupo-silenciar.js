@@ -1,6 +1,7 @@
 import { updateUserInGroup } from "../database-functions.js";
 import { destinatarioActual, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
+import txt from "../lib/strings.js";
 
 // The aliases that LIFT the mute. The rest of plugin.cmd applies it. They come from a single list so a new alias
 // can't end up declared as a command but interpreted backwards.

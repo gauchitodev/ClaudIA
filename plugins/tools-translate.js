@@ -1,4 +1,5 @@
 import { translate } from "@vitalets/google-translate-api";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["traducir", "translate"];

@@ -2,6 +2,7 @@ import { advertenciasDe, setAdvertencias, MAX_ADVERTENCIAS, anotarAdvertencia, m
 import { destinatarioActual, expulsar, esElBot, esOwnerDe } from "../lib/identidad.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 // Moderation warnings, counted per group: on the third one they're kicked from here. Another group's don't count.
 const plugin = {};

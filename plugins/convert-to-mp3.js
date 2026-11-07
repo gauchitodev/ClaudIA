@@ -1,6 +1,7 @@
 import { toAudio } from "../lib/ffmpeg.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { excedeTope, TOPES_MEDIA } from "../lib/tamano-media.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["tomp3", "toaudio", "mp3"];

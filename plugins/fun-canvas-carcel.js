@@ -3,6 +3,7 @@ import { obtenerFotoPerfil } from "../lib/foto-perfil.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { destinatarioActual } from "../lib/identidad.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["carcel", "preso", "presa"];

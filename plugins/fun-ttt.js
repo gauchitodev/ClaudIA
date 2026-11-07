@@ -1,6 +1,7 @@
 import TicTacToe from "../lib/ttt.js";
 import { juegaCuatroEnLinea } from "../lib/cuatro-en-linea.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["ttt"];

@@ -1,5 +1,6 @@
 import { textoIniciativa } from "../lib/iniciativa.js";
 import { activarIniciativa, desactivarIniciativa } from "../lib/vistazos.js";
+import txt from "../lib/strings.js";
 
 // .iniciativa: how Claudia's initiative is going in this group · .iniciativa on|off (admins). It isn't one more switch
 // of config-on-off.js: those need the bot to be a group admin, and this one has a status to show.

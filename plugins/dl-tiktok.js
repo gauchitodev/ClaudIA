@@ -1,6 +1,7 @@
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { bajarYEnviar, esTikTok, esVideoDeTikTok } from "../lib/ytdlp.js";
 import { tarjetaPedida } from "../lib/redes-persona.js";
+import txt from "../lib/strings.js";
 
 // .tt <link>: downloads the video with yt-dlp. It used to use TikMate's API, which stopped answering. .tt @usuario, or
 // a profile's link: a card with that profile for the group, as .ig does; with someone mentioned, theirs as they loaded

@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { WAMessageStubType } from "@whiskeysockets/baileys";
 import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
+import txt from "../lib/strings.js";
 
 // The whole of handle-message, from the message as Baileys hands it over: the hooks in their order (hooksEnOrden,
 // load-functions.js) and then the command. The plugins of each test are the real ones (or a spy standing in for a
@@ -24,7 +25,6 @@ const ritmoReal = {};
 
 before(async () => {
   ({ F } = await prepararBase("handle-message"));
-  globalThis.txt = (await import("../lib/strings.js")).default;
   globalThis.geminiApiKey = "clave";
   globalThis.baileys = "@whiskeysockets/baileys"; // the dynamic import in plugins/_anti-delete-messages.js expects it
   ({ RITMO, esperarTurno } = await import("../lib/ritmo.js"));
@@ -234,8 +234,8 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   assert.match(await pide(ANA), datosDeBeto, "un admin de WhatsApp");
   assert.match(await pide(CARLA), datosDeBeto, "un admin del bot");
   assert.match(await pide(DUENO, "59899111222@s.whatsapp.net"), datosDeBeto, "el owner");
-  assert.equal(await pide(DANI), globalThis.txt.onlyAdmin, "un moderador, no");
-  assert.equal(await pide(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol");
+  assert.equal(await pide(DANI), txt.onlyAdmin, "un moderador, no");
+  assert.equal(await pide(BETO), txt.onlyAdmin, "ni alguien sin rol");
 });
 
 // .setcumple (plugins/cumple-set.js) is for every admin too, as .id: the group's WhatsApp admins, the bot's and the
@@ -261,8 +261,8 @@ test(".setcumple: lo usan los admins de WhatsApp y del bot y el owner; un modera
   assert.match(await anota(CARLA, "15/04/1991"), anotado("15 de abril de 1991"), "un admin del bot");
   assert.match(await anota(DUENO, "16/05/1992", "59899111222@s.whatsapp.net"), anotado("16 de mayo de 1992"), "el owner");
   assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 16, mes: 5, anio: 1992 });
-  assert.equal(await anota(DANI, "17/06/1993"), globalThis.txt.onlyAdmin, "un moderador, no");
-  assert.equal(await anota(BETO, "18/07/1994"), globalThis.txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
+  assert.equal(await anota(DANI, "17/06/1993"), txt.onlyAdmin, "un moderador, no");
+  assert.equal(await anota(BETO, "18/07/1994"), txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
   assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 16, mes: 5, anio: 1992 }, "queda el que había");
 });
 
@@ -290,8 +290,8 @@ test(".delcumple: lo usan los admins de WhatsApp y del bot y el owner; un modera
     assert.equal(F.getCumple(CUMPLES, BETO), null, cual);
   }
   F.setCumple(CUMPLES, BETO, 14, 3, 1990);
-  assert.equal(await borra(DANI), globalThis.txt.onlyAdmin, "un moderador, no");
-  assert.equal(await borra(BETO), globalThis.txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
+  assert.equal(await borra(DANI), txt.onlyAdmin, "un moderador, no");
+  assert.equal(await borra(BETO), txt.onlyAdmin, "ni alguien sin rol, aunque sea el suyo");
   assert.deepEqual(F.getCumple(CUMPLES, BETO), { dia: 14, mes: 3, anio: 1990 }, "queda el que había");
 });
 
@@ -384,7 +384,7 @@ test("en un grupo que lista a la gente por número, el bot se ve admin y reconoc
     F.updateChat(PN, { allAntiLinks: 0 });
     assert.deepEqual((await manda(gente.mod, ".solomods", { conLid: false })).corrieron, [".solomods"], "el moderador, con un mensaje que trae solo el número");
     assert.deepEqual((await manda(gente.mod, ".solomods")).corrieron, [".solomods"], "y con uno que trae la LID");
-    assert.deepEqual((await manda(gente.miembro, ".solomods")).textos, [globalThis.txt.onlyMod], "alguien sin rol, no");
+    assert.deepEqual((await manda(gente.miembro, ".solomods")).textos, [txt.onlyMod], "alguien sin rol, no");
   } finally {
     console.error = errorReal;
     F.updateChat(PN, { allAntiLinks: 0 });
@@ -731,7 +731,7 @@ test("quien escribe desde un número que cambió de dueño no tiene el rol del q
   const key = { remoteJid: PN, fromMe: false, id: `ABCDEF${String(++numero).padStart(6, "0")}`, participant: X, addressingMode: "pn" };
   await handleMessage.call(client, { key, message: { conversation: ".solomods" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Nuevo", _upsertType: "notify", _llegada: Date.now() });
   assert.deepEqual(corrieron, []);
-  assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text).filter(Boolean), [globalThis.txt.onlyMod]);
+  assert.deepEqual(globalThis.enviados.map((e) => e.msg?.text).filter(Boolean), [txt.onlyMod]);
 });
 
 // ---------- what came while the bot was down ----------
@@ -895,7 +895,7 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   for (const texto of [".ttt", ".4enlinea", ".4enlinea 100"]) assert.equal(await mandar(BETO, texto), "🕒", texto);
   assert.match(await mandar(ANA, "4"), /Turno de @300000000000003 🟡/, "la partida empezada sigue");
   assert.match(await mandar(BETO, ".rendirse"), /^🏳️ @300000000000003 se rindió/);
-  assert.equal(await mandar(ANA, ".delttt"), globalThis.txt.tttDelNull("."));
+  assert.equal(await mandar(ANA, ".delttt"), txt.tttDelNull("."));
 
   F.updateChat(GRUPO, { horarioJuegos: "" });
   await mandar(ANA, ".4enlinea");
@@ -938,7 +938,7 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
   assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
   // the group-wide switch says more
   F.updateChat(GRUPO, { games: 0 });
-  assert.equal(await mandar(ANA, ".4enlinea"), globalThis.txt.disabledGames);
+  assert.equal(await mandar(ANA, ".4enlinea"), txt.disabledGames);
   F.updateChat(GRUPO, { games: 1 });
   // outside the game hours too, the game being off is what's said: the hours' notice promises an opening time
   const desde = (new Date().getHours() + 2) % 24;
@@ -946,7 +946,7 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
   assert.equal(await mandar(ANA, ".4enlinea"), "⛔");
   F.updateChat(GRUPO, { horarioJuegos: "" });
   // who turns it back on
-  assert.equal(await mandar(BETO, ".juego 4enlinea on"), globalThis.txt.onlyAdmin);
+  assert.equal(await mandar(BETO, ".juego 4enlinea on"), txt.onlyAdmin);
   assert.equal(F.getChat(GRUPO).juegosApagados, '["4enlinea"]');
   F.setRolGrupo(GRUPO, ANA, "admin");
   assert.equal(await mandar(ANA, ".juego 4enlinea on"), "✅ Listo: prendí el 4 en línea de nuevo en este grupo.");
@@ -970,8 +970,8 @@ test("el despachador: a lo que no es un comando no le contesta, y a lo que parec
   for (const texto of ["...pero bueno", ". hola", ".\nhola", ".5 kilos más", "@59899000001 hola", "@noexiste", ".foo_bar", "...", "."]) {
     assert.deepEqual(await mandar(texto), [], JSON.stringify(texto));
   }
-  assert.deepEqual(await mandar(".noexiste"), [globalThis.txt.noCommandMatch("noexiste")]);
-  assert.deepEqual(await mandar("/noexiste"), [globalThis.txt.noCommandMatch("noexiste")]);
+  assert.deepEqual(await mandar(".noexiste"), [txt.noCommandMatch("noexiste")]);
+  assert.deepEqual(await mandar("/noexiste"), [txt.noCommandMatch("noexiste")]);
   // The name cleaned, the words as always, and the text as it was typed for the commands that keep it.
   await mandar(".PROBAR? uno   dos\ntres");
   assert.deepEqual(corrieron, [{ command: "probar", text: "uno dos tres", textoCompleto: "uno   dos\ntres" }]);

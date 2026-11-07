@@ -8,12 +8,10 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { proto } from "@whiskeysockets/baileys";
-import strings from "../lib/strings.js";
 import { serialize, smsg } from "../lib/wa-socket.js";
 import { esVistaUnica } from "../lib/vista-unica.js";
 import { G } from "./helpers.mjs";
 
-globalThis.txt = strings;
 serialize();
 
 const plugins = {};

@@ -1,7 +1,6 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // The hangman is played alone and, with its word list at hand (it's in the code), won almost every time: at 10 coins a
 // game it was an open tap. It pays PREMIOS_POR_DIA games a day and then goes on without a prize, and so does every
@@ -10,7 +9,6 @@ import strings from "../lib/strings.js";
 let F, U, Ahorcado, Ordenar;
 before(async () => {
   ({ F } = await prepararBase("ahorcado"));
-  globalThis.txt = strings;
   U = await import("../lib/urucoins.js");
   Ahorcado = (await import("../plugins/fun-ahorcado.js")).default;
   Ordenar = (await import("../plugins/fun-ordenar-palabra.js")).default;

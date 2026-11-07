@@ -86,7 +86,6 @@ test("trivia: al vencer dice la respuesta completa y pega el texto de las apuest
 });
 
 test("trivia: el comando abre la ronda con premio, avisa si ya hay una abierta y paga con juegoTerminado", async () => {
-  globalThis.txt = (await import("../lib/strings.js")).default;
   const client = clienteFalso();
   F.initDataDB({ chat: G, sender: "x@lid", senderJid: "x@s.whatsapp.net", pushName: "X" });
   F.updateChat(G, { monedas: true, games: true });

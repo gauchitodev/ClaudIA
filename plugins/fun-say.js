@@ -1,3 +1,5 @@
+import txt from "../lib/strings.js";
+
 // The bot says the text as its own, without quoting whoever asked: it's for admins and moderators, because
 // otherwise anyone can make it talk and no trace is left of who wrote it.
 const plugin = {};

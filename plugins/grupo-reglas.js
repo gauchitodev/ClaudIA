@@ -1,4 +1,5 @@
 import { textoReglas, textoPlantilla, fijarReglas, fijarPlantilla } from "../lib/reglas.js";
+import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["reglas", "plantilla"];

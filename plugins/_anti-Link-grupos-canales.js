@@ -3,6 +3,7 @@
 import { expulsar, idDelAutor } from "../lib/identidad.js";
 import { LINK_GRUPO, LINK_CANAL } from "../lib/enlaces.js";
 import { generoDe, concordar } from "../lib/genero.js";
+import txt from "../lib/strings.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)

@@ -2,6 +2,7 @@ import { juegoTerminado } from "../lib/urucoins.js";
 import { elegirAlAzar } from "../lib/azar.js";
 import { marcarMensajeDeJuego, citaOtroJuego } from "../lib/mensajes-de-juego.js";
 import { esComando } from "../lib/comandos.js";
+import txt from "../lib/strings.js";
 const plugin = {};
 plugin.cmd = ["ahorcado"];
 plugin.juego = true;

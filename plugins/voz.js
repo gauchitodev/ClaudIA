@@ -1,4 +1,5 @@
 import { fijarVoz, textoVoz, hayVoz, nombreDeLaVoz } from "../lib/voz.js";
+import txt from "../lib/strings.js";
 
 // .voz: whether Claudia answers with a voice note in this group (lib/voz.js). .voz on: when they talk to her by voice
 // note; .voz aveces: that, and now and then a short answer; .voz siempre: everything she says in the chat; .voz off: text. Admins change it; .voz alone shows how it is.

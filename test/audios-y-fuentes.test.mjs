@@ -1,7 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
-import strings from "../lib/strings.js";
 
 // Claudia hears an audio only when it's meant for her: a voice note answering one of her messages, or an audio quoted
 // while naming her. And when asked whether something is true she can look it up (a second query, with Google Search),
@@ -18,7 +17,6 @@ const tipeoReal = {};
 
 before(async () => {
   await prepararBase("audios");
-  globalThis.txt = strings;
   globalThis.geminiApiKey = "clave";
   ({ RITMO } = await import("../lib/ritmo.js"));
   for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS"]) tipeoReal[k] = RITMO[k];
