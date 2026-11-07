@@ -31,7 +31,17 @@ test("trivia: el banco está limpio", () => {
     assert.equal(p.opciones.length, 4, p.pregunta);
     assert.match(p.correcta, /^[abcd]$/, p.pregunta);
     assert.ok(p.opciones.every((o) => !/^[A-D]\)/.test(o)), "las opciones van sin letra");
+    // an answer by an option's text goes to the first one that reads like it (parsearRespuesta)
+    assert.equal(new Set(p.opciones.map(Tr.normalizar)).size, 4, `opciones distintas: ${p.pregunta}`);
   }
+  // the right one spread over the four letters, so the letter doesn't give it away
+  for (const letra of ["a", "b", "c", "d"]) {
+    const parte = globalThis.BANCO.filter((p) => p.correcta === letra).length / globalThis.BANCO.length;
+    assert.ok(parte > 0.2 && parte < 0.3, `la ${letra} es la correcta en el ${Math.round(parte * 100)} %`);
+  }
+  // some high-school math and physics, answered from memory
+  assert.ok(globalThis.BANCO.some((p) => p.pregunta === "¿Cuánto suman los ángulos interiores de un triángulo?"));
+  assert.ok(globalThis.BANCO.some((p) => p.pregunta === "¿En qué unidad se mide la fuerza en el Sistema Internacional?"));
 });
 
 test("trivia: entiende la letra de muchas formas y el texto de la opción", () => {
@@ -281,6 +291,73 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
     globalThis.geminiApiKey = "";
     Gem.geminiEnPausa.clear();
   }
+});
+
+// The AI's answer, faked as Gemini gives it: the question it wrote, and every request's body kept in "cuerpos".
+function iaFalsa(t, respuesta, cuerpos = []) {
+  const fetchReal = globalThis.fetch;
+  const logReal = console.log;
+  globalThis.geminiApiKey = "clave";
+  console.log = () => {};
+  globalThis.fetch = async (url, opciones) => {
+    cuerpos.push(String(opciones?.body || ""));
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(respuesta) }] } }] }) };
+  };
+  t.after(() => {
+    globalThis.fetch = fetchReal;
+    console.log = logReal;
+    globalThis.geminiApiKey = "";
+  });
+  return cuerpos;
+}
+
+// The options came in the order the AI wrote them: if it tends to put the right one in the same place, the letter gives
+// it away. Now they're shuffled, and the right letter goes where its text landed.
+test("trivia: las opciones de la IA se mezclan, y la correcta sigue a su texto", async (t) => {
+  iaFalsa(t, { pregunta: "¿Pregunta de la IA?", opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A" });
+  const azar = t.mock.method(Math, "random", () => 0);
+  Tr.triviaConIa.delete("mezcla@g.us");
+  const p = await Tr.generarPregunta("mezcla@g.us");
+  assert.deepEqual([p.opciones, p.correcta], [["dos", "tres", "cuatro", "uno"], "d"]);
+  azar.mock.mockImplementation(() => 0.99); // with these draws, Fisher–Yates leaves them as they came
+  Tr.triviaConIa.delete("mezcla2@g.us");
+  const q = await Tr.generarPregunta("mezcla2@g.us");
+  assert.deepEqual([q.opciones, q.correcta], [["uno", "dos", "tres", "cuatro"], "a"]);
+});
+
+// Two options that read the same take an answer by its text to the first of them, right or not: such a question is
+// left out, and the group gets one from the bank.
+test("trivia: una pregunta de la IA con opciones repetidas o vacías no se usa", async (t) => {
+  const respuesta = { pregunta: "¿Pregunta de la IA?", opciones: ["Tokio", "tokio", "Osaka", "Kioto"], correcta: "A" };
+  iaFalsa(t, respuesta);
+  for (const opciones of [["Tokio", "tokio", "Osaka", "Kioto"], ["Tokio", " ", "Osaka", "Kioto"], ["Tokio", "Osaka", "Kioto"]]) {
+    respuesta.opciones = opciones;
+    Tr.triviaConIa.delete("repetidas@g.us");
+    const p = await Tr.generarPregunta("repetidas@g.us");
+    assert.notEqual(p.pregunta, "¿Pregunta de la IA?", opciones.join(", "));
+    assert.ok(globalThis.BANCO.includes(p), "del banco");
+  }
+});
+
+// Math and physics joined the AI's topics, and those ask for a question answered from memory in a .trivia's time: a
+// long sum on a phone only frustrates, and one the AI gets wrong makes the "right" answer wrong.
+test("trivia: matemática y física están entre los temas de la IA, y se piden para responder de cabeza", async (t) => {
+  const cuerpos = iaFalsa(t, { pregunta: "¿Pregunta de la IA?", opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A" });
+  const azar = t.mock.method(Math, "random", () => 0);
+  const pedir = async (tema) => {
+    const i = Tr.TEMAS.indexOf(tema);
+    assert.ok(i >= 0, tema);
+    azar.mock.mockImplementation(() => (i + 0.5) / Tr.TEMAS.length);
+    Tr.triviaConIa.delete("temas@g.us");
+    await Tr.generarPregunta("temas@g.us");
+    return cuerpos.at(-1);
+  };
+  for (const tema of ["matemática", "física"]) {
+    const cuerpo = await pedir(tema);
+    assert.match(cuerpo, new RegExp(`pregunta de trivia de ${tema}, `));
+    assert.match(cuerpo, /responderse de cabeza en menos de 30 segundos, sin papel ni calculadora, con lo que se ve en secundaria/);
+  }
+  assert.doesNotMatch(await pedir("geografía"), /de cabeza/, "los demás temas, como siempre");
 });
 
 // The AI asked which river is the longest in the world: the Nile or the Amazon, depending on how it's measured, so
