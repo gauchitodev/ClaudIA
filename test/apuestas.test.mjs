@@ -138,6 +138,17 @@ test("mercados: una opción que es solo un número no se confunde con el número
   assert.equal(saldo("f"), 100, "anulado, se devuelve todo");
 });
 
+// The option is read as a command's name is: "Peñarol." was no option, and ".resolver N anulado." no cancelling.
+test("mercados: la opción y «anulado» se leen con un signo pegado al final", () => {
+  const c = M.crearMercadoDesdeTexto(G, "admin", "Clásico | Peñarol | Empate | Nacional | en 2h");
+  assert.ok(c.ok);
+  cargar("g", 100);
+  assert.match(M.jugar(G, "g", c.id, "Peñarol!", 10).mensaje, /\*Peñarol\*/);
+  assert.match(M.jugar(G, "g", c.id, "peñarol.", 10).mensaje, /\*Peñarol\*/, "la misma, con otra forma");
+  assert.match(M.resolver(G, "admin", c.id, "Anulado.").texto, /anulado/);
+  assert.equal(saldo("g"), 100, "anulado, se devuelve todo");
+});
+
 // ---------- no bets on games ----------
 
 test("apuestas: en los juegos no se apuesta, solo en el casino", async () => {

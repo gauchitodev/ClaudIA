@@ -1,5 +1,5 @@
 import { CMD, POKER, EMPEZAR, mesaDe, abrirOSentarse, arrancar, levantarse, cancelar, textoMesa } from "../lib/poker.js";
-import { leerEntero, limpiarNombre } from "../lib/comandos.js";
+import { leerEntero, limpiarPalabra } from "../lib/comandos.js";
 import { marcarMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 
 // .poker: Texas Hold'em among the group (lib/poker.js has the table, the hands and the chips).
@@ -38,7 +38,8 @@ async function mandar(client, m, texto, mentions = []) {
 
 plugin.run = async (m, { client, args = [], isAdmin, botSettings }) => {
   try {
-    const palabra = (args[0] || "").toLowerCase();
+    // read as the command's name is (lib/comandos.js): ".poker salir!" showed the help, and ".poker 100." too
+    const palabra = limpiarPalabra(args[0]);
     if (palabra === "salir" || palabra === "levantarme") {
       const r = levantarse(m.chat, m.sender);
       return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
@@ -47,7 +48,7 @@ plugin.run = async (m, { client, args = [], isAdmin, botSettings }) => {
       const r = cancelar(m.chat, m.sender, isAdmin);
       return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
     }
-    if (EMPEZAR.includes(limpiarNombre(palabra))) {
+    if (EMPEZAR.includes(palabra)) {
       const r = arrancar(m.chat, m.sender);
       return r.ok ? mandar(client, m, r.texto, r.mentions) : client.sendText(m.chat, r.error, m);
     }

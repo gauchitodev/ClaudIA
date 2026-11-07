@@ -1,7 +1,7 @@
-import { desafiar, aceptar, rechazar, retadosEn, textoDuelos, accionPelea, textoPelea, DUELO, PELEA } from "../lib/duelos.js";
+import { desafiar, aceptar, rechazar, retadosEn, textoDuelos, accionPelea, textoPelea, DUELO, PELEA, TIPOS } from "../lib/duelos.js";
 import { COINS } from "../lib/urucoins.js";
 import { lidMencionadoActual, comoLoEsperan } from "../lib/identidad.js";
-import { leerEntero } from "../lib/comandos.js";
+import { leerEntero, limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["duelo", "pelea", "acepto", "rechazo", "golpe", "patada", "cubrirse", "curar"];
@@ -40,7 +40,8 @@ plugin.run = async (m, { client, args, text, command, chat, participants }) => {
     // The first word that is an amount, written as people write it here (lib/comandos.js): "1.000 por 2 cafés" is a
     // thousand, and it took 2.
     const cantidad = args.map((a) => leerEntero(a)).find((n) => n !== null) ?? NaN;
-    const tipo = command === "pelea" ? "pelea" : args.find((a) => /^(dado|dados|carta|cartas|pelea|peleas|piñas|pinas)$/i.test(a)) || "dado";
+    // The kind, read as the command's name is (lib/comandos.js): "carta." was no kind, and the duel went at dice.
+    const tipo = command === "pelea" ? "pelea" : args.find((a) => TIPOS[limpiarPalabra(a)]) || "dado";
     r = desafiar(m.chat, m.sender, retado, cantidad, tipo, avisar);
   }
   if (!r.ok) return client.sendMessage(m.chat, { text: `❌ ${r.error}`, mentions: r.mentions || [] }, { quoted: m });

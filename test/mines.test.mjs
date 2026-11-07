@@ -35,6 +35,18 @@ test("mines: multiplicadores justos con 3 % para la banca y techo, y casillas po
   assert.equal(X.parsearCasilla("8"), 7);
   assert.equal(X.parsearCasilla("25"), 24);
   for (const t of ["F1", "A6", "0", "26", "B", "hola"]) assert.equal(X.parsearCasilla(t), null, t);
+  // read as a command's name is: a sign glued at the end and the invisibles don't count
+  for (const t of ["B3.", "b3!", "3B?", "\u200bB3", "8."]) assert.equal(X.parsearCasilla(t), 7, t);
+  assert.equal(X.parsearCasilla("!"), null);
+});
+
+test("mines: las minas se leen como cualquier monto: «3!» son tres, y «0x3» no es un número", () => {
+  nueva();
+  assert.match(X.iniciar(G, "u", 20, "0x3", null).error, /Las minas van de/);
+  assert.match(X.iniciar(G, "u", 20, "3,5", null).error, /Las minas van de/);
+  assert.ok(X.iniciar(G, "u", 20, "3!", null).ok);
+  assert.equal(X.partidasMines.get(`${G}|u`).minas.size, 3);
+  nueva();
 });
 
 test("mines: destapar seguras sube el multiplicador, retirar paga, la mina pierde y el escudo devuelve", () => {

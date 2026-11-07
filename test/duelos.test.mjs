@@ -2,10 +2,11 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, esperar, fijarSaldo } from "./helpers.mjs";
 
-let F, D;
+let F, D, Duelo;
 before(async () => {
   ({ F } = await prepararBase("duelos"));
   D = await import("../lib/duelos.js");
+  Duelo = (await import("../plugins/coins-duelo.js")).default;
 });
 const saldo = (u) => F.getSaldoCoins(G, u);
 
@@ -51,6 +52,27 @@ test("dados empatados se repiten; cartas con desempate por palo", () => {
   fijarSaldo(F, G, "b", 100);
   D.desafiar(G, "a", "b", 10, "carta", null);
   assert.equal(D.aceptar(G, "b").ganador, "b");
+});
+
+// The kind is read as a command's name is: "carta." was no kind, and the duel went at dice without a word.
+test(".duelo lee el tipo con un signo pegado, con mayúsculas o con tilde: «carta.» es a cartas", async (t) => {
+  const [RETADOR, RETADO] = ["300000000000081@lid", "300000000000082@lid"];
+  // a challenge left pending, if an assertion stops this halfway, would show up in the tests after it
+  t.after(() => [RETADO, "i"].forEach((retado) => D.rechazar(G, retado)));
+  for (const u of [RETADOR, RETADO]) fijarSaldo(F, G, u, 100);
+  const participants = [RETADOR, RETADO].map((id) => ({ id, admin: null }));
+  const client = { sendMessage: async () => ({ key: { id: "D" } }), sendText: async () => ({ key: { id: "D" } }) };
+  for (const [palabra, tipo] of [["carta.", "carta"], ["Piñas!", "pelea"], ["DADOS?", "dado"], ["", "dado"]]) {
+    const texto = `@300000000000082 20 ${palabra}`.trim();
+    const m = { chat: G, sender: RETADOR, senderJid: "", text: `.duelo ${texto}`, mentionedJid: [RETADO], isGroup: true, react: async () => {} };
+    await Duelo.run(m, { client, text: texto, args: texto.split(" "), command: "duelo", participants, chat: {} });
+    assert.equal(D.duelos.get(`${G}|${RETADO}`)?.tipo, tipo, palabra || "sin tipo");
+    D.rechazar(G, RETADO);
+  }
+  // and desafiar itself, with people of its own: the other tests' "a" may have no balance yet, or a challenge going
+  fijarSaldo(F, G, "h", 100);
+  assert.equal(D.desafiar(G, "h", "i", 10, "Cartas!", null).ok, true);
+  assert.equal(D.duelos.get(`${G}|i`)?.tipo, "carta");
 });
 
 test("rechazo, vencimiento y validaciones", async () => {

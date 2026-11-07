@@ -26,6 +26,9 @@ test("ruleta: interpreta todas las apuestas y rechaza las inválidas", () => {
   assert.match(I("17-40").error, /0 al 36/);
   assert.equal(I("azul"), null);
   for (const [t, n] of [["17-18", 2], ["16-17-18", 3], ["17-18-20-21", 4], ["16-17-18-19-20-21", 6], ["columna 2", 12]]) assert.ok(Math.abs((n * I(t).paga) / 37 - 0.973) < 0.001);
+  // a sign glued at the end is no part of the bet, as it's no part of a command's name
+  for (const [t, nombre] of [["rojo!", "rojo"], ["Columna 2.", "la columna 2"], ["17-18?", "caballo 17-18"], ["13-24.", "la docena 13-24"], ["0.", "el 0"]]) assert.equal(I(t)?.nombre, nombre, t);
+  assert.equal(I("!"), null);
 });
 
 test("ruleta: la mesa junta apuestas y liquida con una sola bola", async () => {
@@ -135,6 +138,20 @@ test("carrera: cuotas, apuestas, narración y pago", async () => {
   assert.match(largada.cuadros[2], /Ganó 🏇 Relámpago/);
   assert.equal(saldo("a"), 80 + 92);
   assert.equal(saldo("b"), 70);
+  assert.equal(K.textoCarrera(G), null);
+});
+
+test("carrera: el caballo se lee como el nombre de un comando, con un signo pegado al final o sin tilde", async () => {
+  K._rng.randomInt = (min) => min;
+  K.CARRERA.SEGUNDOS = 0.05;
+  for (const u of ["e", "f"]) cargar(u, 100);
+  assert.ok(K.apostarCarrera(G, "e", 10, "1", () => {}).abre);
+  assert.match(K.apostarCarrera(G, "e", 10, "3.", () => {}).mensaje, /apostó 10 a Charrúa/);
+  assert.match(K.apostarCarrera(G, "f", 10, "Tormenta!", () => {}).mensaje, /apostó 10 a Tormenta/);
+  assert.match(K.apostarCarrera(G, "f", 10, "charrua.", () => {}).mensaje, /apostó 10 a Charrúa/);
+  // a lone sign cleans down to nothing, and every name starts with nothing: no horse, not the first one
+  assert.match(K.apostarCarrera(G, "f", 5, "!", () => {}).error, /¿A qué caballo\?/);
+  await esperar(150);
   assert.equal(K.textoCarrera(G), null);
 });
 

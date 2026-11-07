@@ -170,6 +170,19 @@ test("si el que abrió se levanta antes de repartir, la arranca el que sigue; co
   assert.match((await comando(BETO, "poker empezar")).text, /^🃏 \*Mano 1\* · botón @300000000000042 · ciegas @300000000000042 5 \/ @300000000000044 10/);
 });
 
+// The words and the amounts are read as the command's name is: ".poker salir!" and ".poker 100." showed the help, and
+// ".praise 20." asked how much.
+test("las palabras y los montos del póker se leen con un signo pegado al final, como el nombre del comando", async () => {
+  assert.match((await comando(ANA, "poker 100.")).text, /^🃏 \*Mesa de póker\* · entrada \*100\*/);
+  assert.match((await comando(BETO, "poker 100!")).text, /^🪑 @300000000000042 se sienta con 100\./);
+  assert.match((await comando(ANA, "poker Empezar!")).text, /^🃏 \*Mano 1\*/);
+  assert.match((await comando(ANA, "praise 20.")).text, /^⬆️ @300000000000041 sube 20 \(la apuesta queda en 30\)/);
+  assert.match((await comando(BETO, "poker salir!")).text, /^🏳️ @300000000000042 no va y se levanta al terminar la mano/);
+  assert.deepEqual(mesa().asientos.map((a) => a.id), [ANA]);
+  assert.match((await comando(DANI, "poker Cancelar.", { isAdmin: true })).text, /^Mesa de póker cerrada: @300000000000041 recupera/);
+  assert.equal(mesa(), null);
+});
+
 test("mano a mano: el botón pone la ciega chica y habla primero antes del flop y último después; la ciega grande tiene su opción", async () => {
   await sentar(ANA, BETO);
   const inicio = P.empezarMano(mesa());

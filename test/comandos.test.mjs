@@ -105,6 +105,16 @@ test("leerEntero: «1.000» es mil; un decimal, una coma, letras o un punto fuer
   assert.equal(C.leerEntero("--5", { negativos: true }), null);
 });
 
+// What comes after a command is read as its name is: ".ruleta 20." asked how much, and ".poker salir!" showed the help.
+test("un signo pegado al final no cambia un monto ni una palabra, como no cambia el nombre del comando", () => {
+  for (const [texto, n] of [["20.", 20], ["20!", 20], ["1.000.", 1000], ["5,", 5], ["100?!", 100], ["\u200b30\u200b", 30]]) assert.equal(C.leerEntero(texto), n, texto);
+  assert.equal(C.leerEntero("-5.", { negativos: true }), -5);
+  for (const texto of ["2.5.", "1,000!", ".", "!", "¿20", "1. 000"]) assert.equal(C.leerEntero(texto), null, texto);
+  for (const [texto, palabra] of [["Rojo!", "rojo"], ["  Peñarol.  ", "penarol"], ["Arrancá", "arranca"], ["columna 1.", "columna 1"], ["17-18?", "17-18"], ["!", ""], [undefined, ""]]) {
+    assert.equal(C.limpiarPalabra(texto), palabra, String(texto));
+  }
+});
+
 test("normalizarComando: como el despachador limpia uno escrito, con o sin su prefijo", () => {
   for (const [texto, nombre] of [[".menu", "menu"], ["menu", "menu"], ["@Sticker", "sticker"], ["/TTT!", "ttt"], [".menu?", "menu"], ["4enlínea", "4enlinea"], ["recordá", "recorda"], [".MENÚ", "menu"]]) {
     assert.equal(C.normalizarComando(texto), nombre, texto);
