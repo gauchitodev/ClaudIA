@@ -102,6 +102,29 @@ test("elegirAcertijo: no repite uno de los últimos 20 del grupo, y cada grupo l
   assert.ok(A.ACERTIJOS.includes(A.elegirAcertijo(G)), "con el azar en el borde también sale uno");
 });
 
+// An update restarts main.js: the latest riddles of each group are in the database, and a lib/acertijos.js loaded
+// again, as after a restart, still knows them. In memory, they started over.
+test("elegirAcertijo: los últimos del grupo sobreviven a un reinicio", async () => {
+  A._dep.azar = () => 0;
+  const [primero, segundo, tercero] = A.ACERTIJOS;
+  assert.deepEqual([A.elegirAcertijo(G), A.elegirAcertijo(G)], [primero, segundo]);
+  const DeNuevo = await import(`../lib/acertijos.js?reinicio=${Date.now()}`);
+  DeNuevo._dep.azar = () => 0;
+  assert.equal(DeNuevo.elegirAcertijo(G).pregunta, tercero.pregunta, "los dos de recién no vuelven");
+});
+
+// Kept by their question, not by their place in the bank: an update that adds a riddle at the top would have moved
+// the ones asked onto others, and the one just asked could come back.
+test("elegirAcertijo: lo ya preguntado sigue siéndolo aunque el banco cambie", (t) => {
+  A._dep.azar = () => 0;
+  const [primero, segundo] = A.ACERTIJOS;
+  assert.equal(A.elegirAcertijo(G), primero);
+  const nuevo = { pregunta: "¿Qué es lo que llegó con la actualización?", respuesta: "un acertijo nuevo", pista: "Es nuevo." };
+  A.ACERTIJOS.unshift(nuevo);
+  t.after(() => A.ACERTIJOS.shift());
+  assert.deepEqual([A.elegirAcertijo(G), A.elegirAcertijo(G)], [nuevo, segundo], "el de recién, ahora segundo en el banco, no vuelve");
+});
+
 // The riddle a game will ask: the dice pinned on it, with nothing recent.
 function tocara(respuesta) {
   const i = A.ACERTIJOS.findIndex((a) => a.respuesta === respuesta);

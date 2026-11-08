@@ -475,6 +475,17 @@ export function ponerAlDia(db) {
       ultima INTEGER NOT NULL
     )
   `);
+  // The riddles (lib/acertijos.js): the latest ones asked in each group, by their question, so they aren't repeated. In
+  // memory, every update forgot them; and kept by their place in the bank, a riddle added or taken out with an update
+  // would have moved them onto others.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS acertijos_hechos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      pregunta TEXT NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_acertijos_hechos_chat ON acertijos_hechos (chat, id)`);
 
   // Group memory: facts and inside jokes the group tells Claudia to remember with .recordá que
   db.exec(`

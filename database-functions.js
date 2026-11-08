@@ -1349,6 +1349,23 @@ export function olvidarUsoIaTrivia(chat) {
   db.prepare(`DELETE FROM trivia_ia WHERE chat = ?`).run(chat);
 }
 
+// ===================== Riddles (lib/acertijos.js) =====================
+// The riddles asked in each group, by their question, the latest "tope" of them, oldest first.
+
+export function anotarAcertijoHecho(chat, pregunta, tope) {
+  db.prepare(`INSERT INTO acertijos_hechos (chat, pregunta) VALUES (?, ?)`).run(chat, pregunta);
+  db.prepare(`DELETE FROM acertijos_hechos WHERE chat = ? AND id NOT IN (SELECT id FROM acertijos_hechos WHERE chat = ? ORDER BY id DESC LIMIT ?)`).run(chat, chat, tope);
+}
+
+export function acertijosHechos(chat) {
+  return db.prepare(`SELECT pregunta FROM acertijos_hechos WHERE chat = ? ORDER BY id`).all(chat).map((r) => r.pregunta);
+}
+
+// For the tests, which start each one with nothing asked.
+export function olvidarAcertijosHechos() {
+  db.prepare(`DELETE FROM acertijos_hechos`).run();
+}
+
 // groups with an activity switch on (known columns only, so no SQL is built from free text)
 const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa"]);
 export function chatsConOpcion(columna) {
