@@ -40,10 +40,10 @@ test("trivia: el banco está limpio", () => {
     const parte = globalThis.BANCO.filter((p) => p.correcta === letra).length / globalThis.BANCO.length;
     assert.ok(parte > 0.2 && parte < 0.3, `la ${letra} es la correcta en el ${Math.round(parte * 100)} %`);
   }
-  // The facts told when a round closes (lib/trivia-banco.js), as the AI's: one short sentence, which doesn't repeat the
-  // question, and no two the same.
+  // Every question brings its fact, told when a round closes (lib/trivia-banco.js), as the AI's do: one short sentence,
+  // which doesn't repeat the question, and no two the same.
   const datos = globalThis.BANCO.filter((p) => "dato" in p);
-  assert.ok(datos.length >= 250, `pocas con dato (${datos.length})`);
+  assert.deepEqual(globalThis.BANCO.filter((p) => !("dato" in p)).map((p) => p.pregunta), [], "todas con su dato");
   for (const p of datos) {
     assert.ok(typeof p.dato === "string" && p.dato === p.dato.trim() && p.dato.length <= Tr.TRIVIA.DATO_MAX, `dato de «${p.pregunta}»`);
     assert.match(p.dato, /^[A-ZÁÉÍÓÚÑ¿«+0-9][^\n]*\.$/, `una oración: «${p.dato}»`);
@@ -372,7 +372,7 @@ test("trivia: la pregunta de la IA trae un dato, y la ronda lo dice al cerrar, s
   respuesta.dato = "x".repeat(Tr.TRIVIA.DATO_MAX + 1);
   const larga = await pedir("dato-3@g.us");
   assert.deepEqual([larga.pregunta, larga.dato], ["¿Cuál es la capital de Japón?", undefined]);
-  // without a fact (a bank question that has none yet), the closing is as before
+  // without a fact (an AI question whose fact was too long), the closing is as before
   Tr.abrirRonda("dato-4@g.us", { tipo: "trivia", pregunta: PREGUNTA, mensajeId: "Q-DATO-4", segundos: 30, client });
   assert.equal(Tr.responderTrivia({ chat: "dato-4@g.us", sender: "1@lid", text: "c" }).texto, "✅ ¡Acertó @1! Era *C) Tokio*.");
 });

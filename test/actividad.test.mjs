@@ -88,7 +88,7 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.equal(Tr.responderTrivia({ chat: G, sender: "b", text: "hola", quoted: { id: idMsg } }), null);
   const win = Tr.responderTrivia({ chat: G, sender: "b", text: `${correcta.toUpperCase()})` });
   assert.equal(win.reaccion, "✅");
-  // A question of the bank, at random: with its fact, if it has one (lib/trivia-banco.js), before the prize.
+  // A question of the bank, at random: with its fact (lib/trivia-banco.js), before the prize.
   assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n(💡 .+\n)?🪙 \+15 UruCoins\.$/);
   assert.equal(saldo("b"), 15);
   assert.equal(Tr.rondaDe(G), null);
