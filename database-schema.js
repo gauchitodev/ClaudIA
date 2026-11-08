@@ -486,6 +486,9 @@ export function ponerAlDia(db) {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_acertijos_hechos_chat ON acertijos_hechos (chat, id)`);
+  // The owner's notices (lib/avisos.js): when each kind last went out, for its throttle. In memory, an update forgot
+  // it, and a notice held back for six hours could come again right after one.
+  db.exec(`CREATE TABLE IF NOT EXISTS avisos_owner (clave TEXT PRIMARY KEY, ultimo INTEGER NOT NULL)`);
 
   // Group memory: facts and inside jokes the group tells Claudia to remember with .recordá que
   db.exec(`

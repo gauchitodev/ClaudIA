@@ -1366,6 +1366,17 @@ export function olvidarAcertijosHechos() {
   db.prepare(`DELETE FROM acertijos_hechos`).run();
 }
 
+// ===================== Owner's notices (lib/avisos.js) =====================
+// When each kind of notice last went out (0 if never), for its throttle.
+
+export function ultimoAvisoOwner(clave) {
+  return db.prepare(`SELECT ultimo FROM avisos_owner WHERE clave = ?`).get(clave)?.ultimo || 0;
+}
+
+export function anotarAvisoOwner(clave, momento) {
+  db.prepare(`INSERT INTO avisos_owner (clave, ultimo) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET ultimo = excluded.ultimo`).run(clave, momento);
+}
+
 // groups with an activity switch on (known columns only, so no SQL is built from free text)
 const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa"]);
 export function chatsConOpcion(columna) {

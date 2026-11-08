@@ -398,6 +398,43 @@ test("avisos al owner: van al primer owner con número, aunque el primero esté 
   }
 });
 
+// An update restarts main.js: when each notice last went out is in the database, and a lib/avisos.js loaded again, as
+// after a restart, still holds the same one back. In memory, the AI's quota notice could come again right after one.
+test("avisos al owner: el freno de cada aviso sobrevive a un reinicio", async (t) => {
+  const HORA = 60 * 60 * 1000;
+  const reloj = Date.now;
+  t.after(() => (Date.now = reloj));
+  globalThis.enviados = [];
+  assert.equal(await Av.avisarOwner("sin cuota", "freno-reinicio", 6 * HORA), true);
+  const DeNuevo = await import(`../lib/avisos.js?reinicio=${Date.now()}`);
+  assert.equal(await DeNuevo.avisarOwner("sin cuota", "freno-reinicio", 6 * HORA), false, "recién avisado: no de nuevo");
+  const ahora = reloj();
+  Date.now = () => ahora + 7 * HORA;
+  assert.equal(await DeNuevo.avisarOwner("sin cuota", "freno-reinicio", 6 * HORA), true, "pasadas las seis horas, sí");
+  // and that one counts from then on, after yet another restart
+  Date.now = () => ahora + 7 * HORA + 60 * 1000;
+  const OtraVez = await import(`../lib/avisos.js?reinicio-2=${reloj()}`);
+  assert.equal(await OtraVez.avisarOwner("sin cuota", "freno-reinicio", 6 * HORA), false);
+  assert.equal(globalThis.enviados.length, 2);
+});
+
+// The notice of a failed backup may be about the database itself: one that can't be read or written doesn't keep it
+// from going out, and the throttle still holds, in memory.
+test("avisos al owner: con la base fallando, el aviso sale igual y el freno sigue", async (t) => {
+  const { ponerAlDia } = await import("../database-schema.js");
+  const errorReal = console.error;
+  console.error = () => {};
+  db.exec("DROP TABLE avisos_owner");
+  t.after(() => {
+    console.error = errorReal;
+    ponerAlDia(db);
+  });
+  globalThis.enviados = [];
+  assert.equal(await Av.avisarOwner("falló el backup", "freno-sin-base", 6 * 60 * 60 * 1000), true);
+  assert.equal(await Av.avisarOwner("falló el backup", "freno-sin-base", 6 * 60 * 60 * 1000), false);
+  assert.equal(globalThis.enviados.length, 1);
+});
+
 test("memoria corta y memoria del grupo", () => {
   for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
   assert.equal(CC.contextoChat.get("c").length, 250, "lo de las últimas 6 horas queda todo");
