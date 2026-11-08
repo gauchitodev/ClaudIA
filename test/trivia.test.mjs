@@ -40,6 +40,17 @@ test("trivia: el banco está limpio", () => {
     const parte = globalThis.BANCO.filter((p) => p.correcta === letra).length / globalThis.BANCO.length;
     assert.ok(parte > 0.2 && parte < 0.3, `la ${letra} es la correcta en el ${Math.round(parte * 100)} %`);
   }
+  // The facts told when a round closes (lib/trivia-banco.js), as the AI's: one short sentence, which doesn't repeat the
+  // question, and no two the same.
+  const datos = globalThis.BANCO.filter((p) => "dato" in p);
+  assert.ok(datos.length >= 50, `pocas con dato (${datos.length})`);
+  for (const p of datos) {
+    assert.ok(typeof p.dato === "string" && p.dato === p.dato.trim() && p.dato.length <= Tr.TRIVIA.DATO_MAX, `dato de «${p.pregunta}»`);
+    assert.match(p.dato, /^[A-ZÁÉÍÓÚÑ¿«+0-9][^\n]*\.$/, `una oración: «${p.dato}»`);
+    assert.doesNotMatch(p.dato.slice(0, -1), /[.!?]\s+[A-ZÁÉÍÓÚÑ¿]/, `una sola oración: «${p.dato}»`);
+    assert.ok(!p.dato.includes(p.pregunta.replace(/^¿|\?$/g, "")), `repite la pregunta: ${p.pregunta}`);
+  }
+  assert.equal(new Set(datos.map((p) => p.dato)).size, datos.length, "sin datos repetidos");
   // some high-school math and physics, answered from memory
   assert.ok(globalThis.BANCO.some((p) => p.pregunta === "¿Cuánto suman los ángulos interiores de un triángulo?"));
   assert.ok(globalThis.BANCO.some((p) => p.pregunta === "¿En qué unidad se mide la fuerza en el Sistema Internacional?"));
@@ -361,8 +372,9 @@ test("trivia: la pregunta de la IA trae un dato, y la ronda lo dice al cerrar, s
   respuesta.dato = "x".repeat(Tr.TRIVIA.DATO_MAX + 1);
   const larga = await pedir("dato-3@g.us");
   assert.deepEqual([larga.pregunta, larga.dato], ["¿Cuál es la capital de Japón?", undefined]);
-  // the bank's questions have none, and their closing is as before
-  assert.ok(globalThis.BANCO.every((q) => q.dato === undefined));
+  // without a fact (a bank question that has none yet), the closing is as before
+  Tr.abrirRonda("dato-4@g.us", { tipo: "trivia", pregunta: PREGUNTA, mensajeId: "Q-DATO-4", segundos: 30, client });
+  assert.equal(Tr.responderTrivia({ chat: "dato-4@g.us", sender: "1@lid", text: "c" }).texto, "✅ ¡Acertó @1! Era *C) Tokio*.");
 });
 
 // Math and physics joined the AI's topics, and those ask for a question answered from memory in a .trivia's time: a
@@ -441,4 +453,13 @@ test("trivia: la base guarda solo las últimas preguntas de cada grupo", () => {
   assert.deepEqual(F.preguntasTriviaHechas("tope@g.us"), Array.from({ length: tope }, (_, i) => `¿Pregunta ${i + 6}?`));
   assert.deepEqual(F.preguntasTriviaHechas("otro-tope@g.us"), ["¿La del otro grupo?"]);
   assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM trivia_hechas WHERE chat = ?`).get("tope@g.us").n, tope);
+});
+
+// The bank's questions bring their fact too (lib/trivia-banco.js), told when the round closes, as the AI's.
+test("trivia: una pregunta del banco con dato lo dice al cerrar", () => {
+  const C = "dato-banco@g.us";
+  const p = globalThis.BANCO.find((q) => q.dato);
+  Tr.abrirRonda(C, { tipo: "trivia", pregunta: p, mensajeId: "DATO-BANCO-1", segundos: 30, client: clienteFalso() });
+  const r = Tr.responderTrivia({ chat: C, sender: "555@lid", text: p.correcta, quoted: null });
+  assert.ok(r.texto.endsWith(`\n💡 ${p.dato}`), r.texto);
 });

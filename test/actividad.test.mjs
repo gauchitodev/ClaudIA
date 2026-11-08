@@ -88,12 +88,13 @@ test("trivia relámpago: agenda, lanza, responde y vence", async () => {
   assert.equal(Tr.responderTrivia({ chat: G, sender: "b", text: "hola", quoted: { id: idMsg } }), null);
   const win = Tr.responderTrivia({ chat: G, sender: "b", text: `${correcta.toUpperCase()})` });
   assert.equal(win.reaccion, "✅");
-  assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n🪙 \+15 UruCoins\.$/);
+  // A question of the bank, at random: with its fact, if it has one (lib/trivia-banco.js), before the prize.
+  assert.match(win.texto, /^✅ ¡Acertó @b! Era \*[ABCD]\) .+\*\.\n(💡 .+\n)?🪙 \+15 UruCoins\.$/);
   assert.equal(saldo("b"), 15);
   assert.equal(Tr.rondaDe(G), null);
   await T.lanzarTriviaRelampago(conexion.client, G, mediodia);
   await esperar(120);
-  assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.$/);
+  assert.match(ultimoEnviado().msg.text, /^⏳ Nadie acertó\. Era \*[ABCD]\) .+\*\.(\n💡 .+)?$/);
 });
 
 // In a group of its own, with the week it sums up: it summed up the messages, the trivia and the day's question of the
