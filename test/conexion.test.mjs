@@ -60,7 +60,9 @@ test("los archivos llevan la etiqueta del canal de lib/conexion.js y la tarjeta 
   }
   const tarjetaAntes = configuracion.tarjetaGrupo;
   t.after(() => (configuracion.tarjetaGrupo = tarjetaAntes));
-  // A 1×1 PNG. sendFile keeps a copy in tmp/ to send it by path: taken away after each one.
+  // A 1×1 PNG. sendFile keeps a copy in the bot's tmp/ to send it by path, taken away after each one: the folder is
+  // made as main.js makes it on starting up, since a fresh checkout (the CI's) doesn't bring it (.gitignore).
+  fs.mkdirSync(new URL("../tmp/", import.meta.url), { recursive: true });
   const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   const contexto = async () => {
     await client.sendFile(G, PNG, "foto.png", "una foto");
