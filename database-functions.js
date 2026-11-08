@@ -1319,6 +1319,36 @@ export function ultimasPreguntasDia(chat, n = 10) {
   return db.prepare(`SELECT pregunta FROM preguntas_dia WHERE chat = ? AND pregunta != '' ORDER BY fecha DESC LIMIT ?`).all(chat, n).map((r) => r.pregunta);
 }
 
+// ===================== Trivia (lib/trivia.js) =====================
+// The questions asked in each group, the latest "tope" of them, oldest first; and the AI's ration of the day: in the
+// database, so an update (which restarts main.js) doesn't forget them.
+
+export function anotarPreguntaTrivia(chat, pregunta, tope) {
+  db.prepare(`INSERT INTO trivia_hechas (chat, pregunta) VALUES (?, ?)`).run(chat, pregunta);
+  db.prepare(`DELETE FROM trivia_hechas WHERE chat = ? AND id NOT IN (SELECT id FROM trivia_hechas WHERE chat = ? ORDER BY id DESC LIMIT ?)`).run(chat, chat, tope);
+}
+
+export function preguntasTriviaHechas(chat) {
+  return db.prepare(`SELECT pregunta FROM trivia_hechas WHERE chat = ? ORDER BY id`).all(chat).map((r) => r.pregunta);
+}
+
+// { dia, usadas, ultima }: the day as lib/trivia.js writes it, how many questions the AI wrote that day, and when the
+// last one. null if it never wrote one there.
+export function usoIaTrivia(chat) {
+  return db.prepare(`SELECT dia, usadas, ultima FROM trivia_ia WHERE chat = ?`).get(chat) || null;
+}
+
+export function anotarUsoIaTrivia(chat, { dia, usadas, ultima }) {
+  db.prepare(
+    `INSERT INTO trivia_ia (chat, dia, usadas, ultima) VALUES (?, ?, ?, ?)
+     ON CONFLICT(chat) DO UPDATE SET dia = excluded.dia, usadas = excluded.usadas, ultima = excluded.ultima`,
+  ).run(chat, dia, usadas, ultima);
+}
+
+export function olvidarUsoIaTrivia(chat) {
+  db.prepare(`DELETE FROM trivia_ia WHERE chat = ?`).run(chat);
+}
+
 // groups with an activity switch on (known columns only, so no SQL is built from free text)
 const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa"]);
 export function chatsConOpcion(columna) {

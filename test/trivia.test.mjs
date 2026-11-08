@@ -265,26 +265,26 @@ test("trivia: la IA hace como mucho una pregunta por minuto y un tope por día e
     assert.equal(pedidos.length, 1);
     assert.equal(await deLaIa("otro-grupo@g.us"), true, "otro grupo tiene lo suyo");
 
-    Tr.triviaConIa.get(C).ultima -= Tr.TRIVIA.IA_CADA_MS; // a minute went by
+    F.anotarUsoIaTrivia(C, { ...F.usoIaTrivia(C), ultima: F.usoIaTrivia(C).ultima - Tr.TRIVIA.IA_CADA_MS }); // a minute went by
     assert.equal(await deLaIa(C), true);
-    assert.equal(Tr.triviaConIa.get(C).usadas, 2);
+    assert.equal(F.usoIaTrivia(C).usadas, 2);
 
     // The day's AI questions are used up: the bank until tomorrow.
-    Tr.triviaConIa.set(C, { dia: new Date().toDateString(), usadas: Tr.TRIVIA.IA_POR_DIA, ultima: 0 });
+    F.anotarUsoIaTrivia(C, { dia: new Date().toDateString(), usadas: Tr.TRIVIA.IA_POR_DIA, ultima: 0 });
     pedidos.length = 0;
     assert.equal(await deLaIa(C), false);
     assert.equal(pedidos.length, 0);
-    Tr.triviaConIa.get(C).dia = "ayer";
+    F.anotarUsoIaTrivia(C, { ...F.usoIaTrivia(C), dia: "ayer" });
     assert.equal(await deLaIa(C), true);
-    assert.equal(Tr.triviaConIa.get(C).usadas, 1, "al otro día arranca de nuevo");
+    assert.equal(F.usoIaTrivia(C).usadas, 1, "al otro día arranca de nuevo");
 
     // With every Gemini model paused, not the backups either: straight to the bank, without a wait.
-    Tr.triviaConIa.delete(C);
+    F.olvidarUsoIaTrivia(C);
     for (const modelo of Gem.MODELOS) Gem.geminiEnPausa.set(modelo, { hasta: Date.now() + 60 * 1000, seguidos: 1 });
     pedidos.length = 0;
     assert.equal(await deLaIa(C), false);
     assert.equal(pedidos.length, 0);
-    assert.equal(Tr.triviaConIa.has(C), false, "no gastó el turno de la IA");
+    assert.equal(F.usoIaTrivia(C), null, "no gastó el turno de la IA");
   } finally {
     globalThis.fetch = fetchReal;
     console.log = logReal;
@@ -316,11 +316,11 @@ function iaFalsa(t, respuesta, cuerpos = []) {
 test("trivia: las opciones de la IA se mezclan, y la correcta sigue a su texto", async (t) => {
   iaFalsa(t, { pregunta: "¿Pregunta de la IA?", opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A" });
   const azar = t.mock.method(Math, "random", () => 0);
-  Tr.triviaConIa.delete("mezcla@g.us");
+  F.olvidarUsoIaTrivia("mezcla@g.us");
   const p = await Tr.generarPregunta("mezcla@g.us");
   assert.deepEqual([p.opciones, p.correcta], [["dos", "tres", "cuatro", "uno"], "d"]);
   azar.mock.mockImplementation(() => 0.99); // with these draws, Fisher–Yates leaves them as they came
-  Tr.triviaConIa.delete("mezcla2@g.us");
+  F.olvidarUsoIaTrivia("mezcla2@g.us");
   const q = await Tr.generarPregunta("mezcla2@g.us");
   assert.deepEqual([q.opciones, q.correcta], [["uno", "dos", "tres", "cuatro"], "a"]);
 });
@@ -332,7 +332,7 @@ test("trivia: una pregunta de la IA con opciones repetidas o vacías no se usa",
   iaFalsa(t, respuesta);
   for (const opciones of [["Tokio", "tokio", "Osaka", "Kioto"], ["Tokio", " ", "Osaka", "Kioto"], ["Tokio", "Osaka", "Kioto"]]) {
     respuesta.opciones = opciones;
-    Tr.triviaConIa.delete("repetidas@g.us");
+    F.olvidarUsoIaTrivia("repetidas@g.us");
     const p = await Tr.generarPregunta("repetidas@g.us");
     assert.notEqual(p.pregunta, "¿Pregunta de la IA?", opciones.join(", "));
     assert.ok(globalThis.BANCO.includes(p), "del banco");
@@ -345,7 +345,7 @@ test("trivia: la pregunta de la IA trae un dato, y la ronda lo dice al cerrar, s
   const respuesta = { pregunta: "¿Cuál es la capital de Japón?", opciones: ["Osaka", "Kioto", "Tokio", "Hiroshima"], correcta: "C", dato: "Tokio se llamó Edo hasta 1868." };
   const cuerpos = iaFalsa(t, respuesta);
   t.mock.method(Math, "random", () => 0.99); // with these draws the options stay as they came
-  const pedir = async (chat) => (Tr.triviaConIa.delete(chat), Tr.generarPregunta(chat));
+  const pedir = async (chat) => (F.olvidarUsoIaTrivia(chat), Tr.generarPregunta(chat));
   const p = await pedir("dato-1@g.us");
   assert.equal(p.dato, "Tokio se llamó Edo hasta 1868.");
   assert.match(cuerpos.at(-1), /y \\"dato\\": una sola oración corta que sume algo cierto e interesante sobre la respuesta/);
@@ -374,7 +374,7 @@ test("trivia: matemática y física están entre los temas de la IA, y se piden 
     const i = Tr.TEMAS.indexOf(tema);
     assert.ok(i >= 0, tema);
     azar.mock.mockImplementation(() => (i + 0.5) / Tr.TEMAS.length);
-    Tr.triviaConIa.delete("temas@g.us");
+    F.olvidarUsoIaTrivia("temas@g.us");
     await Tr.generarPregunta("temas@g.us");
     return cuerpos.at(-1);
   };
@@ -401,7 +401,7 @@ test("trivia: a la IA se le pide una pregunta sin discusión, que no dependa de 
     return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(p) }] } }] }) };
   };
   try {
-    Tr.triviaConIa.delete(C);
+    F.olvidarUsoIaTrivia(C);
     assert.equal((await Tr.generarPregunta(C)).pregunta, "¿Pregunta de la IA?");
     assert.equal(cuerpos.length, 1);
     assert.match(cuerpos[0], /Escribí UNA pregunta de trivia de /);
@@ -412,4 +412,33 @@ test("trivia: a la IA se le pide una pregunta sin discusión, que no dependa de 
     console.log = logReal;
     configuracion.geminiApiKey = "";
   }
+});
+
+// An update restarts main.js: the questions a group was just asked and the AI's ration of the day are in the database,
+// and a lib/trivia.js loaded again, as after a restart, still knows them. In memory, they started over.
+test("trivia: lo que ya preguntó un grupo y la ración de la IA del día sobreviven a un reinicio", async (t) => {
+  const C = "reinicio@g.us";
+  const [primera, segunda, tercera] = globalThis.BANCO;
+  for (const [i, pregunta] of [primera, segunda].entries()) {
+    Tr.abrirRonda(C, { tipo: "trivia", pregunta, mensajeId: `REINICIO-${i}`, segundos: 30, client: clienteFalso() });
+    Tr.cerrarRonda(C);
+  }
+  const pedidos = iaFalsa(t, { pregunta: "¿Pregunta de la IA antes del reinicio?", opciones: ["uno", "dos", "tres", "cuatro"], correcta: "A", dato: "" });
+  F.olvidarUsoIaTrivia(C);
+  assert.equal((await Tr.generarPregunta(C)).pregunta, "¿Pregunta de la IA antes del reinicio?");
+  const DeNuevo = await import(`../lib/trivia.js?reinicio=${Date.now()}`);
+  t.mock.method(Math, "random", () => 0); // the bank's first one that wasn't asked
+  const p = await DeNuevo.generarPregunta(C);
+  assert.equal(pedidos.length, 1, "en el mismo minuto la IA no: ya hizo una antes del reinicio");
+  assert.equal(p.pregunta, tercera.pregunta, "las que acababan de salir no vuelven");
+});
+
+// The latest TRIVIA.RECIENTES of each group, oldest first: the table doesn't grow with every round.
+test("trivia: la base guarda solo las últimas preguntas de cada grupo", () => {
+  const tope = Tr.TRIVIA.RECIENTES;
+  for (let i = 1; i <= tope + 5; i++) F.anotarPreguntaTrivia("tope@g.us", `¿Pregunta ${i}?`, tope);
+  F.anotarPreguntaTrivia("otro-tope@g.us", "¿La del otro grupo?", tope);
+  assert.deepEqual(F.preguntasTriviaHechas("tope@g.us"), Array.from({ length: tope }, (_, i) => `¿Pregunta ${i + 6}?`));
+  assert.deepEqual(F.preguntasTriviaHechas("otro-tope@g.us"), ["¿La del otro grupo?"]);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM trivia_hechas WHERE chat = ?`).get("tope@g.us").n, tope);
 });

@@ -456,6 +456,26 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The trivia (lib/trivia.js): the latest questions asked in each group, so they aren't repeated, and the AI's ration
+  // of the day, how many it wrote and when the last one. In memory, an update (which restarts main.js) forgot them: a
+  // group could get again the questions it had just answered, and the AI's ones of the day started over.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS trivia_hechas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      pregunta TEXT NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_trivia_hechas_chat ON trivia_hechas (chat, id)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS trivia_ia (
+      chat TEXT PRIMARY KEY,
+      dia TEXT NOT NULL,
+      usadas INTEGER NOT NULL,
+      ultima INTEGER NOT NULL
+    )
+  `);
+
   // Group memory: facts and inside jokes the group tells Claudia to remember with .recordá que
   db.exec(`
     CREATE TABLE IF NOT EXISTS memoria_grupo (
