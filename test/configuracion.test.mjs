@@ -9,7 +9,7 @@ import toml from "@iarna/toml";
 import { configuracion, cargarConfiguracion } from "../lib/configuracion.js";
 
 // The settings are in lib/configuracion.js, and not on globalThis: config.toml's and the version, loaded by
-// globals.js before anything else (cargarConfiguracion), and nothing read on import, so the tests never see a
+// arranque.js before anything else (cargarConfiguracion), and nothing read on import, so the tests never see a
 // config.toml's keys.
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AQUI = process.cwd();
@@ -84,11 +84,11 @@ test("una clave que falta queda sin poner, y las otras se leen igual", () => {
   assert.deepEqual(configuracion, { ...SIN_NADA, owners: ["59899000001"], vozConfig: { voz: "es-AR-TomasNeural" }, botVersion: "v1.2.3" });
 });
 
-// As the bot starts: main.js imports globals.js first. In a process of its own, from a folder with a config.toml.
-test("globals.js la carga antes que nada: el bot arranca con la de su config.toml", () => {
+// As the bot starts: main.js imports arranque.js first. In a process of its own, from a folder with a config.toml.
+test("arranque.js la carga antes que nada: el bot arranca con la de su config.toml", () => {
   const dir = carpeta({ "config.toml": 'geminiApiKey = "la del bot"\nowners = ["59899000001"]\n', "package.json": '{"version":"9.8.7"}' });
   const codigo = `
-    await import(${JSON.stringify(new URL("../globals.js", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../arranque.js", import.meta.url).href)});
     const { configuracion } = await import(${JSON.stringify(new URL("../lib/configuracion.js", import.meta.url).href)});
     console.log(JSON.stringify([configuracion.geminiApiKey, configuracion.owners, configuracion.botVersion]));
   `;

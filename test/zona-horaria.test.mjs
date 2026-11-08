@@ -5,17 +5,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// globals.js sets Uruguay's time zone unless the environment brings one: the daily rounds, the trivia window, the
+// arranque.js sets Uruguay's time zone unless the environment brings one: the daily rounds, the trivia window, the
 // birthdays and the closings all go by it, and nothing used to set it. Each case runs in a process of its own, from an
-// empty folder (globals.js only complains that there's no config.toml nor package.json).
+// empty folder (arranque.js only complains that there's no config.toml nor package.json).
 
-const GLOBALS = new URL("../globals.js", import.meta.url).href;
+const ARRANQUE = new URL("../arranque.js", import.meta.url).href;
 const MEDIODIA_UTC = "2026-01-15T12:00:00Z";
 
 function relojCon(env) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-tz-"));
   try {
-    const codigo = `await import(${JSON.stringify(GLOBALS)}); console.log(JSON.stringify({ tz: process.env.TZ, intl: Intl.DateTimeFormat().resolvedOptions().timeZone, hora: new Date(${JSON.stringify(MEDIODIA_UTC)}).getHours() }));`;
+    const codigo = `await import(${JSON.stringify(ARRANQUE)}); console.log(JSON.stringify({ tz: process.env.TZ, intl: Intl.DateTimeFormat().resolvedOptions().timeZone, hora: new Date(${JSON.stringify(MEDIODIA_UTC)}).getHours() }));`;
     return JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { cwd: dir, env, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-import "./globals.js";
+import "./arranque.js";
 import { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
 import { configuracion } from "./lib/configuracion.js";
 import { rmSync, mkdirSync } from "fs";
