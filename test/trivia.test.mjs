@@ -43,7 +43,7 @@ test("trivia: el banco está limpio", () => {
   // The facts told when a round closes (lib/trivia-banco.js), as the AI's: one short sentence, which doesn't repeat the
   // question, and no two the same.
   const datos = globalThis.BANCO.filter((p) => "dato" in p);
-  assert.ok(datos.length >= 200, `pocas con dato (${datos.length})`);
+  assert.ok(datos.length >= 250, `pocas con dato (${datos.length})`);
   for (const p of datos) {
     assert.ok(typeof p.dato === "string" && p.dato === p.dato.trim() && p.dato.length <= Tr.TRIVIA.DATO_MAX, `dato de «${p.pregunta}»`);
     assert.match(p.dato, /^[A-ZÁÉÍÓÚÑ¿«+0-9][^\n]*\.$/, `una oración: «${p.dato}»`);
