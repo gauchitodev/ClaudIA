@@ -54,6 +54,9 @@ test("biblia: salmo y versículo al azar con el formato de siempre, y aviso si l
   assert.ok(texto.includes("Dos estarán en el campo; el uno será tomado, y el otro dejado."), "colapsa los espacios dobles de bolls");
   assert.equal(pedidas.at(-1), "/get-random-verse/RV1960/", "sin pedir la lista de libros");
   globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+  // The first psalm's chapter is in lib/biblia.js's cache: a psalm at random fell on it once in 150 runs, and came from
+  // there without asking the API, so no notice.
+  B.olvidarCapitulos();
   const errorReal = console.error;
   console.error = () => {};
   try {
