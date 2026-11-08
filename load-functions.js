@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, watch } from "fs";
 import { writeFile } from "fs/promises";
+import { cargados } from "./lib/plugins-cargados.js";
 
 // yt-dlp: the binary is downloaded to ./bin (git-ignored) if missing.
 // It used to live in node_modules/gs, and every npm ci wiped it.
@@ -20,17 +21,18 @@ export async function installYtDlp() {
   }
 }
 
-// Load plugins
-export async function loadPlugins() {
-  globalThis.plugins = {};
-  const pluginFiles = readdirSync("./plugins/").filter((file) => file.endsWith(".js"));
+// Every plugin of the folder, into lib/plugins-cargados.js, from scratch. The folder as recargarPlugin takes it: the
+// bot's own, or a whole path (the tests).
+export async function loadPlugins(carpeta = "./plugins/") {
+  cargados.plugins = {};
+  const pluginFiles = readdirSync(carpeta).filter((file) => file.endsWith(".js"));
 
   for (const file of pluginFiles) {
     try {
-      const module = await import(`./plugins/${file}`);
+      const module = await import(`${carpeta}${file}`);
       const plugin = module.default || module;
       const pluginName = file.replace(".js", "");
-      globalThis.plugins[pluginName] = plugin;
+      cargados.plugins[pluginName] = plugin;
     } catch (error) {
       console.error(`❌ Error al cargar el plugin ${file}:`, error);
     }
@@ -79,17 +81,17 @@ export async function recargarPlugin(filename, eventType, carpeta = "./plugins/"
   const pluginPath = `${carpeta}${filename}`;
 
   if (!existsSync(pluginPath)) {
-    delete globalThis.plugins[pluginName];
+    delete cargados.plugins[pluginName];
     console.log(`🗑️ Plugin eliminado: ${filename}`);
     return;
   }
 
-  const isNewPlugin = !(pluginName in globalThis.plugins);
+  const isNewPlugin = !(pluginName in cargados.plugins);
   try {
     const module = await import(`${pluginPath}?update=${Date.now()}-${++recargas}`);
     // A file caught empty while it's being written loads without errors, and without a plugin.
     if (!module.default) throw new Error("el archivo no exporta ningún plugin (¿se estaba guardando?)");
-    globalThis.plugins[pluginName] = module.default;
+    cargados.plugins[pluginName] = module.default;
 
     if (eventType === "rename" && isNewPlugin) {
       console.log(`✅ Plugin añadido: ${filename}`);

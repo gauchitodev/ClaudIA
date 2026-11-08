@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -44,7 +45,7 @@ before(async () => {
   ({ contextoChat } = await import("../lib/contexto-chat.js"));
   ({ fuentesPorChat } = await import("../lib/fuentes.js"));
   ({ geminiEnPausa } = await import("../lib/gemini.js"));
-  globalThis.plugins = {};
+  cargados.plugins = {};
 });
 after(() => {
   globalThis.fetch = fetchReal;

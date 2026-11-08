@@ -249,9 +249,9 @@ setInterval(() => {
   if (borrados > 0) console.log(txt?.clearTmp || "🧹 Carpeta tmp limpia.");
 }, 1000 * 60 * 30);
 
-// Plugins are loaded once, before connecting. Loading them when the connection opened left a window where
-// globalThis.plugins was empty and a command arriving right then matched no plugin; on top of that they were
-// re-imported on every reconnect. Hot changes are still picked up by watchPlugins().
+// Plugins are loaded once, before connecting. Loading them when the connection opened left a window with no plugins
+// loaded yet, and a command arriving right then matched none; on top of that they were re-imported on every reconnect.
+// Hot changes are still picked up by watchPlugins().
 await loadPlugins();
 
 startBot();

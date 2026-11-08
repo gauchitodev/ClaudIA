@@ -8,9 +8,9 @@ import { spawnSync } from "node:child_process";
 import { ESLint } from "eslint";
 import { prepararBase, G } from "./helpers.mjs";
 
-// What goes through globalThis: the database's connection no longer does (database-functions.js keeps it, and lib/
-// imports it from there), and what the bot keeps there is a list, EN_GLOBALTHIS in eslint.config.js, that a new name
-// doesn't get past.
+// What goes through globalThis: nothing of the bot's. The database's connection is database-functions.js's (lib/
+// imports it from there), and the lint stops the bot's code from naming globalThis at all (no-restricted-globals,
+// eslint.config.js).
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 let F, L, B;
 before(async () => {
@@ -56,19 +56,25 @@ test("un loadDatabase que falla a mitad de camino deja la conexión que había",
   assert.equal(F.getUser("300000000000032@lid")?.pushName, "Benteveo", "y se sigue usando");
 });
 
-test("un global nuevo en globalThis no pasa el lint si no está en la lista; los tests, en cambio, usan los que quieren", async () => {
+// There was a list of the names allowed on globalThis, which saw globalThis.name written out: Object.assign(globalThis,
+// …) or a name in brackets got past it, and a test set the AI's keys that way after they had left the list.
+test("el código del bot no nombra globalThis de ninguna forma; los tests, en cambio, usan los globales que quieren", async () => {
   const eslint = new ESLint({ cwd: RAIZ });
   const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
-  assert.deepEqual(await reglas("globalThis.plugins.menu;\n", "lib/x.js"), [], "uno de la lista");
   for (const [codigo, archivo] of [
     ["globalThis.estadoNuevo = new Map();\n", "lib/x.js"],
     ["globalThis.estadoNuevo = 1;\n", "plugins/x.js"],
     ["global.estadoNuevo = 1;\n", "main.js"],
     ["globalThis.estadoNuevo = 1;\n", "lib/identidad.js"],
+    ["globalThis.plugins;\n", "handle-message.js"],
+    ['globalThis["estado" + "Nuevo"] = 1;\n', "lib/x.js"],
+    ["Object.assign(globalThis, { estadoNuevo: 1 });\n", "plugins/x.js"],
+    ["export const { estadoNuevo } = globalThis;\n", "lib/x.js"],
   ]) {
-    assert.deepEqual(await reglas(codigo, archivo), ["no-restricted-syntax"], `${archivo}: ${codigo.trim()}`);
+    assert.deepEqual(await reglas(codigo, archivo), ["no-restricted-globals"], `${archivo}: ${codigo.trim()}`);
   }
-  assert.deepEqual(await reglas("globalThis.enviados = [];\n", "test/x.test.mjs"), []);
+  assert.deepEqual(await reglas("export const f = (global) => ({ global }).global;\n", "lib/x.js"), [], "un parámetro o una propiedad que se llaman así");
+  assert.deepEqual(await reglas("globalThis.enviados = [];\nObject.assign(globalThis, { fetch: async () => ({}) });\n", "test/x.test.mjs"), []);
   // The database isn't one of the bare globals for the code anymore: it imports it from database-functions.js.
   assert.deepEqual(await reglas('db.prepare("SELECT 1");\n', "lib/x.js"), ["no-undef"]);
   assert.deepEqual(await reglas('db.prepare("SELECT 1");\n', "test/x.test.mjs"), []);
@@ -80,7 +86,7 @@ test("la configuración ya no pasa por globalThis: se importa de lib/configuraci
   const eslint = new ESLint({ cwd: RAIZ });
   const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
   for (const nombre of ["geminiApiKey", "owners", "botVersion", "numberBot", "vozConfig", "prefix", "authFile", "baileys"]) {
-    assert.deepEqual(await reglas(`globalThis.${nombre};\n`, "lib/x.js"), ["no-restricted-syntax"], `globalThis.${nombre}`);
+    assert.deepEqual(await reglas(`globalThis.${nombre};\n`, "lib/x.js"), ["no-restricted-globals"], `globalThis.${nombre}`);
     assert.deepEqual(await reglas(`${nombre};\n`, "plugins/x.js"), ["no-undef"], nombre);
   }
   assert.deepEqual(await reglas('import { configuracion } from "../lib/configuracion.js";\nconfiguracion.owners;\n', "plugins/x.js"), []);
@@ -92,32 +98,17 @@ test("la conexión ya no pasa por globalThis: se importa de lib/conexion.js", as
   const eslint = new ESLint({ cwd: RAIZ });
   const reglas = async (codigo, filePath) => (await eslint.lintText(codigo, { filePath }))[0].messages.map((m) => m.ruleId);
   for (const nombre of ["client", "botConectado", "horaConexion", "horaCaida", "canal"]) {
-    assert.deepEqual(await reglas(`globalThis.${nombre};\n`, "lib/x.js"), ["no-restricted-syntax"], `globalThis.${nombre}`);
+    assert.deepEqual(await reglas(`globalThis.${nombre};\n`, "lib/x.js"), ["no-restricted-globals"], `globalThis.${nombre}`);
   }
   assert.deepEqual(await reglas("client.sendMessage;\n", "lib/x.js"), ["no-undef"], "client suelto");
   assert.deepEqual(await reglas('import { conexion } from "./conexion.js";\nconexion.client?.sendMessage;\n', "lib/x.js"), []);
   assert.deepEqual(await reglas("export default { run: async (m, { client }) => client.sendMessage };\n", "plugins/x.js"), [], "el de un plugin");
 });
 
-// The lint stops a global that isn't on the list; this, one that's on it and nothing uses anymore (one moved into its
-// module, say), which would let it come back unnoticed.
-test("la lista de globales no tiene ninguno que el código ya no use", async () => {
-  const { EN_GLOBALTHIS } = await import("../eslint.config.js");
-  assert.ok(EN_GLOBALTHIS, "la lista está en eslint.config.js");
-  // The code at the root (database-schema.js and the rest), lib/ and plugins/.
-  const archivos = fs.readdirSync(RAIZ).filter((f) => f.endsWith(".js") && f !== "eslint.config.js").map((f) => path.join(RAIZ, f));
-  for (const carpeta of ["lib", "plugins"]) archivos.push(...fs.readdirSync(path.join(RAIZ, carpeta)).filter((f) => f.endsWith(".js")).map((f) => path.join(RAIZ, carpeta, f)));
-  const codigo = archivos.map((a) => fs.readFileSync(a, "utf8").split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n")).join("\n");
-  const usados = new Set([...codigo.matchAll(/\bglobalThis\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
-  const listados = Object.values(EN_GLOBALTHIS).flat();
-  assert.deepEqual(listados.filter((n) => !usados.has(n)), []);
-  assert.equal(new Set(listados).size, listados.length, "sin repetidos");
-});
-
 // Each lib/ module keeps its own state, and loading all of them leaves nothing on globalThis: the model answering is
 // lib/ia.js's (modeloActivo), the connection lib/conexion.js's, and Claudia's pace, which lib/vistazos.js shares with
-// two plugins, is in lib/estado-de-plugins.js. The lint sees globalThis.name written out, not a name in brackets or
-// built at run time. In a process of its own: here, half of lib/ is loaded already.
+// two plugins, is in lib/estado-de-plugins.js. The lint stops the code from naming globalThis; this, what loading lib/
+// really leaves. In a process of its own: here, half of lib/ is loaded already.
 test("cargar lib/ no deja su estado en globalThis", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-globales-lib-"));
   try {

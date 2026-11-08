@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // .juego <nombre> on|off (plugins/juego.js, lib/juegos-apagados.js): one game switched off at a time, per group. The
 // catalogue against the real plugins, how a name is read, what is kept in the database, the texts, the notice's limit,
@@ -24,7 +25,7 @@ before(async () => {
     const mod = await import(pathToFileURL(path.join(RAIZ, "plugins", archivo)).href);
     plugins[archivo.replace(".js", "")] = mod.default || mod;
   }
-  globalThis.plugins = plugins;
+  cargados.plugins = plugins;
   J = await import("../lib/juegos-apagados.js");
   Plugin = plugins.juego;
   Config = plugins["grupo-config"];

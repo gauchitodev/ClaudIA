@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso, fijarSaldo, mazoDe } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // The 4 en línea (lib/cuatro-en-linea.js, plugins/fun-4enlinea.js and fun-4enlinea-del.js): the board, the turns, the
 // commands, the bets, and how it lives next to the tic-tac-toe, which takes plain numbers as moves too. And .rendirse
@@ -281,12 +282,12 @@ test("4 en línea: sus tableros son mensajes de juego, y responderles no le habl
 
 test("4 en línea: guardar el plugin no pierde las partidas que se están jugando", async () => {
   const L = await import("../load-functions.js");
-  globalThis.plugins ??= {};
+  cargados.plugins ??= {};
   await comando(ANA, "4enlinea");
   await comando(BETO, "4enlinea");
   // As watchPlugins loads it again when its file changes: a new module, with a query of its own.
   await L.recargarPlugin("fun-4enlinea.js", "change", `${RAIZ}/plugins/`);
-  const recargado = globalThis.plugins["fun-4enlinea"];
+  const recargado = cargados.plugins["fun-4enlinea"];
   assert.ok(recargado && recargado !== Plugin, "es otro módulo");
   const m = msg(ANA, "4");
   await recargado.before(m, { client, chat: CHAT });

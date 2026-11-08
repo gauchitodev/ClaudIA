@@ -9,6 +9,7 @@ import { prepararBase, clienteFalso, G, fijarSaldo } from "./helpers.mjs";
 import { conDosFilas, soloPorNumero, filaVieja, numeroReciclado, usyncFalso, mensaje, unaLid, unNumero, digitos } from "./identidad-escenarios.mjs";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 let F, I, Par, Fam, D, handleMessage;
 const P = {};
@@ -108,12 +109,12 @@ test("a quien escribe desde su número, .mute, .banuser y .rd le llegan aunque s
   const [ADMIN, OWNER] = [unNumero(911), `${configuracion.owners[0]}@s.whatsapp.net`];
   const client = clientePorNumero(t, [...porNumeroSinLid, { id: ADMIN, admin: "admin" }, { id: OWNER, admin: null }, { id: BOT.jid, admin: "admin" }]);
   usyncFalso(t, { [X]: L }, client);
-  const antes = globalThis.plugins;
+  const antes = cargados.plugins;
   t.after(() => {
-    globalThis.plugins = antes;
+    cargados.plugins = antes;
   });
   const corrieron = [];
-  globalThis.plugins = { "grupo-silenciar.js": P.silenciar, "owner-banuser.js": P.banuser, "owner-restaurar-usuario.js": P.rd, "espia.js": { cmd: ["espia"], run: async (m) => corrieron.push(m.sender) } };
+  cargados.plugins = { "grupo-silenciar.js": P.silenciar, "owner-banuser.js": P.banuser, "owner-restaurar-usuario.js": P.rd, "espia.js": { cmd: ["espia"], run: async (m) => corrieron.push(m.sender) } };
   const arrobaX = `@${digitos(X)}`;
   const silencio = () => [L, X].map((id) => Boolean(F.getUser(id, C).inGroup[C]?.mute));
   const borrados = async () => {

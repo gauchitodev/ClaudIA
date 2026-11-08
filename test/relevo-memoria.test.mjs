@@ -183,7 +183,10 @@ test("relevo: con start-process.js de verdad, lo que guardó un main.js que se c
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-relevo-"));
   try {
     fs.mkdirSync(path.join(dir, "lib"));
-    for (const archivo of ["start-process.js", "lib/reinicio.js", "lib/relevo-memoria.js", "lib/contexto-chat.js", "lib/comandos.js"]) fs.copyFileSync(path.join(RAIZ, archivo), path.join(dir, archivo));
+    // What start-process.js loads, and nothing else: a new import there, and this copy of the supervisor doesn't start.
+    for (const archivo of ["start-process.js", "lib/reinicio.js", "lib/relevo-memoria.js", "lib/contexto-chat.js", "lib/comandos.js", "lib/plugins-cargados.js"]) {
+      fs.copyFileSync(path.join(RAIZ, archivo), path.join(dir, archivo));
+    }
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ type: "module" }));
     fs.writeFileSync(
       path.join(dir, "main.js"),

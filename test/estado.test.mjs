@@ -63,3 +63,16 @@ test(".estado dice cuántas descargas hay en curso y en cola", async () => {
     colaDescargas.tareas.length = 0;
   }
 });
+
+// How many plugins are loaded, as lib/plugins-cargados.js has them: the ones of the folder, or fewer if some file
+// doesn't load.
+test(".estado cuenta los plugins cargados", async (t) => {
+  const { cargados } = await import("../lib/plugins-cargados.js");
+  const antes = cargados.plugins;
+  t.after(() => (cargados.plugins = antes));
+  cargados.plugins = { uno: { cmd: ["uno"] }, dos: { cmd: ["dos"] }, tres: { cmd: ["tres"] } };
+  const client = conexion.client;
+  client.groupFetchAllParticipating = async () => ({});
+  await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+  assert.match(ultimoEnviado().msg.text, / · plugins: 3\n/);
+});

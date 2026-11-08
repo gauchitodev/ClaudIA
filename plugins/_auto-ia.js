@@ -25,6 +25,7 @@ import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
 // Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
@@ -39,7 +40,7 @@ const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map());
 const avisoFalla = estadoDe("_auto-ia/aviso-falla", () => new Map()); // chat -> when she last said so
 const AVISO_FALLA_MS = 30 * 60 * 1000;
 
-const buscarPlugin = (cmd) => Object.values(globalThis.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
+const buscarPlugin = (cmd) => Object.values(cargados.plugins).find((p) => p.cmd && p.cmd.includes(cmd));
 
 // Who a "llamar" is for: the people mentioned, or failing that the author of the quoted message, but never Claudia,
 // whom "@Claudia, llamá a @Juan" or "@Claudia, llamalo" mention too: .llamar would have called her ten times. Her

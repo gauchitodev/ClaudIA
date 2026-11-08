@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // .menu (lib/menu.js): a short index with what the group uses most (counted by lib/usos.js), one topic per .menu <tema>
 // and everything with .menu todo. It used to be a single message of 233 lines, with the admin and settings commands
@@ -28,7 +29,7 @@ before(async () => {
     const mod = await import(pathToFileURL(path.join(RAIZ, "plugins", archivo)).href);
     plugins[archivo.replace(".js", "")] = mod.default || mod;
   }
-  globalThis.plugins = plugins;
+  cargados.plugins = plugins;
   M = await import("../lib/menu.js");
   A = await import("../lib/actividad.js");
   Menu = plugins.menu;
@@ -113,7 +114,7 @@ test("menú: la economía y el casino son temas, y ya no hay .menuuru", async ()
   // and .menu uru are gone: they get what any command or topic that doesn't exist gets.
   for (const pedido of ["temáticas", "tematicas", "grupo", "ranking"]) assert.match(menu({ pedido }), /^🗳️ \*Temáticas y ranking\*\n▸ #quejadelunes/, pedido);
   assert.match(menu({ pedido: "uru" }), /^🤔 No tengo el tema \*uru\*/);
-  const deUru = Object.entries(globalThis.plugins).filter(([, p]) => p.cmd?.some((c) => ["menuuru", "juegosuru"].includes(c)));
+  const deUru = Object.entries(cargados.plugins).filter(([, p]) => p.cmd?.some((c) => ["menuuru", "juegosuru"].includes(c)));
   assert.deepEqual(deUru, []);
 
   // The note gives one cap for every game but the hangman: true while lib/urucoins.js keeps it so.
@@ -124,7 +125,7 @@ test("menú: la economía y el casino son temas, y ya no hay .menuuru", async ()
 
 test("menú: cada plugin de la economía y del casino tiene una línea", () => {
   const nombrados = new Set(M.entradasDelMenu(".").flatMap((e) => [e.cmd, ...e.nombrados]));
-  const plugins = Object.entries(globalThis.plugins).filter(([, p]) => (p.economia || p.casino) && Array.isArray(p.cmd));
+  const plugins = Object.entries(cargados.plugins).filter(([, p]) => (p.economia || p.casino) && Array.isArray(p.cmd));
   assert.ok(plugins.length > 15, `muy pocos plugins de la economía (${plugins.length})`);
   assert.deepEqual(plugins.filter(([, p]) => !p.cmd.some((c) => nombrados.has(c))).map(([archivo]) => archivo), []);
 });
@@ -151,7 +152,7 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.match(temas({ datosChat: SIN_CASINO }), /🗳️ temáticas · 🪙 coins · 🎧 descargas/);
   assert.equal(menu({ pedido: "casino", datosChat: SIN_CASINO }), "🎰 Ese tema está apagado en este grupo: un admin lo prende con .casino on.");
   // A command two plugins answer to runs when one of them does, as in puedeCorrerAca: handle-message runs both.
-  const conOtro = { ...globalThis.plugins, otro: { cmd: ["ruleta"] } };
+  const conOtro = { ...cargados.plugins, otro: { cmd: ["ruleta"] } };
   assert.match(menu({ pedido: "casino", datosChat: SIN_CASINO, plugins: conOtro }), /^🎰 \*Casino y apuestas\*\n/);
   // A topic for admins is still theirs to ask for: the role answers first.
   assert.equal(menu({ pedido: "admins", datosChat: COMPRAVENTA }), "🛡️ Ese tema es para admins y moderadores del grupo.");
@@ -264,7 +265,7 @@ test("lo más usado: con pocos usos en el grupo, lo de todos los grupos; sin dat
 // Where Claudia isn't admin, the dispatcher refuses every plugin.botAdmin: the index used to recommend them anyway.
 test("lo más usado: donde Claudia no es admin, no recomienda lo que necesita que lo sea, y lo avisa", () => {
   const sinAdmin = comandos(masUsados({ isBotAdmin: false, ahora: new Date(2040, 5, 1, 15, 0) }));
-  const necesitanAdmin = M.MENU.POR_DEFECTO.filter((cmd) => Object.values(globalThis.plugins).some((p) => p.cmd?.includes(cmd) && p.botAdmin));
+  const necesitanAdmin = M.MENU.POR_DEFECTO.filter((cmd) => Object.values(cargados.plugins).some((p) => p.cmd?.includes(cmd) && p.botAdmin));
   assert.ok(necesitanAdmin.length > 0, "la lista fija tiene comandos que piden admin");
   for (const cmd of necesitanAdmin) assert.ok(!sinAdmin.includes(cmd), `.${cmd} necesita admin`);
   assert.match(menu({ isBotAdmin: false }), /⚠️ Acá no soy admin: muchos comandos no andan hasta que me hagan admin del grupo\./);

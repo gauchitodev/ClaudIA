@@ -2,6 +2,7 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // .resumen (lib/resumen.js): how far back it goes (15 minutes unless asked, 6 hours at most), a header that only
 // promises what it really covers, the same summary again within 5 minutes, one new summary a minute, a long while in
@@ -33,7 +34,7 @@ before(async () => {
   CC = await import("../lib/contexto-chat.js");
   R = await import("../lib/resumen.js");
   CC.reiniciarMemoria(Date.now() - 48 * HORA); // the memory has been up for two days
-  globalThis.plugins = { "resumen.js": Resumen };
+  cargados.plugins = { "resumen.js": Resumen };
 });
 after(() => {
   globalThis.fetch = fetchReal;
@@ -210,7 +211,7 @@ test("lo que le dicen a alguien que se llama como un comando entra", async () =>
   const MemoriaCorta = (await import("../plugins/_memoria-corta.js")).default;
   const SOL = "300000000000005@lid";
   F.initDataDB({ chat: C, sender: SOL, senderJid: "", pushName: "Sol" });
-  globalThis.plugins["aero.js"] = { cmd: ["sol"] };
+  cargados.plugins["aero.js"] = { cmd: ["sol"] };
   const decir = (id, text, mentionedJid = []) => MemoriaCorta.before({ chat: C, isGroup: true, sender: "555@lid", pushName: "Ana", text, mentionedJid, key: { id } }, { user: {} });
   try {
     const ahora = Date.now();
@@ -221,7 +222,7 @@ test("lo que le dicen a alguien que se llama como un comando entra", async () =>
     assert.match(pedidos[0], /Ana: @Sol ¿venís al cumple el sábado\?/);
     assert.doesNotMatch(pedidos[0], /\.sol montevideo/, "el comando sigue afuera");
   } finally {
-    delete globalThis.plugins["aero.js"];
+    delete cargados.plugins["aero.js"];
   }
 });
 

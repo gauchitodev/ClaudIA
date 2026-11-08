@@ -6,17 +6,14 @@ import * as fsPromesas from "node:fs/promises";
 import * as path from "node:path";
 import * as url from "node:url";
 
-// What the bot keeps on globalThis, by what it is. A name that isn't on this list doesn't pass the lint, so a new one
-// is a decision and not a habit. One module's state goes in a variable of that module. A plugin's that has to outlive
-// the plugin being reloaded (load-functions.js imports it as a new module) goes in lib/estado-de-plugins.js: a lib/
-// module isn't reloaded, so a reloaded plugin gets the one it imports as it was. The settings (config.toml's and the
-// version) are imported from lib/configuracion.js, and the WhatsApp connection from lib/conexion.js. The globals used
-// bare are another such list, below.
-export const EN_GLOBALTHIS = {
-  // The process: the plugins, which load-functions.js swaps on a reload.
-  proceso: ["plugins"],
-};
-const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
+// The bot keeps nothing on globalThis, and its code doesn't name it (no-restricted-globals, below): one module's
+// state goes in a variable of that module, and a plugin's that has to outlive the plugin being reloaded
+// (load-functions.js imports it as a new module) in lib/estado-de-plugins.js: a lib/ module isn't reloaded, so a
+// reloaded plugin gets the one it imports as it was. The settings (config.toml's and the version) are imported from
+// lib/configuracion.js, the WhatsApp connection from lib/conexion.js, and the plugins loaded from
+// lib/plugins-cargados.js. There was a list of the names allowed there; the last one left it.
+const SIN_GLOBALTHIS =
+  "The bot keeps nothing on globalThis (eslint.config.js): one module's state goes in a variable of that module, a plugin's that has to outlive a reload in lib/estado-de-plugins.js, the settings in lib/configuracion.js, the connection in lib/conexion.js and the plugins in lib/plugins-cargados.js.";
 
 // What only lib/identidad.js asks the database: who is who (a number's LID, a LID's number, the owners). The rest of
 // the bot asks lib/identidad.js, so the same question gets the same answer everywhere: answered here and there, a
@@ -30,8 +27,8 @@ const PREGUNTALE_A_IDENTIDAD = "Who is who is lib/identidad.js's to ask the data
 export const ADIVINAN = ["lidMencionado", "lidsMencionados", "deQuienEs", "destinatario", "dosPersonas", "lidDeDigitos"];
 const PREGUNTALE_A_WHATSAPP = "A plugin resolves whom a message names with the versions that ask WhatsApp (lidMencionadoActual, lidsMencionadosActual, deQuienEsActual, destinatarioActual, dosPersonasActual): the ones that guess (ADIVINAN, eslint.config.js) land on whoever had the number before.";
 
-// What no-restricted-syntax looks for in the bot's code. A global off the list, and the ways around the import rules
-// below, which see static imports only: a file through import() or through a call that isn't a method's (require, or
+// What no-restricted-syntax looks for in the bot's code: the ways around the import rules below, which see static
+// imports only: a file through import() or through a call that isn't a method's (require, or
 // createRequire's, kept in a variable or not, called straight or through call, apply or Reflect.apply), with its name
 // whole in the path as a string, a template or a sum, and a path written with %-escapes. A method's call, as
 // fs.readFileSync, reads the file and is no way into it, and so is a function of fs, path or url imported by name, as
@@ -40,10 +37,6 @@ const PREGUNTALE_A_WHATSAPP = "A plugin resolves whom a message names with the v
 // destructured from it, or with getUser renamed, which hid the other two. lib/identidad.js does that. Another function
 // named getUser counts as the database's (none is), and a path put together elsewhere, or a row kept in a variable, is
 // out of the lint's sight.
-const GLOBAL_NO_LISTADO = {
-  selector: `MemberExpression[object.name=/^(globalThis|global)$/]:not([property.name=/^(${PERMITIDOS})$/])`,
-  message: "A global that isn't on EN_GLOBALTHIS (eslint.config.js): one module's state goes in a variable of that module, a plugin's that has to outlive a reload in lib/estado-de-plugins.js, and a global that has to be, on the list.",
-};
 // A file as a path names it: at its end, with the extension or without it, as require takes it.
 const RUTA_DE_LA_BASE = "/(^|\\/)database-functions(\\.js)?$/";
 const RUTA_DE_LOS_QUE_ADIVINAN = "/(^|\\/)lib\\/(identidad|parejas)(\\.js)?$/";
@@ -113,7 +106,7 @@ const ADIVINAN_DE_MANO_EN_MANO = {
   selector: `ExportSpecifier:matches([local.name=${QUE_ADIVINAN}], [local.value=${QUE_ADIVINAN}]), ExportAllDeclaration[source.value=${RUTA_DE_LOS_QUE_ADIVINAN}], ExportAllDeclaration[source.value=/^\\.\\/(identidad|parejas)\\.js$/]`,
   message: `The versions that guess whom a message names (ADIVINAN, eslint.config.js) aren't handed on: a plugin could take them from here. ${PREGUNTALE_A_WHATSAPP}`,
 };
-const DEL_CODIGO = [GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS, ...IDENTIDAD_DE_UNA_FILA, ADIVINAN_DE_MANO_EN_MANO, RUTA_CON_ESCAPES];
+const DEL_CODIGO = [...BASE_A_ESCONDIDAS, ...IDENTIDAD_DE_UNA_FILA, ADIVINAN_DE_MANO_EN_MANO, RUTA_CON_ESCAPES];
 const DE_LA_BASE = { regex: "(^|/)database-functions\\.js$", importNames: SOLO_IDENTIDAD, message: PREGUNTALE_A_IDENTIDAD };
 const DE_LOS_QUE_ADIVINAN = { regex: "(^|/)lib/(identidad|parejas)\\.js$", importNames: ADIVINAN, message: PREGUNTALE_A_WHATSAPP };
 
@@ -128,7 +121,7 @@ export default defineConfig([
       globals: {
         ...globals.node,
         // No bot global is used bare: the settings are imported from lib/configuracion.js, the WhatsApp connection
-        // from lib/conexion.js and Baileys from its package, and the plugins go by globalThis.
+        // from lib/conexion.js, the plugins from lib/plugins-cargados.js and Baileys from its package.
         // txt isn't one anymore: the texts are imported from lib/strings.js, and a bare txt is an error here.
       },
     },
@@ -147,12 +140,15 @@ export default defineConfig([
     },
   },
 
-  // The bot's code keeps on globalThis only what EN_GLOBALTHIS lists, and doesn't go around the import rules below;
-  // the tests set globals up and look into the database freely. A second no-restricted-syntax for the same files
-  // replaces the first, so each set of files gets its whole list: lib/identidad.js asks the database, and the plugins
-  // don't guess whom a message names either.
+  // The bot's code doesn't name globalThis (nor global, Node's other name for it), whichever way: off it, in brackets,
+  // handed to Object.assign or destructured. The tests set globals up, fetch among them, freely.
+  { ignores: ["test/**"], rules: { "no-restricted-globals": ["error", { name: "globalThis", message: SIN_GLOBALTHIS }, { name: "global", message: SIN_GLOBALTHIS }] } },
+
+  // The bot's code doesn't go around the import rules below; the tests look into the database freely. A second
+  // no-restricted-syntax for the same files replaces the first, so each set of files gets its whole list:
+  // lib/identidad.js asks the database, and the plugins don't guess whom a message names either.
   { ignores: ["test/**", "lib/identidad.js"], rules: { "no-restricted-syntax": ["error", ...DEL_CODIGO] } },
-  { files: ["lib/identidad.js"], rules: { "no-restricted-syntax": ["error", GLOBAL_NO_LISTADO, ...BASE_A_ESCONDIDAS, RUTA_CON_ESCAPES] } },
+  { files: ["lib/identidad.js"], rules: { "no-restricted-syntax": ["error", ...BASE_A_ESCONDIDAS, RUTA_CON_ESCAPES] } },
   { files: ["plugins/**"], rules: { "no-restricted-syntax": ["error", ...DEL_CODIGO, ...ADIVINAN_A_ESCONDIDAS] } },
 
   // Who is who goes to the database only from lib/identidad.js, and the plugins take only the versions that ask

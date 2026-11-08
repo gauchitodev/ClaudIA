@@ -14,6 +14,7 @@ import { buscarEnGrupo, identidadesDe, esOwnerConfirmado } from "./lib/identidad
 import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 import { guardarAtrasado, aplicarAMemoria } from "./lib/memoria-corta.js";
 import txt from "./lib/strings.js";
+import { cargados } from "./lib/plugins-cargados.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -37,7 +38,7 @@ function saludar(client, m, text, chat) {
 // A command stays outside .modoadmin when every plugin that answers to it says so: one that shares the command and
 // doesn't say so isn't let through along with it.
 function fueraDelModoAdmin(command) {
-  const suyos = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
+  const suyos = Object.values(cargados.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
   return suyos.length > 0 && suyos.every((plugin) => plugin.fueraDelModoAdmin);
 }
 
@@ -136,7 +137,7 @@ export async function handleMessage(nMsg) {
     // Run the 'before' plugins: the moderation first and Claudia's chat last (hooksEnOrden, load-functions.js). A hook
     // that throws takes only itself down: with the moderation first, a deletion that failed there would otherwise leave
     // the message without its count, its place in Claudia's memory and its command.
-    const hooks = hooksEnOrden(globalThis.plugins);
+    const hooks = hooksEnOrden(cargados.plugins);
     const correrHook = async (plugin) => {
       try {
         await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
@@ -182,7 +183,7 @@ export async function handleMessage(nMsg) {
     text = pedido.texto;
     // The text after the command as it was typed, line breaks included, for the ones that send or keep free text.
     const { textoCompleto } = pedido;
-    const matchPlugins = Object.values(globalThis.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
+    const matchPlugins = Object.values(cargados.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(command));
     if (matchPlugins.length === 0 && (usedPrefix === "@" || !pareceComando(command))) return;
 
     // Admin mode: the bot is for the owner, the admins and the mods, but for the commands that stay outside it

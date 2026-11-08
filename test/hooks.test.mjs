@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -42,7 +43,7 @@ before(async () => {
   for (const nombre of ["_all-anti-links", "_anti-link-plus", "_auto-ia", "_chatbot-events", "_compraventa", "_hashtags", "_manejador-lista-negra", "_memoria-corta", "_trivia"]) {
     hooks[nombre] = (await import(`../plugins/${nombre}.js`)).default;
   }
-  globalThis.plugins = hooks;
+  cargados.plugins = hooks;
 });
 after(() => {
   globalThis.fetch = fetchReal;
@@ -111,7 +112,7 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
   // A hook that throws takes only itself down; the greeting goes once the moderation has run, and only if it deleted
   // nothing; and what it deleted reaches no other hook but the short-term memory.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  assert.match(fuente, /const hooks = hooksEnOrden\(globalThis\.plugins\);[^]*?try \{\s*await plugin\.before\(/);
+  assert.match(fuente, /const hooks = hooksEnOrden\(cargados\.plugins\);[^]*?try \{\s*await plugin\.before\(/);
   assert.match(fuente, /for \(const plugin of hooks\.filter\(\(p\) => p\.moderacion\)\) await correrHook\(plugin\);[^]*?if \(!m\.moderado\) saludar\([^]*?for \(const plugin of hooks\.filter\(\(p\) => !p\.moderacion\)\) \{[^]*?if \(m\.moderado && !plugin\.trasModeracion\) continue;\s*await correrHook\(plugin\);/);
 });
 

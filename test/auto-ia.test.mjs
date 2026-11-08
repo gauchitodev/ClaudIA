@@ -4,6 +4,7 @@ import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import { numeroReciclado, soloPorNumero, unNumero, digitos } from "./identidad-escenarios.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -37,7 +38,7 @@ before(async () => {
   Tagall = (await import("../plugins/grupo-tagall.js")).default;
   ({ contextoChat } = await import("../lib/contexto-chat.js"));
   ({ geminiEnPausa } = await import("../lib/gemini.js"));
-  globalThis.plugins = { "grupo-llamar.js": Llamar, "grupo-tagall.js": Tagall };
+  cargados.plugins = { "grupo-llamar.js": Llamar, "grupo-tagall.js": Tagall };
 });
 after(() => {
   globalThis.fetch = fetchReal;

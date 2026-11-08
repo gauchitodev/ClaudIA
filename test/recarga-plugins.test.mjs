@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { prepararBase } from "./helpers.mjs";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // watchPlugins (load-functions.js) loads a plugin again when its file changes, without restarting the bot. It used to
 // drop the version that worked before loading the new one: a file saved halfway, or with a typo, took the command away
@@ -18,7 +19,7 @@ before(async () => {
   fs.mkdirSync(carpeta);
   // ES modules, like everything under the bot's package.json: without it, an empty file would load as CommonJS.
   fs.writeFileSync(path.join(carpeta, "package.json"), JSON.stringify({ type: "module" }));
-  globalThis.plugins = {};
+  cargados.plugins = {};
 });
 
 test("recarga: un plugin que no carga deja andando la versión que andaba", async () => {
@@ -31,7 +32,7 @@ test("recarga: un plugin que no carga deja andando la versión que andaba", asyn
   const guardar = async (contenido, evento = "change") => {
     fs.writeFileSync(archivo, contenido);
     await L.recargarPlugin("eco.js", evento, carpeta);
-    return globalThis.plugins.eco?.version;
+    return cargados.plugins.eco?.version;
   };
   try {
     assert.equal(await guardar(`export default { cmd: ["eco"], version: 1 };`, "rename"), 1);
@@ -43,7 +44,7 @@ test("recarga: un plugin que no carga deja andando la versión que andaba", asyn
 
     fs.rmSync(archivo);
     await L.recargarPlugin("eco.js", "rename", carpeta);
-    assert.equal("eco" in globalThis.plugins, false, "un archivo borrado se va");
+    assert.equal("eco" in cargados.plugins, false, "un archivo borrado se va");
   } finally {
     console.error = errorReal;
     console.log = logReal;
@@ -63,9 +64,9 @@ test("recarga: el plugin recargado ve el estado de lib/ que había, con lo que t
     for (const version of [1, 2]) {
       fs.writeFileSync(archivo, `import { duelos } from ${JSON.stringify(new URL("../lib/duelos.js", import.meta.url).href)};\nexport default { cmd: ["pendientes"], version: ${version}, duelos };\n`);
       await L.recargarPlugin("pendientes.js", version === 1 ? "rename" : "change", carpeta);
-      assert.equal(globalThis.plugins.pendientes?.version, version);
-      assert.equal(globalThis.plugins.pendientes.duelos, D.duelos, `la versión ${version} ve el mismo registro`);
-      assert.ok(globalThis.plugins.pendientes.duelos.has("recarga@g.us|b@lid"), "con el desafío que estaba pendiente");
+      assert.equal(cargados.plugins.pendientes?.version, version);
+      assert.equal(cargados.plugins.pendientes.duelos, D.duelos, `la versión ${version} ve el mismo registro`);
+      assert.ok(cargados.plugins.pendientes.duelos.has("recarga@g.us|b@lid"), "con el desafío que estaba pendiente");
     }
   } finally {
     console.log = logReal;
@@ -83,20 +84,20 @@ test("recarga: el aviso de la ubicación en tiempo real no se repite por recarga
   const avisos = [];
   const client = { sendText: async (chat, texto) => (avisos.push(texto), {}) };
   const opciones = { client, isOwner: false, isMod: false, isBotAdmin: true, user: {}, chat: { antiLiveLocation: true, antiDelete: false } };
-  const compartir = () => globalThis.plugins["_chatbot-events"].before({ isGroup: true, mtype: "liveLocationMessage", chat: "recarga@g.us", sender: "300000000000005@lid", delete: async () => {} }, opciones);
+  const compartir = () => cargados.plugins["_chatbot-events"].before({ isGroup: true, mtype: "liveLocationMessage", chat: "recarga@g.us", sender: "300000000000005@lid", delete: async () => {} }, opciones);
   const logReal = console.log;
   console.log = () => {};
   try {
     await L.recargarPlugin("_chatbot-events.js", "rename", plugins);
-    const antes = globalThis.plugins["_chatbot-events"];
+    const antes = cargados.plugins["_chatbot-events"];
     await compartir();
     await L.recargarPlugin("_chatbot-events.js", "change", plugins); // the file was saved
-    assert.notEqual(globalThis.plugins["_chatbot-events"], antes, "es el plugin vuelto a cargar");
+    assert.notEqual(cargados.plugins["_chatbot-events"], antes, "es el plugin vuelto a cargar");
     await compartir();
     assert.equal(avisos.length, 1);
   } finally {
     console.log = logReal;
-    delete globalThis.plugins["_chatbot-events"];
+    delete cargados.plugins["_chatbot-events"];
     estadoDe("_chatbot-events", () => new Map()).clear();
   }
 });
@@ -104,4 +105,31 @@ test("recarga: el aviso de la ubicación en tiempo real no se repite por recarga
 test("consistencia: watchPlugins recarga cada archivo con recargarPlugin", () => {
   const fuente = fs.readFileSync(new URL("../load-functions.js", import.meta.url), "utf8");
   assert.match(fuente, /watch\("\.\/plugins\/"[^]*?recargarPlugin\(filename, eventType\)/);
+});
+
+// As the bot starts (main.js, loadPlugins): every plugin of the folder goes to lib/plugins-cargados.js, from scratch,
+// and one that doesn't load is left out without taking the others with it.
+test("loadPlugins carga cada plugin de la carpeta en lib/plugins-cargados.js, desde cero", async () => {
+  const otra = `${path.resolve("plugins-al-arrancar")}/`;
+  fs.mkdirSync(otra);
+  fs.writeFileSync(path.join(otra, "package.json"), JSON.stringify({ type: "module" }));
+  fs.writeFileSync(path.join(otra, "uno.js"), `export default { cmd: ["uno"] };`);
+  fs.writeFileSync(path.join(otra, "dos.js"), `const plugin = (m) => m;\nplugin.cmd = ["dos"];\nexport default plugin;`);
+  fs.writeFileSync(path.join(otra, "roto.js"), `export default { cmd: ["roto"] ;`);
+  fs.writeFileSync(path.join(otra, "nota.txt"), "no es un plugin");
+  const antes = cargados.plugins;
+  const errorReal = console.error;
+  const errores = [];
+  console.error = (...partes) => errores.push(partes.join(" "));
+  try {
+    cargados.plugins = { viejo: { cmd: ["viejo"] } };
+    await L.loadPlugins(otra);
+    assert.deepEqual(Object.keys(cargados.plugins).sort(), ["dos", "uno"]);
+    assert.deepEqual([cargados.plugins.uno.cmd, cargados.plugins.dos.cmd], [["uno"], ["dos"]]);
+    assert.equal(errores.length, 1);
+    assert.match(errores[0], /roto\.js/);
+  } finally {
+    console.error = errorReal;
+    cargados.plugins = antes;
+  }
 });

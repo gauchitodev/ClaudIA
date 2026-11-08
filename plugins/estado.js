@@ -10,6 +10,7 @@ import { leerBateria, estadoBateria } from "../lib/bateria.js";
 import { colaDescargas } from "../lib/cola-descargas.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
@@ -64,7 +65,7 @@ plugin.run = async (m, { client }) => {
     `📥 Descargas: ${descargas}`,
     `⏰ Pendientes: ${pendientes}`,
     `🗄️ Último backup: ${backup} · base: ${base}`,
-    `👥 Grupos: ${grupos} · usuarios: ${getTotalUsers()} · plugins: ${Object.keys(globalThis.plugins || {}).length}`,
+    `👥 Grupos: ${grupos} · usuarios: ${getTotalUsers()} · plugins: ${Object.keys(cargados.plugins || {}).length}`,
     `🗂️ Caché de grupos: ${cache}`,
     `🗃️ En memoria: ${enMemoria}`,
     `💾 Memoria: ${tamano(process.memoryUsage().rss)} · carga: ${os.loadavg()[0].toFixed(2)}`,

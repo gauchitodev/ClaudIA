@@ -8,6 +8,7 @@ import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
 import txt from "../lib/strings.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // The whole of handle-message, from the message as Baileys hands it over: the hooks in their order (hooksEnOrden,
 // load-functions.js) and then the command. The plugins of each test are the real ones (or a spy standing in for a
@@ -83,7 +84,7 @@ function llega(client, sender, texto) {
 test("lo que borra la moderación no corre como comando", async () => {
   const corrieron = [];
   const espia = (cmd) => ({ cmd: [cmd], run: async (m, { text }) => corrieron.push(`.${cmd} ${text}`) });
-  globalThis.plugins = { "_all-anti-links.js": carpeta["_all-anti-links.js"], "_anti-link-plus.js": carpeta["_anti-link-plus.js"], "dl-tiktok.js": espia("tt"), "tools-screenshot-web.js": espia("ss") };
+  cargados.plugins = { "_all-anti-links.js": carpeta["_all-anti-links.js"], "_anti-link-plus.js": carpeta["_anti-link-plus.js"], "dl-tiktok.js": espia("tt"), "tools-screenshot-web.js": espia("ss") };
   const client = cliente();
   const mandar = async (texto) => {
     globalThis.enviados = [];
@@ -106,7 +107,7 @@ test("lo que borra la moderación no corre como comando", async () => {
 test("lo que borra la moderación no llega a los juegos ni a los contadores, y un borrado igual sale de la memoria", async () => {
   const Tr = await import("../lib/trivia.js");
   const oyeron = [];
-  globalThis.plugins = {
+  cargados.plugins = {
     "_all-anti-links.js": carpeta["_all-anti-links.js"],
     "_manejador-lista-negra.js": carpeta["_manejador-lista-negra.js"],
     "_memoria-corta.js": carpeta["_memoria-corta.js"],
@@ -154,7 +155,7 @@ test("lo que borra la moderación no llega a los juegos ni a los contadores, y u
 // The greeting and the two jokes come after the moderation: ahead of it, a spam with a link got a greeting quoting it,
 // with the deleted link in sight, and whoever the blacklist was about to remove got greeted, or the "dame admin" joke.
 test("el saludo y los chistes no le contestan a lo que borra la moderación", async () => {
-  globalThis.plugins = {
+  cargados.plugins = {
     "_anti-Link-grupos-canales.js": carpeta["_anti-Link-grupos-canales.js"],
     "_manejador-lista-negra.js": carpeta["_manejador-lista-negra.js"],
     "_chatbot-events.js": carpeta["_chatbot-events.js"],
@@ -195,7 +196,7 @@ test("el saludo y los chistes no le contestan a lo que borra la moderación", as
 // that came right after was answered without it, and stored before it. The hooks are the real ones that write that
 // memory or answer from it, found by their marks, and the marketplace's.
 test("memoria corta: cada mensaje entra cuando llega, aunque los hooks de antes manden algo", async () => {
-  globalThis.plugins = Object.fromEntries(Object.entries(carpeta).filter(([archivo, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal || archivo === "_compraventa.js")));
+  cargados.plugins = Object.fromEntries(Object.entries(carpeta).filter(([archivo, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal || archivo === "_compraventa.js")));
   contextoChat.delete(GRUPO);
   const client = cliente({ turnos: true });
   await client.sendText(GRUPO, "(algo que Claudia acaba de mandar)"); // so the next send in this chat waits its turn
@@ -219,7 +220,7 @@ test(".id: lo usan los admins de WhatsApp y del bot y el owner; un moderador y e
   const OTRO = "120363000000000002@g.us";
   const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
   const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
-  globalThis.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
+  cargados.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
   const client = cliente();
   client.groupMetadata = async (id) => ({ id, subject: "Otro", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
   F.setRolGrupo(OTRO, CARLA, "admin");
@@ -245,7 +246,7 @@ test(".setcumple: lo usan los admins de WhatsApp y del bot y el owner; un modera
   const CUMPLES = "120363000000000061@g.us";
   const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
   const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
-  globalThis.plugins = { "cumple-set.js": carpeta["cumple-set.js"] };
+  cargados.plugins = { "cumple-set.js": carpeta["cumple-set.js"] };
   const client = cliente();
   client.groupMetadata = async (id) => ({ id, subject: "Cumples", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
   F.setRolGrupo(CUMPLES, CARLA, "admin");
@@ -273,7 +274,7 @@ test(".delcumple: lo usan los admins de WhatsApp y del bot y el owner; un modera
   const CUMPLES = "120363000000000062@g.us";
   const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
   const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
-  globalThis.plugins = { "cumple-del.js": carpeta["cumple-del.js"] };
+  cargados.plugins = { "cumple-del.js": carpeta["cumple-del.js"] };
   const client = cliente();
   client.groupMetadata = async (id) => ({ id, subject: "Cumples", participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
   F.setRolGrupo(CUMPLES, CARLA, "admin");
@@ -320,7 +321,7 @@ test(".modoadmin: .notagall y .sitagall le andan a cualquiera; el resto, solo a 
     await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
     return [...corrieron, ...globalThis.enviados.map((e) => e.msg?.text)];
   };
-  globalThis.plugins = { "grupo-notagall.js": carpeta["grupo-notagall.js"], "espia.js": espia("probar") };
+  cargados.plugins = { "grupo-notagall.js": carpeta["grupo-notagall.js"], "espia.js": espia("probar") };
   assert.match((await pide(BETO, ".notagall")).join("\n"), /^🔕 Listo/, "alguien sin rol se sale");
   assert.equal(noRecibeLlamados(MODO, [BETO]), true);
   assert.match((await pide(BETO, ".sitagall")).join("\n"), /^🔔 Listo/, "y vuelve");
@@ -329,7 +330,7 @@ test(".modoadmin: .notagall y .sitagall le andan a cualquiera; el resto, solo a 
   assert.deepEqual(await pide(BETO, ".noexiste"), [], "ni el aviso de que no existe");
   assert.deepEqual(await pide(ANA, ".probar"), [".probar"], "un admin de WhatsApp, sí");
   assert.deepEqual(await pide(HUGO, ".probar"), [".probar"], "un moderador del bot, también");
-  globalThis.plugins["otro-notagall.js"] = espia("notagall");
+  cargados.plugins["otro-notagall.js"] = espia("notagall");
   assert.deepEqual(await pide(BETO, ".notagall"), [], "con otro plugin del mismo comando que no se queda afuera, ninguno");
 });
 
@@ -348,7 +349,7 @@ test("en un grupo que lista a la gente por número, el bot se ve admin y reconoc
   for (const p of Object.values(gente)) F.initDataDB({ chat: PN, sender: p.lid, senderJid: p.jid, pushName: p.nombre });
   F.setRolGrupo(PN, gente.mod.lid, "mod");
   const corrieron = [];
-  globalThis.plugins = {
+  cargados.plugins = {
     "owner-get-user-data.js": carpeta["owner-get-user-data.js"],
     "_all-anti-links.js": carpeta["_all-anti-links.js"],
     "espia-bot-admin.js": { cmd: ["necesitoadmin"], botAdmin: true, run: async () => corrieron.push(".necesitoadmin") },
@@ -399,7 +400,7 @@ test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async ()
   const SIN_LISTA = "120363000000000004@g.us"; // one whose member list didn't come
   const [EVA, FEDE, DUENO] = ["300000000000007@lid", "300000000000008@lid", "300000000000006@lid"];
   F.initDataDB({ chat: "120363000000000005@g.us", sender: FEDE, senderJid: "59899000008@s.whatsapp.net", pushName: "Fede" }); // in another group only
-  globalThis.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
+  cargados.plugins = { "owner-get-user-data.js": carpeta["owner-get-user-data.js"] };
   const client = cliente();
   client.groupMetadata = async (id) => {
     if (id === SIN_LISTA) throw new Error("rate-overlimit");
@@ -433,7 +434,7 @@ test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async ()
 // comes after it.
 test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async () => {
   const client = cliente();
-  globalThis.plugins = Object.fromEntries(Object.entries(carpeta).filter(([, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal)));
+  cargados.plugins = Object.fromEntries(Object.entries(carpeta).filter(([, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal)));
   const grupo = "120363000000000016@g.us"; // a group of its own: the greeting goes at most every 30 minutes per group
   F.initDataDB({ chat: grupo, sender: ANA, senderJid: "", pushName: "Ana" });
   globalThis.enviados = [];
@@ -450,7 +451,7 @@ test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async 
 // the 3 days stayed warned, and .k inactivos could remove them.
 test("un mensaje atrasado, de alguien silenciado o un comando de cuando el bot estaba apagado le levanta el aviso de .inactivos", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const [CARLA, DANI, FEDE] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
   for (const [quien, nombre] of [[CARLA, "Carla"], [DANI, "Dani"], [FEDE, "Fede"]]) F.initDataDB({ chat: GRUPO, sender: quien, senderJid: "", pushName: nombre });
   for (const quien of [CARLA, DANI, FEDE]) F.marcarAvisoInactivo(GRUPO, [quien], Date.now() - 24 * 60 * 60 * 1000);
@@ -476,7 +477,7 @@ test("un mensaje atrasado, de alguien silenciado o un comando de cuando el bot e
 // with a banned link stayed warned, and could be removed. Without the "Volvió": that would quote what was deleted.
 test("lo que borra la moderación le levanta el aviso de .inactivos, sin sumar mensajes", async () => {
   const client = cliente();
-  globalThis.plugins = { "_all-anti-links.js": carpeta["_all-anti-links.js"], "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_all-anti-links.js": carpeta["_all-anti-links.js"], "_messsage-count.js": carpeta["_messsage-count.js"] };
   const grupo = "120363000000000026@g.us";
   const GABI = "300000000000010@lid";
   F.initDataDB({ chat: grupo, sender: GABI, senderJid: "", pushName: "Gabi" });
@@ -498,7 +499,7 @@ test("lo que borra la moderación le levanta el aviso de .inactivos, sin sumar m
 // their silence and their .afk in every group. The muted one's message wasn't deleted either.
 test("un mensaje que llega solo con el número no le pisa a nadie lo que tiene en sus grupos", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const [grupo, otro] = ["120363000000000021@g.us", "120363000000000022@g.us"];
   const [PN, LID] = ["59899000444@s.whatsapp.net", "300000000000444@lid"];
   client.groupMetadata = async (id) => ({ id, subject: "Grupo", addressingMode: "pn", participants: [{ id: PN, admin: null }, { id: "59800000001@s.whatsapp.net", lid: BOT, admin: "admin" }] });
@@ -519,7 +520,7 @@ test("un mensaje que llega solo con el número no le pisa a nadie lo que tiene e
 // could be removed having written.
 test("un mensaje que el bot no pudo descifrar le levanta el aviso de .inactivos, llegue en vivo o atrasado", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const grupo = "120363000000000023@g.us";
   const [EVA, GABI] = ["300000000000009@lid", "300000000000010@lid"];
   for (const [quien, nombre] of [[EVA, "Eva"], [GABI, "Gabi"]]) F.initDataDB({ chat: grupo, sender: quien, senderJid: "", pushName: nombre });
@@ -538,7 +539,7 @@ test("un mensaje que el bot no pudo descifrar le levanta el aviso de .inactivos,
 // before it closed could be removed without having been able to write.
 test("el aviso de que el grupo se cerró o se abrió cuenta para .inactivos, aunque llegue atrasado", async () => {
   const client = cliente();
-  globalThis.plugins = {};
+  cargados.plugins = {};
   const I = await import("../lib/inactivos.js");
   const DIA = 24 * 60 * 60 * 1000;
   const ahora = Date.now();
@@ -574,7 +575,7 @@ test("el aviso de que el grupo se cerró o se abrió cuenta para .inactivos, aun
 // message from B that came with only the number was deleted for A's silence, and gave A B's name.
 test("con un número reciclado, lo de cada uno queda con cada uno", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const grupo = "120363000000000027@g.us";
   const [A, B] = ["300000000000031@lid", "300000000000032@lid"];
   const [N, N2] = ["59899000731@s.whatsapp.net", "59899000732@s.whatsapp.net"];
@@ -600,7 +601,7 @@ test("con un número reciclado, lo de cada uno queda con cada uno", async () => 
 // N, kept N), and it comes off the others' (A, writing last with only the LID, was "the row of N" again).
 test("con un número reciclado, en otro orden, o con un mensaje que no trae el número", async () => {
   const client = cliente();
-  globalThis.plugins = {};
+  cargados.plugins = {};
   const grupo = "120363000000000032@g.us";
   const [A, B, C, D] = ["300000000000033@lid", "300000000000034@lid", "300000000000035@lid", "300000000000036@lid"];
   const [N, N2, M] = ["59899000733@s.whatsapp.net", "59899000734@s.whatsapp.net", "59899000735@s.whatsapp.net"];
@@ -624,7 +625,7 @@ test("con un número reciclado, en otro orden, o con un mensaje que no trae el n
 // person's message or one the bot couldn't decrypt made the next owner of that number look active.
 test("la presencia va bajo el número solo para lo que llega antes de anotarlo", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const grupo = "120363000000000033@g.us";
   const gente = [1, 2, 3, 4, 5].map((i) => [`30000000000004${i}@lid`, `5989900074${i}@s.whatsapp.net`]);
   client.groupMetadata = async (id) => ({ id, subject: "Grupo", participants: [...gente.map(([lid]) => ({ id: lid, admin: null })), { id: BOT, admin: "admin" }] });
@@ -648,7 +649,7 @@ test("la presencia va bajo el número solo para lo que llega antes de anotarlo",
 // someone with no number on record. Every answer went to that person's message count.
 test("un mensaje de Meta AI no se le cuenta a nadie", async () => {
   const client = cliente();
-  globalThis.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
+  cargados.plugins = { "_messsage-count.js": carpeta["_messsage-count.js"] };
   const grupo = "120363000000000028@g.us";
   for (const id of ["ABCDEF999751", "ABCDEF999752"]) await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: "867051314767696@bot" }, message: { conversation: "Soy Meta AI, ¿en qué te ayudo?" }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Meta AI", _upsertType: "notify", _llegada: Date.now() });
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE inGroup LIKE ?").get(`%${grupo}%`).n, 0, "nadie tiene mensajes en el grupo");
@@ -661,7 +662,7 @@ test("un mensaje de Meta AI no se le cuenta a nadie", async () => {
 // whoever was on the blacklist wasn't turned away (plugins/_detect-events.js). It leaves no row for anybody.
 test("un pedido para entrar que llega sin autor pasa igual por los hooks, y la lista negra lo rechaza", async () => {
   const client = cliente();
-  globalThis.plugins = { "_detect-events.js": carpeta["_detect-events.js"] };
+  cargados.plugins = { "_detect-events.js": carpeta["_detect-events.js"] };
   const grupo = "120363000000000030@g.us";
   const [PIDE, PN] = ["300000000000051@lid", "59899000751@s.whatsapp.net"];
   F.addToBlacklist(PN, "estafa", "admin", grupo, PIDE);
@@ -687,7 +688,7 @@ test("un pedido para entrar que llega sin autor pasa igual por los hooks, y la l
 // number away from the real one: the owner, whose number it was, stopped being the owner.
 test("un aviso del grupo con el dispositivo en la LID es de la misma persona", async () => {
   const client = cliente();
-  globalThis.plugins = {};
+  cargados.plugins = {};
   const grupo = "120363000000000031@g.us";
   const OWNER = `${configuracion.owners[0]}@s.whatsapp.net`;
   const DUENO = "300000000000061@lid";
@@ -703,7 +704,7 @@ test("un aviso del grupo con el dispositivo en la LID es de la misma persona", a
 test("un mensaje con solo la LID del owner tiene sus poderes una vez que WhatsApp lo confirma", async (t) => {
   const client = cliente();
   const vistos = [];
-  globalThis.plugins = { "quien.js": { cmd: ["quiensoy"], run: async (m, { isOwner }) => vistos.push(isOwner) } };
+  cargados.plugins = { "quien.js": { cmd: ["quiensoy"], run: async (m, { isOwner }) => vistos.push(isOwner) } };
   const OWNER = `${configuracion.owners[0]}@s.whatsapp.net`;
   const DUENO = "300000000000063@lid";
   F.initDataDB({ chat: GRUPO, sender: DUENO, senderJid: OWNER, pushName: "Dueño" });
@@ -725,7 +726,7 @@ test("quien escribe desde un número que cambió de dueño no tiene el rol del q
   db.prepare("INSERT INTO users (lid, jid, pushName, timestamp) VALUES (?, ?, ?, ?)").run(VIEJO, X, "Viejo", 1);
   F.setRolGrupo(PN, VIEJO, "mod");
   const corrieron = [];
-  globalThis.plugins = { "espia-mod.js": { cmd: ["solomods"], onlyMod: true, run: async () => corrieron.push(".solomods") } };
+  cargados.plugins = { "espia-mod.js": { cmd: ["solomods"], onlyMod: true, run: async () => corrieron.push(".solomods") } };
   const client = cliente();
   client.groupMetadata = async (id) => ({ id, subject: "Por número", addressingMode: "pn", participants: [{ id: Y, lid: VIEJO, admin: null }, { id: X, admin: null }, { id: client.user.jid, lid: BOT, admin: "admin" }] });
   globalThis.enviados = [];
@@ -752,7 +753,7 @@ const enLaMemoria = (chat = TARDE) => (contextoChat.get(chat) || []).map((e) => 
 test("lo atrasado entra en la memoria con la hora en que se mandó, sin pasar por los hooks, sin contestarse ni correr", async () => {
   const oyeron = [];
   const corrieron = [];
-  globalThis.plugins = {
+  cargados.plugins = {
     "_memoria-corta.js": carpeta["_memoria-corta.js"],
     "zz-espia.js": { before: async (m) => oyeron.push(m.text) },
     "zz-perfil.js": { cmd: ["perfil"], run: async () => corrieron.push("perfil") },
@@ -776,7 +777,7 @@ test("lo atrasado entra en la memoria con la hora en que se mandó, sin pasar po
 });
 
 test("un borrado o una edición atrasados se aplican en la memoria; la edición de otro no", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   contextoChat.delete(TARDE);
   const borrar = tarde(client, ANA, { conversation: "esto lo voy a borrar" }, { hace: 0 });
@@ -791,7 +792,7 @@ test("un borrado o una edición atrasados se aplican en la memoria; la edición 
 });
 
 test("lo atrasado que la moderación habría borrado no entra en la memoria, y tampoco se borra", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   contextoChat.delete(TARDE);
   const [CARLA, DANI] = ["300000000000084@lid", "300000000000085@lid"];
@@ -817,7 +818,7 @@ test("lo atrasado que la moderación habría borrado no entra en la memoria, y t
 });
 
 test("lo atrasado de un privado no se guarda, pero un borrado atrasado sí se aplica", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   const privado = ANA;
   contextoChat.delete(privado);
@@ -830,7 +831,7 @@ test("lo atrasado de un privado no se guarda, pero un borrado atrasado sí se ap
 });
 
 test("lo que borra alguien silenciado igual sale de la memoria", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   contextoChat.delete(TARDE);
   const EMA = "300000000000086@lid";
@@ -849,7 +850,7 @@ test("lo que borra alguien silenciado igual sale de la memoria", async () => {
 });
 
 test("lo atrasado con la hora como Long de protobuf entra con la hora correcta", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   contextoChat.delete(TARDE);
   const enviado = ahoraS() - 600;
@@ -859,7 +860,7 @@ test("lo atrasado con la hora como Long de protobuf entra con la hora correcta",
 });
 
 test("un mensaje con la hora adelantada entra en la memoria como de ahora", async () => {
-  globalThis.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
+  cargados.plugins = { "_memoria-corta.js": carpeta["_memoria-corta.js"] };
   const client = cliente();
   contextoChat.delete(TARDE);
   const { id, hecho } = tarde(client, ANA, { conversation: "del futuro" }, { messageTimestamp: ahoraS() + 3600 });
@@ -874,7 +875,7 @@ test("un mensaje con la hora adelantada entra en la memoria como de ahora", asyn
 test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las jugadas, ni rendirse ni cancelar", async (t) => {
   const C4 = await import("../lib/cuatro-en-linea.js");
   const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js"];
-  globalThis.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
   const client = cliente();
   // An hour that starts two hours from now never includes now.
   const desde = (new Date().getHours() + 2) % 24;
@@ -910,7 +911,7 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
   const C4 = await import("../lib/cuatro-en-linea.js");
   const JA = await import("../lib/juegos-apagados.js");
   const archivos = ["fun-4enlinea.js", "fun-4enlinea-del.js", "fun-rendirse.js", "fun-ttt.js", "fun-ttt-del.js", "_fun-ttt.js", "juego.js"];
-  globalThis.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
   const client = cliente();
   t.after(() => {
     F.updateChat(GRUPO, { juegosApagados: "[]", games: 1 });
@@ -960,7 +961,7 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
 // "..pero", and the bot answered that it doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.
 test("el despachador: a lo que no es un comando no le contesta, y a lo que parece uno y no existe, sí", async () => {
   const corrieron = [];
-  globalThis.plugins = { "probar.js": { cmd: ["probar"], run: async (m, { text, textoCompleto, command }) => corrieron.push({ command, text, textoCompleto }) } };
+  cargados.plugins = { "probar.js": { cmd: ["probar"], run: async (m, { text, textoCompleto, command }) => corrieron.push({ command, text, textoCompleto }) } };
   const client = cliente();
   const mandar = async (texto) => {
     globalThis.enviados = [];
@@ -988,7 +989,7 @@ test("el despachador: a lo que no es un comando no le contesta, y a lo que parec
 
 // Before admin mode and the banned notice: a banned person who wrote "..." or mentioned someone got "ESTÁS BANEADO".
 test("el despachador: a un baneado que escribe «...» o menciona a alguien no le llega el aviso de baneado", async () => {
-  globalThis.plugins = { "probar.js": { cmd: ["probar"], run: async () => {} } };
+  cargados.plugins = { "probar.js": { cmd: ["probar"], run: async () => {} } };
   const client = cliente();
   F.updateUser(BETO, { banned: true, lastmining: 0 });
   try {
@@ -1007,7 +1008,7 @@ test("el despachador: a un baneado que escribe «...» o menciona a alguien no l
 
 // Through the dispatcher, the rules keep their lines: they were joined into one, though the plugin kept what it got.
 test("el despachador: un .reglas set en varias líneas se guarda con sus saltos de línea", async () => {
-  globalThis.plugins = { "grupo-reglas.js": carpeta["grupo-reglas.js"] };
+  cargados.plugins = { "grupo-reglas.js": carpeta["grupo-reglas.js"] };
   const client = cliente();
   F.setRolGrupo(GRUPO, ANA, "admin");
   try {

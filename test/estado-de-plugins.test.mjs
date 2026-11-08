@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepararBase } from "./helpers.mjs";
 import txt from "../lib/strings.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // What a plugin keeps through a reload of its file (lib/estado-de-plugins.js). load-functions.js imports the file again
 // as a new module when it changes: the round in play stayed in the old module, the new one didn't hear its answers,
@@ -15,7 +16,7 @@ before(async () => {
   await prepararBase("estado-de-plugins");
   E = await import("../lib/estado-de-plugins.js");
   L = await import("../load-functions.js");
-  globalThis.plugins = {};
+  cargados.plugins = {};
   console.log = () => {}; // each reload says so
 });
 after(() => {
@@ -25,7 +26,7 @@ after(() => {
 // The plugin as the bot has it after the file was saved: a module of its own (recargarPlugin, load-functions.js).
 async function recargar(archivo) {
   await L.recargarPlugin(archivo, "change", PLUGINS);
-  return globalThis.plugins[archivo.replace(".js", "")];
+  return cargados.plugins[archivo.replace(".js", "")];
 }
 // A client that keeps what goes out; each message comes back with an id, as the real one's do.
 function cliente() {

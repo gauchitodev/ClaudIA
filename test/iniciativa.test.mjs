@@ -4,6 +4,7 @@ import { prepararBase } from "./helpers.mjs";
 import strings from "../lib/strings.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // what the plugins keep through a reload of their file, the same objects (lib/estado-de-plugins.js)
 const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // Claudia's pace in each chat
@@ -458,8 +459,8 @@ test("ambiente: un mensaje que arranca con una mención no es un comando", async
 // which skipped anything that started with a prefix.
 test("vistazos: lo que le dicen a Sol entra y un comando no, por la marca de la memoria", async () => {
   const chat = nuevoGrupo();
-  const pluginsReales = globalThis.plugins;
-  globalThis.plugins = { ...(pluginsReales || {}), "aero.js": { cmd: ["sol"] } };
+  const pluginsReales = cargados.plugins;
+  cargados.plugins = { ...(pluginsReales || {}), "aero.js": { cmd: ["sol"] } };
   try {
     C.recordarMensaje(chat, "Ana", "@Sol ¿venís al cumple?", false, { id: "SOL1", usuario: "Ana@lid", participant: "Ana@lid", fecha: AHORA - 2 * MIN, comando: false });
     C.recordarMensaje(chat, "Beto", ".sol montevideo", false, { id: "SOL2", usuario: "Beto@lid", participant: "Beto@lid", fecha: AHORA - MIN, comando: true });
@@ -468,7 +469,7 @@ test("vistazos: lo que le dicen a Sol entra y un comando no, por la marca de la 
     await OwnerVistazo.run({ chat, isGroup: true, sender: "100@lid", senderJid: "59899100100@s.whatsapp.net", id: "SOL3" }, { client, args: ["reaccion"], isOwner: true });
     assert.match(client.salidas.at(-1).contenido.text, /mensaje SOL1 de Ana/);
   } finally {
-    globalThis.plugins = pluginsReales;
+    cargados.plugins = pluginsReales;
   }
 });
 
@@ -485,21 +486,21 @@ test("comandos: .vistazo es para admins, con un vistazo cada tanto; el owner no 
   await OwnerVistazo.run(m, { client, args: ["prueba"], isOwner: false });
   assert.match(alGrupo(), /Recién miré el grupo; esperá (9|10) min para pedir otro vistazo\./);
   // saving the plugin's file doesn't hand out another glance: the wait is kept in lib/estado-de-plugins.js
-  const pluginsAntes = globalThis.plugins;
+  const pluginsAntes = cargados.plugins;
   const logReal = console.log;
-  globalThis.plugins = {};
+  cargados.plugins = {};
   console.log = () => {};
   try {
     const { recargarPlugin } = await import("../load-functions.js");
     await recargarPlugin("owner-vistazo.js", "change", `${new URL("../plugins/", import.meta.url).pathname}`);
-    assert.notEqual(globalThis.plugins["owner-vistazo"], OwnerVistazo, "un módulo nuevo, como al guardar el archivo");
+    assert.notEqual(cargados.plugins["owner-vistazo"], OwnerVistazo, "un módulo nuevo, como al guardar el archivo");
     const yaSalidas = client.salidas.length;
-    await globalThis.plugins["owner-vistazo"].run(m, { client, args: ["prueba"], isOwner: false });
+    await cargados.plugins["owner-vistazo"].run(m, { client, args: ["prueba"], isOwner: false });
     // its answer, to the group: the wait, and no report to the admin's private chat
     assert.deepEqual([client.salidas.length, client.salidas.at(-1).jid], [yaSalidas + 1, chat]);
     assert.match(client.salidas.at(-1).contenido.text, /Recién miré el grupo; esperá (9|10) min para pedir otro vistazo\./);
   } finally {
-    globalThis.plugins = pluginsAntes;
+    cargados.plugins = pluginsAntes;
     console.log = logReal;
   }
   const antes = client.salidas.length;

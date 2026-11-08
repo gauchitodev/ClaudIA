@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso } from "./helpers.mjs";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // .agedist (.distedad, .edades): how the group's ages spread, from the birthdays noted with the year
 // (lib/cumpleanos.js, plugins/cumple-edades.js). Each test in a group of its own, on a day of its own.
@@ -114,11 +115,11 @@ test(".agedist: tramos de 5 o de n, de 1 a 20; otra cosa explica el uso; sin arr
   }
   // with a space after the dot, the parser takes only a command a loaded plugin declares, as in the bot
   const { parsearComando } = await import("../lib/comandos.js");
-  const antes = globalThis.plugins;
-  globalThis.plugins = { "cumple-edades.js": Plugin };
+  const antes = cargados.plugins;
+  cargados.plugins = { "cumple-edades.js": Plugin };
   try {
     for (const escrito of [".edades 2", ".distedad", ". agedist", ".AGEDIST 3"]) assert.ok(Plugin.cmd.includes(parsearComando(escrito, ["."])?.comando), escrito);
   } finally {
-    globalThis.plugins = antes;
+    cargados.plugins = antes;
   }
 });

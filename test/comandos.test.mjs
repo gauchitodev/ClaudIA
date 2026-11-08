@@ -1,6 +1,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, clienteFalso, fijarSaldo } from "./helpers.mjs";
+import { cargados } from "../lib/plugins-cargados.js";
 
 // What a command is, read from a message's text the same way everywhere (lib/comandos.js), and what the commands get:
 // the text as typed for the ones that send or keep it, and amounts as people write them here ("1.000" is a thousand).
@@ -48,8 +49,8 @@ test("parsearComando: el prefijo con el nombre pegado, limpio, y el texto en una
 // It is again, read exactly as the command against the prefix, but only for a command that exists: with a space,
 // ". hola" is still someone talking. A command that is also a word counts all the same (". no sé" is .no).
 test("parsearComando: con espacios después del prefijo, un comando que existe se lee igual que pegado; lo demás es charla", () => {
-  const antes = globalThis.plugins;
-  globalThis.plugins = { p: { cmd: ["actividad", "menu", "no", "s", "4enlinea", "resumen"] } };
+  const antes = cargados.plugins;
+  cargados.plugins = { p: { cmd: ["actividad", "menu", "no", "s", "4enlinea", "resumen"] } };
   try {
     for (const [conEspacio, pegado] of [
       [". actividad", ".actividad"],
@@ -72,7 +73,7 @@ test("parsearComando: con espacios después del prefijo, un comando que existe s
     }
     assert.deepEqual([". actividad", "@ menu", ". hola", ". hola que tal", "@ ana"].map((t) => C.esComando(t)), [true, true, false, false, false]);
   } finally {
-    globalThis.plugins = antes;
+    cargados.plugins = antes;
   }
   // without the plugins loaded (start-process.js reads chat with this too), nothing after a space is a command
   assert.equal(C.parsearComando(". actividad", PREFIJOS), null);
@@ -84,13 +85,13 @@ test("pareceComando: letras, números o «@», y alguna letra", () => {
 });
 
 test("esComando: lo que declara un plugin, o tras «.» o «/» un nombre que lo parece; con «@», solo lo declarado", () => {
-  const antes = globalThis.plugins;
-  globalThis.plugins = { menu: { cmd: ["menu", "18"] } };
+  const antes = cargados.plugins;
+  cargados.plugins = { menu: { cmd: ["menu", "18"] } };
   try {
     for (const texto of [".menu", "@menu", ".18", "@18", ".cualquiercosa", "/cualquiercosa"]) assert.equal(C.esComando(texto), true, texto);
     for (const texto of ["...pero bueno", ". hola", ".5 kilos", "@59899000001 hola", "@cualquiercosa", ".foo_bar", "hola", ""]) assert.equal(C.esComando(texto), false, texto);
   } finally {
-    globalThis.plugins = antes;
+    cargados.plugins = antes;
   }
 });
 
