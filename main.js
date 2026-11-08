@@ -32,6 +32,11 @@ let intentosReconexion = 0;
 const MAX_REINTENTOS = 5;
 let reconectando = false;
 let yaConectoAlgunaVez = false;
+// Once per process, however many times a reconnect runs startBot again: the owner's startup notice, and the plugins'
+// watcher. They were globals: main.js runs once per process (start-process.js forks it), so its own variables last
+// as long.
+let avisoArranqueEnviado = false;
+let watchPluginsIniciado = false;
 let horaConexion = 0;
 
 async function startBot() {
@@ -126,8 +131,8 @@ async function startBot() {
       if (yaConectoAlgunaVez) vaciar();
       yaConectoAlgunaVez = true;
       // Notify the owner: on process start, and when coming back from a long outage.
-      if (!globalThis.avisoArranqueEnviado) {
-        globalThis.avisoArranqueEnviado = true;
+      if (!avisoArranqueEnviado) {
+        avisoArranqueEnviado = true;
         avisarOwner(`Arranqué (${configuracion.botVersion}, Node ${process.version}). Si no me reiniciaste vos, me reinicié sola.`, "arranque");
       } else if (conexion.horaCaida && Date.now() - conexion.horaCaida > 5 * 60 * 1000) {
         avisarOwner(`Volví después de ${Math.round((Date.now() - conexion.horaCaida) / 60000)} min sin conexión.`, "reconexion");
@@ -135,9 +140,9 @@ async function startBot() {
       conexion.horaCaida = 0;
       // The watcher is registered once: it used to re-register on every reconnect,
       // so each plugin change reloaded several times.
-      if (!globalThis.watchPluginsIniciado) {
+      if (!watchPluginsIniciado) {
         watchPlugins();
-        globalThis.watchPluginsIniciado = true;
+        watchPluginsIniciado = true;
       }
     }
   });

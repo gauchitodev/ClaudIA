@@ -12,7 +12,9 @@ const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map());
 // nothing fits; at random only when the AI can't choose. .respuestastickers off stops the answers (they're still kept). A sticker the moderation deleted (a muted person, the blacklist) never
 // gets here (handle-message.js). The hooks run one after the other, so the download, the pause and the send go on
 // their own: waited here, they held up every hook behind this one, and the command, for seconds.
-const ultimaRespuesta = new Map(); // chat -> when she last answered a sticker with one
+// When she last answered a sticker with one, in each chat: in lib/estado-de-plugins.js, so that a reload of this file
+// doesn't let her answer the next one right away.
+const ultimaRespuesta = estadoDe("_stickers-grupo", () => new Map());
 
 // Whether a sticker answering her gets one back: her chat on, nothing closing the door (the same ones as
 // plugins/_auto-ia.js), not too soon, and not always.

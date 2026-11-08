@@ -114,10 +114,10 @@ test("la lista de globales no tiene ninguno que el código ya no use", async () 
   assert.equal(new Set(listados).size, listados.length, "sin repetidos");
 });
 
-// Each lib/ module keeps its own state, and loading all of them leaves on globalThis only modeloActivo, the process's
-// (lib/ia.js): Claudia's pace, which lib/vistazos.js shares with two plugins, is in lib/estado-de-plugins.js. The lint
-// sees globalThis.name written out, not a name in brackets or built at run time. In a process of its own: here, half of
-// lib/ is loaded already.
+// Each lib/ module keeps its own state, and loading all of them leaves nothing on globalThis: the model answering is
+// lib/ia.js's (modeloActivo), the connection lib/conexion.js's, and Claudia's pace, which lib/vistazos.js shares with
+// two plugins, is in lib/estado-de-plugins.js. The lint sees globalThis.name written out, not a name in brackets or
+// built at run time. In a process of its own: here, half of lib/ is loaded already.
 test("cargar lib/ no deja su estado en globalThis", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-globales-lib-"));
   try {
@@ -129,7 +129,7 @@ test("cargar lib/ no deja su estado en globalThis", () => {
     `;
     const r = spawnSync(process.execPath, ["--input-type=module", "-e", codigo], { cwd: dir, encoding: "utf8", timeout: 60_000, env: { ...process.env, TMPDIR: dir } });
     assert.equal(r.status, 0, r.stderr);
-    assert.deepEqual(JSON.parse(r.stdout.trim().split("\n").at(-1)), ["modeloActivo"]);
+    assert.deepEqual(JSON.parse(r.stdout.trim().split("\n").at(-1)), []);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

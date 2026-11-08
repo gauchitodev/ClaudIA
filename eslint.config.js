@@ -13,9 +13,8 @@ import * as url from "node:url";
 // version) are imported from lib/configuracion.js, and the WhatsApp connection from lib/conexion.js. The globals used
 // bare are another such list, below.
 export const EN_GLOBALTHIS = {
-  // The process: the plugins (load-functions.js swaps them on a reload), the AI model answering (lib/ia.js), and two
-  // marks of main.js's start.
-  proceso: ["avisoArranqueEnviado", "modeloActivo", "plugins", "watchPluginsIniciado"],
+  // The process: the plugins, which load-functions.js swaps on a reload.
+  proceso: ["plugins"],
 };
 const PERMITIDOS = Object.values(EN_GLOBALTHIS).flat().join("|");
 

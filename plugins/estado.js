@@ -4,6 +4,7 @@ import { contarPendientesPorTipo, getTotalUsers } from "../database-functions.js
 import { ultimoBackup, tamano } from "../lib/backup.js";
 import { duracion, textoFecha } from "../lib/tiempo.js";
 import { modelosEnPausa } from "../lib/gemini.js";
+import { modeloActivo } from "../lib/ia.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
 import { colaDescargas } from "../lib/cola-descargas.js";
@@ -21,7 +22,7 @@ plugin.run = async (m, { client }) => {
   const conectada = conexion.horaConexion ? duracion(ahora - conexion.horaConexion) : "?";
 
   const enPausa = modelosEnPausa(ahora).map((p) => `${p.modelo} (vuelve en ${duracion(p.faltaMs)})`);
-  const ia = `${globalThis.modeloActivo || "todavía no respondió ninguno"}${enPausa.length ? ` · en pausa por cuota: ${enPausa.join(", ")}` : ""}`;
+  const ia = `${modeloActivo() || "todavía no respondió ninguno"}${enPausa.length ? ` · en pausa por cuota: ${enPausa.join(", ")}` : ""}`;
 
   const descargas = `${colaDescargas.procesando ? "1 en curso" : "ninguna en curso"}, ${colaDescargas.tareas.length} en cola`;
 

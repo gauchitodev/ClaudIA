@@ -265,3 +265,24 @@ test(".ia: si el «escribiendo…» falla, contesta igual", async () => {
   await Ia.run({ chat: "presencia@g.us" }, { client, text: "hola" });
   assert.equal(ultimoEnviado().msg.text, `soy ${G.MODELOS[0]}`);
 });
+
+// The model that answered last is lib/ia.js's (modeloActivo; it was a global): it follows the one that answers, a
+// change comes back once in cambioModelo, and .estado shows it.
+test("preguntarIA anota el modelo que contestó, avisa una vez cuando cambia, y .estado lo muestra", async () => {
+  // A copy of lib/ia.js of its own, as the process starts: none yet, and the first one isn't a change.
+  const DeCero = await import(`../lib/ia.js?de-cero=${Date.now()}`);
+  assert.equal(DeCero.modeloActivo(), null);
+  assert.equal((await DeCero.preguntarIA("hola")).cambioModelo, null);
+  assert.equal(DeCero.modeloActivo(), G.MODELOS[0]);
+  await IA.preguntarIA("hola");
+  assert.equal(IA.modeloActivo(), G.MODELOS[0]);
+  respuestas = { [G.MODELOS[0]]: 429 }; // paused: the next one answers
+  let r = await IA.preguntarIA("hola");
+  assert.deepEqual([r.ok, IA.modeloActivo(), r.cambioModelo], [true, G.MODELOS[1], G.MODELOS[1]]);
+  r = await IA.preguntarIA("hola");
+  assert.deepEqual([IA.modeloActivo(), r.cambioModelo], [G.MODELOS[1], null], "el mismo: nada que avisar");
+  const Estado = (await import("../plugins/estado.js")).default;
+  const client = { ...clienteFalso(), groupFetchAllParticipating: async () => ({}), chats: {} };
+  await Estado.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+  assert.ok(ultimoEnviado().msg.text.includes(`\n🧠 IA: ${G.MODELOS[1]} · en pausa por cuota: ${G.MODELOS[0]}`), ultimoEnviado().msg.text);
+});

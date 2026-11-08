@@ -414,3 +414,23 @@ test("si recién dijo algo en la charla, no contesta un sticker; pasados los 20 
   await Hook.enCurso;
   assert.equal(globalThis.enviados.length, 1, "pasados los 20 s, sí");
 });
+
+// The pause between two answers is in lib/estado-de-plugins.js: a reload of the plugin's file (load-functions.js
+// imports it as a new module) used to forget it, and the next sticker for her got one back right away.
+test("la pausa entre dos stickers de respuesta sobrevive a una recarga del plugin", async () => {
+  const chat = nuevoGrupo();
+  for (const c of ["recarga-1", "recarga-2", "recarga-3"]) S.guardarSticker(chat, "x", webp(c));
+  const permisos = { client: clienteFalso(), chat: {}, user: {}, isMod: false, isOwner: false };
+  S._dep.random = () => 0.1;
+  ritmoDeClaudia.delete(chat);
+  globalThis.enviados = [];
+  await Hook.before(stickerDe(chat, webp("a-ella-recarga"), { quoted: { fromMe: true, id: "BOT-RECARGA-1" } }), permisos);
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 1, "contesta el primero");
+  // Her pace after that sticker would stop the next one too: out of the way, the pause is what's left.
+  ritmoDeClaudia.delete(chat);
+  const Recargado = (await import(`../plugins/_stickers-grupo.js?recarga=${Date.now()}`)).default;
+  await Recargado.before(stickerDe(chat, webp("a-ella-recarga"), { quoted: { fromMe: true, id: "BOT-RECARGA-2" } }), permisos);
+  await Recargado.enCurso;
+  assert.equal(globalThis.enviados.length, 1, "recargado, no contesta el siguiente enseguida");
+});

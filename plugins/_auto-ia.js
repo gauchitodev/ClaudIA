@@ -1,4 +1,4 @@
-import { preguntarIA } from "../lib/ia.js";
+import { preguntarIA, modeloActivo } from "../lib/ia.js";
 import { preguntarGemini } from "../lib/gemini.js";
 import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
@@ -303,7 +303,7 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
       // lib/respaldo-ia.js): this is in case one of them stops doing it.
       const motivo = String(e.message).split('"')[0].replace(/[,\s]+$/, "");
       const largo = String(resultado.texto || "").length;
-      console.error(`[auto-ia] La IA (${globalThis.modeloActivo || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);
+      console.error(`[auto-ia] La IA (${modeloActivo() || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);
       await avisarFalla("Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅");
       return;
     }

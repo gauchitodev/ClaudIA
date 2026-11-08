@@ -94,3 +94,19 @@ test("main.js pone cada socket nuevo en lib/conexion.js, y c처mo anda la conexi�
   assert.equal((await enLaRama("open", "horaConexion")).length, 1, "la hora en que se abri처");
   assert.equal((await enLaRama("close", "horaCaida")).length, 1, "la hora en que se cay처");
 });
+
+// The startup notice and the plugins' watcher go once per process: their marks are variables of main.js itself, which
+// runs once per process. Declared in startBot, which each reconnect runs again, the watcher was registered once more
+// on each one, and every change of a plugin reloaded it as many times. They were globals.
+test("main.js avisa que arranc처 y prende el vigilante de los plugins una vez por proceso, no en cada reconexi처n", async () => {
+  const main = fs.readFileSync(new URL("../main.js", import.meta.url), "utf8");
+  const ABIERTA = 'CallExpression[callee.property.name="on"][arguments.0.value="connection.update"] IfStatement[test.right.value="open"] > BlockStatement.consequent';
+  for (const [marca, llamada] of [["avisoArranqueEnviado", "avisarOwner"], ["watchPluginsIniciado", "watchPlugins"]]) {
+    assert.equal((await nodosQue(`VariableDeclarator[id.name="${marca}"]`, main)).length, 1, `${marca}, declarada una sola vez`);
+    assert.equal((await nodosQue(`Program > VariableDeclaration > VariableDeclarator[id.name="${marca}"][init.value=false]`, main)).length, 1, `${marca}, del m처dulo`);
+    const SI = `${ABIERTA} IfStatement[test.operator="!"][test.argument.name="${marca}"]`;
+    assert.equal((await nodosQue(SI, main)).length, 1, `al abrirse, ${marca} decide`);
+    assert.equal((await nodosQue(`${SI} > BlockStatement.consequent AssignmentExpression[left.name="${marca}"][right.value=true]`, main)).length, 1, `y la deja puesta`);
+    assert.equal((await nodosQue(`${SI} > BlockStatement.consequent CallExpression[callee.name="${llamada}"]`, main)).length, 1, `${llamada}, solo la primera vez`);
+  }
+});
