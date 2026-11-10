@@ -6,6 +6,11 @@ import { conexion } from "../lib/conexion.js";
 
 let F, C, Reg, HG, Pf, Hook, Cmd, Cal;
 const DIA = 24 * 3600e3;
+// The questions and the take-downs go out in a round a day, from 11 to 21 local time: today at this hour, whatever the
+// time the tests run at. Today and not a date of its own: a pass goes over every group, and seen from a far day every
+// other test's posts would be due. "Today" is the day the file started on, should midnight come halfway.
+const INICIO = Date.now();
+const hoyALas = (hora, minutos = 0) => new Date(INICIO).setHours(hora, minutos, 0, 0);
 before(async () => {
   ({ F } = await prepararBase("compraventa"));
   C = await import("../lib/compraventa.js");
@@ -114,21 +119,21 @@ test("compraventa: estados, permisos y vencimiento", async () => {
   assert.equal(F.getPublicacion(chat, 3).estado, "cerrada");
   await en("111@lid", "baja", "x");
   assert.match(ultimo(), /¿Cuál\? Respondé a la publicación y escribí \.baja, o poné el número/);
-  const ahora = Date.now();
+  const ahora = hoyALas(13);
   F.actualizarPublicacion(chat, 4, { actualizada: ahora - 8 * DIA });
   // What each pass sends to this group: a pass goes over every group, and another test's posts may be due as well.
   const aEsteGrupo = () => globalThis.enviados.filter((e) => e.chat === chat).map((e) => e.msg.text);
   globalThis.enviados = [];
   await C.chequearPublicaciones(ahora);
   assert.equal(aEsteGrupo().length, 1);
-  assert.match(aEsteGrupo()[0], /❓ @222, ¿sigue en pie tu vendo #4 \(silla de oficina \$ 2\.500\)\?/);
+  assert.equal(aEsteGrupo()[0], "❓ @222, ¿sigue en pie tu vendo #4 (silla de oficina $ 2.500)? Respondé *sigue 4* para mantenerla, o *vendido 4* / *baja 4*. Si no, en 2 días la doy de baja.");
   assert.ok(F.getPublicacion(chat, 4).aviso > 0);
   await C.chequearPublicaciones(ahora + DIA);
   assert.equal(aEsteGrupo().length, 1, "todavía no venció el plazo para contestar");
   await C.chequearPublicaciones(ahora + 3 * DIA);
   assert.equal(F.getPublicacion(chat, 4).estado, "vencida");
   assert.equal(aEsteGrupo().length, 2);
-  assert.match(aEsteGrupo()[1], /⌛ Di de baja la #4 de @222 por falta de respuesta/);
+  assert.equal(aEsteGrupo()[1], "⌛ Di de baja la #4 de @222 por falta de respuesta. Si sigue en pie, *sigue 4* la vuelve a activar.");
   await en("222@lid", "sigue", "4");
   assert.deepEqual([F.getPublicacion(chat, 4).estado, F.getPublicacion(chat, 4).aviso], ["activa", 0]);
   for (let i = 0; i < 10; i++) await en("333@lid", "vendo", `cosa ${i} $ 100`);
@@ -413,14 +418,14 @@ test("compraventa: el «¿sigue en pie?» se contesta renovando, también una re
   // .sigue on an active post answered "ya está activa" and changed nothing: two days later it was taken down for lack
   // of an answer. A reserved one couldn't keep its reservation either (.sigue frees it, .reservado said "ya está").
   const V = "vigencia@g.us";
-  const ahora = Date.now();
+  const ahora = hoyALas(13);
   const preguntas = [];
   const cliente2 = { sendMessage: async (chat, mensaje) => (chat === V && preguntas.push(mensaje.text), { key: { id: "x" } }) };
 
   const activa = C.publicar(V, "777@lid", "vendo", "bici playera $ 2.000").numero;
   F.actualizarPublicacion(V, activa, { actualizada: ahora - 8 * DIA });
   await C.chequearPublicaciones(ahora, cliente2);
-  assert.match(preguntas.at(-1), new RegExp(`Respondé \\.sigue ${activa} para mantenerla, o \\.vendido`));
+  assert.match(preguntas.at(-1), new RegExp(`Respondé \\*sigue ${activa}\\* para mantenerla, o \\*vendido`));
   assert.equal(C.cambiarEstado(V, activa, "777@lid", false, "sigue", ahora).mensaje, `👍 La #${activa} sigue activa. Te vuelvo a preguntar en ${C.COMPRAVENTA.DIAS_VIGENCIA} días.`);
   await C.chequearPublicaciones(ahora + 3 * DIA, cliente2);
   assert.equal(F.getPublicacion(V, activa).estado, "activa", "no la dio de baja");
@@ -429,7 +434,7 @@ test("compraventa: el «¿sigue en pie?» se contesta renovando, también una re
   C.cambiarEstado(V, reservada, "777@lid", false, "reservado", ahora);
   F.actualizarPublicacion(V, reservada, { actualizada: ahora - 8 * DIA });
   await C.chequearPublicaciones(ahora, cliente2);
-  assert.match(preguntas.at(-1), new RegExp(`Respondé \\.reservado ${reservada} para mantenerla reservada, \\.sigue ${reservada} si vuelve a estar libre`));
+  assert.match(preguntas.at(-1), new RegExp(`Respondé \\*reservado ${reservada}\\* para mantenerla reservada, \\*sigue ${reservada}\\* si vuelve a estar libre`));
   assert.equal(C.cambiarEstado(V, reservada, "777@lid", false, "reservado", ahora).mensaje, `🔒 La #${reservada} sigue reservada. Te vuelvo a preguntar en ${C.COMPRAVENTA.DIAS_VIGENCIA} días.`);
   assert.deepEqual([F.getPublicacion(V, reservada).estado, F.getPublicacion(V, reservada).aviso], ["reservada", 0]);
   assert.match(C.cambiarEstado(V, reservada, "777@lid", false, "sigue", ahora).mensaje, /sigue activa/, ".sigue la libera, como antes");
@@ -480,19 +485,20 @@ test("compraventa: un .vendo bloqueado con .bladd tampoco se publica con #vendo 
 });
 
 // A pass that outlasted the 5 minutes left the next one listing the posts it hadn't reached yet: both asked the seller.
-test("compraventa: dos pasadas superpuestas preguntan una sola vez por cada publicación", async () => {
+test("compraventa: dos pasadas superpuestas le preguntan una sola vez a cada uno", async () => {
   const P = "pasadas@g.us";
-  F.initDataDB({ chat: P, sender: "111@lid", senderJid: "" });
-  const ahora = Date.now();
-  for (let i = 0; i < 6; i++) F.actualizarPublicacion(P, C.publicar(P, "111@lid", "vendo", `cosa ${i} $ 100`).numero, { actualizada: ahora - 8 * DIA });
+  const gente = ["111@lid", "222@lid", "333@lid"];
+  for (const quien of gente) F.initDataDB({ chat: P, sender: quien, senderJid: "" });
+  const ahora = hoyALas(13);
+  for (const quien of gente) for (const cosa of ["mesa", "silla"]) F.actualizarPublicacion(P, C.publicar(P, quien, "vendo", `${cosa} de ${quien} $ 100`).numero, { actualizada: ahora - 8 * DIA });
   const preguntas = [];
-  const lento = { sendMessage: async (chat, contenido) => (await esperar(20), chat === P && preguntas.push(contenido.text), { key: { id: "x" } }) };
+  const lento = { sendMessage: async (chat, contenido) => (await esperar(20), chat === P && preguntas.push(contenido), { key: { id: "x" } }) };
   const primera = C.chequearPublicaciones(ahora, lento);
-  await esperar(50); // the second one starts with the first halfway
+  await esperar(30); // the second one starts with the first halfway
   const segunda = C.chequearPublicaciones(ahora + 1, lento);
-  assert.equal((await primera) + (await segunda), 6);
-  const porNumero = preguntas.map((t) => t.match(/vendo #(\d+)/)[1]);
-  assert.deepEqual(porNumero.sort(), ["1", "2", "3", "4", "5", "6"]);
+  assert.equal((await primera) + (await segunda), 6, "las seis publicaciones, una vez cada una");
+  assert.deepEqual(preguntas.map((c) => c.mentions).sort(), gente.map((quien) => [quien]), "una pregunta por persona");
+  assert.deepEqual(preguntas.flatMap((c) => c.text.match(/\*#\d+\*/g)).sort(), ["*#1*", "*#2*", "*#3*", "*#4*", "*#5*", "*#6*"]);
 });
 
 // It may have been taken down for showing a phone number or an address, and anyone could still read it, forever.

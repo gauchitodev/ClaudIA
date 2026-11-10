@@ -584,6 +584,7 @@ export function ponerAlDia(db) {
       creada INTEGER NOT NULL,
       actualizada INTEGER NOT NULL,
       aviso INTEGER DEFAULT 0,
+      mensajeAviso TEXT,
       UNIQUE (chat, numero)
     )
   `);
@@ -592,6 +593,12 @@ export function ponerAlDia(db) {
   if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot")) {
     db.exec(`ALTER TABLE publicaciones ADD COLUMN mensajeBot TEXT`);
     console.log("🟢 Migración: columna 'mensajeBot' agregada a publicaciones");
+  }
+  // mensajeAviso is the bot's last message about the post's life: the "¿sigue en pie?" or the take-down for lack of an
+  // answer, each of which may name several posts. Replying to it with one word ("sigue") is about the ones it names.
+  if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeAviso")) {
+    db.exec(`ALTER TABLE publicaciones ADD COLUMN mensajeAviso TEXT`);
+    console.log("🟢 Migración: columna 'mensajeAviso' agregada a publicaciones");
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_chat_estado ON publicaciones (chat, estado)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_mensajes ON publicaciones (chat, messageId, mensajeBot)`);

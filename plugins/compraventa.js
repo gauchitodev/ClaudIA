@@ -1,4 +1,4 @@
-import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarEstado, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
+import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarPorComando, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
 import { getPublicacionPorMensaje } from "../database-functions.js";
 import { mismaPersona, lidDe } from "../lib/identidad.js";
 
@@ -8,8 +8,8 @@ plugin.onlyGroup = true;
 
 // .vendo / .compro: with nothing → that type's catalogue; with text → it posts; quoting a message → it posts what
 // that message says (a photo's caption, for instance), under the name of whoever sent it · .catalogo [N] ·
-// .buscar <word> · .vendido / .baja / .reservado / .sigue: replying to the post, or with its number · .mias ·
-// .avisame <word> (with "quitar" in front it removes it)
+// .buscar <word> · .vendido / .baja / .reservado / .sigue: replying to the post, or with its number, several numbers
+// or "todas" · .mias · .avisame <word> (with "quitar" in front it removes it)
 plugin.run = async (m, { client, command, args, text, isMod }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
   const contestar = (r) => (r.ok ? client.sendText(m.chat, r.mensaje, m) : client.sendText(m.chat, `❌ ${r.error}`, m));
@@ -37,9 +37,9 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
   if (command === "mias") return enviar(textoMias(m.chat, m.sender));
   if (command === "avisame") return contestar(gestionarAlerta(m.chat, m.sender, args));
 
-  // States: the number comes from the argument or, failing that, from the post being replied to.
-  const numero = /^\d+$/.test(args[0] || "") ? parseInt(args[0], 10) : getPublicacionPorMensaje(m.chat, citado?.id)?.numero;
-  return contestar(cambiarEstado(m.chat, numero, m.sender, isMod, command));
+  // States: what they're about comes after the command (a number, several, "todas") or, failing that, is the post
+  // being replied to (lib/compraventa.js).
+  return contestar(cambiarPorComando(m.chat, m.sender, isMod, command, text, citado?.id || null));
 };
 
 // .vendo / .compro with no text, quoting a message: it posts what the quoted message says, under the name of

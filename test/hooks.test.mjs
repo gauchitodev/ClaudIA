@@ -164,6 +164,27 @@ test("anti-link: lo que borra no lo publica la compraventa, no cuenta como hasht
   assert.equal(F.publicacionesActivas(G).length, 1);
 });
 
+// The "¿sigue en pie?" is one of the bot's messages, and a reply to one of those is for Claudia: once the sales hook
+// reads "Sigue 3" as the answer it is, she'd chat back to it on top of the bot's own answer.
+test("compraventa: una respuesta sin el punto al «¿sigue en pie?» no la charla Claudia", async () => {
+  const V = "hooks-ventas@g.us"; // a group of its own: other tests count G's posts
+  F.initDataDB({ chat: V, sender: "555@lid", senderJid: "", pushName: "Vende" });
+  const { publicar } = await import("../lib/compraventa.js");
+  const { numero } = publicar(V, "555@lid", "vendo", "bici rodado 26 $ 4.000");
+  F.actualizarPublicacion(V, numero, { aviso: 5, mensajeAviso: "PREGUNTA" });
+  const alBot = { id: "PREGUNTA", sender: BOT, fromMe: true, text: "❓ ¿sigue en pie?" };
+  const antes = consultasIA;
+  const respuesta = mensaje("555@lid", `Sigue ${numero}`, { chat: V, quoted: alBot });
+  await correrHooks(respuesta);
+  assert.equal(F.getPublicacion(V, numero).aviso, 0, "la tomó la compraventa");
+  assert.match(globalThis.enviados.at(-1).msg.text, /sigue activa/);
+  assert.equal(consultasIA, antes, "y Claudia no la charló");
+
+  // Anything else said in reply to the bot is still for her.
+  await correrHooks(mensaje("555@lid", "gracias che", { chat: V, quoted: alBot }));
+  assert.equal(consultasIA, antes + 1);
+});
+
 test("menciones masivas: el mensaje que se borra no lo contesta Claudia", async () => {
   const antes = consultasIA;
   const muchos = Array.from({ length: 10 }, (_, i) => `${100 + i}@lid`);

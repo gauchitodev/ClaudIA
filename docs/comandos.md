@@ -404,6 +404,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - #vendo o #compro en un mensaje, o en el pie de una foto, hacen lo mismo
 - .vendo respondiendo a una foto — la publica con la descripción que tenga (quien la mandó, o un moderador)
 - En modo compraventa alcanza con empezar el mensaje con «vendo» o «se vende»
+- Si mandás de nuevo un aviso tuyo que sigue activo, renuevo esa publicación en vez de hacer otra
 
 🔎 **Ver y buscar**
 - .catalogo — todo lo activo · .catalogo N — el detalle de la #N
@@ -416,6 +417,9 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 ✅ **Cerrar la tuya** — respondé a tu publicación y escribí el comando, o agregá el número
 - .vendido — se concretó · .baja — la sacás de la lista
 - .reservado — está señada · .sigue — vuelve a estar libre (y la renueva)
+- Varias de una vez: .sigue 12 13, o .sigue todas (las que te pregunté; si no pregunté por ninguna, todas las tuyas)
+- Si es tuya, también sin el punto y con su número («sigue 12», «vendido 12»), o la palabra sola respondiendo a mi pregunta
+- A los 7 días sin novedades pregunto si sigue en pie: una vez por día, entre las 11 y las 21, por todas las tuyas juntas. Lo que queda 2 días sin respuesta lo doy de baja
 
 ⭐ **Confianza y grupo**
 - .calificar @persona 5 buen vendedor — después de operar · .reputacion — la tuya

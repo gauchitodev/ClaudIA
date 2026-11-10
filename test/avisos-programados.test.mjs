@@ -114,7 +114,7 @@ test("recap semanal: si no se pudo mandar, sale en la pasada siguiente, y una so
 
 test("compraventa: si el «¿sigue en pie?» no se pudo mandar, no arranca la cuenta para darla de baja", async () => {
   const { numero } = Cv.publicar(G, "u@lid", "vendo", "silla de oficina $ 2.500");
-  const ahora = Date.now();
+  const ahora = new Date().setHours(13, 0, 0, 0); // within the day's round (11 to 21), whatever the time this runs at
   F.actualizarPublicacion(G, numero, { actualizada: ahora - 8 * DIA });
   const falla = fallarEnvios(1);
   assert.equal(await Cv.chequearPublicaciones(ahora), 0);

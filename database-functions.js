@@ -1632,6 +1632,19 @@ export function publicacionesParaRevisar(limiteActualizada, limiteAviso) {
   return db.prepare(`SELECT * FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} AND ((aviso = 0 AND actualizada < ?) OR (aviso > 0 AND aviso < ?)) ORDER BY chat, numero`).all(limiteActualizada, limiteAviso);
 }
 
+// The posts one of the bot's notices named (the "¿sigue en pie?", or the take-down for lack of an answer), whatever
+// their state now: replying to that message is about them.
+export function publicacionesDelAviso(chat, messageId) {
+  if (!messageId) return [];
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND mensajeAviso = ? ORDER BY numero`).all(chat, messageId);
+}
+
+// A group's posts with an answer owed: the live ones the bot asked about, and the ones it took down for lack of an
+// answer since "desde". They are what "todas" means in an answer (lib/compraventa.js).
+export function publicacionesPorResponder(chat, desde) {
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND ((estado IN ${ESTADOS_VIGENTES} AND aviso > 0) OR (estado = 'vencida' AND actualizada >= ?)) ORDER BY numero`).all(chat, desde);
+}
+
 // ===================== Compraventa: alertas =====================
 export function agregarAlerta(chat, usuario, palabra) {
   return db.prepare(`INSERT OR IGNORE INTO alertas_compraventa (chat, usuario, palabra, creada) VALUES (?, ?, ?, ?)`).run(chat, usuario, palabra, Date.now()).changes > 0;

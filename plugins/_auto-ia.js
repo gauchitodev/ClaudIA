@@ -146,6 +146,8 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // The same for a loose answer to an open trivia, which the _trivia hook already took ("c, claudia"). It used to
     // wait for her to think and type before being read, while a later answer took the prize.
     if (m.respuestaDeJuego) return;
+    // And for an answer about a post ("Sigue 20" replying to the "¿sigue en pie?"), which plugins/_compraventa.js took.
+    if (m.respuestaDeVenta) return;
 
     // does the message mention any of the keywords?
     const mencionaPalabra = PALABRAS_CLAVE.some((palabra) => {

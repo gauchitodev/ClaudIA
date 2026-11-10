@@ -102,7 +102,7 @@ test("migra una lista negra sin la columna lid y guarda el LID cuando se lo desc
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("migra publicaciones sin la columna mensajeBot y encuentra la publicación por cualquiera de sus mensajes", async () => {
+test("migra publicaciones sin las columnas de sus mensajes y encuentra la publicación por cualquiera de ellos", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-mensajebot-"));
   process.chdir(dir);
   fs.mkdirSync("database");
@@ -113,7 +113,9 @@ test("migra publicaciones sin la columna mensajeBot y encuentra la publicación 
 
   const F = await import("../database-functions.js");
   globalThis.db = F.loadDatabase();
-  assert.ok(db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeBot"), "se agregó la columna mensajeBot");
+  const columnas = db.prepare(`PRAGMA table_info(publicaciones)`).all().map((c) => c.name);
+  assert.ok(columnas.includes("mensajeBot"), "se agregó la columna mensajeBot");
+  assert.ok(columnas.includes("mensajeAviso"), "y mensajeAviso, la del «¿sigue en pie?»");
   assert.equal(F.getPublicacion(G, 1).texto, "bici", "la publicación vieja sigue estando");
 
   // It's found by the person's message, and afterwards by the bot's confirmation too.
@@ -123,6 +125,20 @@ test("migra publicaciones sin la columna mensajeBot y encuentra la publicación 
   F.actualizarPublicacion(G, 1, { mensajeBot: "MSGBOT" });
   assert.equal(F.getPublicacionPorMensaje(G, "MSGBOT").numero, 1);
   assert.equal(F.getPublicacionPorMensaje("otro@g.us", "MSGBOT"), null, "no se cruza entre grupos");
+
+  // A notice (the "¿sigue en pie?", a take-down) may name several posts: replying to it is about all of them.
+  const numeros = (lista) => lista.map((p) => p.numero);
+  for (const texto of ["mesa", "silla", "lámpara"]) F.crearPublicacion({ chat: G, usuario: "111@lid", tipo: "vendo", texto });
+  for (const numero of [1, 3]) F.actualizarPublicacion(G, numero, { mensajeAviso: "PREGUNTA" });
+  assert.deepEqual(numeros(F.publicacionesDelAviso(G, "PREGUNTA")), [1, 3]);
+  assert.deepEqual([F.publicacionesDelAviso(G, "MSGBOT"), F.publicacionesDelAviso(G, null), F.publicacionesDelAviso("otro@g.us", "PREGUNTA")], [[], [], []]);
+  // With an answer owed: asked about and still up, or taken down for lack of an answer since a given moment.
+  F.actualizarPublicacion(G, 1, { aviso: 5 });
+  F.actualizarPublicacion(G, 2, { estado: "vencida", aviso: 5, actualizada: 1000 });
+  F.actualizarPublicacion(G, 3, { estado: "vendida", aviso: 5 });
+  F.actualizarPublicacion(G, 4, { estado: "vencida", aviso: 5, actualizada: 999 });
+  assert.deepEqual(numeros(F.publicacionesPorResponder(G, 1000)), [1, 2]);
+  assert.deepEqual(F.publicacionesPorResponder("otro@g.us", 0), []);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
