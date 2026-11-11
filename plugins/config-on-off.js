@@ -3,7 +3,7 @@ import txt from "../lib/strings.js";
 import { leerInterruptor, limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, isAdmin, chat, botSettings }) => {
@@ -54,6 +54,8 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     ascensos: { key: "ascensos", from: "chat" },
     // Claudia sending the group's stickers unasked: answering one, and in her glances (lib/stickers-grupo.js).
     respuestastickers: { key: "stickersAuto", from: "chat" },
+    // The catalogue a buy-and-sell group gets unasked every few hours (lib/compraventa.js).
+    catalogoauto: { key: "catalogoAuto", from: "chat" },
   };
 
   const opcion = optionsMap[command];

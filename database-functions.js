@@ -1107,6 +1107,12 @@ export function mensajesPorDia(chat, fechas) {
   return db.prepare(`SELECT fecha, SUM(mensajes) AS total FROM actividad_horaria WHERE chat = ? AND fecha IN (${marcas}) GROUP BY fecha ORDER BY fecha`).all(chat, ...fechas);
 }
 
+// How much the group wrote after an hour of a day ("YYYY-MM-DD", 0-23), that hour left out: the count is kept by the
+// hour, and what was written earlier in it isn't "after".
+export function mensajesDespuesDe(chat, fecha, hora) {
+  return db.prepare(`SELECT COALESCE(SUM(mensajes), 0) AS total FROM actividad_horaria WHERE chat = ? AND (fecha > ? OR (fecha = ? AND hora > ?))`).get(chat, fecha, fecha, hora).total;
+}
+
 // The first day the bot counted a message in this group, or null if it never did.
 export function primerDiaActividadHoraria(chat) {
   return db.prepare(`SELECT MIN(fecha) AS fecha FROM actividad_horaria WHERE chat = ?`).get(chat)?.fecha || null;
@@ -1606,6 +1612,11 @@ export function getPublicacionPorMensaje(chat, messageId) {
 export function publicacionesActivas(chat, tipo = null, limite = 30) {
   if (tipo) return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND tipo = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, tipo, limite);
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, limite);
+}
+
+// The groups with something up: the only ones with a catalogue to show (lib/compraventa.js).
+export function chatsConPublicaciones() {
+  return db.prepare(`SELECT DISTINCT chat FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} ORDER BY chat`).all().map((r) => r.chat);
 }
 
 export function publicacionesDe(chat, usuario) {

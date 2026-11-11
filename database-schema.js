@@ -118,15 +118,19 @@ export function ponerAlDia(db) {
       redes TEXT DEFAULT "{}", -- the group's social links by network, as .redes loads them (lib/redes.js)
       voz TEXT DEFAULT "", -- when Claudia answers with a voice note: "", "audios" or "siempre" (.voz, lib/voz.js)
       stickersAuto BOOLEAN DEFAULT 1, -- whether she sends the group's stickers unasked (.respuestastickers, lib/stickers-grupo.js)
-      juegosApagados TEXT DEFAULT "[]" -- the games switched off one by one, as a JSON list of keys (.juego, lib/juegos-apagados.js)
+      juegosApagados TEXT DEFAULT "[]", -- the games switched off one by one, as a JSON list of keys (.juego, lib/juegos-apagados.js)
+      catalogoAuto BOOLEAN DEFAULT 1, -- whether a buy-and-sell group gets its catalogue unasked (.catalogoauto, lib/compraventa.js)
+      catalogoMostrado INTEGER DEFAULT 0, -- when that catalogue last went out
+      catalogoMensaje TEXT DEFAULT "" -- and its message's id: it's deleted when the next one goes out
     )
   `);
 
   // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours, the marketplace mode
   // switches (chat, greetings, coins, promotions), Claudia's initiative, since when the group hours can't be kept
-  // (lib/horario-grupo.js) and whether a live location is deleted (.antiubicacion), on databases that already exist.
+  // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and the catalogue a buy-and-sell group
+  // gets unasked (its switch, when it last went out and as which message), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"']]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""']]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);

@@ -39,7 +39,7 @@ test("la guía: un tema por tema del menú, una fila por línea ▸, dos celdas 
   assert.match(texto, /\(#tematicas\)/, "las anclas no llevan acentos");
   // the marketplace menu, line by line
   assert.ok(texto.includes("\n## 🏷️ Modo compraventa\n"));
-  assert.ok(texto.includes("\n📢 **Publicar**\n- .vendo &lt;qué, precio, zona&gt; — lo ponés a la venta. Ej: .vendo bici rodado 26, 4500, Mercedes\n"));
+  assert.ok(texto.includes("\n📢 **Publicar**\n- .vendo &lt;qué, precio, zona&gt; — lo ponés a la venta. Ej: .vendo bici rodado 26, $ 4.500, Mercedes\n"));
   assert.ok(texto.includes("\n- .catalogo — todo lo activo · .catalogo N — el detalle de la #N\n"));
   assert.equal((texto.match(/^- /gm) || []).length, MV.SECCIONES_VENTAS.split("\n").filter((l) => l.startsWith("▸")).length);
 });

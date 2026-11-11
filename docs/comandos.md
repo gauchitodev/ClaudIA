@@ -346,6 +346,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.monedas` 🪙 | Economía de UruCoins del grupo. |
 | `.ascensos` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
+| `.catalogoauto` 🛒 | En modo compraventa, el catálogo sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
 | `.reacciones` 💚 | El bot reacciona a mensajes. |
 | `.preguntadeldia` 💬 | Pregunta del día para arrancar charla. |
 | `.triviarelampago` ⚡ | Trivias sorpresa con premio. |
@@ -399,7 +400,7 @@ _Para todos. Se abre con `.menu menus`, `.menu menu`, `.menu otros`, `.menu comp
 _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.modo compraventa`)._
 
 📢 **Publicar**
-- .vendo &lt;qué, precio, zona&gt; — lo ponés a la venta. Ej: .vendo bici rodado 26, 4500, Mercedes
+- .vendo &lt;qué, precio, zona&gt; — lo ponés a la venta. Ej: .vendo bici rodado 26, $ 4.500, Mercedes
 - .compro &lt;qué buscás&gt; — publicás que lo estás buscando
 - #vendo o #compro en un mensaje, o en el pie de una foto, hacen lo mismo
 - .vendo respondiendo a una foto — la publica con la descripción que tenga (quien la mandó, o un moderador)
@@ -408,6 +409,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 
 🔎 **Ver y buscar**
 - .catalogo — todo lo activo · .catalogo N — el detalle de la #N
+- En modo compraventa lo muestro yo cada 4 horas, entre las 11 y las 21, si el grupo estuvo escribiendo, y borro el anterior
 - .vendo o .compro sin texto — solo las de ese tipo
 - .buscar &lt;palabra&gt; — filtra por palabra
 - .mias — las tuyas, con su número
@@ -428,4 +430,5 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 
 🛡️ **Admins**
 - .modo compraventa — apaga juegos, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, economía, charla, saludos, ascensos y recap)
+- .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
 - .roles · .adminbot @persona · .moderador @persona · .reglas set &lt;texto&gt; · .horario 8:00-22:00 · .config
