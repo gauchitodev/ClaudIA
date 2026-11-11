@@ -426,6 +426,12 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - Si es tuya, también sin el punto y con su número («sigue 12», «vendido 12»), o la palabra sola respondiendo a mi pregunta
 - A los 7 días sin novedades pregunto si sigue en pie: una vez por día, entre las 11 y las 21, por todas las tuyas juntas. Lo que queda 2 días sin respuesta lo doy de baja
 
+✏️ **Corregir la tuya** — con su número, o respondiendo a tu publicación
+- .precio 12 $ 3.500 — le cambiás el precio · respondiendo a la publicación: .precio $ 3.500
+- .editar 12 &lt;texto nuevo&gt; — reescribís el aviso (también .corregir): tiene que decir qué es y el precio
+- El precio de una tuya, también sin el punto: «precio 12 $ 3.500»
+- Al corregirla se renueva, y vale como respuesta si te había preguntado si sigue en pie
+
 ⭐ **Confianza y grupo**
 - .calificar @persona 5 buen vendedor — después de operar · .reputacion — la tuya
 - .calificaciones @persona — el detalle, con números (los admins corrigen con borrar N o editar N)
@@ -434,4 +440,5 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 🛡️ **Admins**
 - .modo compraventa — apaga juegos, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, economía, charla, saludos, ascensos y recap)
 - .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
+- Los moderadores dan de baja o corrigen la publicación de cualquiera: .baja 12 · .precio 12 $ 3.500 · .editar 12 &lt;texto&gt;. De una corrección le aviso a quien la publicó
 - .roles · .adminbot @persona · .moderador @persona · .reglas set &lt;texto&gt; · .horario 8:00-22:00 · .config

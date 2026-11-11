@@ -1,4 +1,4 @@
-import { detectarPublicacion, detectarSuelta, publicar, anunciarPublicacion, respuestaAPedido, leerRespuesta, cambiosDeRespuesta, aplicarCambios, explicacionPara, primeraConfirmacion, textoPrimeraPublicacion, editarPublicacion } from "../lib/compraventa.js";
+import { detectarPublicacion, detectarSuelta, publicar, anunciarPublicacion, respuestaAPedido, leerRespuesta, cambiosDeRespuesta, aplicarCambios, explicacionPara, primeraConfirmacion, textoPrimeraPublicacion, editarPublicacion, esPrecioDicho, precioDicho, cambiarPrecio } from "../lib/compraventa.js";
 import { esGrupoDeVentas } from "../lib/modo.js";
 import { edicionDe } from "../lib/ediciones.js";
 import { loHabriaBorrado } from "../lib/memoria-corta.js";
@@ -8,7 +8,8 @@ import { esComando } from "../lib/comandos.js";
 // #vendo / #compro (and #busco, #venta, #necesito) in a group message record the post with a number, in any group. In a
 // buy-and-sell group (esGrupoDeVentas, lib/modo.js) it reads loose messages too: one that opens with "vendo…" or "se
 // vende…" is posted the same way, and a request ("busco…", "¿alguien vende…?") gets reminded of who sells something
-// like it. In any group, whoever has posts up answers about them without the prefix: "Sigue 20", "Vendido #17".
+// like it. In any group, whoever has posts up answers about them without the prefix: "Sigue 20", "Vendido #17", and
+// gives one a new price: "precio 12 $ 3.500".
 // An ad for sale gets in with what it is and its price (publicar, lib/compraventa.js). Written loose, it's answered
 // with a mark and not a message: 🏷️ when it got in, ❔ when it lacks something; how to post is explained once to each
 // person, and so is their first post. And a message edited counts as written again: an ad completed that way gets in.
@@ -44,6 +45,20 @@ plugin.before = async (m, { client, chat, user, isOwner, isMod }) => {
       }
       const r = aplicarCambios(m.chat, m.sender, false, cambios);
       return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
+    }
+    // The price of one of their posts, said the same way: "precio 12 $ 3.500", or "precio $ 3.500" replying to it.
+    if (!edicion && esPrecioDicho(texto)) {
+      const citado = m.quoted?.id || null;
+      const dicho = precioDicho(m.chat, m.sender, texto, citado);
+      if (dicho) {
+        m.respuestaDeVenta = true;
+        if (chat?.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, "precio")) {
+          if (m.react) m.react("🔒").catch(() => {});
+          return;
+        }
+        const r = cambiarPrecio(m.chat, m.sender, false, dicho, citado);
+        return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
+      }
     }
     const conHashtag = detectarPublicacion(texto);
     const d = conHashtag || (esGrupoDeVentas(chat) ? detectarSuelta(texto) : null);

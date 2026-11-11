@@ -1,18 +1,20 @@
-import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarPorComando, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
+import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarPorComando, cambiarPrecio, corregirPublicacion, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
 import { getPublicacionPorMensaje } from "../database-functions.js";
 import { mismaPersona, lidDe } from "../lib/identidad.js";
 
 const plugin = {};
-plugin.cmd = ["vendo", "vender", "compro", "catalogo", "buscar", "vendido", "baja", "reservado", "sigue", "mias", "avisame"];
+plugin.cmd = ["vendo", "vender", "compro", "catalogo", "buscar", "vendido", "baja", "reservado", "sigue", "precio", "editar", "corregir", "mias", "avisame"];
 plugin.onlyGroup = true;
 
 // .vendo / .compro: with nothing → that type's catalogue; with text → it posts; quoting a message → it posts what
 // that message says (a photo's caption, for instance), under the name of whoever sent it · .catalogo [N] ·
 // .buscar <word> · .vendido / .baja / .reservado / .sigue: replying to the post, or with its number, several numbers
-// or "todas" · .mias · .avisame <word> (with "quitar" in front it removes it)
+// or "todas" · .precio and .editar (or .corregir): the post's number and its new price or text, or replying to the post
+// with only that · .mias · .avisame <word> (with "quitar" in front it removes it)
 plugin.run = async (m, { client, command, args, text, isMod }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
-  const contestar = (r) => (r.ok ? client.sendText(m.chat, r.mensaje, m) : client.sendText(m.chat, `❌ ${r.error}`, m));
+  // With whoever it names: a moderator's correction tells the post's author.
+  const contestar = (r) => (r.ok ? client.sendText(m.chat, r.mensaje, m, r.mentions?.length ? { mentions: r.mentions } : undefined) : client.sendText(m.chat, `❌ ${r.error}`, m));
   // m.quoted's getter rebuilds the object on every read (lib/wa-socket.js): read it once.
   const citado = m.quoted;
 
@@ -36,6 +38,9 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
   if (command === "buscar") return enviar(textoBusqueda(m.chat, text));
   if (command === "mias") return enviar(textoMias(m.chat, m.sender));
   if (command === "avisame") return contestar(gestionarAlerta(m.chat, m.sender, args));
+  // Corrections: whoever posted it, or a moderator (lib/compraventa.js).
+  if (command === "precio") return contestar(cambiarPrecio(m.chat, m.sender, isMod, text, citado?.id || null));
+  if (command === "editar" || command === "corregir") return contestar(corregirPublicacion(m.chat, m.sender, isMod, text, citado?.id || null));
 
   // States: what they're about comes after the command (a number, several, "todas") or, failing that, is the post
   // being replied to (lib/compraventa.js).
