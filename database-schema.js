@@ -4,7 +4,7 @@
 import { limpiarNombre } from "./lib/comandos.js";
 
 export function ponerAlDia(db) {
-  // What's erased or written over (a .memoria olvidame, a post taken down, each rewrite of someone's data in a group)
+  // What's erased or written over (a .notas olvidame, a post taken down, each rewrite of someone's data in a group)
   // is overwritten with zeros right away. SQLite only marks that space as free (its docs: secure_delete), and the text
   // stayed in the file, and in the backups that copy it whole, until something happened to write over it. It costs
   // nothing noticeable: each write's time goes into saving it to disk.

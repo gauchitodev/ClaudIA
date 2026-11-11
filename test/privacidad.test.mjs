@@ -101,7 +101,7 @@ test("lo que Claudia aprende de alguien queda en ese grupo: nada del privado ni 
 // The AI gets a mark where the mention goes, not the digits of the person's id (their LID, or their phone number); the
 // bot puts the mention in, and whatever "@<digits>" the AI adds tags nobody.
 // In groups of its own, with what it knows of Ana in one of them: it used to go by what the first test of this file
-// taught Claudia, and in another order, with that forgotten (.memoria olvidame), it failed.
+// taught Claudia, and in another order, with that forgotten (.notas olvidame), it failed.
 test("el saludo de cumpleaños usa solo lo de ese grupo, y la IA no ve los dígitos del id", async () => {
   const [OTROS, SUYO] = ["cumple-otros@g.us", "cumple-suyo@g.us"];
   F.getUser(ANA, SUYO);
@@ -152,20 +152,20 @@ test("el saludo de cumpleaños le dice a la IA cuántos cumple, si se anotó con
 });
 
 // A group of its own as well: it erases what it knows, and other tests read it.
-test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo borra", async () => {
+test(".notas yo muestra lo que sabe de vos en el grupo, y .notas olvidame lo borra", async () => {
   const SUYO = "memoria-yo@g.us";
   F.getUser(ANA, SUYO);
   F.updateUserInGroup(ANA, SUYO, { memoria: "tiene un perro que se llama Toto" });
   const pedir = async (accion) => {
-    await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: conexion.client, text: accion, args: [accion], command: "memoria", isAdmin: false, isOwner: false });
+    await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: conexion.client, text: accion, args: [accion], command: "notas", isAdmin: false, isOwner: false });
     return ultimoEnviado().msg.text;
   };
-  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .memoria olvidame");
+  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .notas olvidame");
   // What she noted while chatting may hold the digits of a LID she was told about: sendText tagged that person. Whoever
-  // the bot knows goes by name, as in .memoria.
+  // the bot knows goes by name, as in .notas.
   conBeto();
   MP.anotarDe(ANA, SUYO, "le debe una ronda a @300000000000096 y a @300000000000003");
-  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto · le debe una ronda a 300000000000096 y a @Beto\nPara que me lo olvide: .memoria olvidame");
+  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto · le debe una ronda a 300000000000096 y a @Beto\nPara que me lo olvide: .notas olvidame");
   assert.equal(menciones(ultimoEnviado().msg.text), 0);
   assert.equal(await pedir("olvidame"), "🧠 Listo, me olvidé de lo que sabía de vos en este grupo.");
   assert.equal(MP.memoriaDe(ANA, SUYO), "");
@@ -175,13 +175,13 @@ test(".memoria yo muestra lo que sabe de vos en el grupo, y .memoria olvidame lo
 // Forgotten by the bot, and gone from the file too. SQLite used to only mark that space as free, and the text stayed
 // in the database, and in the backups that copy it whole, until something happened to write over it. Here someone
 // whose data takes more than one page, as with a person in many groups.
-test(".memoria olvidame no deja lo que sabía en el archivo de la base", async () => {
+test(".notas olvidame no deja lo que sabía en el archivo de la base", async () => {
   const fs = await import("fs");
   const GRANDE = "grande@g.us";
   F.initDataDB({ chat: GRANDE, sender: ANA, senderJid: "", pushName: "Ana" });
   F.updateUserInGroup(ANA, GRANDE, { memoria: `NO-LO-OLVIDES ${"le encanta contar sus vacaciones | ".repeat(200)}` });
   assert.ok(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), "antes está");
-  await Memoria.run({ chat: GRANDE, sender: ANA, isGroup: true }, { client: conexion.client, text: "olvidame", args: ["olvidame"], command: "memoria", isAdmin: false, isOwner: false });
+  await Memoria.run({ chat: GRANDE, sender: ANA, isGroup: true }, { client: conexion.client, text: "olvidame", args: ["olvidame"], command: "notas", isAdmin: false, isOwner: false });
   assert.equal(MP.memoriaDe(ANA, GRANDE), "");
   assert.equal(fs.readFileSync("./database/database.db").includes("NO-LO-OLVIDES"), false, "ni en el archivo");
 });
@@ -599,14 +599,14 @@ test("un nombre que termina en @ no arma una mención con los dígitos que sigue
   F.initDataDB({ chat: FAMILIA, sender: "1234567890123457@lid", senderJid: "", pushName: "Eli@ " });
   for (const texto of ["hola @1234567890123456300000000000096", "hola @12345678901234560", "hola @1234567890123457300000000000096"]) {
     assert.equal(menciones(M.sinMenciones(texto)), 0, texto);
-    assert.equal(menciones(M.sinMenciones(M.conNombres(texto))), 0, `y como lo muestra .memoria: ${texto}`);
+    assert.equal(menciones(M.sinMenciones(M.conNombres(texto))), 0, `y como lo muestra .notas: ${texto}`);
   }
   assert.equal(M.nombreDe("1234567890123456@lid"), "Dani");
 });
 
 // A note kept before .recordá turned mentions into names has the digits of a LID: the prompt already named it, and
-// .memoria listed it as it was, tagging that person every time someone looked at the notes.
-test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrarlas", async () => {
+// the list (.memoria's, then) showed it as it was, tagging that person every time someone looked at the notes.
+test(".notas nombra las notas viejas y no arroba a nadie al listarlas o borrarlas", async () => {
   conBeto();
   const Mem = await import("../lib/memoria-grupo.js");
   const G = "notas-viejas@g.us";
@@ -619,7 +619,7 @@ test(".memoria nombra las notas viejas y no arroba a nadie al listarlas o borrar
 });
 
 // .recordá answers with the note: a LID typed by hand that the bot doesn't know (no name to put instead), or digits
-// split by another "@", went back to the group as they came, and sendText made them a mention. .memoria already read
+// split by another "@", went back to the group as they came, and sendText made them a mention. The list already read
 // them right.
 // In a group of its own: the note it leaves went into the prompt of the next test about Familia.
 test(".recordá no arroba en la respuesta a quien el bot no conoce", async () => {

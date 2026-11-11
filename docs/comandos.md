@@ -230,7 +230,8 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.perfil @mención` 👤 | Tu ficha en el grupo: rango y rol, antigüedad, coins, laburo, racha, ranking, duelos, pareja y familia, cumple, redes, reputación, publicaciones, ítems y apodo; con @mención, la de otra persona. |
 | `.misredes instagram @usuario` 🔗 | Tus redes en tu perfil de este grupo (Instagram, X, TikTok, Threads, Bluesky, Mastodon, Discord…), por usuario o por link; .misredes las muestra, .misredes @mención las de otro y .misredes borrar instagram la saca. |
 | `.rango` 🎖️ | Tu rango por antigüedad y actividad; .rangos muestra la escalera. |
-| `.recordá que <algo>` 🧠 | Anotale a Claudia un dato o chiste del grupo; .memoria los lista y .memoria yo, lo que sabe de vos. |
+| `.nota <algo>` 🧠 | Anotale a Claudia un dato o chiste del grupo (también .recordá que &lt;algo&gt;); .notas las lista y .notas borrar &lt;número&gt; saca una. |
+| `.notas yo` 🧠 | Lo que Claudia anotó de vos charlando en este grupo; .notas olvidame lo borra. |
 | `.traducir <texto>` 🌐 | Lo traduce al castellano (o respondé a un mensaje). |
 | `.rae <palabra>` 📚 | Definición de la RAE (ej: .rae mal de ojo). |
 | `.horoscopo <signo>` 🔮 | Tu horóscopo del día. |

@@ -191,14 +191,17 @@ test("menú: un juego apagado con .juego lleva ⛔, no entra en lo más usado, y
   assert.doesNotMatch(menu({ pedido: "juegos", isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN }), /⛔/);
 });
 
-// The lines write a name as people do (".recordá que…", ".cárcel" in .gay's) and read it as the parser reads a typed
-// one, without its accents (lib/comandos.js): that's how the uses are counted and the plugins declare it.
-test("lo más usado: una línea escrita con tilde cuenta los usos del comando sin tilde, y lleva su 🔒", () => {
-  assert.equal(M.comandoDeLinea("▸ .recordá que <algo> 🧠 – `x`"), "recorda");
-  usar(G, "recorda", 50);
+// The lines write a name as people do (".recordá que…" in .nota's, ".cárcel" in .gay's) and read it as the parser reads
+// a typed one, without its accents (lib/comandos.js): that's how the uses are counted and the plugins declare it.
+// No line of the menu opens with an accented command since .nota took .recordá's: that part goes on a line of its own.
+test("lo más usado: un comando escrito con tilde cuenta los usos del comando sin tilde, y su línea lleva el 🔒", () => {
+  const conTilde = "▸ .recordá que <algo> 🧠 – `x`";
+  assert.equal(M.comandoDeLinea(conTilde), "recorda");
+  assert.equal(M.marcarBloqueados(conTilde, ".", new Set(["recorda"])), `${conTilde} 🔒`);
+  usar(G, "recorda", 50); // named in .nota's line, as .recordá
   usar(G, "carcel", 40); // named in .gay's line, as .cárcel
-  assert.deepEqual(comandos(masUsados()).slice(0, 2), ["recorda", "gay"]);
-  assert.match(menu({ pedido: "extras", bloqueados: new Set(["recorda"]) }), /\n▸ \.recordá que <algo> .+ 🔒\n/);
+  assert.deepEqual(comandos(masUsados()).slice(0, 2), ["nota", "gay"]);
+  assert.match(menu({ pedido: "extras", bloqueados: new Set(["nota"]) }), /\n▸ \.nota <algo> .+ 🔒\n/);
 });
 
 test("lo más usado: lo del grupo, con los alias de cada línea juntos", () => {

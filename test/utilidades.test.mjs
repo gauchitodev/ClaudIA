@@ -440,7 +440,7 @@ test("memoria corta y memoria del grupo", () => {
   assert.equal(CC.contextoChat.get("c").length, 250, "lo de las últimas 6 horas queda todo");
   assert.equal(CC.textoContexto("c", false).split("\n").length, 14);
   assert.match(Mem.recordar(G, "u", "que Fulano siempre llega tarde").mensaje, /Anotado \(#1\): Fulano siempre llega tarde/);
-  assert.match(Mem.recordar(G, "u", "x").error, /¿Qué tengo que recordar/);
+  assert.match(Mem.recordar(G, "u", "x").error, /^¿Qué anoto\? Ej: \.nota /);
   assert.match(Mem.recordar(G, "u", "que la contraseña del wifi es 1234").error, /no lo guardo/);
   assert.match(Mem.textoMemoria(G), /#1 · Fulano siempre llega tarde/);
   assert.match(Mem.textoParaPrompt(G), /"Fulano siempre llega tarde"/);
