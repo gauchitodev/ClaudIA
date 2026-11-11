@@ -4,11 +4,11 @@ import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { memoriaDe, anotarDe } from "../lib/memoria-persona.js";
-import { tratoPara, generoDe } from "../lib/genero.js";
+import { tratoPara, generoDe, tratoDeQuienesAparecen, personasDe } from "../lib/genero.js";
 import { textoRedesParaPrompt } from "../lib/redes.js";
-import { sinMenciones, conNombres } from "../lib/menciones.js";
+import { sinMenciones, conNombres, nombreDe } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
-import { recordarMensaje, textoContexto, esComando } from "../lib/contexto-chat.js";
+import { recordarMensaje, textoContexto, entradasDeContexto, esComando } from "../lib/contexto-chat.js";
 import { fechaDe } from "../lib/memoria-corta.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
@@ -232,6 +232,13 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // How they asked to be addressed (.genero, lib/genero.js); with nothing set, she goes by the name, as always.
     const trato = tratoPara(m.sender, nombre);
     if (trato) partes.push(trato);
+    // And the others the conversation shows: whoever wrote the messages above and whoever this one mentions, each by
+    // the name they go by here. She used to know it only of whoever was talking to her, and answered about the rest
+    // by their name, or their nickname.
+    const deLaCharla = personasDe(entradasDeContexto(m.chat, m.id ?? m.key?.id));
+    const mencionados = (m.mentionedJid || []).map((id) => ({ id, nombre: nombreDe(id) }));
+    const tratoDeOtros = tratoDeQuienesAparecen([...deLaCharla, ...mencionados], { donde: "que aparecen en la charla", menos: [m.sender, m.senderJid] });
+    if (tratoDeOtros) partes.push(tratoDeOtros);
 
     const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
     if (notaDeVoz) {

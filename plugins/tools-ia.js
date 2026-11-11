@@ -1,5 +1,6 @@
 import { preguntarGemini } from "../lib/gemini.js";
-import { sinMenciones, conNombres } from "../lib/menciones.js";
+import { sinMenciones, conNombres, nombreDe } from "../lib/menciones.js";
+import { tratoPara, tratoDeQuienesAparecen } from "../lib/genero.js";
 import txt from "../lib/strings.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { configuracion } from "../lib/configuracion.js";
@@ -32,8 +33,13 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto }) => {
 
   await client.sendPresenceUpdate("composing", m.chat).catch(() => {}); // a nicety: a failure there mustn't end the command
 
+  // How whoever asks set to be addressed (.genero, lib/genero.js), and the people the question names: she answers as
+  // herself and to a person, and here she was told nothing of them.
+  const mencionados = (m.mentionedJid || []).map((id) => ({ id, nombre: nombreDe(id) }));
+  const tratos = [tratoPara(m.sender, "Quien te pregunta"), tratoDeQuienesAparecen(mencionados, { donde: "que nombra la pregunta", menos: [m.sender, m.senderJid] })].filter(Boolean);
+  const aparte = tratos.length ? `\n\n(Aparte, solo para vos, no lo muestres: ${tratos.join(" ")})` : "";
   // The mentions as names: a mention travels as the digits of a LID, and the answer would repeat them.
-  const respuesta = await preguntarGemini(conNombres(text, m.mentionedJid));
+  const respuesta = await preguntarGemini(`${conNombres(text, m.mentionedJid)}${aparte}`);
   if (respuesta.ok) {
     return client.sendText(m.chat, sinMenciones(respuesta.texto), m);
   } else if (respuesta.porHoy) {
