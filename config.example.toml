@@ -30,6 +30,13 @@ textofaggi = ""
 
 # Tarjeta con link que acompaña a los archivos que manda el bot (audio, video, imagen).
 # Tiene que ir al final del archivo, después de las claves sueltas. Sin "enlace" no se manda tarjeta.
+
+[gemini]
+# Modelos de Gemini a usar, en orden (si uno falla o se queda sin cuota, prueba el siguiente). Vacío = los de
+# siempre (3.6 Flash, 3.5 Flash, 3.5 Flash Lite). Con una clave paga conviene el más barato primero, por ejemplo:
+# modelos = ["gemini-3.5-flash-lite", "gemini-3.5-flash"]
+modelos = []
+
 [tarjetaGrupo]
 titulo = "ClaudIA :)"
 cuerpo = "Unite al grupo"
