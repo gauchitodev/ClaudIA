@@ -194,6 +194,27 @@ y reiniciar el bot: cortar el proceso de `main.js` alcanza, `start-process.js` l
 
 `npm run comandos` vuelve a generar [docs/comandos.md](docs/comandos.md) desde el menú del bot (`lib/menu.js` y `lib/menu-ventas.js`). Si se toca una línea del menú y no se regenera la guía, un test lo avisa.
 
+## Entrenar el detector de intención
+
+En un grupo en modo compraventa, lo que las reglas no leen como un aviso ni como un pedido lo mira un clasificador chico (`lib/intencion.js`): una sola capa sobre las palabras y los pedazos de palabras del mensaje, que dice si parece una venta, un pedido o nada. Corre en JavaScript puro, sin dependencias, y sus pesos son `lib/intencion-modelo.json` (64 KB). No publica nada: cuando está seguro (0,9 o más), el bot le cuenta a quien escribió cómo publicarlo o cómo dejarlo anotado, una sola vez por persona.
+
+Para volver a entrenarlo hacen falta mensajes etiquetados a mano, en un JSON así:
+
+```json
+[{ "texto": "$ 300", "clase": "vender", "autor": 12, "fecha": "2026-10-03T22:30:00" }]
+```
+
+- `clase`: `vender` (ofrece algo concreto, o es el precio de lo que muestra una foto), `comprar` (pregunta quién vende, tiene o hace algo, o dice que lo busca) o `nada` (todo lo demás: las condiciones de una venta sin la cosa, una pregunta a un vendedor, una respuesta a alguien, la charla).
+- `autor`: cualquier cosa que distinga a una persona de otra (un número alcanza). Sirve para medir con gente que el modelo no vio, y para no darle peso a lo que escribió una sola persona.
+- `fecha`: opcional. Con ella también mide sobre el último tercio de los mensajes, entrenando con los anteriores.
+
+```bash
+npm run intencion -- ruta/mensajes.json           # mide, entrena con todos y escribe los pesos
+npm run intencion -- ruta/mensajes.json --medir   # solo mide
+```
+
+Ese archivo de mensajes no va al repo: es lo que escribió la gente de un grupo. Al repo van solo los pesos. Después de entrenar, `npm test` avisa si el modelo nuevo dejó de leer lo más claro (`test/intencion.test.mjs`), y hay que reiniciar el bot, que lee los pesos una sola vez.
+
 ## Claudia:
 
 <p align="center">

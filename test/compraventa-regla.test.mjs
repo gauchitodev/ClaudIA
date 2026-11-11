@@ -16,6 +16,7 @@ const COMO = "Editá el mensaje o mandalo de nuevo así: *vendo*, qué es y a cu
 const UNA_VEZ = "Te lo cuento esta vez y no te molesto más con esto.";
 const EXPLICA = (falta) => `📌 Para entrar al catálogo, a tu aviso le falta ${falta}. ${COMO}\nCuando entra, le pongo 🏷️; si le falta algo, ❔. ${UNA_VEZ}`;
 const QUIZAS = `📌 Si esto es un aviso de venta, para que entre al catálogo tiene que empezar con «vendo». ${COMO}\nCuando entra, le pongo 🏷️. ${UNA_VEZ}`;
+const PEDIDO = `📌 Si estás buscando algo, para que quede anotado escribilo así: *#busco* y qué es. Ej.: «#busco bici rodado 26».\nQueda en el catálogo, te recuerdo quién vende algo parecido y te aviso cuando alguien lo publique. ${UNA_VEZ}`;
 const PRIMERA = (n, precio) => `🏷️ Listo, quedó en el catálogo: es la *#${n}*, a ${precio}. Cuando se venda, respondé a tu mensaje con «vendido» (o con «baja» para sacarla).\nDe ahora en más te lo marco solo con 🏷️.`;
 const NO_ENTRA = (falta) => `❌ Para entrar al catálogo, a tu aviso le falta ${falta}. Por ejemplo: #vendo bici rodado 26, $ 4.000, Pocitos`;
 
@@ -193,8 +194,12 @@ test("lo que puede ser un aviso sin decirlo se explica una vez, y nunca se publi
   const respuesta = await alEscribir(chat, "222@lid", "La campera sale $ 650", { quoted: cita });
   assert.deepEqual([respuesta.dice, respuesta.marcas], [[], []]);
   assert.deepEqual((await alEscribir(chat, "222@lid", "Campera Zara talle S grande, perfecto estado. $ 650")).dice, [QUIZAS], "y no quedó como explicado: se le explica cuando sí publica");
-  // A request with its budget is a request, and a price with nothing it's the price of says nothing for sale.
-  for (const texto of ["Busco bici rodado 26 hasta $ 5.000", "Holis, $300", "$1400 cada una", "Lo dejo 900", "che, alguien sabe algo?"]) {
+  // A request with its budget is a request: with nothing like it for sale, it's told how to leave it written down.
+  const pedido = await alEscribir(chat, "333@lid", "Busco bici rodado 26 hasta $ 5.000");
+  assert.deepEqual([pedido.dice, pedido.marcas], [[PEDIDO], []]);
+  // And a price with nothing it's the price of says nothing for sale, to the rules: reading it is the classifier's
+  // (test/compraventa-intencion.test.mjs), which reads nothing in these tests.
+  for (const texto of ["Holis, $300", "$1400 cada una", "Lo dejo 900", "che, alguien sabe algo?"]) {
     const nada = await alEscribir(chat, "333@lid", texto);
     assert.deepEqual([nada.dice, nada.marcas], [[], []], texto);
   }

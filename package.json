@@ -8,7 +8,8 @@
     "test": "node --test --test-timeout=120000 test/*.test.mjs",
     "test:ci": "node --test --test-timeout=30000 test/*.test.mjs",
     "lint": "eslint .",
-    "comandos": "node scripts/generar-comandos.mjs"
+    "comandos": "node scripts/generar-comandos.mjs",
+    "intencion": "node scripts/entrenar-intencion.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

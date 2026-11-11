@@ -516,7 +516,7 @@ test("compraventa: el detalle de una dada de baja lo ven solo quien la publicó 
   const r = C.publicar(G, "444@lid", "vendo", "celular $ 2.000, llamame al 099 123 456, vivo en Rivera 1234");
   await correr("222@lid", "baja", String(r.numero), { isMod: true });
   await correr("555@lid", "catalogo", String(r.numero));
-  assert.equal(ultimo(), `🏷️ *Vendo #${r.numero}* · dada de baja\nYa no está publicada.`);
+  assert.equal(ultimo(), `🏷️ *Vendo #${r.numero}* · 🚫 retirada por un moderador\nYa no está publicada.`);
   await correr("444@lid", "catalogo", String(r.numero));
   assert.match(ultimo(), /llamame al 099 123 456/, "quien la publicó, sí");
   await correr("222@lid", "catalogo", String(r.numero), { isMod: true });

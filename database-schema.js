@@ -589,6 +589,7 @@ export function ponerAlDia(db) {
       actualizada INTEGER NOT NULL,
       aviso INTEGER DEFAULT 0,
       mensajeAviso TEXT,
+      motivo TEXT,
       UNIQUE (chat, numero)
     )
   `);
@@ -603,6 +604,12 @@ export function ponerAlDia(db) {
   if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "mensajeAviso")) {
     db.exec(`ALTER TABLE publicaciones ADD COLUMN mensajeAviso TEXT`);
     console.log("🟢 Migración: columna 'mensajeAviso' agregada a publicaciones");
+  }
+  // motivo is why a moderator took the post down (estado 'retirada'), as they gave it: its author is told then, and
+  // again when they try to bring it back.
+  if (!db.prepare(`PRAGMA table_info(publicaciones)`).all().some((c) => c.name === "motivo")) {
+    db.exec(`ALTER TABLE publicaciones ADD COLUMN motivo TEXT`);
+    console.log("🟢 Migración: columna 'motivo' agregada a publicaciones");
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_chat_estado ON publicaciones (chat, estado)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_publicaciones_mensajes ON publicaciones (chat, messageId, mensajeBot)`);

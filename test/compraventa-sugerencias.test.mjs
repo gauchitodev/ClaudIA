@@ -189,7 +189,13 @@ test("modo compraventa: una frase cualquiera no saca sugerencias por palabras su
   for (const frase of ["Necesito que me lo reserves hasta el viernes", "Compro, me interesa!", "Tienen ya el horario de mañana?", "busco que me expliquen cómo publicar"]) {
     await escribir(S, "222@lid", frase);
   }
-  assert.equal(globalThis.enviados.length, antes);
+  // No post is suggested for any of them. The ones that still read as a request (the rule can't tell "necesito una
+  // silla" from "necesito que me lo reserves") get what any request with nothing to suggest gets: how to leave it
+  // written down, once per person (test/compraventa-intencion.test.mjs).
+  const dichos = globalThis.enviados.slice(antes).filter((e) => e.chat === S).map((e) => e.msg.text);
+  assert.deepEqual(dichos.filter((t) => t.includes("💡")), []);
+  assert.equal(dichos.length, 1, "y una sola vez");
+  assert.match(dichos[0], /^📌 Si estás buscando algo, /);
   await escribir(S, "333@lid", "¿alguien vende un sillón?");
   assert.match(ultimoEnviado().msg.text, /@111 está vendiendo «sillón 3 cuerpos/, "lo que sí se busca, se encuentra");
 });

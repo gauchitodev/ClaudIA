@@ -117,6 +117,8 @@ test("migra publicaciones sin las columnas de sus mensajes y encuentra la public
   const columnas = db.prepare(`PRAGMA table_info(publicaciones)`).all().map((c) => c.name);
   assert.ok(columnas.includes("mensajeBot"), "se agregó la columna mensajeBot");
   assert.ok(columnas.includes("mensajeAviso"), "y mensajeAviso, la del «¿sigue en pie?»");
+  assert.ok(columnas.includes("motivo"), "y motivo, el de la baja de un moderador");
+  assert.equal(F.getPublicacion(G, 1).motivo, null);
   assert.equal(F.getPublicacion(G, 1).texto, "bici", "la publicación vieja sigue estando");
 
   // It's found by the person's message, and afterwards by the bot's confirmation too.

@@ -1614,6 +1614,12 @@ export function publicacionesActivas(chat, tipo = null, limite = 30) {
   return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES} ORDER BY numero DESC LIMIT ?`).all(chat, limite);
 }
 
+// The posts of one type a moderator took down in a group since a moment, newest first: the same ad isn't taken again
+// from its author (lib/compraventa.js).
+export function publicacionesRetiradas(chat, tipo, desde) {
+  return db.prepare(`SELECT * FROM publicaciones WHERE chat = ? AND tipo = ? AND estado = 'retirada' AND actualizada >= ? ORDER BY numero DESC`).all(chat, tipo, desde);
+}
+
 // The groups with something up: the only ones with a catalogue to show (lib/compraventa.js).
 export function chatsConPublicaciones() {
   return db.prepare(`SELECT DISTINCT chat FROM publicaciones WHERE estado IN ${ESTADOS_VIGENTES} ORDER BY chat`).all().map((r) => r.chat);

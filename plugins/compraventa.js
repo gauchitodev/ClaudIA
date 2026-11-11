@@ -44,7 +44,10 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
 
   // States: what they're about comes after the command (a number, several, "todas") or, failing that, is the post
   // being replied to (lib/compraventa.js).
-  return contestar(cambiarPorComando(m.chat, m.sender, isMod, command, text, citado?.id || null));
+  // A moderator's .baja may name a person instead of a post: with a mention, or replying to a message of theirs
+  // (not to one of the bot's, which is what "todas" answers).
+  const dePersona = { mencionados: m.mentionedJid || [], autorCitado: citado && !citado.fromMe && !citado.isBaileys ? citado.sender || null : null };
+  return contestar(cambiarPorComando(m.chat, m.sender, isMod, command, text, citado?.id || null, Date.now(), dePersona));
 };
 
 // .vendo / .compro with no text, quoting a message: it posts what the quoted message says, under the name of

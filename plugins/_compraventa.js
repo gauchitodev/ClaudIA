@@ -1,4 +1,4 @@
-import { detectarPublicacion, detectarSuelta, publicar, anunciarPublicacion, respuestaAPedido, leerRespuesta, cambiosDeRespuesta, aplicarCambios, explicacionPara, primeraConfirmacion, textoPrimeraPublicacion, editarPublicacion, esPrecioDicho, precioDicho, cambiarPrecio } from "../lib/compraventa.js";
+import { detectarPublicacion, detectarSuelta, detectarIntencion, publicar, anunciarPublicacion, respuestaAPedido, leerRespuesta, cambiosDeRespuesta, aplicarCambios, explicacionPara, primeraConfirmacion, textoPrimeraPublicacion, editarPublicacion, esPrecioDicho, precioDicho, cambiarPrecio } from "../lib/compraventa.js";
 import { esGrupoDeVentas } from "../lib/modo.js";
 import { edicionDe } from "../lib/ediciones.js";
 import { loHabriaBorrado } from "../lib/memoria-corta.js";
@@ -8,8 +8,9 @@ import { esComando } from "../lib/comandos.js";
 // #vendo / #compro (and #busco, #venta, #necesito) in a group message record the post with a number, in any group. In a
 // buy-and-sell group (esGrupoDeVentas, lib/modo.js) it reads loose messages too: one that opens with "vendo…" or "se
 // vende…" is posted the same way, and a request ("busco…", "¿alguien vende…?") gets reminded of who sells something
-// like it. In any group, whoever has posts up answers about them without the prefix: "Sigue 20", "Vendido #17", and
-// gives one a new price: "precio 12 $ 3.500".
+// like it. There too, what those rules read as nothing a small classifier may still read as an offer or a request
+// (lib/intencion.js): nothing is posted from it, and its author is told how to, once. In any group, whoever has posts
+// up answers about them without the prefix: "Sigue 20", "Vendido #17", and gives one a new price: "precio 12 $ 3.500".
 // An ad for sale gets in with what it is and its price (publicar, lib/compraventa.js). Written loose, it's answered
 // with a mark and not a message: 🏷️ when it got in, ❔ when it lacks something; how to post is explained once to each
 // person, and so is their first post. And a message edited counts as written again: an ad completed that way gets in.
@@ -61,7 +62,12 @@ plugin.before = async (m, { client, chat, user, isOwner, isMod }) => {
       }
     }
     const conHashtag = detectarPublicacion(texto);
-    const d = conHashtag || (esGrupoDeVentas(chat) ? detectarSuelta(texto) : null);
+    // In a buy-and-sell group, what's written loose: by the rules, and where they read nothing, by the classifier
+    // (detectarIntencion). That one isn't asked about an edit, nor about an answer to somebody (most of what it got
+    // wrong in a real group was a seller answering a buyer), nor about a moderator's message: they know the commands,
+    // and talk about them ("poné .vendo y qué es").
+    const suelta = !conHashtag && esGrupoDeVentas(chat) ? detectarSuelta(texto) || (edicion || isMod || m.quoted ? null : detectarIntencion(texto)) : null;
+    const d = conHashtag || suelta;
     if (!d) return;
     // What the bot answers goes to the message itself. An edit is a note about a message: its marks and its quotes go
     // to the one it rewrites, by its key (the chat, the id and whoever wrote it) and with what it says now.
@@ -79,7 +85,9 @@ plugin.before = async (m, { client, chat, user, isOwner, isMod }) => {
     }
     if (d.soloSugerir) {
       if (edicion) return;
-      const r = respuestaAPedido(m.chat, m.sender, d.texto);
+      // Who sells something like it, or with nobody to name, how to leave the request written down (once, and not
+      // when it answers somebody: "necesito que me la reserves" reads as a request).
+      const r = respuestaAPedido(m.chat, m.sender, d.texto, { explicar: !m.quoted });
       if (r) await client.sendText(m.chat, r.texto, m, { mentions: r.mentions });
       return;
     }
