@@ -29,6 +29,7 @@ const SIN_NADA = {
   cerebrasApiKey: "",
   openrouterApiKey: "",
   nvidiaApiKey: "",
+  gemini: { modelos: [] },
   textoFaggi: "",
   vozConfig: {},
   owners: [""],
