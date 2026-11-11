@@ -149,7 +149,7 @@ test("lista negra: a quien saca no le contesta Claudia, ni le publica el #vendo"
 
 test("anti-link: lo que borra no lo publica la compraventa, no cuenta como hashtag y Claudia no lo contesta", async () => {
   const antes = consultasIA;
-  for (const texto of ["#vendo bici rodado 26, fotos en instagram.com/bici claudia", "#historiasrandom miren lo que me pasó instagram.com/historia"]) {
+  for (const texto of ["#vendo bici rodado 26 $ 4.000, fotos en instagram.com/bici claudia", "#historiasrandom miren lo que me pasó instagram.com/historia"]) {
     const m = mensaje("888@lid", texto);
     await correrHooks(m, { chat: { antiInstagram: 1 } });
     assert.equal(m.borrado, true, texto);
@@ -160,7 +160,7 @@ test("anti-link: lo que borra no lo publica la compraventa, no cuenta como hasht
   assert.equal(consultasIA, antes);
 
   // With the anti-link off, the same post is published.
-  await correrHooks(mensaje("888@lid", "#vendo bici rodado 26, fotos en instagram.com/bici"));
+  await correrHooks(mensaje("888@lid", "#vendo bici rodado 26 $ 4.000, fotos en instagram.com/bici"));
   assert.equal(F.publicacionesActivas(G).length, 1);
 });
 

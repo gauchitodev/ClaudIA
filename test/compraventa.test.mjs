@@ -63,12 +63,20 @@ test("compraventa: publicar por hashtag, catálogo, búsqueda, detalle y alertas
   assert.match(enviados[enviados.length - 2].msg.text, /🔎 \*Compro #2\* registrada\./);
   assert.match(ultimo(), /🔔 @333: apareció algo que buscabas\. Compro #2: heladera chica que ande/);
   assert.deepEqual(ultimoEnviado().msg.mentions, ["333@lid"]);
+  // An ad for sale gets in with what it is and its price: without one, it's told what it lacks, and nothing is kept.
   await pasa("111@lid", "#vendo mesa de luz");
-  assert.match(ultimo(), /Vendo #3\* registrada\. Se ve con \.vendo[\s\S]*no le pusiste precio/);
+  assert.equal(ultimo(), "❌ Para entrar al catálogo, a tu aviso le falta el precio. Por ejemplo: #vendo bici rodado 26, $ 4.000, Pocitos");
+  await pasa("111@lid", "#vendo $ 800");
+  assert.equal(ultimo(), "❌ Para entrar al catálogo, a tu aviso le falta decir qué es. Por ejemplo: #vendo bici rodado 26, $ 4.000, Pocitos");
+  await pasa("111@lid", "#vendo todo");
+  assert.equal(ultimo(), "❌ Para entrar al catálogo, a tu aviso le falta decir qué es y el precio. Por ejemplo: #vendo bici rodado 26, $ 4.000, Pocitos");
+  assert.equal(F.getPublicacion(chat, 3), null);
+  await pasa("111@lid", "#vendo mesa de luz $ 800");
+  assert.equal(ultimo(), "🏷️ *Vendo #3* registrada. Precio: $ 800. Se ve con .vendo. Cuando se concrete, respondé este mensaje con .vendido (o .baja para sacarla).");
   await pasa("111@lid", "che, alguien sabe algo?");
-  assert.match(ultimo(), /no le pusiste precio/, "sin hashtag no pasa nada");
+  assert.match(ultimo(), /Vendo #3\* registrada/, "sin hashtag no pasa nada");
   await en("111@lid", "vendo");
-  assert.match(ultimo(), /🏷️ \*EN VENTA\* \(2\)\n\*#3\* mesa de luz — 111\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — 111/);
+  assert.match(ultimo(), /🏷️ \*EN VENTA\* \(2\)\n\*#3\* mesa de luz \$ 800 — 111\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — 111/);
   assert.deepEqual(ultimoEnviado().msg.mentions, [], "el listado nombra, no etiqueta");
   await en("111@lid", "compro");
   assert.match(ultimo(), /🔎 \*SE BUSCA\* \(1\)\n\*#2\* heladera chica que ande — 222/);
@@ -101,7 +109,7 @@ test("compraventa: estados, permisos y vencimiento", async () => {
   const chat = "compraventa-estados@g.us";
   const en = (sender, command, text = "", extra = {}) => correr(sender, command, text, { chat, ...extra });
   // The posts of the test before, in a group of their own: #1 and #3 are 111's, #2 and #4 are 222's.
-  for (const [quien, tipo, texto] of [["111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos"], ["222@lid", "compro", "heladera chica que ande"], ["111@lid", "vendo", "mesa de luz"], ["222@lid", "vendo", "silla de oficina $ 2.500"]]) C.publicar(chat, quien, tipo, texto);
+  for (const [quien, tipo, texto] of [["111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos"], ["222@lid", "compro", "heladera chica que ande"], ["111@lid", "vendo", "mesa de luz $ 800"], ["222@lid", "vendo", "silla de oficina $ 2.500"]]) C.publicar(chat, quien, tipo, texto);
   await en("222@lid", "vendido", "1");
   assert.match(ultimo(), /La #1 no es tuya/);
   await en("222@lid", "vendido", "1", { isMod: true });
@@ -136,8 +144,8 @@ test("compraventa: estados, permisos y vencimiento", async () => {
   assert.equal(aEsteGrupo()[1], "⌛ Di de baja la #4 de @222 por falta de respuesta. Si sigue en pie, *sigue 4* la vuelve a activar.");
   await en("222@lid", "sigue", "4");
   assert.deepEqual([F.getPublicacion(chat, 4).estado, F.getPublicacion(chat, 4).aviso], ["activa", 0]);
-  for (let i = 0; i < 10; i++) await en("333@lid", "vendo", `cosa ${i} $ 100`);
-  await en("333@lid", "vendo", "una más $ 100");
+  for (let i = 0; i < 10; i++) await en("333@lid", "vendo", `silla ${i} $ 100`);
+  await en("333@lid", "vendo", "mesa ratona $ 100");
   assert.match(ultimo(), /Ya tenés 10 publicaciones activas/);
 });
 
@@ -445,9 +453,9 @@ test("compraventa: reactivar una publicación respeta el tope de activas", () =>
   // Someone of its own: initDataDB keeps the name a row already has, and another test makes 888 with another one.
   const NICO = "880@lid";
   F.initDataDB({ chat: V, sender: NICO, senderJid: "", pushName: "Nico" });
-  const numeros = Array.from({ length: C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA }, (_, i) => C.publicar(V, NICO, "vendo", `cosa ${i} $ 100`).numero);
+  const numeros = Array.from({ length: C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA }, (_, i) => C.publicar(V, NICO, "vendo", `silla ${i} $ 100`).numero);
   assert.ok(C.cambiarEstado(V, numeros[0], NICO, false, "baja").ok);
-  assert.ok(C.publicar(V, NICO, "vendo", "otra cosa $ 100").ok, "con una menos, se puede publicar otra");
+  assert.ok(C.publicar(V, NICO, "vendo", "mesa ratona $ 100").ok, "con una menos, se puede publicar otra");
   assert.equal(C.cambiarEstado(V, numeros[0], NICO, false, "sigue").error, `La #${numeros[0]} no se puede reactivar: ya tenés ${C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA} publicaciones activas. Cerrá alguna con .vendido N o .baja N.`);
   assert.match(C.cambiarEstado(V, numeros[0], "999@lid", true, "sigue").error, /Nico ya tiene 10 publicaciones activas/, "tampoco un moderador");
   assert.equal(F.getPublicacion(V, numeros[0]).estado, "cerrada");
@@ -503,7 +511,7 @@ test("compraventa: dos pasadas superpuestas le preguntan una sola vez a cada uno
 
 // It may have been taken down for showing a phone number or an address, and anyone could still read it, forever.
 test("compraventa: el detalle de una dada de baja lo ven solo quien la publicó y los moderadores", async () => {
-  const r = C.publicar(G, "444@lid", "vendo", "celular, llamame al 099 123 456, vivo en Rivera 1234");
+  const r = C.publicar(G, "444@lid", "vendo", "celular $ 2.000, llamame al 099 123 456, vivo en Rivera 1234");
   await correr("222@lid", "baja", String(r.numero), { isMod: true });
   await correr("555@lid", "catalogo", String(r.numero));
   assert.equal(ultimo(), `🏷️ *Vendo #${r.numero}* · dada de baja\nYa no está publicada.`);
@@ -627,7 +635,7 @@ test("compraventa: quien publicó se reconoce por cualquiera de sus dos identida
   assert.ok(!globalThis.enviados.some((e) => /🔔/.test(e.msg?.text || "")), "ni le salta su propia alerta");
 
   // At the cap of active posts, reactivating one says it's theirs that are too many.
-  for (let i = F.contarPublicacionesActivas(chat, LID); i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, LID, "vendo", `cosa ${i} $ 100`);
+  for (let i = F.contarPublicacionesActivas(chat, LID); i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, LID, "vendo", `silla ${i} $ 100`);
   assert.match(C.cambiarEstado(chat, numero, PN, false, "sigue").error, /no se puede reactivar: ya tenés 10 publicaciones activas/);
 });
 

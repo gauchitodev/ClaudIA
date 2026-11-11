@@ -71,16 +71,30 @@ test("con una línea más, el texto nuevo reemplaza al viejo; un recordatorio co
   assert.deepEqual([recordatorio.renovada, recordatorio.numero, recordatorio.precio], [true, m, "$40.000"]);
   assert.deepEqual([F.getPublicacion(chat, m).texto, F.getPublicacion(chat, m).precio], [iphone, "$40.000"], "el aviso completo queda");
 
-  // The short one first and the whole ad after: the whole ad is what stays, with its price.
-  const corta = C.publicar(chat, "111@lid", "vendo", "Vendo entrada para la Bresch").numero;
+  // A short one with no price, from before a price was asked for (it can't be posted now), and the whole ad after: the
+  // whole ad is what stays, with its price.
+  const corta = F.crearPublicacion({ chat, usuario: "111@lid", tipo: "vendo", texto: "Vendo entrada para la Bresch" });
   const larga = C.publicar(chat, "111@lid", "vendo", "2 entradas para la Bresch, $ 900 cada una");
   assert.deepEqual([larga.numero, larga.precio, F.getPublicacion(chat, corta).texto], [corta, "$ 900", "2 entradas para la Bresch, $ 900 cada una"]);
-  // And the price it had stays when the new text, though longer, doesn't say it again.
+  // Even a shorter text takes its place, if it's the one that brings the price.
+  const vieja = F.crearPublicacion({ chat, usuario: "111@lid", tipo: "vendo", texto: "campera zara talle M impecable, Pocitos" });
+  const conSuPrecio = C.publicar(chat, "111@lid", "vendo", "campera zara $ 500");
+  assert.deepEqual([conSuPrecio.renovada, conSuPrecio.numero, F.getPublicacion(chat, vieja).texto, F.getPublicacion(chat, vieja).precio], [true, vieja, "campera zara $ 500", "$ 500"]);
+  // But sent again as it was, with no price, it isn't renewed: it's told what it lacks, like any ad without one.
+  const sinNada = F.crearPublicacion({ chat, usuario: "111@lid", tipo: "vendo", texto: "tostadora violeta, Malvín" });
+  F.actualizarPublicacion(chat, sinNada, { actualizada: 5 });
+  assert.deepEqual(C.publicar(chat, "111@lid", "vendo", "tostadora violeta, Malvín").falta, ["el precio"]);
+  assert.equal(F.getPublicacion(chat, sinNada).actualizada, 5, "ni se renueva");
+  // A text that says more but not the price renews the post and leaves its text: the catalogue shows the text, and the
+  // price would be gone from the list.
   const conPrecio = C.publicar(chat, "111@lid", "vendo", "mesa ratona, $ 900").numero;
   const sinPrecio = C.publicar(chat, "111@lid", "vendo", "mesa ratona de pino, Malvín");
   const mesa = F.getPublicacion(chat, conPrecio);
-  assert.deepEqual([sinPrecio.numero, sinPrecio.precio, mesa.texto, mesa.precio], [conPrecio, "$ 900", "mesa ratona de pino, Malvín", "$ 900"]);
-  assert.deepEqual(activas(chat), [n, m, corta, conPrecio]);
+  assert.deepEqual([sinPrecio.renovada, sinPrecio.numero, sinPrecio.precio, mesa.texto, mesa.precio], [true, conPrecio, "$ 900", "mesa ratona, $ 900", "$ 900"]);
+  // A request said again with more takes the new text, as before: nothing is asked of a request's price.
+  const pedido = C.publicar(chat, "222@lid", "compro", "heladera chica").numero;
+  assert.deepEqual([C.publicar(chat, "222@lid", "compro", "heladera chica con freezer, zona Centro").numero, F.getPublicacion(chat, pedido).texto], [pedido, "heladera chica con freezer, zona Centro"]);
+  assert.deepEqual(activas(chat), [n, m, corta, vieja, sinNada, conPrecio, pedido]);
 });
 
 test("otra cosa, otro talle, otro precio, otra persona u otro tipo: es otra publicación", () => {
@@ -93,23 +107,24 @@ test("otra cosa, otro talle, otro precio, otra persona u otro tipo: es otra publ
       ["111@lid", "remera negra talle L $ 500"], // the size is one letter
       ["111@lid", "remera blanca talle M $ 500"],
       ["111@lid", "remera negra talle M $ 400"], // the same words at another price may be another one
-      ["111@lid", "bici rodado 26"],
-      ["111@lid", "bici rodado 29"],
+      ["111@lid", "bici rodado 26 $ 4.000"],
+      ["111@lid", "bici rodado 29 $ 4.000"],
       ["222@lid", "remera negra talle M $ 500"], // someone else's
       ["222@lid", "bici rodado 26", "compro"], // looking for one isn't selling it
-      ["222@lid", "bici rodado 26"],
+      ["222@lid", "bici rodado 26 $ 4.000"],
     ]),
     [1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
   // A closing formula isn't the thing for sale: three ads of the same seller, and the third is the first again.
-  assert.deepEqual(nuevas([["333@lid", "a las ordenes! 🥰"], ["333@lid", "productos avon/ nuvo , a las ordenes 🥰"], ["333@lid", "a las ordenes🥰"]]), [10, 11, "=10"]);
-  // With nothing but empty words, only the very same text is the same ad.
-  assert.deepEqual(nuevas([["333@lid", "una más $ 100"], ["333@lid", "otra cosa $ 100"], ["333@lid", "Una más $ 100"]]), [12, 13, "=12"]);
+  assert.deepEqual(nuevas([["333@lid", "a las ordenes! 🥰 $ 100"], ["333@lid", "productos avon/ nuvo , a las ordenes 🥰 $ 100"], ["333@lid", "a las ordenes🥰 $ 100"]]), [10, 11, "=10"]);
+  // With nothing but empty words, only the very same text is the same ad. A request can still be that: an ad for sale
+  // has to name what it is.
+  assert.deepEqual(nuevas([["333@lid", "una más", "compro"], ["333@lid", "otra cosa", "compro"], ["333@lid", "Una más", "compro"]]), [12, 13, "=12"]);
   // One that's no longer up isn't renewed: the ad is posted again, with a number of its own.
   assert.ok(C.cambiarEstado(chat, 5, "111@lid", false, "baja").ok);
-  assert.deepEqual(nuevas([["111@lid", "bici rodado 26"]]), [14]);
+  assert.deepEqual(nuevas([["111@lid", "bici rodado 26 $ 4.000"]]), [14]);
   // Singular and plural are the same word, but a size's letter isn't the plural of anything: "M" and "1 mes de uso".
-  assert.deepEqual(nuevas([["222@lid", "calza talle M"], ["222@lid", "calzas talle L, 1 mes de uso"], ["222@lid", "calzas talle M"]]), [15, 16, "=15"]);
+  assert.deepEqual(nuevas([["222@lid", "calza talle M $ 300"], ["222@lid", "calzas talle L, 1 mes de uso $ 300"], ["222@lid", "calzas talle M $ 300"]]), [15, 16, "=15"]);
 });
 
 test("repetir un aviso no cuenta para el tope de activas, ni vuelve a avisarle a nadie", () => {
@@ -118,8 +133,8 @@ test("repetir un aviso no cuenta para el tope de activas, ni vuelve a avisarle a
   // After the ad went up, someone starts looking for one (and hears of it then), and someone else asks to be told.
   assert.deepEqual(C.publicar(chat, "222@lid", "compro", "heladera chica").sugerencias?.mentions, ["222@lid", "111@lid"]);
   assert.ok(C.gestionarAlerta(chat, "333@lid", ["heladera"]).ok);
-  for (let i = 1; i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, "111@lid", "vendo", `cosa ${i} $ 100`);
-  assert.match(C.publicar(chat, "111@lid", "vendo", "una más $ 100").error, /^Ya tenés 10 publicaciones activas/);
+  for (let i = 1; i < C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) C.publicar(chat, "111@lid", "vendo", `silla ${i} $ 100`);
+  assert.match(C.publicar(chat, "111@lid", "vendo", "mesa ratona $ 100").error, /^Ya tenés 10 publicaciones activas/);
   const otraVez = C.publicar(chat, "111@lid", "vendo", "heladera con freezer $ 9.000");
   assert.deepEqual([otraVez.ok, otraVez.numero, otraVez.sugerencias, otraVez.avisos], [true, primera.numero, null, null]);
   assert.equal(F.contarPublicacionesActivas(chat, "111@lid"), C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA);
@@ -131,7 +146,7 @@ test("repetir un aviso no cuenta para el tope de activas, ni vuelve a avisarle a
 test("en un grupo de ventas, el aviso repetido se lleva una reacción y no otro mensaje", async () => {
   const chat = grupo("repetidas-sueltas@g.us", { ventas: true });
   await escribir(chat, "111@lid", "Hola gente, vendo silla gamer $ 3.000");
-  assert.match(ultimo().text, /^🏷️ \*Vendo #1\* registrada\. Precio: \$ 3\.000\./);
+  assert.match(ultimo().text, /^🏷️ Listo, quedó en el catálogo: es la \*#1\*, a \$ 3\.000\./);
   const confirmacion = F.getPublicacion(chat, 1).mensajeBot;
   // Asked about four days ago: sending the ad again is the answer, and it isn't taken down.
   const ahora = new Date().setHours(13, 0, 0, 0);
@@ -156,9 +171,10 @@ test("en un grupo de ventas, el aviso repetido se lleva una reacción y no otro 
   await comando(chat, "111@lid", "vendido", "", { quoted: { id: respuesta, sender: "bot@lid", fromMe: true, isBaileys: true, text: "…" } });
   assert.equal(F.getPublicacion(chat, 1).estado, "vendida");
 
-  // Sold, the same ad is a new post again.
+  // Sold, the same ad is a new post again: marked, and with no words this time.
+  const [mensajes, marcas] = [globalThis.enviados.length, reacciones.length];
   await escribir(chat, "111@lid", "Vendo silla gamer $ 3.000");
-  assert.match(ultimo().text, /^🏷️ \*Vendo #2\* registrada\./);
+  assert.deepEqual([activas(chat), enviadosA(chat, mensajes), reacciones.slice(marcas)], [[2], [], ["🏷️"]]);
 });
 
 test("un moderador que publica la foto repetida de otro renueva la de esa persona", async () => {

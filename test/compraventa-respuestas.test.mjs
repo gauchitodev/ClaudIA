@@ -438,9 +438,9 @@ test("la ronda del día: si el aviso no sale, vuelve todo a como estaba, menos l
 // ten posts up, an expired one couldn't be marked as sold.
 test("con el tope de activas, una vencida se puede dar por vendida, y no reactivar", async () => {
   const chat = grupo("respuestas-tope@g.us");
-  const vencida = publicar(chat, "111@lid", "cosa 0 $ 100");
+  const vencida = publicar(chat, "111@lid", "silla 0 $ 100");
   F.actualizarPublicacion(chat, vencida, { estado: "vencida" });
-  for (let i = 1; i <= C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) publicar(chat, "111@lid", `cosa ${i} $ 100`);
+  for (let i = 1; i <= C.COMPRAVENTA.MAX_ACTIVAS_POR_PERSONA; i++) publicar(chat, "111@lid", `silla ${i} $ 100`);
   await escribir(chat, "111@lid", `Sigue ${vencida}`);
   assert.equal(ultimo(), `❌ La #${vencida} no se puede reactivar: ya tenés 10 publicaciones activas. Cerrá alguna con .vendido N o .baja N.`);
   await escribir(chat, "111@lid", `Vendido ${vencida}`);

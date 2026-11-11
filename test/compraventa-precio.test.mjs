@@ -174,7 +174,7 @@ test("ninguna forma se traba con un texto enorme", () => {
   }
 });
 
-test("al publicar: el precio leído va en la confirmación, y el «no le pusiste precio» queda para quien no lo puso", () => {
+test("al publicar: el precio leído va en la confirmación, y sin precio la publicación no entra", () => {
   const chat = "precio-publicar@g.us";
   const leido = C.publicar(chat, "111@lid", "vendo", "somier de 2 plazas a 5500");
   assert.equal(leido.precio, "5500");
@@ -182,9 +182,9 @@ test("al publicar: el precio leído va en la confirmación, y el «no le pusiste
   assert.doesNotMatch(leido.mensaje, /no le pusiste precio/);
   const porUnidad = C.publicar(chat, "111@lid", "vendo", "piezas de bijou. 200 cada una o 10 por 1500");
   assert.match(porUnidad.mensaje, /registrada\. Precio: 200 cada una\. /);
+  // A number by itself isn't a price, and an ad for sale with none doesn't get in (test/compraventa-regla.test.mjs).
   const sinPrecio = C.publicar(chat, "111@lid", "vendo", "bici rodado 26, 4500, Mercedes");
-  assert.equal(sinPrecio.precio, "");
-  assert.match(sinPrecio.mensaje, /Ojo: no le pusiste precio/);
+  assert.deepEqual([sinPrecio.ok, sinPrecio.falta], [false, ["el precio"]]);
 });
 
 // The same ad sent again renews its post, unless it comes at another price (test/compraventa-repetidas.test.mjs): the

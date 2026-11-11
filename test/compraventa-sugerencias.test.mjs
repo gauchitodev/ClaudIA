@@ -38,7 +38,9 @@ test("palabras clave: sin acentos, números, plurales ni palabras vacías, y con
   assert.deepEqual(C.detectarSuelta("Se venden sillas de jardín"), { tipo: "vendo", texto: "sillas de jardín" });
   assert.deepEqual(C.detectarSuelta("¿Alguien vende una heladera chica?"), { tipo: "compro", texto: "una heladera chica", soloSugerir: true });
   assert.deepEqual(C.detectarSuelta("Buenas! busco notebook para estudiar"), { tipo: "compro", texto: "notebook para estudiar", soloSugerir: true });
-  for (const t of ["vendo", "che, alguien sabe algo?", "qué día es hoy?", "me encanta como vende el chino"]) assert.equal(C.detectarSuelta(t), null, t);
+  // With nothing after it, it's still said to be for sale: what it lacks is told (test/compraventa-regla.test.mjs).
+  assert.deepEqual(C.detectarSuelta("vendo"), { tipo: "vendo", texto: "" });
+  for (const t of ["che, alguien sabe algo?", "qué día es hoy?", "me encanta como vende el chino"]) assert.equal(C.detectarSuelta(t), null, t);
 });
 
 test("#busco: recuerda quién vende algo parecido, en la misma confirmación y arrobando a los dos", async () => {
@@ -81,19 +83,20 @@ test("#vendo: nombra hasta dos interesados, y al resto se lo recuerda cuando vue
   const compradores = ["111@lid", "222@lid", "333@lid"];
   for (const u of [...compradores, "444@lid"]) F.initDataDB({ chat: H, sender: u, senderJid: "", pushName: u });
   for (const u of compradores) C.publicar(H, u, "compro", "heladera");
-  const r = C.publicar(H, "444@lid", "vendo", "heladera con freezer");
+  const r = C.publicar(H, "444@lid", "vendo", "heladera con freezer $ 9.000");
   assert.equal(r.sugerencias.mentions.length, 2);
   const nombrado = r.sugerencias.mentions[0];
   const sinNombrar = compradores.find((u) => !r.sugerencias.mentions.includes(u));
   assert.equal(C.respuestaAPedido(H, nombrado, "heladera"), null, "ya se lo dijo al publicarla");
-  assert.match(C.respuestaAPedido(H, sinNombrar, "heladera").texto, /, recuerdo que @444 está vendiendo «heladera con freezer» \(#4\)\./);
+  assert.match(C.respuestaAPedido(H, sinNombrar, "heladera").texto, /, recuerdo que @444 está vendiendo «heladera con freezer \$ 9\.000» \(#4\)\./);
 });
 
 test("modo compraventa: lo que se escribe suelto se lee", async () => {
   const chat = "ventas-sueltas@g.us";
   grupoPropio(chat, MODO_COMPRAVENTA);
   await escribir(chat, "111@lid", "Hola gente, vendo silla gamer $ 3.000");
-  assert.match(ultimoEnviado().msg.text, /^🏷️ \*Vendo #1\* registrada\. Precio: \$ 3\.000\./);
+  // Written loose, their first post is told in words (the ones after get the mark: test/compraventa-regla.test.mjs).
+  assert.match(ultimoEnviado().msg.text, /^🏷️ Listo, quedó en el catálogo: es la \*#1\*, a \$ 3\.000\./);
   assert.equal(F.getPublicacion(chat, 1).texto, "silla gamer $ 3.000");
 
   await escribir(chat, "222@lid", "¿Alguien vende una silla?");
@@ -120,7 +123,7 @@ test("con .banchat, .modoadmin o una persona baneada, ni publica ni sugiere", as
   await pasar("555@lid", "#vendo silla de playa", { chat: { adminMode: 1 } });
   await pasar("666@lid", "vendo silla de playa", { user: { banned: 1 } });
   assert.equal(globalThis.enviados.length, antes);
-  await pasar("777@lid", "#vendo lámpara de pie", { chat: { adminMode: 1 }, isMod: true });
+  await pasar("777@lid", "#vendo lámpara de pie $ 900", { chat: { adminMode: 1 }, isMod: true });
   assert.match(ultimoEnviado().msg.text, /^🏷️ \*Vendo #\d+\* registrada\./, "en modo admin, un moderador sí");
 });
 
@@ -138,12 +141,12 @@ test("modo compraventa: las respuestas a pedidos sueltos tienen tope por hora", 
   const tope = C.COMPRAVENTA.SUGERENCIAS_POR_HORA;
   C.COMPRAVENTA.SUGERENCIAS_POR_HORA = 1;
   try {
-    await escribir(V2, "333@lid", "#vendo mesa de jardín");
+    await escribir(V2, "333@lid", "#vendo mesa de jardín $ 700");
     const antes = globalThis.enviados.length;
     await escribir(V2, "444@lid", "¿alguien vende una mesa?");
     await escribir(V2, "555@lid", "¿alguien tiene una mesa?");
     assert.equal(globalThis.enviados.length, antes + 1, "cada respuesta es un mensaje: el segundo pedido de la hora queda sin respuesta");
-    assert.match(ultimoEnviado().msg.text, /^💡 @444, recuerdo que @333 está vendiendo «mesa de jardín» \(#1\)\./);
+    assert.match(ultimoEnviado().msg.text, /^💡 @444, recuerdo que @333 está vendiendo «mesa de jardín \$ 700» \(#1\)\./);
   } finally {
     C.COMPRAVENTA.SUGERENCIAS_POR_HORA = tope;
   }
@@ -199,10 +202,10 @@ test("#vendo: el mismo vendedor no vuelve a arrobar a quien busca, aunque publiq
   C.publicar(A, "222@lid", "compro", "bici");
   let veces = 0;
   for (let i = 0; i < 5; i++) {
-    const r = C.publicar(A, "111@lid", "vendo", `bici ${i}`);
+    const r = C.publicar(A, "111@lid", "vendo", `bici ${i} $ 100`);
     if (r.sugerencias?.mentions.includes("222@lid")) veces++;
     assert.ok(C.cambiarEstado(A, r.numero, "111@lid", false, "baja").ok);
   }
   assert.equal(veces, 1);
-  assert.deepEqual(C.publicar(A, "333@lid", "vendo", "bici playera").sugerencias?.mentions, ["222@lid"], "otro vendedor sí se lo cuenta");
+  assert.deepEqual(C.publicar(A, "333@lid", "vendo", "bici playera $ 100").sugerencias?.mentions, ["222@lid"], "otro vendedor sí se lo cuenta");
 });
