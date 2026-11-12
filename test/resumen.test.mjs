@@ -10,9 +10,13 @@ import { cargados } from "../lib/plugins-cargados.js";
 // behind.
 // Gemini is swapped for a fake.
 
-let Resumen, CC, R;
+let Resumen, CC, R, Pausas, Gemini;
 let fallaSi = () => false; // which prompts Gemini answers 500 to
-let pedidos = []; // the prompts Gemini got
+let pedidos = []; // the prompts Gemini got and answered
+let cuerpos = []; // and the whole request of each
+let llamadas = 0; // every request made to it, answered or not
+let frenar = null; // what its answers wait for: a summary that takes its time
+let esperas = []; // the waits before asking again (lib/pausas.js), which pass at once here
 const fetchReal = globalThis.fetch;
 const errorReal = console.error;
 const C = "resumen@g.us";
@@ -26,13 +30,19 @@ before(async () => {
   globalThis.fetch = async (url, opciones = {}) => {
     const body = JSON.parse(opciones.body);
     const texto = body.contents?.[0]?.parts?.[0]?.text || "";
+    llamadas++;
+    if (frenar) await frenar;
     if (fallaSi(texto)) return { ok: false, status: 500, text: async () => "" };
     pedidos.push(texto);
+    cuerpos.push(body);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: "Se habló del asado." }] } }] }) };
   };
   Resumen = (await import("../plugins/resumen.js")).default;
   CC = await import("../lib/contexto-chat.js");
   R = await import("../lib/resumen.js");
+  Pausas = await import("../lib/pausas.js");
+  Gemini = await import("../lib/gemini.js");
+  Pausas._dep.esperar = async (ms) => void esperas.push(ms);
   CC.reiniciarMemoria(Date.now() - 48 * HORA); // the memory has been up for two days
   cargados.plugins = { "resumen.js": Resumen };
 });
@@ -45,8 +55,13 @@ beforeEach(() => {
   CC.contextoChatRecorte.delete(C);
   R.resumenesGuardados.delete(C);
   R.ultimoResumen.delete(C);
+  R.resumenesEnCurso?.delete(C);
   fallaSi = () => false;
   pedidos = [];
+  cuerpos = [];
+  llamadas = 0;
+  frenar = null;
+  esperas = [];
 });
 
 async function pedir(args = [], sender = "555@lid") {
@@ -394,4 +409,164 @@ test("el aviso de esperar redondea para arriba: nunca «0 s», y en el mismo mom
   assert.equal(await espera(0), "Recién hice un resumen; esperá 1 min para pedir otro.");
   assert.equal(await espera(30_000), "Recién hice un resumen; esperá 30 s para pedir otro.");
   assert.equal(await espera(59_500), "Recién hice un resumen; esperá 1 s para pedir otro.");
+});
+
+// ---------- a long while ----------
+// A summary of 6 hours came back "se me trabó" where one of 2 worked: it's one much bigger request, or up to five of
+// the biggest in a row, each with the time and the room of a chat reply, and one that failed threw it all away.
+
+// Gemini fails the first n requests of the prompts that match: with 500, each model is asked twice (lib/gemini.js), so
+// six failures are one whole try of the three models.
+const UN_INTENTO = 6;
+function fallaLasPrimeras(n, cuales = () => true) {
+  let van = 0;
+  fallaSi = (texto) => cuales(texto) && van++ < n;
+}
+
+test("cada pedido va como un texto largo: con más lugar para contestar que una respuesta de la charla", async () => {
+  llenar(10, MIN);
+  await pedir();
+  assert.equal(cuerpos.length, 1);
+  assert.equal(cuerpos[0].generationConfig.maxOutputTokens, Gemini.LIMITES.TOKENS_LARGO);
+  assert.ok(Gemini.LIMITES.TOKENS_LARGO > Gemini.LIMITES.TOKENS && Gemini.LIMITES.TIMEOUT_LARGO_MS > Gemini.LIMITES.TIMEOUT_MS);
+  // The parts and the one that joins them, too.
+  unMinutoDespues();
+  await conPartes({ caracteres: 2000 }, async () => {
+    largos();
+    await pedir(["2h"]);
+    assert.ok(cuerpos.length >= 4);
+    assert.ok(cuerpos.every((c) => c.generationConfig.maxOutputTokens === Gemini.LIMITES.TOKENS_LARGO));
+  });
+});
+
+test("un pedido que falla se vuelve a hacer una vez, después de esperar", async () => {
+  llenar(10, MIN);
+  fallaLasPrimeras(UN_INTENTO);
+  assert.match(await pedir(), /^📝 \*Resumen de los últimos 15 min\* \(10 mensajes\)\n\nSe habló del asado\.$/);
+  assert.equal(llamadas, UN_INTENTO + 1);
+  assert.deepEqual(esperas, [5000]);
+  assert.deepEqual([R.RESUMENES.REINTENTOS, R.RESUMENES.ESPERA_REINTENTO_MS], [1, 5000]);
+
+  // And when it goes well at once, nothing waits.
+  unMinutoDespues();
+  esperas = [];
+  llenar(3, MIN, { prefijo: "otro" });
+  await pedir(["20m"]);
+  assert.deepEqual(esperas, []);
+});
+
+test("por partes: la que falla una vez no tira el resumen, y la que falla dos sí", async () => {
+  await conPartes({ caracteres: 2000 }, async () => {
+    largos();
+    fallaLasPrimeras(UN_INTENTO, (texto) => texto.includes(", parte 2 de "));
+    assert.match(await pedir(["2h"]), /^📝 \*Resumen de las últimas 2 h\* \(60 mensajes\)/);
+    assert.equal(esperas.length, 1, "una sola espera: la de la parte que falló");
+    assert.equal(pedidos.filter((p) => p.includes(", parte 2 de ")).length, 1);
+    assert.match(pedidos.at(-1), /los resúmenes de las partes/);
+
+    // Twice in a row, it's given up: the parts after it aren't asked, and neither is the one that joins them.
+    unMinutoDespues();
+    R.resumenesGuardados.delete(C);
+    pedidos = [];
+    esperas = [];
+    fallaLasPrimeras(2 * UN_INTENTO, (texto) => texto.includes(", parte 2 de "));
+    assert.match(await pedir(["2h"]), /Se me trabó el resumen/);
+    assert.equal(esperas.length, 1);
+    assert.deepEqual(pedidos.map((p) => p.match(/, parte (\d) de /)?.[1]), ["1"]);
+    assert.equal(R.ultimoResumen.has(C), false);
+  });
+});
+
+test("la que junta las partes también se vuelve a pedir", async () => {
+  await conPartes({ caracteres: 2000 }, async () => {
+    largos();
+    fallaLasPrimeras(UN_INTENTO, (texto) => texto.includes("los resúmenes de las partes"));
+    assert.match(await pedir(["2h"]), /^📝 \*Resumen de las últimas 2 h\*/);
+    assert.equal(esperas.length, 1);
+  });
+});
+
+test("sin cuota por hoy no insiste: lo dice y listo", async () => {
+  llenar(10, MIN);
+  const enPausa = new Map(Gemini.geminiEnPausa);
+  for (const modelo of Gemini.MODELOS) Gemini.geminiEnPausa.set(modelo, { hasta: Date.now() + 6 * HORA, pausaMs: 4 * HORA });
+  try {
+    assert.match(await pedir(), /Se me acabó la cuota de la IA por hoy/);
+    assert.equal(llamadas, 0);
+    assert.deepEqual(esperas, []);
+    assert.equal(R.ultimoResumen.has(C), false);
+  } finally {
+    Gemini.geminiEnPausa.clear();
+    for (const [modelo, pausa] of enPausa) Gemini.geminiEnPausa.set(modelo, pausa);
+  }
+});
+
+// A long one takes more than the minute between summaries: asked again meanwhile it said "recién hice un resumen"
+// before having made any, and past the minute a second one started alongside, asking the same parts again.
+test("mientras arma uno, el que pide otro se entera, y no arranca un segundo", async () => {
+  llenar(10, MIN);
+  let soltar;
+  frenar = new Promise((resolve) => (soltar = resolve));
+  const primero = pedir();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(llamadas, 1, "el primero ya le preguntó a la IA");
+  assert.ok(R.resumenesEnCurso.has(C));
+  const otro = (ahora) => R.pedirResumen(C, "777@lid", [], { ahora });
+  assert.deepEqual(await otro(Date.now()), { texto: "Ya estoy armando un resumen; aguantá, que en un rato sale." });
+  assert.deepEqual(await otro(Date.now() + 5 * MIN), { texto: "Ya estoy armando un resumen; aguantá, que en un rato sale." }, "ni pasado el minuto entre resúmenes");
+  assert.equal(llamadas, 1, "y no se le preguntó nada más a la IA");
+  // Asked for another while that isn't kept, either.
+  assert.match((await R.pedirResumen(C, "777@lid", ["1h"], { ahora: Date.now() })).texto, /^Ya estoy armando un resumen/);
+  // It's each chat's: another group's summary goes its way.
+  const OTRO = "resumen-otro@g.us";
+  for (let i = 10; i > 0; i--) CC.recordarMensaje(OTRO, "Beto", `otro grupo ${i}`, false, { fecha: Date.now() - i * MIN });
+  const elDelOtro = R.pedirResumen(OTRO, "777@lid", [], {});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(llamadas, 2, "el del otro grupo también le preguntó a la IA");
+  soltar();
+  assert.match(await primero, /^📝 \*Resumen de los últimos 15 min\*/);
+  assert.match((await elDelOtro).texto, /^📝 \*Resumen de los últimos 15 min\* \(10 mensajes\)/);
+  assert.equal(llamadas, 2);
+  assert.equal(R.resumenesEnCurso.has(C), false);
+  // Made, the same request gets it from what's kept; and one that fails leaves nothing in course.
+  assert.match(await pedir(), /\(10 mensajes; lo hice recién\)/);
+  assert.equal(llamadas, 2);
+  unMinutoDespues();
+  fallaSi = () => true;
+  assert.match(await pedir(["30m"]), /Se me trabó el resumen/);
+  assert.equal(R.resumenesEnCurso.has(C), false);
+});
+
+test("un resumen tiene un tiempo: pasado, no se empieza otra parte ni se vuelve a preguntar", async () => {
+  const relojReal = R._dep.ahora;
+  let ahora = Date.now();
+  R._dep.ahora = () => ahora;
+  try {
+    await conPartes({ caracteres: 2000 }, async () => {
+      largos();
+      // The clock jumps past the limit while the first part is being answered.
+      const fetchAntes = globalThis.fetch;
+      globalThis.fetch = async (...args) => {
+        ahora += R.RESUMENES.TIEMPO_MAX_MS;
+        return fetchAntes(...args);
+      };
+      try {
+        assert.match(await pedir(["2h"]), /Se me trabó el resumen/);
+        assert.equal(pedidos.length, 1, "la primera parte y ninguna más");
+        // And a request that fails once the time is up isn't asked again.
+        unMinutoDespues();
+        pedidos = [];
+        llamadas = 0;
+        fallaSi = () => true;
+        assert.match(await pedir(["2h"]), /Se me trabó el resumen/);
+        assert.equal(llamadas, UN_INTENTO);
+        assert.deepEqual(esperas, []);
+      } finally {
+        globalThis.fetch = fetchAntes;
+      }
+    });
+    assert.equal(R.RESUMENES.TIEMPO_MAX_MS, 3 * MIN);
+  } finally {
+    R._dep.ahora = relojReal;
+  }
 });
