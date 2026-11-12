@@ -103,6 +103,32 @@ test("un mensaje suelto: el aviso que abre con «vendo», el que lo dice más ad
   assert.deepEqual(lee("¿Alguien vende una heladera por menos de 3 mil?"), { tipo: "compro", texto: "una heladera por menos de 3 mil", soloSugerir: true });
 });
 
+// A real group's "Vendó…" was read as a thing and its price, not as an ad: the rule wanted "vendo" letter by letter.
+test("un tilde de más no cambia la palabra: «Vendó» es «vendo», pero «líquido» y «vendió» son otras", async () => {
+  const lee = (texto) => C.detectarSuelta(texto);
+  // At the start, after a greeting or further in: wherever "vendo" is read, with an accent on any of its vowels.
+  assert.deepEqual(lee("Vendó campera de cuero $ 2.500"), { tipo: "vendo", texto: "campera de cuero $ 2.500" });
+  assert.deepEqual(lee("VENDÓ"), { tipo: "vendo", texto: "" });
+  assert.deepEqual(lee("Hola! Véndo bici rodado 26"), { tipo: "vendo", texto: "bici rodado 26" });
+  assert.deepEqual(lee("Se vénden sillas"), { tipo: "vendo", texto: "sillas" });
+  assert.deepEqual(lee("Vendémos tortas por encargo"), { tipo: "vendo", texto: "tortas por encargo" });
+  assert.deepEqual(lee("Buenas! Estoy vendiéndo mis libros de ingreso"), { tipo: "vendo", texto: "mis libros de ingreso" });
+  const chaleco = "Chaleco talle L. Vendó por no uso, $ 800";
+  assert.deepEqual(lee(chaleco), { tipo: "vendo", texto: chaleco });
+  // Accented, these are other words: a liquid, and something that was sold.
+  assert.deepEqual(lee("Líquido de frenos $ 300"), { tipo: "vendo", texto: "Líquido de frenos $ 300", quizas: true });
+  assert.equal(lee("Vendió la bici al final?"), null);
+  // A word that goes on is another one: what will be sold on Monday isn't on sale.
+  assert.equal(lee("Se venderán las entradas el lunes"), null);
+  assert.equal(lee("Fiesta de fin de año. Se venderán entradas en la puerta"), null);
+
+  // And so it gets in as "vendo" does: the mark, and the first post told in words.
+  const chat = grupo("regla-tilde@g.us");
+  const r = await alEscribir(chat, "111@lid", "Vendó campera de cuero $ 2.500");
+  assert.deepEqual([r.dice, r.marcas, activas(chat)], [[PRIMERA(1, "$ 2.500")], ["🏷️"], [1]]);
+  assert.equal(F.getPublicacion(chat, 1).texto, "campera de cuero $ 2.500");
+});
+
 test("un aviso de venta entra con qué es y su precio; si no, dice qué le falta", async () => {
   const chat = grupo("regla-publicar@g.us", { ventas: false });
   const falta = (texto, tipo = "vendo") => C.publicar(chat, "111@lid", tipo, texto).falta;

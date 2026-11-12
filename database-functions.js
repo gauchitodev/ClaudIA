@@ -983,10 +983,11 @@ function parsearMercado(row) {
   return row;
 }
 
-export function crearMercado(chat, titulo, opciones, cierraEn, creadoPor) {
+// partido and tipo for a market on a match the bot follows (lib/partidos.js), null otherwise.
+export function crearMercado(chat, titulo, opciones, cierraEn, creadoPor, { partido = null, tipo = null } = {}) {
   const res = db
-    .prepare(`INSERT INTO mercados (chat, titulo, opciones, cierra_en, estado, creado_por, creado) VALUES (?, ?, ?, ?, 'abierto', ?, ?)`)
-    .run(chat, titulo, JSON.stringify(opciones), cierraEn, creadoPor, Date.now());
+    .prepare(`INSERT INTO mercados (chat, titulo, opciones, cierra_en, estado, creado_por, creado, partido, tipo) VALUES (?, ?, ?, ?, 'abierto', ?, ?, ?, ?)`)
+    .run(chat, titulo, JSON.stringify(opciones), cierraEn, creadoPor, Date.now(), partido, tipo);
   return Number(res.lastInsertRowid);
 }
 
@@ -1017,6 +1018,85 @@ export function apostarEnMercado(mercadoId, usuario, opcion, cantidad) {
 
 export function apuestasDeMercado(mercadoId) {
   return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? ORDER BY fecha ASC`).all(mercadoId);
+}
+
+// The markets on a match in a group, of a kind ("90" or "pasa"), whatever their state: one annulled with its match
+// still linked counts, so the bot doesn't open it again.
+export function mercadosDelPartido(chat, partido, tipo) {
+  return db.prepare(`SELECT * FROM mercados WHERE chat = ? AND partido = ? AND tipo = ? ORDER BY id ASC`).all(chat, partido, tipo).map(parsearMercado);
+}
+
+// The markets on a match that are still waiting for its result, in every group.
+export function mercadosConPartidoPendientes() {
+  return db.prepare(`SELECT * FROM mercados WHERE partido IS NOT NULL AND estado IN ('abierto', 'cerrado') ORDER BY id ASC`).all().map(parsearMercado);
+}
+
+// ===================== Matches the bot follows (lib/partidos.js) =====================
+
+function parsearPartido(row) {
+  if (!row) return null;
+  try {
+    row.resultado = row.resultado ? JSON.parse(row.resultado) : null;
+  } catch {
+    row.resultado = null;
+  }
+  return row;
+}
+
+// Stores a match as the source gives it, by its clave: a new one gets the next number, a known one keeps its own and
+// takes what changed. Returns its id.
+export function guardarPartido(p, ahora = Date.now()) {
+  const fila = {
+    competencia: p.competencia,
+    fase: p.fase || "",
+    vuelta: p.vuelta || 0,
+    local: p.local,
+    visitante: p.visitante,
+    local_id: String(p.localId),
+    visitante_id: String(p.visitanteId),
+    inicio: p.inicio,
+    estado: p.estado,
+    detalle: p.detalle || "",
+    resultado: p.resultado ? JSON.stringify(p.resultado) : "",
+    actualizado: ahora,
+  };
+  const previo = db.prepare(`SELECT id FROM partidos WHERE clave = ?`).get(p.clave);
+  if (previo) {
+    updateRow("partidos", "id", previo.id, fila);
+    return previo.id;
+  }
+  const columnas = ["clave", ...Object.keys(fila)];
+  const res = db.prepare(`INSERT INTO partidos (${columnas.join(", ")}) VALUES (${columnas.map(() => "?").join(", ")})`).run(p.clave, ...Object.values(fila));
+  return Number(res.lastInsertRowid);
+}
+
+export function actualizarPartido(id, data) {
+  return updateRow("partidos", "id", id, data.resultado !== undefined && typeof data.resultado !== "string" ? { ...data, resultado: data.resultado ? JSON.stringify(data.resultado) : "" } : data);
+}
+
+export function getPartido(id) {
+  return parsearPartido(db.prepare(`SELECT * FROM partidos WHERE id = ?`).get(id));
+}
+
+// The matches that start between two moments, the earliest first.
+export function partidosEntre(desde, hasta) {
+  return db.prepare(`SELECT * FROM partidos WHERE inicio >= ? AND inicio < ? ORDER BY inicio ASC, id ASC`).all(desde, hasta).map(parsearPartido);
+}
+
+// The teams that played or will play a competition, among the matches stored: the Uruguayan clubs, for uru.1.
+export function equiposDe(competencia) {
+  const filas = db.prepare(`SELECT local_id, visitante_id FROM partidos WHERE competencia = ?`).all(competencia);
+  return new Set(filas.flatMap((f) => [f.local_id, f.visitante_id]));
+}
+
+// What's older than a moment goes, unless a market still waits for it.
+export function borrarPartidosViejos(antesDe) {
+  return db.prepare(`DELETE FROM partidos WHERE inicio < ? AND id NOT IN (SELECT partido FROM mercados WHERE partido IS NOT NULL AND estado IN ('abierto', 'cerrado'))`).run(antesDe).changes;
+}
+
+// The groups and their switches, for the markets the bot opens on its own: every group it has a row for.
+export function gruposParaMercados() {
+  return db.prepare(`SELECT * FROM chats WHERE remoteJid LIKE '%@g.us'`).all();
 }
 
 // ===================== Pending work: queries for reminders and .estado =====================

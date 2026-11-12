@@ -76,7 +76,8 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |
-| `.mercados` 📊 | Apuestas sobre eventos reales que abre un admin: .mercado 7 muestra uno y .jugar 7 Nacional 20 apuesta. Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo. |
+| `.mercados` 📊 | Apuestas sobre eventos reales que abre un admin (y yo, un día antes de cada partido de Peñarol o Nacional): .mercado 7 muestra uno y .jugar 7 Nacional 20 apuesta. Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo. |
+| `.partidos` ⚽ | Los partidos de la semana del Uruguayo, la Libertadores, la Sudamericana y la selección, con el número para abrirles apuestas; .partidos libertadores (o uruguayo, sudamericana, seleccion) muestra todos los de esa. |
 
 <a id="descargas"></a>
 ## 🎧 Descargas
@@ -302,7 +303,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.estado` 🤖 | Estado del bot: conexión, IA, descargas, backups, batería. |
 | `.bat` 🔋 | Solo admins: batería del teléfono o la tablet donde corre el bot (necesita Termux:API). |
 | `.economia [días]` 🪙 | Panel de UruCoins: circulación, entradas y salidas por rubro. |
-| `.evento <título> \| <opciones> \| <cierre>` 📊 | Solo admins: abre un mercado de apuestas. Ej: .evento Peñarol vs Nacional \| Peñarol \| Empate \| Nacional \| 20:30 |
+| `.evento <título> \| <opciones> \| <cierre>` 📊 | Solo admins: abre un mercado de apuestas. Ej: .evento Peñarol vs Nacional \| Peñarol \| Empate \| Nacional \| 20:30. Para un partido de .partidos: .evento partido 12 (el resultado a los 90 minutos) o .evento partido 12 pasa (quién pasa de fase), y el resultado lo cargo yo. |
 | `.resolver 7 Nacional` 📊 | Solo admins: carga el resultado de un mercado en el que no apostaste; con "anulado", devuelve todo. |
 | `.ln @mención <motivo>` 🚫 | Lista negra del grupo: no puede entrar acá (a admins no). |
 | `.ln2 @mención` ☑️ | Sacar de la lista negra del grupo (o .ln2 y su número en .vln). |
@@ -348,6 +349,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.ascensos` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
 | `.catalogoauto` 🛒 | En modo compraventa, el catálogo sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
+| `.mercadosauto` ⚽ | Los mercados que abro sola un día antes de cada partido de Peñarol o Nacional. |
 | `.reacciones` 💚 | El bot reacciona a mensajes. |
 | `.preguntadeldia` 💬 | Pregunta del día para arrancar charla. |
 | `.triviarelampago` ⚡ | Trivias sorpresa con premio. |
@@ -414,6 +416,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 
 🔎 **Ver y buscar**
 - .catalogo — todo lo activo · .catalogo N — el detalle de la #N
+- .catalogo numero — con el teléfono de quien publicó cada una, para escribirle sin arrobarlo (el detalle: .catalogo N numero)
 - En modo compraventa lo muestro yo cada 4 horas, entre las 11 y las 21, si el grupo estuvo escribiendo, y borro el anterior
 - .vendo o .compro sin texto — solo las de ese tipo
 - .buscar &lt;palabra&gt; — filtra por palabra

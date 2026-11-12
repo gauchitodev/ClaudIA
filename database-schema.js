@@ -121,16 +121,18 @@ export function ponerAlDia(db) {
       juegosApagados TEXT DEFAULT "[]", -- the games switched off one by one, as a JSON list of keys (.juego, lib/juegos-apagados.js)
       catalogoAuto BOOLEAN DEFAULT 1, -- whether a buy-and-sell group gets its catalogue unasked (.catalogoauto, lib/compraventa.js)
       catalogoMostrado INTEGER DEFAULT 0, -- when that catalogue last went out
-      catalogoMensaje TEXT DEFAULT "" -- and its message's id: it's deleted when the next one goes out
+      catalogoMensaje TEXT DEFAULT "", -- and its message's id: it's deleted when the next one goes out
+      mercadosAuto BOOLEAN DEFAULT 1 -- whether the bot opens the markets of Peñarol's and Nacional's matches (lib/partidos.js)
     )
   `);
 
   // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours, the marketplace mode
   // switches (chat, greetings, coins, promotions), Claudia's initiative, since when the group hours can't be kept
-  // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and the catalogue a buy-and-sell group
-  // gets unasked (its switch, when it last went out and as which message), on databases that already exist.
+  // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion), the catalogue a buy-and-sell group
+  // gets unasked (its switch, when it last went out and as which message) and the markets the bot opens on its own
+  // (.mercadosauto), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""']]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -359,7 +361,10 @@ export function ponerAlDia(db) {
       estado TEXT DEFAULT "abierto",
       ganadora INTEGER,
       creado_por TEXT NOT NULL,
-      creado INTEGER NOT NULL
+      creado INTEGER NOT NULL,
+      partido INTEGER,
+      tipo TEXT,
+      avisado INTEGER DEFAULT 0
     )
   `);
   db.exec(`
@@ -372,6 +377,39 @@ export function ponerAlDia(db) {
       PRIMARY KEY (mercado_id, usuario)
     )
   `);
+  // A market on a match the bot follows (lib/partidos.js): which one (partido), what it's about ("90": the result at
+  // 90 minutes, "pasa": who goes through) and whether the admins were told the bot has no result for it (avisado).
+  // The bot resolves those on its own; the rest, an admin with .resolver. Added here to the databases from before.
+  const columnasMercados = db.prepare(`PRAGMA table_info(mercados)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["partido", "INTEGER"], ["tipo", "TEXT"], ["avisado", "INTEGER DEFAULT 0"]]) {
+    if (!columnasMercados.includes(columna)) {
+      db.exec(`ALTER TABLE mercados ADD COLUMN ${columna} ${definicion}`);
+      console.log(`🟢 Migración: columna '${columna}' agregada a la tabla mercados`);
+    }
+  }
+  // The matches the bot follows, as the results source gives them (lib/partidos.js, lib/espn.js): the competitions it
+  // looks at, from yesterday to a week ahead. Global: they're the same for every group. id is the number .partidos
+  // shows; clave, the source's own ("espn:401933238"). vuelta: 1 or 2 in a two-legged tie, 0 otherwise. resultado:
+  // what's known of how it ended, as JSON.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partidos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clave TEXT NOT NULL UNIQUE,
+      competencia TEXT NOT NULL,
+      fase TEXT DEFAULT "",
+      vuelta INTEGER DEFAULT 0,
+      local TEXT NOT NULL,
+      visitante TEXT NOT NULL,
+      local_id TEXT NOT NULL,
+      visitante_id TEXT NOT NULL,
+      inicio INTEGER NOT NULL,
+      estado TEXT NOT NULL,
+      detalle TEXT DEFAULT "",
+      resultado TEXT DEFAULT "",
+      actualizado INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_partidos_inicio ON partidos (inicio)`);
 
   // Birthdays: day, month and year per person and group (Claudia says happy birthday in the group they signed up in,
   // and how many they turn)

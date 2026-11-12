@@ -69,7 +69,7 @@ test("el catálogo sale solo en un grupo de compraventa: la lista de .catalogo, 
   assert.deepEqual(catalogo, {
     text:
       `🛒 *CATÁLOGO DEL GRUPO*\n\n🏷️ *EN VENTA* (2)\n*#${mesa}* mesa de luz $ 800 — P111\n*#${bici}* bici rodado 26 $ 4.000 — P111\n\n` +
-      "Detalle: .catalogo N · buscar: .buscar <palabra> · avisos: .avisame <palabra>\n" +
+      "Detalle: .catalogo N · teléfonos: .catalogo numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>\n" +
       "📌 ¿Vendés algo? Empezá tu mensaje con «vendo», decí qué es y a cuánto, y queda en esta lista.",
   });
   assert.equal(catalogo.mentions, undefined, "no arroba a nadie");

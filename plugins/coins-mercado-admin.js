@@ -1,4 +1,6 @@
 import { crearMercadoDesdeTexto, resolver } from "../lib/mercados.js";
+import { abrirDesdeLista } from "../lib/partidos.js";
+import { limpiarPalabra } from "../lib/comandos.js";
 
 const plugin = {};
 plugin.cmd = ["evento", "resolver"];
@@ -11,7 +13,8 @@ plugin.onlyAdmin = true;
 plugin.run = async (m, { client, text, args, command, chat, isOwner }) => {
 
   if (command === "evento") {
-    const r = crearMercadoDesdeTexto(m.chat, m.sender, text);
+    // .evento partido 12 [pasa]: the market of a match from .partidos, which the bot resolves on its own.
+    const r = limpiarPalabra(args[0]) === "partido" ? abrirDesdeLista(m.chat, m.sender, Number(args[1]), args.slice(2).join(" ")) : crearMercadoDesdeTexto(m.chat, m.sender, text);
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }
 

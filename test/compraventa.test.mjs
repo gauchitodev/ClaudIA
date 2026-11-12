@@ -48,6 +48,16 @@ test("compraventa: detección de hashtag y precio", () => {
   assert.equal(C.detectarPrecio("regalo perro"), "");
 });
 
+// A hashtag is put on purpose: an accent on any of its vowels doesn't make it another, as with a command's name.
+test("compraventa: un hashtag con un tilde de más es el mismo", () => {
+  assert.deepEqual(C.detectarPublicacion("#Vendó bici rodado 26 $ 4.000"), { tipo: "vendo", texto: "bici rodado 26 $ 4.000" });
+  assert.deepEqual(C.detectarPublicacion("#ventá mesa de luz $ 800"), { tipo: "vendo", texto: "mesa de luz $ 800" });
+  assert.deepEqual(C.detectarPublicacion("Hola! #búsco heladera chica"), { tipo: "compro", texto: "Hola! heladera chica" });
+  assert.deepEqual(C.detectarPublicacion("#necesíto monitor"), { tipo: "compro", texto: "monitor" });
+  assert.deepEqual(C.detectarPublicacion("#Compró bici"), { tipo: "compro", texto: "bici" });
+  assert.equal(C.detectarPublicacion("#vendóx"), null);
+});
+
 test("compraventa: publicar por hashtag, catálogo, búsqueda, detalle y alertas", async () => {
   const chat = "compraventa-publicar@g.us";
   const en = (sender, command, text = "") => correr(sender, command, text, { chat });
@@ -392,6 +402,67 @@ test("compraventa: .catalogo lista todo y muestra el detalle de una", async () =
   assert.match(ultimo(), /No hay ninguna publicación #99/);
   await en("bici");
   assert.match(ultimo(), /EN VENTA/, "lo que no es un número muestra el catálogo entero");
+});
+
+// .catalogo numero: each post with the phone number of whoever posted it, so whoever wants it writes to them without
+// tagging them. The number the group lists them with and no other: the one their row has may be one they had before,
+// someone else's by now, and one the group doesn't show isn't the bot's to show.
+test("compraventa: .catalogo numero lleva el teléfono de quien publicó, el que muestra el grupo, sin arrobar a nadie", async () => {
+  const chat = "compraventa-telefonos@g.us";
+  // Each one the way a group may list them: by LID with the number apart, by number with the LID apart, by LID alone.
+  // 444 isn't in it. Their rows have other numbers ("111@s.whatsapp.net" and so on, from before()). And 777 posted
+  // under their number, before the group listed people by LID: they're found by it.
+  const PN = "59899000777@s.whatsapp.net";
+  F.initDataDB({ chat, sender: PN, senderJid: PN, pushName: "777" });
+  const participants = [
+    { id: "111@lid", phoneNumber: "59899000111@s.whatsapp.net", admin: null },
+    { id: "59899000222@s.whatsapp.net", lid: "222@lid", admin: null },
+    { id: "333@lid", admin: null },
+    { id: "777@lid", phoneNumber: PN, admin: null },
+  ];
+  const en = (text, extra = { participants }) => correr("555@lid", "catalogo", text, { chat, ...extra });
+  C.publicar(chat, "111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos");
+  C.publicar(chat, "222@lid", "vendo", "mesa de luz $ 800");
+  C.publicar(chat, "333@lid", "compro", "heladera chica que ande");
+  C.publicar(chat, "444@lid", "vendo", "silla de escritorio $ 1.500");
+  C.publicar(chat, PN, "vendo", "lámpara de pie $ 900");
+
+  await en("numero");
+  assert.deepEqual(ultimoEnviado().msg, {
+    text: [
+      `${C.TIPOS.vendo.emoji} *EN VENTA* (4)`,
+      "*#5* lámpara de pie $ 900 — +59899000777 (777)",
+      "*#4* silla de escritorio $ 1.500 — 444 (sin número)",
+      "*#2* mesa de luz $ 800 — +59899000222 (222)",
+      "*#1* bici rodado 26 $ 4.000 Pocitos — +59899000111 (111)",
+      "",
+      `${C.TIPOS.compro.emoji} *SE BUSCA* (1)`,
+      "*#3* heladera chica que ande — 333 (sin número)",
+      "",
+      "Detalle: .catalogo N numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>",
+    ].join("\n"),
+    mentions: [],
+  });
+  // Its detail too, which otherwise tags them: with the word after the number or before it, accented or not.
+  for (const pedido of ["1 numero", "Números 1"]) {
+    await en(pedido);
+    assert.match(ultimoEnviado().msg.text, /\nPrecio: \$ 4\.000 · Publicó \+59899000111 \(111\) hace /, pedido);
+    assert.deepEqual(ultimoEnviado().msg.mentions, [], pedido);
+  }
+  // Without the group's list (it didn't come), nobody's: not the ones their rows have either.
+  for (const sinLista of [{}, { participants: [] }]) {
+    await en("numero", sinLista);
+    assert.doesNotMatch(ultimoEnviado().msg.text, /\+\d/);
+    assert.match(ultimoEnviado().msg.text, /— 111 \(sin número\)\n/);
+  }
+
+  // Without the word, as ever: by name, with the foot telling how to see the numbers, and the detail tags its author.
+  await en("");
+  assert.match(ultimoEnviado().msg.text, /\n\*#1\* bici rodado 26 \$ 4\.000 Pocitos — 111\n/);
+  assert.match(ultimoEnviado().msg.text, /\nDetalle: \.catalogo N · teléfonos: \.catalogo numero · buscar: \.buscar <palabra> · avisos: \.avisame <palabra>$/);
+  await en("1");
+  assert.match(ultimoEnviado().msg.text, /· Publicó @111 hace /);
+  assert.deepEqual(ultimoEnviado().msg.mentions, ["111@lid"]);
 });
 
 test("compraventa: quedaron solo los comandos que se usan, más .vender como alias de .vendo", () => {

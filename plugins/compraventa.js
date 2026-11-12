@@ -1,17 +1,18 @@
 import { publicar, textoCatalogo, textoBusqueda, textoMias, textoPublicacion, cambiarPorComando, cambiarPrecio, corregirPublicacion, gestionarAlerta, detectarPublicacion, anunciarPublicacion } from "../lib/compraventa.js";
 import { getPublicacionPorMensaje } from "../database-functions.js";
 import { mismaPersona, lidDe } from "../lib/identidad.js";
+import { modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["vendo", "vender", "compro", "catalogo", "buscar", "vendido", "baja", "reservado", "sigue", "precio", "editar", "corregir", "mias", "avisame"];
 plugin.onlyGroup = true;
 
 // .vendo / .compro: with nothing → that type's catalogue; with text → it posts; quoting a message → it posts what
-// that message says (a photo's caption, for instance), under the name of whoever sent it · .catalogo [N] ·
+// that message says (a photo's caption, for instance), under the name of whoever sent it · .catalogo [N] [numero] ·
 // .buscar <word> · .vendido / .baja / .reservado / .sigue: replying to the post, or with its number, several numbers
 // or "todas" · .precio and .editar (or .corregir): the post's number and its new price or text, or replying to the post
 // with only that · .mias · .avisame <word> (with "quitar" in front it removes it)
-plugin.run = async (m, { client, command, args, text, isMod }) => {
+plugin.run = async (m, { client, command, args, text, isMod, participants }) => {
   const enviar = (r) => client.sendMessage(m.chat, { text: r.texto ?? r.mensaje, mentions: r.mentions || [] }, { quoted: m });
   // With whoever it names: a moderator's correction tells the post's author.
   const contestar = (r) => (r.ok ? client.sendText(m.chat, r.mensaje, m, r.mentions?.length ? { mentions: r.mentions } : undefined) : client.sendText(m.chat, `❌ ${r.error}`, m));
@@ -31,9 +32,16 @@ plugin.run = async (m, { client, command, args, text, isMod }) => {
     return anunciarPublicacion(client, m, r);
   }
 
-  // .catalogo 12 is the detail of #12; with anything else (or nothing) it's the whole catalogue.
+  // .catalogo 12 is the detail of #12; with anything else (or nothing) it's the whole catalogue. "numero", before or
+  // after (lib/menciones.js), puts on each one the number the group lists its author with, to write to them without
+  // tagging them, and on the detail too, which otherwise tags them. The group's and no other, even when its list
+  // didn't come.
   if (command === "catalogo") {
-    return enviar(/^\d+$/.test(args[0] || "") ? textoPublicacion(m.chat, parseInt(args[0], 10), { usuario: m.sender, esMod: isMod }) : textoCatalogo(m.chat, null));
+    const { modo, texto } = modoDeNombre(text);
+    const [primero = ""] = texto.trim().split(/\s+/);
+    const porNumero = modo === "numeros";
+    const armar = () => (/^\d+$/.test(primero) ? textoPublicacion(m.chat, parseInt(primero, 10), { usuario: m.sender, esMod: isMod, porNumero }) : textoCatalogo(m.chat, null, { porNumero }));
+    return enviar(nombrandoPor(modo, armar, { grupo: participants || [] }));
   }
   if (command === "buscar") return enviar(textoBusqueda(m.chat, text));
   if (command === "mias") return enviar(textoMias(m.chat, m.sender));

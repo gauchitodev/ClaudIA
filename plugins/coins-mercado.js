@@ -1,9 +1,10 @@
 import { jugar, textoListaMercados, textoMercado } from "../lib/mercados.js";
+import { textoPartidos } from "../lib/partidos.js";
 import { getMercado } from "../database-functions.js";
 import { leerEntero } from "../lib/comandos.js";
 
 const plugin = {};
-plugin.cmd = ["jugar", "mercados", "mercado"];
+plugin.cmd = ["jugar", "mercados", "mercado", "partidos"];
 plugin.economia = true;
 plugin.juego = true;
 plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
@@ -12,6 +13,9 @@ plugin.onlyGroup = true;
 plugin.run = async (m, { client, args, command, chat }) => {
 
   if (command === "mercados") return client.sendText(m.chat, textoListaMercados(m.chat), m);
+
+  // .partidos [competition]: the matches of the next week, with the number an admin opens their markets with.
+  if (command === "partidos") return client.sendText(m.chat, textoPartidos(m.chat, args.join(" "), { fila: chat }), m);
 
   if (command === "mercado") {
     const id = parseInt(args[0], 10);

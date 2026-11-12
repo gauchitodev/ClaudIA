@@ -31,7 +31,8 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   assert.ok(cols("users").includes("memoria") && cols("users").includes("apodo") && cols("users").includes("genero"));
-  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "horarioGrupoFalla", "antiLiveLocation", "redes", "voz", "juegosApagados", "catalogoAuto", "catalogoMostrado", "catalogoMensaje"].every((c) => cols("chats").includes(c)));
+  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "horarioGrupoFalla", "antiLiveLocation", "redes", "voz", "juegosApagados", "catalogoAuto", "catalogoMostrado", "catalogoMensaje", "mercadosAuto"].every((c) => cols("chats").includes(c)));
+  assert.equal(db.prepare(`SELECT mercadosAuto FROM chats WHERE remoteJid = ?`).get(G).mercadosAuto, 1, "los mercados automáticos, prendidos al migrar");
   assert.deepEqual(db.prepare(`SELECT catalogoAuto, catalogoMostrado, catalogoMensaje FROM chats WHERE remoteJid = ?`).get(G), { catalogoAuto: 1, catalogoMostrado: 0, catalogoMensaje: "" }, "el catálogo automático, prendido y sin mostrar al migrar");
   assert.equal(db.prepare(`SELECT antiLiveLocation FROM chats WHERE remoteJid = ?`).get(G).antiLiveLocation, 0, "la ubicación en tiempo real, sin borrar al migrar");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
@@ -45,9 +46,43 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(F.isBlacklisted("111@s.whatsapp.net", G)?.reason, "spam");
   assert.ok(cols("hashtag_entries").includes("reacciones"));
   const tablas = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all().map((t) => t.name);
-  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "envios_bot", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones", "iniciativa_estado", "intervenciones", "aura_mensual", "trivia_hechas", "trivia_ia", "acertijos_hechos", "avisos_owner"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
+  for (const t of ["urucoins", "urucoins_log", "inventario", "pendientes", "loteria_boletos", "mercados", "apuestas_mercado", "cumpleanos", "actividad_diaria", "actividad_horaria", "envios_bot", "rachas", "preguntas_dia", "periodos_cerrados", "lista_negra", "memoria_grupo", "roles_grupo", "publicaciones", "alertas_compraventa", "calificaciones", "iniciativa_estado", "intervenciones", "aura_mensual", "trivia_hechas", "trivia_ia", "acertijos_hechos", "avisos_owner", "partidos"]) assert.ok(tablas.includes(t), `falta la tabla ${t}`);
   const plan = db.prepare(`EXPLAIN QUERY PLAN SELECT * FROM users WHERE jid = ?`).all("x").map((f) => f.detail).join(" ");
   assert.match(plan, /idx_users_jid/, "buscar a alguien por número no recorre la tabla entera");
+  globalThis.db = F.loadDatabase(); // idempotente
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// The markets on a match the bot follows (lib/partidos.js) need three columns the markets table didn't have, the groups
+// a switch, and the matches a table of their own.
+test("migra los mercados sin las columnas del partido, y los grupos sin el interruptor de los mercados automáticos", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-mercados-"));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE mercados (id INTEGER PRIMARY KEY AUTOINCREMENT, chat TEXT NOT NULL, titulo TEXT NOT NULL, opciones TEXT NOT NULL, cierra_en INTEGER NOT NULL, estado TEXT DEFAULT "abierto", ganadora INTEGER, creado_por TEXT NOT NULL, creado INTEGER NOT NULL)`);
+  vieja.prepare(`INSERT INTO mercados (chat, titulo, opciones, cierra_en, creado_por, creado) VALUES (?, ?, ?, ?, ?, ?)`).run(G, "Clásico", '["Peñarol","Nacional"]', 1700000000000, "admin", 1700000000000);
+  vieja.close();
+  const F = await import("../database-functions.js");
+  globalThis.db = F.loadDatabase();
+  const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+  for (const c of ["partido", "tipo", "avisado"]) assert.ok(cols("mercados").includes(c), `falta mercados.${c}`);
+  const m = F.getMercado(1);
+  assert.deepEqual([m.titulo, m.opciones, m.partido, m.tipo, m.avisado], ["Clásico", ["Peñarol", "Nacional"], null, null, 0], "el mercado de antes queda, sin partido");
+  assert.ok(cols("chats").includes("mercadosAuto"));
+  F.initDataDB({ chat: G, sender: "111@lid", senderJid: "", pushName: "Ana" });
+  assert.equal(F.getChat(G).mercadosAuto, 1, "prendido");
+  assert.ok(cols("partidos").includes("clave") && cols("partidos").includes("resultado"));
+  const plan = db.prepare(`EXPLAIN QUERY PLAN SELECT * FROM partidos WHERE inicio >= ? AND inicio < ?`).all(0, 1).map((f) => f.detail).join(" ");
+  assert.match(plan, /idx_partidos_inicio/);
+  // A match, kept by its clave: the same one again keeps its number and takes what changed.
+  const p = { clave: "espn:1", competencia: "uru.1", fase: "torneo-clausura", vuelta: 0, local: "Nacional", visitante: "Albion", localId: "2684", visitanteId: "21403", inicio: 1800000000000, estado: "programado", detalle: "STATUS_SCHEDULED", resultado: null };
+  const id = F.guardarPartido(p, 5);
+  assert.equal(F.guardarPartido({ ...p, estado: "terminado", resultado: { definicion: "90", goles: [2, 1] } }, 6), id);
+  assert.deepEqual([F.getPartido(id).estado, F.getPartido(id).resultado, F.getPartido(id).actualizado], ["terminado", { definicion: "90", goles: [2, 1] }, 6]);
+  F.actualizarPartido(id, { resultado: { definicion: "90", goles: [2, 1], a90: null } });
+  assert.deepEqual(F.getPartido(id).resultado, { definicion: "90", goles: [2, 1], a90: null });
+  assert.notEqual(F.guardarPartido({ ...p, clave: "espn:2" }, 7), id);
   globalThis.db = F.loadDatabase(); // idempotente
   fs.rmSync(dir, { recursive: true, force: true });
 });
