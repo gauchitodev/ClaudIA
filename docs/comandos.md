@@ -248,7 +248,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.reportar` 🛑 | Respondé al mensaje que querés reportar a los admins. |
 | `.redes` 🔗 | Las redes y links del grupo (Instagram, Discord, el canal…); .redes instagram muestra una sola. .links y .discord siguen andando. |
 | `.encuesta pregunta - opción - opción` 📊 | Arma una encuesta: la pregunta y de 2 a 12 opciones, separadas con guiones. |
-| `.calc 2+2*3` 🧮 | Calculadora. |
+| `.calc <cuenta>` 🧮 | Calculadora: + - x ÷, ^ para potencias, porcentajes (1500 + 10%, 20% de 1500) y paréntesis; los decimales van con punto. |
 | `.serie [género]` 🎬 | Recomienda una serie (o una película, con .pelicula) del género que digas, o una cualquiera con random. |
 | `.ss <url>` 🖥️ | Captura de pantalla de una página web. |
 | `.suicidarse` 💀 | Te expulsa del grupo a vos (sí, de verdad). |
