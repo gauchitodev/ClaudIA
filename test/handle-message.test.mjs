@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WAMessageStubType } from "@whiskeysockets/baileys";
-import { prepararBase, clienteFalso, esperar } from "./helpers.mjs";
+import { prepararBase, clienteFalso, esperar, fijarSaldo } from "./helpers.mjs";
 import txt from "../lib/strings.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
@@ -903,6 +903,43 @@ test("el horario de juegos frena empezar un ta-te-ti o un 4 en línea, no las ju
   await mandar(ANA, ".4enlinea");
   F.updateChat(GRUPO, { horarioJuegos: cerrado });
   assert.equal(await mandar(ANA, ".del4enlinea"), "Partida de 4 en línea cancelada.");
+});
+
+// .horariojuegos doesn't stop the markets (plugin.aCualquierHora): a bet on a match closes when the match starts, and
+// the hours left only their own stretch of the time before it. Looking at them, and opening and resolving them, run
+// at any hour too; the roulette still waits for the hours, and .casino off still stops the markets. In a group of its
+// own: the hours' notice goes out once every 10 minutes per group, and the tic-tac-toe test above expects GRUPO's.
+test("el horario de juegos no frena los mercados: se miran, se apuesta, un admin los abre y los resuelve; la ruleta espera", async () => {
+  const { CASINO_APAGADO } = await import("../lib/casino.js");
+  const MERCADOS = "120363000000000134@g.us";
+  const archivos = ["coins-mercado.js", "coins-mercado-admin.js", "coins-ruleta.js"];
+  cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  const client = cliente();
+  let n = 0;
+  const mandar = async (quien, texto) => {
+    globalThis.enviados = [];
+    const key = { remoteJid: MERCADOS, fromMe: false, id: `MERCADOS${++n}`, participant: quien };
+    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
+  };
+  for (const [quien, nombre] of [[ANA, "Ana"], [BETO, "Beto"]]) F.initDataDB({ chat: MERCADOS, sender: quien, senderJid: "", pushName: nombre });
+  // An hour that starts two hours from now never includes now.
+  const desde = (new Date().getHours() + 2) % 24;
+  F.updateChat(MERCADOS, { horarioJuegos: `${String(desde).padStart(2, "0")}:00-${String((desde + 1) % 24).padStart(2, "0")}:00`, casino: 1, games: 1, monedas: 1 });
+  F.setRolGrupo(MERCADOS, ANA, "admin");
+  fijarSaldo(F, MERCADOS, BETO, 500);
+
+  const abierto = await mandar(ANA, ".evento ¿Llueve mañana? | Sí | No | en 2h");
+  const [, id] = abierto.match(/Mercado #(\d+)/) || [];
+  assert.ok(id, `un admin lo abre: ${abierto}`);
+  assert.match(await mandar(BETO, `.jugar ${id} Sí 20`), new RegExp(`^📊 Le jugaste 20 UruCoins a \\*Sí\\* en el mercado #${id}`));
+  assert.match(await mandar(BETO, ".mercados"), new RegExp(`#${id}`));
+  assert.match(await mandar(BETO, `.mercado ${id}`), /¿Llueve mañana\?/);
+  assert.doesNotMatch(await mandar(BETO, ".partidos"), /🕒/);
+  assert.match(await mandar(ANA, `.resolver ${id} anulado`), new RegExp(`Mercado #${id} anulado`));
+  assert.match(await mandar(BETO, ".ruleta 20 rojo"), /^🕒 Acá los juegos van de /, "la ruleta espera al horario");
+  F.updateChat(MERCADOS, { casino: 0 });
+  assert.equal(await mandar(BETO, ".mercados"), CASINO_APAGADO, ".casino off sí los frena");
 });
 
 // .juego 4enlinea off (lib/juegos-apagados.js) stops starting that one game: the moves, giving up and clearing the

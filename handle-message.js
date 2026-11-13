@@ -285,10 +285,14 @@ export async function handleMessage(nMsg) {
       // tic-tac-toe and the 4 en línea). It stops starting one: their moves are plain messages that their hooks take,
       // so a game already going is played out, and cancelling and giving up live in plugins of their own. The rest of
       // the games —trivia, hangman, flags, canvas, raffles— run at any hour. Plugins that are a casino only sometimes
-      // (a .4enlinea with a bet) check the same switches with frenoDelCasino (lib/casino.js).
+      // (a .4enlinea with a bet) check the same switches with frenoDelCasino (lib/casino.js). The markets
+      // (plugin.aCualquierHora) don't wait for it: a bet on a match closes when the match starts, and the hours left
+      // only their own stretch of the time before it (with 20:00-23:00, a Saturday 16:00 match was bet on from 20 to
+      // 23 on Friday, and that was all); looking at them, and opening and resolving them, stopped too. What the bot
+      // says of them on its own does wait for the hours (abrirMercadosSolos, lib/partidos.js).
       // correspondeAvisar() marks the group as already notified, so it goes inside the notice and not here: if the
       // command ends up running through another plugin, the 10-minute notice isn't spent.
-      if ((plugin.casino || plugin.conHorario) && m.isGroup && !juegosAbiertos(chat)) {
+      if ((plugin.casino || plugin.conHorario) && !plugin.aCualquierHora && m.isGroup && !juegosAbiertos(chat)) {
         rechazar(() => (correspondeAvisar(m.chat) ? this.sendText(m.chat, mensajeJuegosCerrados(chat), m) : m.react("🕒")));
         continue;
       }

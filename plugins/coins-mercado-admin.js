@@ -6,7 +6,8 @@ const plugin = {};
 plugin.cmd = ["evento", "resolver"];
 plugin.economia = true;
 plugin.juego = true;
-plugin.casino = true; // .casino off and the .horariojuegos schedule stop these
+plugin.casino = true; // .casino off stops these
+plugin.aCualquierHora = true; // and the .horariojuegos schedule doesn't (handle-message.js)
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 

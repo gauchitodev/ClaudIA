@@ -72,9 +72,10 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   assert.match(ultimoEnviado().msg.text, /no tiene horario de juegos/);
   await correr("20:00-23:00");
   assert.match(ultimoEnviado().msg.text, /el casino, el ta-te-ti y el 4 en línea van de 20:00 a 23:00/);
+  assert.match(ultimoEnviado().msg.text, /los mercados de apuestas y los demás juegos siguen andando siempre/);
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
   await correr("");
-  assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00; ahora están (abiertos|cerrados)/);
+  assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00; ahora están (abiertos|cerrados)\. Los mercados de apuestas andan a cualquier hora\./);
   await correr("a la noche");
   assert.match(ultimoEnviado().msg.text, /No entendí el horario/);
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");

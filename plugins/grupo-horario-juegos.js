@@ -16,7 +16,7 @@ plugin.run = async (m, { client, text, chat }) => {
     const h = horarioDe(chat);
     if (!h) return client.sendText(m.chat, `🕒 Este grupo no tiene horario de juegos: el casino, el ta-te-ti y el 4 en línea andan a cualquier hora (mientras estén activados con .juegos).\n\nPara ponerle uno: .horariojuegos 20:00-23:00${avisoApagados}`, m);
     const estado = juegosAbiertos(chat) ? "ahora están abiertos" : "ahora están cerrados";
-    return client.sendText(m.chat, `🕒 En este grupo, el casino, el ta-te-ti y el 4 en línea van ${textoHorario(h)}; ${estado}.\n\n.horariojuegos off lo saca, .horariojuegos 21:00-00:00 lo cambia.${avisoApagados}`, m);
+    return client.sendText(m.chat, `🕒 En este grupo, el casino, el ta-te-ti y el 4 en línea van ${textoHorario(h)}; ${estado}. Los mercados de apuestas andan a cualquier hora.\n\n.horariojuegos off lo saca, .horariojuegos 21:00-00:00 lo cambia.${avisoApagados}`, m);
   }
 
   // the word, read as the command's name is (lib/comandos.js): ".horariojuegos off." was taken for a schedule

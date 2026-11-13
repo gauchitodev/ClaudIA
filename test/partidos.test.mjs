@@ -274,7 +274,7 @@ test("los mercados andan donde andan .evento y .jugar, y donde se escribió hace
   assert.equal(anda({ juegosApagados: '["ruleta"]' }), true);
   const hora = new Date(ahora).getHours();
   const fuera = `${String((hora + 2) % 24).padStart(2, "0")}:00-${String((hora + 3) % 24).padStart(2, "0")}:00`;
-  assert.equal(anda({ horarioJuegos: fuera }), false, "fuera del horario de juegos");
+  assert.equal(anda({ horarioJuegos: fuera }), true, "fuera del horario de juegos también: el horario no frena los mercados");
   // Nobody wrote in two weeks: the bot may not be there anymore.
   const callado = "partidos-callado@g.us";
   F.initDataDB({ chat: callado, sender: "111@lid", senderJid: "", pushName: "Ana" });
@@ -409,6 +409,24 @@ test("los partidos de Peñarol y Nacional abren su mercado solos un día antes, 
   assert.equal(await P.abrirMercadosSolos(ahora + HORA, client), 0);
   // The next day's turns up once it's within a day.
   assert.equal(await P.abrirMercadosSolos(ahora + 10 * HORA, client), 2);
+});
+
+// .horariojuegos doesn't stop the markets (handle-message.js), but what the bot says on its own keeps to it: with the
+// hours closed, the pass still asks for the matches, which .partidos shows at any hour, and the market waits for them
+// to open. Before, a group whose hours were closed had no markets at all, and the matches weren't asked for.
+test("con horario de juegos, el mercado de Peñarol o Nacional se abre cuando abre el horario, y la cartelera se pide igual", async () => {
+  const ahora = Date.now();
+  const desde = (new Date(ahora).getHours() + 2) % 24;
+  const chat = grupo({ horarioJuegos: `${String(desde).padStart(2, "0")}:00-${String((desde + 1) % 24).padStart(2, "0")}:00` });
+  cartelera("uru.1", [evento({ id: 1, local: NACIONAL, visitante: ALBION, inicio: ahora + 20 * HORA })], { calendario: [] });
+  const client = clienteFalso();
+  assert.equal(await P.chequearPartidos(ahora, client), true);
+  assert.ok(pedidos.length >= 7, "la cartelera, aunque el horario esté cerrado");
+  const nacional = globalThis.db.prepare(`SELECT id FROM partidos WHERE clave = 'espn:1'`).get().id;
+  assert.deepEqual([F.mercadosDelPartido(chat, nacional, "90").length, aca(chat)], [0, []], "con el horario cerrado, todavía no");
+  await P.chequearPartidos(ahora + 2 * HORA, client);
+  assert.equal(F.mercadosDelPartido(chat, nacional, "90").length, 1, "cuando abre el horario");
+  assert.match(aca(chat)[0], /^⚽ Juega Nacional: Nacional vs Albion/);
 });
 
 test("el clásico, y una vuelta de copa con los dos mercados en un solo mensaje", async () => {
