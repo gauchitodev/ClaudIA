@@ -337,10 +337,10 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.detect` 👀 | Avisa cuando hay nuevos admins, o se hacen cambios en el grupo. |
 | `.antieliminar` 🗑️ | Reenvía mensajes eliminados en el chat. |
 | `.18` 🔞 | Búsquedas +18 en .imagen. |
-| `.juegos` 🎮 | Uso de juegos. |
+| `.juegos` 🎮 | Prende o apaga todos los juegos (on u off); con el nombre de uno, solo ese: .juegos mines off. |
 | `.juego mines off` ⛔ | Apaga un solo juego en el grupo (o lo prende con on); sin nada, cómo está cada uno. |
 | `.casino` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
-| `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora. Con "off" se saca. |
+| `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
 | `.charla` 💬 | Charla automática de Claudia cuando la nombran. |
 | `.iniciativa on\|off` 🙋 | Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene. |
 | `.voz on\|aveces\|siempre\|off` 🎙️ | Claudia contesta con nota de voz: on, cuando le hablan por nota de voz; aveces, eso y alguna respuesta corta de vez en cuando; siempre, todo lo que dice (las respuestas largas van por texto). Sin nada, muestra cómo viene. |

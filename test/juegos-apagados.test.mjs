@@ -226,6 +226,33 @@ test(".juego: lista, apaga y prende por nombre o alias, invierte sin palabra, y 
   assert.doesNotMatch(ultimo(), /Ojo/, "el casino apagado no le cambia nada al ahorcado");
 });
 
+// .juegos mines off does what .juego mines off does (cambiarJuego): people write the plural they use for all of them,
+// and it only answered how to switch them all. .juegos on and off, and .juegos alone, still switch them all.
+test(".juegos con el nombre de un juego hace lo mismo que .juego; solo, on u off, siguen siendo todos", async () => {
+  const OnOff = plugins["config-on-off"];
+  const juegos = (args) => OnOff.run({ chat: G, sender: ADMIN, isGroup: true }, { client: conexion.client, command: "juegos", args, usedPrefix: ".", isAdmin: true, isOwner: false, chat: fila(), botSettings: {} });
+  for (const args of [["mercados", "off"], ["mercados", "on"], ["4", "en", "línea"], ["mines", "quizás"], ["ruleta", "off"]]) {
+    F.updateChat(G, { juegosApagados: '["4enlinea"]' });
+    await juego(args);
+    const [texto, lista] = [ultimo(), fila().juegosApagados];
+    F.updateChat(G, { juegosApagados: '["4enlinea"]' });
+    await juegos(args);
+    assert.deepEqual([ultimo(), fila().juegosApagados], [texto, lista], args.join(" "));
+  }
+  F.updateChat(G, { juegosApagados: '["4enlinea"]' });
+  await juegos(["mercados", "off"]);
+  assert.equal(ultimo(), "⛔ Listo: apagué los mercados de apuestas en este grupo. Hasta que alguien escriba .juego mercados on no se empieza más; lo que ya iba se termina.");
+  assert.equal(fila().juegosApagados, '["4enlinea","mercados"]');
+  // A word that names no game says how .juegos goes; the switches of them all, as always.
+  await juegos(["hola"]);
+  assert.equal(ultimo(), "Usá .juegos on o .juegos off (sin nada, lo invierte); para uno solo, .juegos mines off.");
+  await juegos(["off"]);
+  assert.equal(fila().games, 0, ".juegos off los apaga todos");
+  await juegos([]);
+  assert.equal(fila().games, 1, ".juegos solo lo invierte");
+  assert.equal(fila().juegosApagados, '["4enlinea","mercados"]', "sin tocar los apagados de a uno");
+});
+
 test(".config: dice qué juegos están apagados de a uno", async () => {
   const config = () => Config.run({ chat: G, sender: ADMIN, isGroup: true }, { client: conexion.client, groupMetadata: { id: G, subject: "Grupo" }, chat: fila() });
   await config();
@@ -234,4 +261,13 @@ test(".config: dice qué juegos están apagados de a uno", async () => {
   J.apagar(G, "mines");
   await config();
   assert.match(ultimo(), /\n🎮 Juegos apagados de a uno: tops, mines \(\.juego\)\n/);
+  // With game hours, whether the markets keep to them (.horariojuegos mercados).
+  assert.match(ultimo(), /\n🕒 Horario de juegos: sin horario \(\.horariojuegos\)\n/);
+  F.updateChat(G, { horarioJuegos: "20:00-23:00" });
+  await config();
+  assert.match(ultimo(), /\n🕒 Horario de juegos: 20:00 a 23:00; los mercados, a cualquier hora \(\.horariojuegos mercados on\)\n/);
+  F.updateChat(G, { mercadosEnHorario: 1 });
+  await config();
+  assert.match(ultimo(), /\n🕒 Horario de juegos: 20:00 a 23:00; los mercados, también \(\.horariojuegos mercados off\)\n/);
+  F.updateChat(G, { horarioJuegos: "", mercadosEnHorario: 0 });
 });

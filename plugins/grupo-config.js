@@ -9,7 +9,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto, mercadosEnHorario } = chat;
   // Once per person, as .roles: someone with a role under each of their ids came out twice. And as the group lists
   // them: a role under a number that moved on named whoever had it before.
   const roles = rolesPorPersona(m.chat, groupMetadata?.participants);
@@ -41,7 +41,7 @@ ${casino ? "✅" : "❌"} Casino y apuestas (.casino)
 ${antiStatus ? "✅" : "❌"} Anti menciones del grupo en estados (.antiestados)
 ${stickersAuto ? "✅" : "❌"} Stickers por su cuenta (.respuestastickers)
 🎙️ Voz: ${MODOS_VOZ[voz || ""] || voz} (.voz)
-🕒 Horario de juegos: ${horarioJuegos ? horarioJuegos.replace("-", " a ") : "sin horario (.horariojuegos)"}
+🕒 Horario de juegos: ${horarioJuegos ? `${horarioJuegos.replace("-", " a ")}; los mercados, ${mercadosEnHorario ? "también (.horariojuegos mercados off)" : "a cualquier hora (.horariojuegos mercados on)"}` : "sin horario (.horariojuegos)"}
 🌙 Horario del grupo: ${horarioGrupo ? `${horarioGrupo.replace("-", " a ")} (se cierra solo fuera de eso)${horarioGrupoFalla ? " ⚠️ no lo puedo cumplir: ¿sigo siendo admin?" : ""}` : "sin horario (.horariogrupo)"}
 📋 Reglas: ${reglas ? "cargadas (.reglas)" : "sin cargar (.reglas set <texto>)"}
 ${welcome ? "✅" : "❌"} Welcome - Bye

@@ -72,10 +72,10 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   assert.match(ultimoEnviado().msg.text, /no tiene horario de juegos/);
   await correr("20:00-23:00");
   assert.match(ultimoEnviado().msg.text, /el casino, el ta-te-ti y el 4 en línea van de 20:00 a 23:00/);
-  assert.match(ultimoEnviado().msg.text, /los mercados de apuestas y los demás juegos siguen andando siempre/);
+  assert.match(ultimoEnviado().msg.text, /los demás juegos siguen andando siempre\. Los mercados de apuestas andan a cualquier hora \(\.horariojuegos mercados on los pone en el horario\)\. Con/);
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
   await correr("");
-  assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00; ahora están (abiertos|cerrados)\. Los mercados de apuestas andan a cualquier hora\./);
+  assert.match(ultimoEnviado().msg.text, /van de 20:00 a 23:00; ahora están (abiertos|cerrados)\. Los mercados de apuestas andan a cualquier hora \(\.horariojuegos mercados on los pone en el horario\)\.\n/);
   await correr("a la noche");
   assert.match(ultimoEnviado().msg.text, /No entendí el horario/);
   assert.equal(F.getChat(G).horarioJuegos, "20:00-23:00");
@@ -86,4 +86,33 @@ test("horario de juegos: el comando de admin fija, muestra y saca el horario", a
   await correr("off."); // with a sign at the end, too
   assert.match(ultimoEnviado().msg.text, /saqué el horario/);
   assert.equal(F.getChat(G).horarioJuegos, "");
+});
+
+// The betting markets run at any hour (handle-message.js); .horariojuegos mercados on puts them in the hours too, as
+// they were before, and off takes them out. Without on or off it flips, and it can be set before the hours are.
+test("horario de juegos: .horariojuegos mercados on pone los mercados en el horario, y off los saca", async () => {
+  const P = (await import("../plugins/grupo-horario-juegos.js")).default;
+  const chat = "horario-mercados@g.us";
+  F.initDataDB({ chat, sender: "a@lid", senderJid: "a@s.whatsapp.net" });
+  F.updateChat(chat, { games: 1 });
+  const correr = async (text) => {
+    await P.run({ chat, sender: "a@lid", isGroup: true }, { client: conexion.client, text, chat: F.getChat(chat) });
+    return ultimoEnviado().msg.text;
+  };
+  const enHorario = () => F.getChat(chat).mercadosEnHorario;
+  assert.equal(enHorario(), 0, "a cualquier hora, de entrada");
+  assert.equal(await correr("mercados on"), "🕒 Listo: los mercados de apuestas van a ir en el horario de juegos cuando el grupo tenga uno (.horariojuegos 20:00-23:00). Por ahora andan a cualquier hora.");
+  assert.equal(enHorario(), 1);
+  assert.match(await correr("20:00-23:00"), /siguen andando siempre\. Los mercados de apuestas también van en ese horario \(\.horariojuegos mercados off los deja a cualquier hora\)\. Con/);
+  assert.match(await correr(""), /; ahora están (abiertos|cerrados)\. Los mercados de apuestas también van en ese horario \(/);
+  assert.equal(
+    await correr("Mercados ON."),
+    "🕒 Listo: en este grupo los mercados de apuestas también van de 20:00 a 23:00 (ya estaba así). Fuera de ese horario no se apuesta ni se miran, y los admins no los abren ni los resuelven. Con .horariojuegos mercados off vuelven a andar a cualquier hora.",
+  );
+  assert.equal(await correr("mercados off"), "🕒 Listo: en este grupo los mercados de apuestas andan a cualquier hora, aunque haya horario de juegos.");
+  assert.equal(enHorario(), 0);
+  assert.match(await correr("mercados"), /también van de 20:00 a 23:00\. Fuera/, "sin on ni off, lo invierte");
+  assert.equal(enHorario(), 1);
+  assert.equal(await correr("mercados quizás"), "Usá .horariojuegos mercados on o .horariojuegos mercados off (sin nada, lo invierte).");
+  assert.deepEqual([enHorario(), F.getChat(chat).horarioJuegos], [1, "20:00-23:00"], "una palabra que no es on ni off no toca nada");
 });

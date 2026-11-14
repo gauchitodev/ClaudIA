@@ -7,7 +7,7 @@ plugin.cmd = ["evento", "resolver"];
 plugin.economia = true;
 plugin.juego = true;
 plugin.casino = true; // .casino off stops these
-plugin.aCualquierHora = true; // and the .horariojuegos schedule doesn't (handle-message.js)
+plugin.aCualquierHora = true; // and the .horariojuegos schedule doesn't, unless .horariojuegos mercados on (handle-message.js)
 plugin.onlyGroup = true;
 plugin.onlyAdmin = true;
 

@@ -1,6 +1,7 @@
 import { updateChat, updateSettings } from "../database-functions.js";
 import txt from "../lib/strings.js";
 import { leerInterruptor, limpiarPalabra } from "../lib/comandos.js";
+import { cambiarJuego } from "../lib/juegos-apagados.js";
 
 const plugin = {};
 plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto", "mercadosauto"];
@@ -89,6 +90,12 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
   const nombreComando = command === "18" ? "modoadulto" : command;
   const pedido = limpiarPalabra(args[0]);
   const prender = leerInterruptor(pedido);
+  // ".juegos mines off" is one game, as .juego mines off has it (lib/juegos-apagados.js): people write the plural they
+  // use for all of them, and it only answered how to switch them all.
+  if ((command === "juegos" || command === "games") && pedido && prender === null) {
+    const r = cambiarJuego(m.chat, chat, args, usedPrefix);
+    return client.sendText(m.chat, r.ok ? r.texto : `Usá ${usedPrefix}juegos on o ${usedPrefix}juegos off (sin nada, lo invierte); para uno solo, ${usedPrefix}juegos mines off.`, m);
+  }
   if (pedido && prender === null) {
     return client.sendText(m.chat, `Usá ${usedPrefix}${nombreComando} on o ${usedPrefix}${nombreComando} off (sin nada, lo invierte).`, m);
   }

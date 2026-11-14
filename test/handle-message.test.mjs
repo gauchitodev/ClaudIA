@@ -938,7 +938,13 @@ test("el horario de juegos no frena los mercados: se miran, se apuesta, un admin
   assert.doesNotMatch(await mandar(BETO, ".partidos"), /🕒/);
   assert.match(await mandar(ANA, `.resolver ${id} anulado`), new RegExp(`Mercado #${id} anulado`));
   assert.match(await mandar(BETO, ".ruleta 20 rojo"), /^🕒 Acá los juegos van de /, "la ruleta espera al horario");
-  F.updateChat(MERCADOS, { casino: 0 });
+  // A group that puts the markets in its hours (.horariojuegos mercados on) has them wait as before: the notice was
+  // just given, so a 🕒 reaction.
+  F.updateChat(MERCADOS, { mercadosEnHorario: 1 });
+  for (const [quien, texto] of [[BETO, ".mercados"], [BETO, `.jugar ${id} No 20`], [BETO, ".partidos"], [ANA, ".evento Otra | Sí | No | en 2h"], [ANA, `.resolver ${id} No`]]) {
+    assert.equal(await mandar(quien, texto), "🕒", texto);
+  }
+  F.updateChat(MERCADOS, { mercadosEnHorario: 0, casino: 0 });
   assert.equal(await mandar(BETO, ".mercados"), CASINO_APAGADO, ".casino off sí los frena");
 });
 

@@ -31,8 +31,9 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   assert.ok(cols("users").includes("memoria") && cols("users").includes("apodo") && cols("users").includes("genero"));
-  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "horarioGrupoFalla", "antiLiveLocation", "redes", "voz", "juegosApagados", "catalogoAuto", "catalogoMostrado", "catalogoMensaje", "mercadosAuto"].every((c) => cols("chats").includes(c)));
+  assert.ok(["preguntaDia", "triviaRelampago", "recapSemanal", "horarioJuegos", "charla", "saludos", "monedas", "ascensos", "reglas", "plantilla", "horarioGrupo", "grupoCerradoPorHorario", "iniciativa", "horarioGrupoFalla", "antiLiveLocation", "redes", "voz", "juegosApagados", "catalogoAuto", "catalogoMostrado", "catalogoMensaje", "mercadosAuto", "mercadosEnHorario"].every((c) => cols("chats").includes(c)));
   assert.equal(db.prepare(`SELECT mercadosAuto FROM chats WHERE remoteJid = ?`).get(G).mercadosAuto, 1, "los mercados automáticos, prendidos al migrar");
+  assert.equal(db.prepare(`SELECT mercadosEnHorario FROM chats WHERE remoteJid = ?`).get(G).mercadosEnHorario, 0, "los mercados, a cualquier hora al migrar");
   assert.deepEqual(db.prepare(`SELECT catalogoAuto, catalogoMostrado, catalogoMensaje FROM chats WHERE remoteJid = ?`).get(G), { catalogoAuto: 1, catalogoMostrado: 0, catalogoMensaje: "" }, "el catálogo automático, prendido y sin mostrar al migrar");
   assert.equal(db.prepare(`SELECT antiLiveLocation FROM chats WHERE remoteJid = ?`).get(G).antiLiveLocation, 0, "la ubicación en tiempo real, sin borrar al migrar");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
