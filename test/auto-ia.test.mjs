@@ -617,6 +617,37 @@ test("pedido a Claudia: su .tagall deja afuera a quien se salió, nunca fuerza, 
   assert.deepEqual(r.textos, ["Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)."]);
 });
 
+// The job of whoever talks to her in the group's role play (lib/laburos.js) goes to the AI only when what's said to her
+// is about work or money: told with every message, she dragged it in where it had nothing to do. Its own line is what's
+// looked for: "juego de roles" alone is also in the manual, which a question like "¿y vos qué hacés?" brings in whole.
+const LINEA = /\n\nEn el juego de roles del grupo, Ana trabaja de /;
+test("pedido a Claudia: el laburo de quien le habla va solo si se habla de laburo o de plata", async () => {
+  const L = await import("../lib/laburos.js");
+  const LC = "laburo-charla@g.us";
+  F.initDataDB({ chat: LC, sender: "555@lid", senderJid: "", pushName: "Ana" });
+  assert.ok(L.tomarLaburo(LC, "555@lid", "camionero").ok);
+  const fetchAntes = globalThis.fetch;
+  let prompt = "";
+  globalThis.fetch = async (url, opciones) => {
+    prompt = JSON.parse(opciones.body).contents[0].parts.at(-1).text;
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ comando: "ninguno", respuesta: "Dale." }) }] } }] }) };
+  };
+  const decirle = async (text, quoted = null) => {
+    ritmoDeClaudia.delete(LC);
+    prompt = "";
+    const client = { ...clienteFalso(), sendPresenceUpdate: async () => {} };
+    await AutoIA.before({ chat: LC, isGroup: true, sender: "555@lid", pushName: "Ana", text, mentionedJid: [], quoted }, { client, participants, isBotAdmin: true, isOwner: false, isAdmin: false, isMod: false, user: {}, chat: {} });
+    return prompt;
+  };
+  try {
+    assert.doesNotMatch(await decirle("claudia, ¿qué hora es?"), LINEA);
+    assert.match(await decirle("claudia, ¿cuánto cobro hoy?"), /\n\nEn el juego de roles del grupo, Ana trabaja de camioner[oa] \(Ruta, termo y radio\. Cobra bien, dormís poco\.\)\. Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo\.\n\n/);
+    assert.match(await decirle("jaja dale", { fromMe: true, id: "Q1", text: "Te quedan 20 UruCoins, no te las gastes todas" }), LINEA, "lo que cita también cuenta");
+  } finally {
+    globalThis.fetch = fetchAntes;
+  }
+});
+
 // ---------- her turn (lib/turnos-de-claudia.js) ----------
 // One answer every 20 s per group, as always, but what's said to her in between used to be dropped: whoever named her
 // right after someone else got nothing, and "Claudia" with the question in the next message got her answer to the name
@@ -775,5 +806,25 @@ test("turnos: si habló por su cuenta mientras le esperaban (un vistazo, un stic
     assert.equal(enviados().length, 1, "su pausa volvió a empezar");
     await avanzar(t0 + 35 * SEG);
     assert.equal(enviados().length, 2);
+  });
+});
+
+test("turnos: el laburo va si lo que quedó esperando hablaba de plata, aunque lo último no", async () => {
+  const L = await import("../lib/laburos.js");
+  const grupo = "turnos-6@g.us";
+  F.initDataDB({ chat: grupo, sender: "111@lid", senderJid: "", pushName: "Ana" });
+  assert.ok(L.tomarLaburo(grupo, "111@lid", "camionero").ok);
+  await conTurnos(grupo, async ({ hablar, avanzar, reloj, prompts }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "Dale." };
+    await hablar("111@lid", "Ana", "claudia, ¿qué hora es?");
+    assert.doesNotMatch(prompts[0], LINEA);
+    reloj.ahora = t0 + 5 * SEG;
+    await hablar("111@lid", "Ana", "claudia, ¿cuánto cobro hoy?");
+    reloj.ahora = t0 + 8 * SEG;
+    await hablar("111@lid", "Ana", "claudia, ¿y vos qué hacés?");
+    await avanzar(t0 + 20 * SEG);
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1], LINEA, "lo que quedó esperando hablaba de plata");
   });
 });

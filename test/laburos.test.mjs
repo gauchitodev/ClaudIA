@@ -145,3 +145,14 @@ test("laburos: renunciar no saltea la espera ni el costo del cambio", () => {
   assert.match(L.tomarLaburo(C, "s@lid", "dj").mensaje, new RegExp(`Pagaste ${CAMBIO_COSTO} de trámites y arrancás de nivel 1\\.`));
   assert.equal(F.getSaldoCoins(C, "s@lid"), 10);
 });
+
+// Claudia is told someone's job only when what's said to her is about work or money (plugins/_auto-ia.js): told with
+// every message, she dragged it in where it had nothing to do.
+test("laburos: qué habla de laburo o de plata, para que Claudia nombre el oficio", () => {
+  const si = ["claudia, ¿cuánto cobrás vos?", "ya cobré", "mañana laburo temprano", "estoy re fundida, no tengo un mango", "¿me prestás plata?", "¿cuántas UruCoins tengo?", "mi jefe me tiene podrido", "¿a cuánto está el dólar?", "renuncié al trabajo", "¿quién paga el asado?", "está muy caro"];
+  for (const t of si) assert.equal(L.hablaDeLaburoOPlata(t), true, t);
+  const no = ["claudia, ¿qué hora es?", "¿quién ganó ayer?", "dale, es tu turno", "gané la trivia", "Lucas, ¿venís?", "yo te banco", "me cuesta creerlo", "la página no carga", "¿cuánto pesás?", "compré facturas"];
+  for (const t of no) assert.equal(L.hablaDeLaburoOPlata(t), false, t);
+  assert.equal(L.hablaDeLaburoOPlata("claudia, ¿y vos?", "Te quedan 20 UruCoins"), true, "cualquiera de los textos");
+  assert.equal(L.hablaDeLaburoOPlata(undefined, "", null, "hola"), false);
+});

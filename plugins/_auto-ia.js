@@ -16,7 +16,7 @@ import { conocimientoPara } from "../lib/manual-claudia.js";
 import { sinPermisoEn } from "../lib/menu.js";
 import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
-import { laburoDe, nombreDeOficio } from "../lib/laburos.js";
+import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
@@ -268,8 +268,11 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     if (redes) partes.push(redes);
   }
 
-  // their role-play job: Claudia knows it and can tease them about it
-  const laburo = laburoDe(m.chat, m.sender);
+  // their role-play job: Claudia knows it and can tease them about it, when what's said to her (the message, the one it
+  // quotes, the earlier ones she answers too) is about work or money. Told it with every message, she dragged it in
+  // where it had nothing to do.
+  const deLaburo = hablaDeLaburoOPlata(m.text, m.quoted?.text, ...antes.map((e) => e.m.text));
+  const laburo = deLaburo ? laburoDe(m.chat, m.sender) : null;
   if (laburo) {
     partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
   }
