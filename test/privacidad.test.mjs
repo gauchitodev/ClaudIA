@@ -88,12 +88,12 @@ test("lo que Claudia aprende de alguien queda en ese grupo: nada del privado ni 
   assert.equal(MP.memoriaDe(ANA, FAMILIA), "tiene un perro que se llama Toto");
 
   respuestaIA = { comando: "ninguno", respuesta: "¡Hola Ana!", recordar: "su contraseña del wifi es toto123" };
-  await hablar(AMIGOS, "hola claudia");
+  await hablar(AMIGOS, "hola claudia, ¿todo bien?");
   assert.doesNotMatch(prompts.at(-1), /Toto|Pedro/, "en otro grupo no sabe lo de Familia ni lo del privado");
   assert.equal(MP.memoriaDe(ANA, AMIGOS), "", "lo sensible no se guarda");
 
   respuestaIA = { comando: "ninguno", respuesta: "¡Hola!" };
-  await hablar(FAMILIA, "hola claudia");
+  await hablar(FAMILIA, "hola claudia, ¿todo bien?");
   assert.match(prompts.at(-1), /Lo que ya sabés de Ana por charlas anteriores en este grupo: tiene un perro que se llama Toto/);
   assert.doesNotMatch(prompts.at(-1), /Pedro/);
 });

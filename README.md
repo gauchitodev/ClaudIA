@@ -51,7 +51,7 @@ La lista completa de comandos, con lo que hace cada uno, está en [docs/comandos
 
 **Cómo se cuida**
 
-- **Ritmo humano**: WhatsApp ya bloqueó el número una vez por volumen, así que deja al menos un segundo y medio entre mensajes en cada chat, muestra «escribiendo…» y charla como mucho una vez cada 20 segundos por grupo; `.avisartodos` sale de a un grupo por vez y se puede cortar. `.enviados` muestra cuánto manda.
+- **Ritmo humano**: WhatsApp ya bloqueó el número una vez por volumen, así que deja al menos un segundo y medio entre mensajes en cada chat, muestra «escribiendo…» y charla como mucho una vez cada 20 segundos por grupo (lo que le dicen mientras tanto lo contesta junto cuando termina la pausa, y a un «Claudia» solo le da unos segundos para que llegue la pregunta); `.avisartodos` sale de a un grupo por vez y se puede cortar. `.enviados` muestra cuánto manda.
 - **Menú a medida**: `.menu` muestra arriba lo más usado en ese grupo y ofrece solo lo que ahí anda y lo que cada rol puede usar; los moderadores ven qué se usa con `.usos`.
 
 ## Privacidad

@@ -24,17 +24,16 @@ import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
 import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { anotar, tomarTanda, cuandoContesta, sigueLaLlamada, esLlamadaSola, TURNOS } from "../lib/turnos-de-claudia.js";
 import { configuracion } from "../lib/configuracion.js";
 import { cargados } from "../lib/plugins-cargados.js";
 
-// Throttle: minimum time between automatic replies per chat (keeps spam down and the number off WhatsApp's radar).
-// Minimum wait between two conversational replies in the same group. Raised to 20 s: besides avoiding spam, it's
-// what cuts the bot's message volume the most, which is what gets accounts banned.
-const COOLDOWN_MS = 20000; // 20 seconds
-
-// chat -> when she last said something: her pace, shared with lib/vistazos.js and _stickers-grupo.js, and kept where a
-// reload of this file doesn't lose it (lib/estado-de-plugins.js)
-const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map());
+// Her pace: one answer every 20 seconds per chat at most. Besides avoiding spam, it's what cuts the bot's message
+// volume the most, which is what gets accounts banned. What's said to her in between waits for her turn instead of
+// being dropped (lib/turnos-de-claudia.js), on a timer kept where a reload of this file doesn't lose it
+// (lib/estado-de-plugins.js).
+const relojes = estadoDe("_auto-ia/relojes", () => new Map()); // chat -> the timer of her next turn
+export const _dep = { ahora: () => Date.now(), programar: (fn, ms) => setTimeout(fn, ms), cancelar: (reloj) => clearTimeout(reloj) };
 // When the AI fails her (no quota, every model down, a broken answer) she says so, but not more than once every 30 min
 // per chat: with Gemini down, every message naming her would get the same notice.
 const avisoFalla = estadoDe("_auto-ia/aviso-falla", () => new Map()); // chat -> when she last said so
@@ -97,13 +96,46 @@ export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", 
   return texto ? { texto, fuentes: r.fuentes || [] } : null;
 }
 
+// Her next turn in a chat, when it has to wait: for the pause, or for a bare call's question.
+function programar(chat, ms) {
+  _dep.cancelar(relojes.get(chat));
+  relojes.set(
+    chat,
+    _dep.programar(() => {
+      relojes.delete(chat);
+      return atender(chat).catch((e) => console.error("[auto-ia] ERROR:", e));
+    }, ms),
+  );
+}
+
+// Her turn in a chat: what waits there, answered in one go, the last message with the earlier ones named. From the
+// hook when it's her turn already, or from the timer when it had to wait; if she talked in between, it waits again.
+async function atender(chat) {
+  const ahora = _dep.ahora();
+  const tanda = tomarTanda(chat, ahora);
+  if (!tanda) {
+    const cuando = cuandoContesta(chat, ahora);
+    if (cuando !== null) programar(chat, cuando - ahora);
+    return;
+  }
+  _dep.cancelar(relojes.get(chat));
+  relojes.delete(chat);
+  const ultimo = tanda.at(-1);
+  const antes = tanda
+    .slice(0, -1)
+    .filter((e) => !e.solo)
+    .slice(-TURNOS.MAX_ANTES);
+  await contestar(ultimo.m, ultimo.permisos, { nombre: ultimo.nombre, antes, citar: !ultimo.solo && ahora - ultimo.en >= TURNOS.CITA_DESDE_MS });
+}
+
 const plugin = (m) => m;
 // After every other hook (hooksEnOrden, load-functions.js): by then the moderation has marked what it deleted and the
 // trivia what it took as an answer. The message itself is already in her short-term memory, and deletions and edits
 // are applied there, as they come (plugins/_memoria-corta.js).
 plugin.alFinal = true;
 
-plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, isOwner, user, chat }) => {
+plugin.before = async (m, permisos) => {
+  const { client, isMod, isOwner, user, chat } = permisos;
   try {
     // Deletions and edits (protocol messages, with no text) only touch her short-term memory, and
     // plugins/_memoria-corta.js has already applied them.
@@ -159,301 +191,321 @@ plugin.before = async (m, { client, participants, isAdmin, isMod, isBotAdmin, is
     // answered without the group's context; in the middle of the message it didn't count at all.
     const laMencionan = (m.mentionedJid || []).some((j) => esElBot(j, client));
 
-    // she answers if she's named OR if someone replies to a message of hers. A voice note never names her, so she only
-    // hears the ones that answer her: the rest of the group's audios are none of her business.
-    if (!esRespuestaAlBot && !mencionaPalabra && !laMencionan) return;
+    // she answers if she's named OR if someone replies to a message of hers, and the next message of whoever just
+    // called her by name alone. A voice note never names her, so she only hears the ones that answer her or follow such
+    // a call: the rest of the group's audios are none of her business.
+    const leHablan = esRespuestaAlBot || mencionaPalabra || laMencionan;
+    const ahora = _dep.ahora();
+    if (!leHablan && !sigueLaLlamada(m.chat, m.sender, ahora)) return;
 
-    // THROTTLE: per-chat cooldown
-    const ahora = Date.now();
-    const ultimaVez = ritmoDeClaudia.get(m.chat) || 0;
-    if (ahora - ultimaVez < COOLDOWN_MS) return;
-    ritmoDeClaudia.set(m.chat, ahora);
-
-    // ---------- the audio, if there is one to hear ----------
-    // Her own voice note answer, or the audio quoted while naming her. A song she sent with .play doesn't need
-    // hearing: she knows which one it is. Someone else's view-once voice note she doesn't hear either, unless its
-    // author, an admin or the owner quotes it (lib/vista-unica.js): she'd tell the group what it said.
-    const citaAudio = !notaDeVoz && esAudio(m.quoted) && puedeRecuperarCitado(m, { isAdmin, isOwner });
-    const temaEnviado = citaAudio && m.quoted.fromMe ? tituloDeAudioEnviado(m.quoted.id) : null;
-    let audio = null; // { ok, adjunto } or { ok: false, motivo }
-    if (notaDeVoz) {
-      audio = await audioParaIA({ seconds: m.msg?.seconds, fileLength: m.msg?.fileLength, mimetype: m.msg?.mimetype, download: () => m.download() });
-    } else if (citaAudio && !temaEnviado) {
-      audio = await audioParaIA(m.quoted);
-    }
-    const adjuntos = audio?.ok ? [audio.adjunto] : [];
-
-    // What they said, with its mentions as names ("@Ana"), and the same for the message of hers they answer: a mention
-    // travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them to the group.
-    const dicho = conNombres(m.text, m.mentionedJid);
-    const citado = conNombres(m.quoted?.text, m.quoted?.contextInfo?.mentionedJid);
-
-    // ---------- build the prompt ----------
-    const partes = [];
-
-    // What Claudia knows about herself and the bot (the full manual only if the message asks about features), and which
-    // of its commands this person can't use, so she doesn't recommend them.
-    const quien = { isOwner, isAdmin, isMod };
-    partes.push(conocimientoPara(m.text, { quien, sinPermiso: (manual) => sinPermisoEn(manual, quien) }));
-
-    // What came before this message: it goes separately, and others may have come in after it while the hooks ran.
-    const contexto = textoContexto(m.chat, m.id ?? m.key?.id);
-    if (contexto) {
-      partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
-    }
-
-    // What she learned of this person in this group (lib/memoria-persona.js):
-    // never what they said in private or elsewhere.
-    const memoria = m.isGroup ? memoriaDe(m.sender, m.chat) : "";
-    if (memoria) {
-      partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores en este grupo: ${memoria}`);
-    }
-
-    // group memory (.recordá que ...): inside jokes and facts the group noted down for her
-    if (m.isGroup) {
-      const hechos = memoriaDelGrupo(m.chat);
-      if (hechos) partes.push(hechos);
-      // The group's social links (.redes, lib/redes.js), to hand over when someone asks for the group's Instagram.
-      const redes = textoRedesParaPrompt(m.chat);
-      if (redes) partes.push(redes);
-    }
-
-    // their role-play job: Claudia knows it and can tease them about it
-    const laburo = laburoDe(m.chat, m.sender);
-    if (laburo) {
-      partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
-    }
-
-    // nickname bought in the shop: Claudia addresses them that way
-    if (user?.apodo) {
-      partes.push(`Esta persona te pidió que le digas "${user.apodo}" — usá ese apodo cuando le hables.`);
-    }
-
-    // How they asked to be addressed (.genero, lib/genero.js); with nothing set, she goes by the name, as always.
-    const trato = tratoPara(m.sender, nombre);
-    if (trato) partes.push(trato);
-    // And the others the conversation shows: whoever wrote the messages above and whoever this one mentions, each by
-    // the name they go by here. She used to know it only of whoever was talking to her, and answered about the rest
-    // by their name, or their nickname.
-    const deLaCharla = personasDe(entradasDeContexto(m.chat, m.id ?? m.key?.id));
-    const mencionados = (m.mentionedJid || []).map((id) => ({ id, nombre: nombreDe(id) }));
-    const tratoDeOtros = tratoDeQuienesAparecen([...deLaCharla, ...mencionados], { donde: "que aparecen en la charla", menos: [m.sender, m.senderJid] });
-    if (tratoDeOtros) partes.push(tratoDeOtros);
-
-    const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
-    if (notaDeVoz) {
-      const aQue = citado ? ` a este mensaje tuyo: "${citado}"` : "";
-      partes.push(`${nombre} te responde con un audio${aQue}. El audio va adjunto: escuchalo y contestá a lo que dice, siguiendo la charla, con tu onda.${sinEscuchar}`);
-    } else if (temaEnviado) {
-      partes.push(`${nombre} cita el tema "${temaEnviado}", que mandaste vos al grupo cuando te lo pidieron con .play, y te dice: "${dicho}"`);
-    } else if (citaAudio) {
-      const deQuien = m.quoted.fromMe ? "tuyo" : "que mandó alguien del grupo";
-      partes.push(`${nombre} cita un audio ${deQuien} y te dice: "${dicho}". El audio va adjunto: escuchalo para contestar (puede ser alguien hablando o un tema de música).${sinEscuchar}`);
-    } else if (esRespuestaAlBot && m.quoted.text) {
-      partes.push(`${nombre} responde a este mensaje tuyo: "${citado}"\n\nSu mensaje: "${dicho}"\n\nContestá siguiendo la charla, con tu onda.`);
-    } else {
-      partes.push(`Mensaje de ${nombre}: "${dicho}"`);
-    }
-
-    // The sources of an earlier search, in case they're what's being asked for.
-    const previas = fuentesPara(m.chat, esRespuestaAlBot ? m.quoted.id : null);
-    partes.push(
-      previas
-        ? `Hace un rato buscaste en internet sobre "${previas.tema}" y tenés guardadas las fuentes.`
-        : `No tenés guardadas fuentes de ninguna búsqueda reciente: si te preguntan de dónde sacaste algo que dijiste, decí con naturalidad que lo dijiste de memoria, o buscalo si es algo que se pueda verificar.`,
-    );
-
-    // The prompt for a web search, if the AI asks for one: everything above, without the classification below.
-    const contextoBusqueda = partes.join("\n\n");
-
-    partes.push(
-      `(Instrucción para vos, no la muestres en tu respuesta: clasificá el pedido en el campo "comando" - usá "play" si piden bajar audio de YouTube, "video" si piden bajar video, "tagall" si piden mencionar a todo el grupo, "llamar" si piden mencionar varias veces a alguien, o "ninguno" si no corresponde nada de eso. Si es "play" o "video", poné en "argumento" el tema o título pedido; dejalo vacío en los demás casos. En "respuesta" escribí tu respuesta de charla normal, con tu onda de siempre. IMPORTANTE: si el pedido es "play" o "video", NO digas que ya se lo mandaste ni que estás por hacerlo - vos no ejecutás nada ahí, el sistema le va a indicar el comando exacto para pedirlo directamente. Si en cambio activás "tagall" o "llamar", esas sí van a pasar apenas las marques - así que tu respuesta tiene que acompañar eso, no contradecirlo ni bromear como si no lo fueras a hacer. REGLA DE ORO: vos existís solo mientras escribís este mensaje. Nunca prometas hacer algo después ("déjame ver", "te aviso", "lo pruebo más tarde", "me fijo y te digo"): no podés, sería mentir. Si no podés hacer algo, decilo claro y sin vueltas. Única excepción: si la persona te pide que vuelvas a intentar más tarde una descarga que le falló, poné "reintentar" en true y en "respuesta" decí solo que lo dejás anotado, sin decir cuándo - el sistema le confirma la hora, o le avisa si no había nada para reintentar. BÚSQUEDAS: si te preguntan si algo es verdad, o te piden un dato del mundo real que se pueda verificar (una noticia, algo que pasó, un dato de un tema de música o de una banda que no tengas claro, como quién lo escribió o de dónde es), poné en "buscar" una consulta corta para buscar en internet: el sistema la busca y te deja contestar con lo que encuentre. En ese caso, en "respuesta" poné algo corto que sirva por si la búsqueda falla, sin afirmar nada que no sepas. Si es un bolazo, una joda o un chisme del grupo, una opinión o algo que sabés de sobra, NO busques: contestá como siempre y dejá "buscar" vacío. FUENTES: poné "fuentes" en true solo si te piden las fuentes, los links o de dónde sacaste algo; el sistema manda los links que tenga, vos nunca escribas links. AUDIOS: si hay un audio adjunto, en "resumenAudio" poné en una línea qué dice o qué es (por ejemplo "cuenta que se le rompió el auto" o "un tema de rock en inglés"); si no hay audio, dejalo vacío. Si te enterás de algo nuevo que valga la pena recordar de la persona (un gusto, una manía, un dato personal chico, una joda interna), ponelo corto en "recordar"; si no hay nada nuevo, dejalo vacío. Nunca inventes datos falsos, y nunca guardes cosas sensibles como salud, plata, contraseñas o dirección.)`,
-    );
-
-    const consulta = partes.join("\n\n");
-
-    // the 'typing...' starts before asking the AI, the way a person would
-    await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
-
-    const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA, adjuntos });
-
-    // The doors, again, right before she says anything: the AI took a while, and in the meantime an admin may have put
-    // .banchat, .modoadmin or .charla off, or the owner banned the person. She used to say her piece anyway. Once
-    // closed, she says nothing more for this message.
-    let callada = false;
-    const puedeHablar = () => {
-      if (!callada && !isOwner) {
-        const ahoraChat = getChat(m.chat);
-        callada = Boolean(ahoraChat?.isBanned || ahoraChat?.charla === 0 || (m.isGroup && ahoraChat?.adminMode && !isMod) || getUser(m.sender)?.banned);
-      }
-      return !callada;
-    };
-
-    // When the AI fails her, she says so, but not more than once every AVISO_FALLA_MS per chat. A failure that wasn't
-    // the quota (every model down, blocked or cut off) used to get no answer at all.
-    const avisarFalla = async (texto) => {
-      if (Date.now() - (avisoFalla.get(m.chat) || 0) < AVISO_FALLA_MS || !puedeHablar()) return;
-      avisoFalla.set(m.chat, Date.now());
-      await client.sendText(m.chat, texto, null);
-    };
-
-    if (!resultado.ok) {
-      if (!resultado.sinCuota) await avisarFalla("Uy, no me sale pensar ahora. Probá de nuevo en un rato 😅");
-      else await avisarFalla(resultado.porHoy ? "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅" : "Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅");
+    // Her turn (lib/turnos-de-claudia.js): now, or once the pause is over or a bare call's question had time to come.
+    const suyos = (m.mentionedJid || []).filter((j) => esElBot(j, client)).map((j) => j.split("@")[0].split(":")[0]);
+    const solo = leHablan && !notaDeVoz && esLlamadaSola(m.text, suyos);
+    const cuando = anotar(m.chat, { m, permisos, nombre, persona: m.sender, solo }, ahora);
+    if (cuando > ahora) {
+      programar(m.chat, cuando - ahora);
       return;
     }
-
-    let datos;
-    try {
-      datos = JSON.parse(resultado.texto);
-    } catch (e) {
-      // Without the text: it carries what she was going to remember of the person and what a voice note said, and the
-      // log (~/claudia.log) keeps whatever goes into it. Not even the bit of it V8 quotes in the error
-      // ("hola, la c"...). Gemini and the fallbacks already throw a broken JSON away (lib/gemini.js,
-      // lib/respaldo-ia.js): this is in case one of them stops doing it.
-      const motivo = String(e.message).split('"')[0].replace(/[,\s]+$/, "");
-      const largo = String(resultado.texto || "").length;
-      console.error(`[auto-ia] La IA (${modeloActivo() || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);
-      await avisarFalla("Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅");
-      return;
-    }
-
-    const comando = (datos.comando || "ninguno").toLowerCase();
-    const argumento = (datos.argumento || "").trim();
-    const respuesta = (datos.respuesta || "").trim();
-    const nuevoRecuerdo = datos.recordar ? String(datos.recordar).trim() : null;
-    const quiereReintentar = datos.reintentar === true;
-    const aBuscar = typeof datos.buscar === "string" ? datos.buscar.trim().slice(0, 200) : "";
-    const pideFuentes = datos.fuentes === true;
-    const resumenAudio = typeof datos.resumenAudio === "string" ? datos.resumenAudio.trim().slice(0, 200) : "";
-
-    // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on. Where
-    // it was sent, not where she got through hearing it: what was said meanwhile came after it.
-    if (notaDeVoz && resumenAudio) {
-      recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
-    }
-
-    if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);
-
-    // what Claudia says also goes into the short-term memory
-    // Only the first message carries the typing delay: if Claudia sends two in a row, the second follows right after.
-    // With the voice on for this answer (.voz, lib/voz.js: always, or to a voice note), it goes as a voice note, made
-    // first and with "recording..." instead of "typing..."; by text if the voice isn't there, it's too long or fails.
-    const conVoz = m.isGroup && hablaCon(m.chat, { notaDeVoz });
-    const maxLetras = conVoz ? maxLetrasDeVoz(m.chat, { notaDeVoz }) : 0;
-    let yaTipeo = false;
-    const decir = async (crudo, quoted = null) => {
-      const texto = sinMenciones(crudo);
-      if (!texto || !puedeHablar()) return;
-      const audio = conVoz ? await hablar(texto, { maxLetras }) : null;
-      if (!yaTipeo) {
-        yaTipeo = true;
-        await (audio ? grabar : tipear)(client, m.chat, texto);
-        if (!puedeHablar()) return; // the typing takes a few seconds too
-      }
-      const enviado = audio ? await client.sendFile(m.chat, audio, "voz.mp3", null, quoted, true) : await client.sendText(m.chat, texto, quoted);
-      recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id });
-      // Answering when named counts as talking too: the initiative's "no more than the average" rule looks at it.
-      if (m.isGroup) registrarIntervencion({ chat: m.chat, tipo: "charla", mensajeId: enviado?.key?.id || null, texto });
-      return enviado;
-    };
-
-    // Download retry: the AI only flags it; the system decides whether it applies, and only then does she say she noted
-    // it down. She used to say it first, and then the system said there was nothing to retry.
-    if (quiereReintentar) {
-      if (!puedeHablar()) return;
-      const r = programarReintento(m.chat, m.sender);
-      if (r.ok) await decir(respuesta);
-      await decir(r.ok ? r.mensaje : r.error, m);
-      return;
-    }
-
-    if (!comando || comando === "ninguno") {
-      // Something to check: a second query, this one with Google Search. If it fails, the first answer stands.
-      let texto = respuesta;
-      let fuentesNuevas = [];
-      if (aBuscar && puedeHablar()) {
-        const busqueda = await buscarEnInternet({ contexto: contextoBusqueda, consulta: aBuscar, resumenAudio, nombre });
-        if (busqueda) ({ texto, fuentes: fuentesNuevas } = busqueda);
-      }
-      const enviado = await decir(texto);
-      if (fuentesNuevas.length) guardarFuentes(m.chat, { idMensaje: enviado?.key?.id, tema: aBuscar, fuentes: fuentesNuevas });
-      if (pideFuentes) {
-        const entrada = fuentesNuevas.length ? { fuentes: fuentesNuevas } : previas;
-        if (entrada) await decir(await textoFuentes(entrada));
-      }
-      return;
-    }
-
-    // play and video: the AI no longer runs the download, it just gives the exact command to ask for it.
-    if (comando === "play" || comando === "video") {
-      const comandoSugerido = comando === "play" ? ".play" : ".video";
-      const ejemplo = argumento ? ` ${argumento}` : " nombre de la canción";
-      await decir(`Para eso pedímelo directo con el comando: ${comandoSugerido}${ejemplo}`, m);
-      return;
-    }
-
-    // tagall and llamar: groups only, and only for whoever could run the command itself. The plugin is called directly
-    // below, past the dispatcher's checks, so its own flags decide: .tagall is for moderators, .llamar for admins.
-    // Whom a "llamar" calls, worked out once: it may ask WhatsApp who has a number (aQuienLlamar).
-    let aLlamar = [];
-    if (comando === "tagall" || comando === "llamar") {
-      if (!m.isGroup) {
-        await decir(respuesta);
-        return;
-      }
-      if (!PIDE_MENCIONES.test(normalizar(m.text))) {
-        await decir(comando === "tagall" ? "Si querés que mencione a todos, pedímelo con .tagall." : "Si querés que llame a alguien, pedímelo con .llamar @persona.", m);
-        return;
-      }
-      const soloAdmins = Boolean(buscarPlugin(comando)?.onlyAdmin);
-      if (!isOwner && !(soloAdmins ? isAdmin : isMod)) {
-        await decir(soloAdmins ? "Che, eso lo puede pedir solo un admin del grupo." : "Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
-        return;
-      }
-      // Blocked in this group with .blon + .bladd: asking her is the same as typing the command.
-      if (chat?.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, comando)) {
-        await decir("Che, eso está bloqueado en este grupo.", m);
-        return;
-      }
-      // What the command itself would refuse, checked before she announces anything: she used to say "¡Ahí van
-      // todos!" and then the command said the mentions were off, or "¡Dale, ya lo llamo!" with nobody to call.
-      if (comando === "tagall" && !chat?.mentions && !isOwner) {
-        await decir("Che, en este grupo las menciones están apagadas.", m);
-        return;
-      }
-      // Everyone opted out with .notagall (lib/menciones-generales.js): she can't force it, so there's nobody to call.
-      if (comando === "tagall") {
-        const { ids, fuera } = mencionesParaTodos(m.chat, participants, { client });
-        if (!ids.length) {
-          await decir(fuera > 0 ? "Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)." : textoSinNadie(0), m);
-          return;
-        }
-      }
-      if (comando === "llamar") aLlamar = await aQuienLlamar(m, client, participants);
-      if (comando === "llamar" && !aLlamar.length) {
-        await decir("¿A quién llamo? Arrobalo en el mensaje.", m);
-        return;
-      }
-    }
-
-    await decir(respuesta);
-    if (!puedeHablar()) return;
-
-    if (comando === "tagall") {
-      const pl = buscarPlugin("tagall");
-      // desdeClaudia: what she was told is never read as a .tagall -f, which only an admin can send typing it.
-      if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat, desdeClaudia: true });
-    } else if (comando === "llamar") {
-      // .llamar gets the people to call as she worked them out (aLlamar): never Claudia herself, and nobody asked about
-      // again.
-      const pl = buscarPlugin("llamar");
-      if (pl) await pl.run(m, { client, text: m.text, command: "llamar", participants, aLlamar });
-    }
+    await atender(m.chat);
   } catch (e) {
     console.error("[auto-ia] ERROR:", e);
   }
-  return;
 };
+
+// The answer to a message for her. antes: what else was said to her before it and is still unanswered, which she
+// answers too; citar: it comes late, and quotes the message so it reads as said to someone.
+async function contestar(m, { client, participants, isAdmin, isMod, isOwner, user, chat }, { nombre, antes = [], citar = false }) {
+  const notaDeVoz = esAudio(m) && !m.text;
+  const esRespuestaAlBot = m.quoted && m.quoted.fromMe;
+  const cita = citar ? m : null;
+
+  // ---------- the audio, if there is one to hear ----------
+  // Her own voice note answer, or the audio quoted while naming her. A song she sent with .play doesn't need
+  // hearing: she knows which one it is. Someone else's view-once voice note she doesn't hear either, unless its
+  // author, an admin or the owner quotes it (lib/vista-unica.js): she'd tell the group what it said.
+  const citaAudio = !notaDeVoz && esAudio(m.quoted) && puedeRecuperarCitado(m, { isAdmin, isOwner });
+  const temaEnviado = citaAudio && m.quoted.fromMe ? tituloDeAudioEnviado(m.quoted.id) : null;
+  let audio = null; // { ok, adjunto } or { ok: false, motivo }
+  if (notaDeVoz) {
+    audio = await audioParaIA({ seconds: m.msg?.seconds, fileLength: m.msg?.fileLength, mimetype: m.msg?.mimetype, download: () => m.download() });
+  } else if (citaAudio && !temaEnviado) {
+    audio = await audioParaIA(m.quoted);
+  }
+  const adjuntos = audio?.ok ? [audio.adjunto] : [];
+
+  // What they said, with its mentions as names ("@Ana"), and the same for the message of hers they answer: a mention
+  // travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them to the group.
+  const dicho = conNombres(m.text, m.mentionedJid);
+  const citado = conNombres(m.quoted?.text, m.quoted?.contextInfo?.mentionedJid);
+
+  // ---------- build the prompt ----------
+  const partes = [];
+
+  // What Claudia knows about herself and the bot (the full manual only if the message asks about features), and which
+  // of its commands this person can't use, so she doesn't recommend them.
+  const quien = { isOwner, isAdmin, isMod };
+  partes.push(conocimientoPara(m.text, { quien, sinPermiso: (manual) => sinPermisoEn(manual, quien) }));
+
+  // What came before this message: it goes separately, and others may have come in after it while the hooks ran.
+  const contexto = textoContexto(m.chat, m.id ?? m.key?.id);
+  if (contexto) {
+    partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
+  }
+
+  // What she learned of this person in this group (lib/memoria-persona.js):
+  // never what they said in private or elsewhere.
+  const memoria = m.isGroup ? memoriaDe(m.sender, m.chat) : "";
+  if (memoria) {
+    partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores en este grupo: ${memoria}`);
+  }
+
+  // group memory (.recordá que ...): inside jokes and facts the group noted down for her
+  if (m.isGroup) {
+    const hechos = memoriaDelGrupo(m.chat);
+    if (hechos) partes.push(hechos);
+    // The group's social links (.redes, lib/redes.js), to hand over when someone asks for the group's Instagram.
+    const redes = textoRedesParaPrompt(m.chat);
+    if (redes) partes.push(redes);
+  }
+
+  // their role-play job: Claudia knows it and can tease them about it
+  const laburo = laburoDe(m.chat, m.sender);
+  if (laburo) {
+    partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
+  }
+
+  // nickname bought in the shop: Claudia addresses them that way
+  if (user?.apodo) {
+    partes.push(`Esta persona te pidió que le digas "${user.apodo}" — usá ese apodo cuando le hables.`);
+  }
+
+  // How they asked to be addressed (.genero, lib/genero.js); with nothing set, she goes by the name, as always.
+  const trato = tratoPara(m.sender, nombre);
+  if (trato) partes.push(trato);
+  // And the others the conversation shows: whoever wrote the messages above and whoever this one mentions, each by
+  // the name they go by here. She used to know it only of whoever was talking to her, and answered about the rest
+  // by their name, or their nickname.
+  const deLaCharla = personasDe(entradasDeContexto(m.chat, m.id ?? m.key?.id));
+  const mencionados = (m.mentionedJid || []).map((id) => ({ id, nombre: nombreDe(id) }));
+  const tratoDeOtros = tratoDeQuienesAparecen([...deLaCharla, ...mencionados], { donde: "que aparecen en la charla", menos: [m.sender, m.senderJid] });
+  if (tratoDeOtros) partes.push(tratoDeOtros);
+
+  const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
+  if (notaDeVoz) {
+    const aQue = citado ? ` a este mensaje tuyo: "${citado}"` : "";
+    partes.push(`${nombre} te responde con un audio${aQue}. El audio va adjunto: escuchalo y contestá a lo que dice, siguiendo la charla, con tu onda.${sinEscuchar}`);
+  } else if (temaEnviado) {
+    partes.push(`${nombre} cita el tema "${temaEnviado}", que mandaste vos al grupo cuando te lo pidieron con .play, y te dice: "${dicho}"`);
+  } else if (citaAudio) {
+    const deQuien = m.quoted.fromMe ? "tuyo" : "que mandó alguien del grupo";
+    partes.push(`${nombre} cita un audio ${deQuien} y te dice: "${dicho}". El audio va adjunto: escuchalo para contestar (puede ser alguien hablando o un tema de música).${sinEscuchar}`);
+  } else if (esRespuestaAlBot && m.quoted.text) {
+    partes.push(`${nombre} responde a este mensaje tuyo: "${citado}"\n\nSu mensaje: "${dicho}"\n\nContestá siguiendo la charla, con tu onda.`);
+  } else {
+    partes.push(`Mensaje de ${nombre}: "${dicho}"`);
+  }
+  // What else was said to her while it wasn't her turn (lib/turnos-de-claudia.js), which she used to drop: she answers
+  // it in this same message. Named here, since the messages above are context she's told not to repeat.
+  if (antes.length) {
+    const lineas = antes.map((e) => `${e.nombre}: "${e.m.text ? conNombres(e.m.text, e.m.mentionedJid).slice(0, 300) : "(un audio)"}"`);
+    partes.push(`Antes de ese mensaje también te escribieron, y todavía no les contestaste: ${lineas.join(" · ")}. Contestales también en esta misma respuesta, a cada uno por su nombre.`);
+  }
+
+  // The sources of an earlier search, in case they're what's being asked for.
+  const previas = fuentesPara(m.chat, esRespuestaAlBot ? m.quoted.id : null);
+  partes.push(
+    previas
+      ? `Hace un rato buscaste en internet sobre "${previas.tema}" y tenés guardadas las fuentes.`
+      : `No tenés guardadas fuentes de ninguna búsqueda reciente: si te preguntan de dónde sacaste algo que dijiste, decí con naturalidad que lo dijiste de memoria, o buscalo si es algo que se pueda verificar.`,
+  );
+
+  // The prompt for a web search, if the AI asks for one: everything above, without the classification below.
+  const contextoBusqueda = partes.join("\n\n");
+
+  partes.push(
+    `(Instrucción para vos, no la muestres en tu respuesta: clasificá el pedido en el campo "comando" - usá "play" si piden bajar audio de YouTube, "video" si piden bajar video, "tagall" si piden mencionar a todo el grupo, "llamar" si piden mencionar varias veces a alguien, o "ninguno" si no corresponde nada de eso. Si es "play" o "video", poné en "argumento" el tema o título pedido; dejalo vacío en los demás casos. En "respuesta" escribí tu respuesta de charla normal, con tu onda de siempre. IMPORTANTE: si el pedido es "play" o "video", NO digas que ya se lo mandaste ni que estás por hacerlo - vos no ejecutás nada ahí, el sistema le va a indicar el comando exacto para pedirlo directamente. Si en cambio activás "tagall" o "llamar", esas sí van a pasar apenas las marques - así que tu respuesta tiene que acompañar eso, no contradecirlo ni bromear como si no lo fueras a hacer. REGLA DE ORO: vos existís solo mientras escribís este mensaje. Nunca prometas hacer algo después ("déjame ver", "te aviso", "lo pruebo más tarde", "me fijo y te digo"): no podés, sería mentir. Si no podés hacer algo, decilo claro y sin vueltas. Única excepción: si la persona te pide que vuelvas a intentar más tarde una descarga que le falló, poné "reintentar" en true y en "respuesta" decí solo que lo dejás anotado, sin decir cuándo - el sistema le confirma la hora, o le avisa si no había nada para reintentar. BÚSQUEDAS: si te preguntan si algo es verdad, o te piden un dato del mundo real que se pueda verificar (una noticia, algo que pasó, un dato de un tema de música o de una banda que no tengas claro, como quién lo escribió o de dónde es), poné en "buscar" una consulta corta para buscar en internet: el sistema la busca y te deja contestar con lo que encuentre. En ese caso, en "respuesta" poné algo corto que sirva por si la búsqueda falla, sin afirmar nada que no sepas. Si es un bolazo, una joda o un chisme del grupo, una opinión o algo que sabés de sobra, NO busques: contestá como siempre y dejá "buscar" vacío. FUENTES: poné "fuentes" en true solo si te piden las fuentes, los links o de dónde sacaste algo; el sistema manda los links que tenga, vos nunca escribas links. AUDIOS: si hay un audio adjunto, en "resumenAudio" poné en una línea qué dice o qué es (por ejemplo "cuenta que se le rompió el auto" o "un tema de rock en inglés"); si no hay audio, dejalo vacío. Si te enterás de algo nuevo que valga la pena recordar de la persona (un gusto, una manía, un dato personal chico, una joda interna), ponelo corto en "recordar"; si no hay nada nuevo, dejalo vacío. Nunca inventes datos falsos, y nunca guardes cosas sensibles como salud, plata, contraseñas o dirección.)`,
+  );
+
+  const consulta = partes.join("\n\n");
+
+  // the 'typing...' starts before asking the AI, the way a person would
+  await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
+
+  const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA, adjuntos });
+
+  // The doors, again, right before she says anything: the AI took a while, and in the meantime an admin may have put
+  // .banchat, .modoadmin or .charla off, or the owner banned the person. She used to say her piece anyway. Once
+  // closed, she says nothing more for this message.
+  let callada = false;
+  const puedeHablar = () => {
+    if (!callada && !isOwner) {
+      const ahoraChat = getChat(m.chat);
+      callada = Boolean(ahoraChat?.isBanned || ahoraChat?.charla === 0 || (m.isGroup && ahoraChat?.adminMode && !isMod) || getUser(m.sender)?.banned);
+    }
+    return !callada;
+  };
+
+  // When the AI fails her, she says so, but not more than once every AVISO_FALLA_MS per chat. A failure that wasn't
+  // the quota (every model down, blocked or cut off) used to get no answer at all.
+  const avisarFalla = async (texto) => {
+    if (Date.now() - (avisoFalla.get(m.chat) || 0) < AVISO_FALLA_MS || !puedeHablar()) return;
+    avisoFalla.set(m.chat, Date.now());
+    await client.sendText(m.chat, texto, null);
+  };
+
+  if (!resultado.ok) {
+    if (!resultado.sinCuota) await avisarFalla("Uy, no me sale pensar ahora. Probá de nuevo en un rato 😅");
+    else await avisarFalla(resultado.porHoy ? "Se me acabó la cuota gratis de la IA por hoy, mañana temprano ya debería volver a andar 😅" : "Uf, me llegaron muchos pedidos juntos y la IA me frenó un toque. Probá de nuevo en un ratito 😅");
+    return;
+  }
+
+  let datos;
+  try {
+    datos = JSON.parse(resultado.texto);
+  } catch (e) {
+    // Without the text: it carries what she was going to remember of the person and what a voice note said, and the
+    // log (~/claudia.log) keeps whatever goes into it. Not even the bit of it V8 quotes in the error
+    // ("hola, la c"...). Gemini and the fallbacks already throw a broken JSON away (lib/gemini.js,
+    // lib/respaldo-ia.js): this is in case one of them stops doing it.
+    const motivo = String(e.message).split('"')[0].replace(/[,\s]+$/, "");
+    const largo = String(resultado.texto || "").length;
+    console.error(`[auto-ia] La IA (${modeloActivo() || "?"}) no devolvió JSON válido: ${motivo} (${largo} caracteres)`);
+    await avisarFalla("Uy, se me trabó la respuesta a mitad de camino, repetime el pedido porfa 😅");
+    return;
+  }
+
+  const comando = (datos.comando || "ninguno").toLowerCase();
+  const argumento = (datos.argumento || "").trim();
+  const respuesta = (datos.respuesta || "").trim();
+  const nuevoRecuerdo = datos.recordar ? String(datos.recordar).trim() : null;
+  const quiereReintentar = datos.reintentar === true;
+  const aBuscar = typeof datos.buscar === "string" ? datos.buscar.trim().slice(0, 200) : "";
+  const pideFuentes = datos.fuentes === true;
+  const resumenAudio = typeof datos.resumenAudio === "string" ? datos.resumenAudio.trim().slice(0, 200) : "";
+
+  // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on. Where
+  // it was sent, not where she got through hearing it: what was said meanwhile came after it.
+  if (notaDeVoz && resumenAudio) {
+    recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
+  }
+
+  if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);
+
+  // what Claudia says also goes into the short-term memory
+  // Only the first message carries the typing delay: if Claudia sends two in a row, the second follows right after.
+  // With the voice on for this answer (.voz, lib/voz.js: always, or to a voice note), it goes as a voice note, made
+  // first and with "recording..." instead of "typing..."; by text if the voice isn't there, it's too long or fails.
+  const conVoz = m.isGroup && hablaCon(m.chat, { notaDeVoz });
+  const maxLetras = conVoz ? maxLetrasDeVoz(m.chat, { notaDeVoz }) : 0;
+  let yaTipeo = false;
+  const decir = async (crudo, quoted = null) => {
+    const texto = sinMenciones(crudo);
+    if (!texto || !puedeHablar()) return;
+    const audio = conVoz ? await hablar(texto, { maxLetras }) : null;
+    if (!yaTipeo) {
+      yaTipeo = true;
+      await (audio ? grabar : tipear)(client, m.chat, texto);
+      if (!puedeHablar()) return; // the typing takes a few seconds too
+    }
+    const enviado = audio ? await client.sendFile(m.chat, audio, "voz.mp3", null, quoted, true) : await client.sendText(m.chat, texto, quoted);
+    recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id });
+    // Answering when named counts as talking too: the initiative's "no more than the average" rule looks at it.
+    if (m.isGroup) registrarIntervencion({ chat: m.chat, tipo: "charla", mensajeId: enviado?.key?.id || null, texto });
+    return enviado;
+  };
+
+  // Download retry: the AI only flags it; the system decides whether it applies, and only then does she say she noted
+  // it down. She used to say it first, and then the system said there was nothing to retry.
+  if (quiereReintentar) {
+    if (!puedeHablar()) return;
+    const r = programarReintento(m.chat, m.sender);
+    if (r.ok) await decir(respuesta, cita);
+    await decir(r.ok ? r.mensaje : r.error, m);
+    return;
+  }
+
+  if (!comando || comando === "ninguno") {
+    // Something to check: a second query, this one with Google Search. If it fails, the first answer stands.
+    let texto = respuesta;
+    let fuentesNuevas = [];
+    if (aBuscar && puedeHablar()) {
+      const busqueda = await buscarEnInternet({ contexto: contextoBusqueda, consulta: aBuscar, resumenAudio, nombre });
+      if (busqueda) ({ texto, fuentes: fuentesNuevas } = busqueda);
+    }
+    const enviado = await decir(texto, cita);
+    if (fuentesNuevas.length) guardarFuentes(m.chat, { idMensaje: enviado?.key?.id, tema: aBuscar, fuentes: fuentesNuevas });
+    if (pideFuentes) {
+      const entrada = fuentesNuevas.length ? { fuentes: fuentesNuevas } : previas;
+      if (entrada) await decir(await textoFuentes(entrada));
+    }
+    return;
+  }
+
+  // play and video: the AI no longer runs the download, it just gives the exact command to ask for it.
+  if (comando === "play" || comando === "video") {
+    const comandoSugerido = comando === "play" ? ".play" : ".video";
+    const ejemplo = argumento ? ` ${argumento}` : " nombre de la canción";
+    await decir(`Para eso pedímelo directo con el comando: ${comandoSugerido}${ejemplo}`, m);
+    return;
+  }
+
+  // tagall and llamar: groups only, and only for whoever could run the command itself. The plugin is called directly
+  // below, past the dispatcher's checks, so its own flags decide: .tagall is for moderators, .llamar for admins.
+  // Whom a "llamar" calls, worked out once: it may ask WhatsApp who has a number (aQuienLlamar).
+  let aLlamar = [];
+  if (comando === "tagall" || comando === "llamar") {
+    if (!m.isGroup) {
+      await decir(respuesta, cita);
+      return;
+    }
+    if (!PIDE_MENCIONES.test(normalizar(m.text))) {
+      await decir(comando === "tagall" ? "Si querés que mencione a todos, pedímelo con .tagall." : "Si querés que llame a alguien, pedímelo con .llamar @persona.", m);
+      return;
+    }
+    const soloAdmins = Boolean(buscarPlugin(comando)?.onlyAdmin);
+    if (!isOwner && !(soloAdmins ? isAdmin : isMod)) {
+      await decir(soloAdmins ? "Che, eso lo puede pedir solo un admin del grupo." : "Che, eso lo puede pedir solo un admin o moderador del grupo.", m);
+      return;
+    }
+    // Blocked in this group with .blon + .bladd: asking her is the same as typing the command.
+    if (chat?.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, comando)) {
+      await decir("Che, eso está bloqueado en este grupo.", m);
+      return;
+    }
+    // What the command itself would refuse, checked before she announces anything: she used to say "¡Ahí van
+    // todos!" and then the command said the mentions were off, or "¡Dale, ya lo llamo!" with nobody to call.
+    if (comando === "tagall" && !chat?.mentions && !isOwner) {
+      await decir("Che, en este grupo las menciones están apagadas.", m);
+      return;
+    }
+    // Everyone opted out with .notagall (lib/menciones-generales.js): she can't force it, so there's nobody to call.
+    if (comando === "tagall") {
+      const { ids, fuera } = mencionesParaTodos(m.chat, participants, { client });
+      if (!ids.length) {
+        await decir(fuera > 0 ? "Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)." : textoSinNadie(0), m);
+        return;
+      }
+    }
+    if (comando === "llamar") aLlamar = await aQuienLlamar(m, client, participants);
+    if (comando === "llamar" && !aLlamar.length) {
+      await decir("¿A quién llamo? Arrobalo en el mensaje.", m);
+      return;
+    }
+  }
+
+  await decir(respuesta, cita);
+  if (!puedeHablar()) return;
+
+  if (comando === "tagall") {
+    const pl = buscarPlugin("tagall");
+    // desdeClaudia: what she was told is never read as a .tagall -f, which only an admin can send typing it.
+    if (pl) await pl.run(m, { client, isOwner, text: m.text, participants, chat, desdeClaudia: true });
+  } else if (comando === "llamar") {
+    // .llamar gets the people to call as she worked them out (aLlamar): never Claudia herself, and nobody asked about
+    // again.
+    const pl = buscarPlugin("llamar");
+    if (pl) await pl.run(m, { client, text: m.text, command: "llamar", participants, aLlamar });
+  }
+}
 
 export default plugin;

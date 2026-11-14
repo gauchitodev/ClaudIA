@@ -220,7 +220,7 @@ test("pedido a Claudia: lo que contesta cuenta como charla para la iniciativa", 
   const F = await import("../database-functions.js");
   clasificacion = { comando: "ninguno", respuesta: "¡Hola, Ana!" };
   const antes = F.intervencionesDesde(C, 0).length;
-  await pedir("hola claudia", MODERADOR);
+  await pedir("hola claudia, ¿cómo andás?", MODERADOR);
   const filas = F.intervencionesDesde(C, 0);
   assert.equal(filas.length, antes + 1);
   assert.deepEqual([filas.at(-1).tipo, filas.at(-1).texto], ["charla", "¡Hola, Ana!"]);
@@ -615,4 +615,165 @@ test("pedido a Claudia: su .tagall deja afuera a quien se salió, nunca fuerza, 
   F.updateUserInGroup("555@lid", NT, { sinTagall: true });
   r = await hablarle({ text: "claudia arrobá a todos" }, { grupo: NT });
   assert.deepEqual(r.textos, ["Che, acá no hay a quién mencionar: todos pidieron no recibir los llamados a todos (.notagall)."]);
+});
+
+// ---------- her turn (lib/turnos-de-claudia.js) ----------
+// One answer every 20 s per group, as always, but what's said to her in between used to be dropped: whoever named her
+// right after someone else got nothing, and "Claudia" with the question in the next message got her answer to the name
+// alone. The clock and the timers are the test's (_dep), and so is what the AI is asked.
+
+const SEG = 1000;
+async function conTurnos(grupo, fn) {
+  const { _dep } = await import("../plugins/_auto-ia.js");
+  const T = await import("../lib/turnos-de-claudia.js");
+  const depReal = { ..._dep };
+  const fetchAntes = globalThis.fetch;
+  const reloj = { ahora: Date.now() };
+  const relojes = []; // the timers the plugin set: { fn, en, cancelado }
+  const prompts = [];
+  Object.assign(_dep, {
+    ahora: () => reloj.ahora,
+    programar: (fn, ms) => {
+      const r = { fn, en: reloj.ahora + ms };
+      relojes.push(r);
+      return r;
+    },
+    cancelar: (r) => {
+      if (r) r.cancelado = true;
+    },
+  });
+  globalThis.fetch = async (url, opciones) => {
+    prompts.push(JSON.parse(opciones.body).contents[0].parts.at(-1).text);
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(clasificacion) }] } }] }) };
+  };
+  T.reiniciarTurnos();
+  ritmoDeClaudia.delete(grupo);
+  globalThis.enviados = [];
+  const client = { ...clienteFalso(), sendPresenceUpdate: async () => {}, sendText: async (chat, text, quoted) => (globalThis.enviados.push({ chat, msg: { text }, quoted: quoted || null }), { key: { id: `MSG${globalThis.enviados.length}` } }) };
+  const hablar = async (sender, pushName, text) => {
+    const m = { chat: grupo, isGroup: true, sender, pushName, text, mentionedJid: [], quoted: null, key: { id: `T${reloj.ahora}${sender}` } };
+    await AutoIA.before(m, { client, participants, isBotAdmin: true, isOwner: false, isAdmin: false, isMod: false, user: {}, chat: {} });
+    return m;
+  };
+  // The time goes by up to "hasta", and the timers due by then go off, in order.
+  const avanzar = async (hasta) => {
+    reloj.ahora = hasta;
+    for (const r of relojes.filter((r) => !r.cancelado && !r.corrido && r.en <= hasta).sort((a, b) => a.en - b.en)) {
+      r.corrido = true;
+      await r.fn();
+    }
+  };
+  try {
+    await fn({ hablar, avanzar, reloj, prompts, enviados: () => globalThis.enviados.filter((e) => e.chat === grupo) });
+  } finally {
+    Object.assign(_dep, depReal);
+    globalThis.fetch = fetchAntes;
+    T.reiniciarTurnos();
+  }
+}
+
+test("turnos: lo que le dicen en la pausa ya no se pierde: contesta al terminar, cita lo último y nombra lo que quedó", async () => {
+  await conTurnos("turnos-1@g.us", async ({ hablar, avanzar, reloj, prompts, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "Son las cinco." };
+    await hablar("111@lid", "Ana", "claudia, ¿qué hora es?");
+    assert.deepEqual(
+      enviados().map((e) => [e.msg.text, e.quoted]),
+      [["Son las cinco.", null]],
+      "la primera, en el momento y sin citar",
+    );
+    reloj.ahora = t0 + 5 * SEG;
+    await hablar("222@lid", "Beto", "claudia, ¿quién ganó ayer?");
+    reloj.ahora = t0 + 8 * SEG;
+    const carla = await hablar("333@lid", "Carla", "bot, ¿llueve mañana?");
+    clasificacion = { comando: "ninguno", respuesta: "Beto, ganó Peñarol. Carla, no llueve." };
+    await avanzar(t0 + 19 * SEG);
+    assert.equal(enviados().length, 1, "en la pausa no contesta");
+    await avanzar(t0 + 20 * SEG);
+    assert.equal(enviados().length, 2, "pero cuando termina contesta lo que quedó");
+    assert.equal(enviados()[1].msg.text, "Beto, ganó Peñarol. Carla, no llueve.");
+    assert.equal(enviados()[1].quoted, carla, "citando lo último");
+    assert.equal(prompts.length, 2, "en una sola consulta");
+    assert.match(prompts[1], /\n\nMensaje de Carla: "bot, ¿llueve mañana\?"\n\nAntes de ese mensaje también te escribieron, y todavía no les contestaste: Beto: "claudia, ¿quién ganó ayer\?"\. Contestales también en esta misma respuesta, a cada uno por su nombre\.\n\n/);
+  });
+});
+
+test("turnos: «Claudia» y la pregunta en el mensaje siguiente: contesta la pregunta, una sola vez", async () => {
+  await conTurnos("turnos-2@g.us", async ({ hablar, avanzar, reloj, prompts, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "Pedíselo a un admin." };
+    await hablar("111@lid", "Ana", "Claudia");
+    assert.equal(enviados().length, 0, "espera la pregunta");
+    reloj.ahora = t0 + 3 * SEG;
+    await hablar("222@lid", "Beto", "qué calor que hace");
+    await hablar("111@lid", "Ana", "¿me pasás el link del grupo?");
+    assert.deepEqual(
+      enviados().map((e) => e.msg.text),
+      ["Pedíselo a un admin."],
+    );
+    assert.match(prompts[0], /\n\nMensaje de Ana: "¿me pasás el link del grupo\?"\n\n/);
+    assert.doesNotMatch(prompts[0], /Antes de ese mensaje/, "el «Claudia» solo no se nombra");
+    await avanzar(t0 + 30 * SEG);
+    assert.equal(prompts.length, 1, "la espera de la pregunta ya no contesta nada");
+  });
+});
+
+test("turnos: «Claudia» varias veces seguidas tiene una sola respuesta, sin citar", async () => {
+  await conTurnos("turnos-3@g.us", async ({ hablar, avanzar, reloj, prompts, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "¿Qué pasó, Ana?" };
+    for (const [i, texto] of ["Claudia", "claudia!", "CLAUDIA"].entries()) {
+      reloj.ahora = t0 + i * 2 * SEG;
+      await hablar("111@lid", "Ana", texto);
+    }
+    await avanzar(t0 + 11 * SEG);
+    assert.equal(enviados().length, 0, "espera la pregunta, desde la última llamada");
+    await avanzar(t0 + 12 * SEG);
+    assert.deepEqual(
+      enviados().map((e) => [e.msg.text, e.quoted]),
+      [["¿Qué pasó, Ana?", null]],
+    );
+    assert.equal(prompts.length, 1);
+    assert.match(prompts[0], /\n\nMensaje de Ana: "CLAUDIA"\n\n/);
+    assert.doesNotMatch(prompts[0], /Antes de ese mensaje/, "las llamadas solas no se nombran");
+  });
+});
+
+test("turnos: si la pregunta llega después de que contestó al «Claudia», igual es para ella; lo que sigue, ya no", async () => {
+  await conTurnos("turnos-4@g.us", async ({ hablar, avanzar, reloj, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "¿Sí?" };
+    await hablar("111@lid", "Ana", "Claudia");
+    await avanzar(t0 + 8 * SEG);
+    assert.equal(enviados().length, 1, "sin pregunta, contesta la llamada");
+    reloj.ahora = t0 + 15 * SEG;
+    clasificacion = { comando: "ninguno", respuesta: "Dale, decime." };
+    const pregunta = await hablar("111@lid", "Ana", "¿me ayudás con una cuenta?");
+    assert.equal(enviados().length, 1, "la pausa");
+    await avanzar(t0 + 28 * SEG);
+    assert.deepEqual(
+      enviados().map((e) => e.msg.text),
+      ["¿Sí?", "Dale, decime."],
+    );
+    assert.equal(enviados()[1].quoted, pregunta);
+    reloj.ahora = t0 + 60 * SEG;
+    await hablar("111@lid", "Ana", "gracias");
+    await avanzar(t0 + 120 * SEG);
+    assert.equal(enviados().length, 2, "lo que sigue ya no es para ella");
+  });
+});
+
+test("turnos: si habló por su cuenta mientras le esperaban (un vistazo, un sticker), contesta cuando termina esa pausa", async () => {
+  await conTurnos("turnos-5@g.us", async ({ hablar, avanzar, reloj, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "Bien, ¿y vos?" };
+    await hablar("111@lid", "Ana", "claudia, ¿cómo va?");
+    reloj.ahora = t0 + 5 * SEG;
+    await hablar("222@lid", "Beto", "claudia, ¿y lo del sábado?");
+    ritmoDeClaudia.set("turnos-5@g.us", t0 + 15 * SEG); // a glance of hers (lib/vistazos.js)
+    await avanzar(t0 + 20 * SEG);
+    assert.equal(enviados().length, 1, "su pausa volvió a empezar");
+    await avanzar(t0 + 35 * SEG);
+    assert.equal(enviados().length, 2);
+  });
 });
