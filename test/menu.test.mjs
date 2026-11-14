@@ -107,7 +107,8 @@ test("menú: la economía y el casino son temas, y ya no hay .menuuru", async ()
   assert.match(menu({ pedido: "extras" }), /\n▸ \.recap 📅/);
   assert.match(menu({ pedido: "casino", bloqueados: new Set(["ruleta"]) }), /\n▸ \.ruleta .+ 🔒\n/);
   // What the old menu said and the lines didn't: how the markets pay, the refund of .playya, and someone else's items.
-  assert.match(menu({ pedido: "casino" }), /\n▸ \.mercados [^\n]+ Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo\.`\n/);
+  // And the markets' last call (lib/ultimo-llamado.js).
+  assert.match(menu({ pedido: "casino" }), /\n▸ \.mercados [^\n]+ Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo\. Unas tres horas antes del cierre vuelvo a mostrar cada mercado, con su pozo\.`\n/);
   assert.match(coins, /\n▸ \.tienda [^\n]+\.inventario \[@mención\] muestra lo tuyo o lo de otra persona\. \.playya y \.videoya saltan la espera de la música por 15, que se devuelven si la descarga falla\.`\n/);
 
   // The themes and the ranking, which were "grupo" with Uruguay's flag, have a topic of their own. .menuuru, .juegosuru

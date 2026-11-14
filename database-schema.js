@@ -366,7 +366,8 @@ export function ponerAlDia(db) {
       creado INTEGER NOT NULL,
       partido INTEGER,
       tipo TEXT,
-      avisado INTEGER DEFAULT 0
+      avisado INTEGER DEFAULT 0,
+      recordado INTEGER DEFAULT 0
     )
   `);
   db.exec(`
@@ -381,9 +382,10 @@ export function ponerAlDia(db) {
   `);
   // A market on a match the bot follows (lib/partidos.js): which one (partido), what it's about ("90": the result at
   // 90 minutes, "pasa": who goes through) and whether the admins were told the bot has no result for it (avisado).
-  // The bot resolves those on its own; the rest, an admin with .resolver. Added here to the databases from before.
+  // The bot resolves those on its own; the rest, an admin with .resolver. And of any market, whether its last call
+  // before the bets close went out (recordado, lib/ultimo-llamado.js). Added here to the databases from before.
   const columnasMercados = db.prepare(`PRAGMA table_info(mercados)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["partido", "INTEGER"], ["tipo", "TEXT"], ["avisado", "INTEGER DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["partido", "INTEGER"], ["tipo", "TEXT"], ["avisado", "INTEGER DEFAULT 0"], ["recordado", "INTEGER DEFAULT 0"]]) {
     if (!columnasMercados.includes(columna)) {
       db.exec(`ALTER TABLE mercados ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla mercados`);

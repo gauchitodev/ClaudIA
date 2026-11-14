@@ -1031,6 +1031,12 @@ export function mercadosConPartidoPendientes() {
   return db.prepare(`SELECT * FROM mercados WHERE partido IS NOT NULL AND estado IN ('abierto', 'cerrado') ORDER BY id ASC`).all().map(parsearMercado);
 }
 
+// The open markets whose bets close after "desde" and by "hasta", in every group, that haven't had their last call
+// (lib/ultimo-llamado.js).
+export function mercadosPorCerrar(desde, hasta) {
+  return db.prepare(`SELECT * FROM mercados WHERE estado = 'abierto' AND recordado = 0 AND cierra_en > ? AND cierra_en <= ? ORDER BY chat ASC, cierra_en ASC, id ASC`).all(desde, hasta).map(parsearMercado);
+}
+
 // ===================== Matches the bot follows (lib/partidos.js) =====================
 
 function parsearPartido(row) {

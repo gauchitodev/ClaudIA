@@ -67,9 +67,9 @@ test("migra los mercados sin las columnas del partido, y los grupos sin el inter
   const F = await import("../database-functions.js");
   globalThis.db = F.loadDatabase();
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
-  for (const c of ["partido", "tipo", "avisado"]) assert.ok(cols("mercados").includes(c), `falta mercados.${c}`);
+  for (const c of ["partido", "tipo", "avisado", "recordado"]) assert.ok(cols("mercados").includes(c), `falta mercados.${c}`);
   const m = F.getMercado(1);
-  assert.deepEqual([m.titulo, m.opciones, m.partido, m.tipo, m.avisado], ["Clásico", ["Peñarol", "Nacional"], null, null, 0], "el mercado de antes queda, sin partido");
+  assert.deepEqual([m.titulo, m.opciones, m.partido, m.tipo, m.avisado, m.recordado], ["Clásico", ["Peñarol", "Nacional"], null, null, 0, 0], "el mercado de antes queda, sin partido ni último llamado");
   assert.ok(cols("chats").includes("mercadosAuto"));
   F.initDataDB({ chat: G, sender: "111@lid", senderJid: "", pushName: "Ana" });
   assert.equal(F.getChat(G).mercadosAuto, 1, "prendido");

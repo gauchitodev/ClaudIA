@@ -1,12 +1,14 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { prepararBase, fijarSaldo, clienteFalso } from "./helpers.mjs";
 import { claveDia } from "../lib/actividad.js";
 
 // The markets on football matches (lib/partidos.js) and the source they're read from (lib/espn.js): which matches are
 // kept, which groups get markets, what the bot opens on its own (Peñarol's and Nacional's), what an admin opens from
 // .partidos, and how each one is resolved when the match ends: the result at 90 minutes, or who goes through. ESPN is
-// swapped for answers of the shape it gives (checked against real ones on 2026-11-11), made here: no real data.
+// swapped for answers of the shape it gives (checked against real ones on 2026-11-11), made here: no real data. And
+// the last call before any market's bets close (lib/ultimo-llamado.js).
 
 let F, E, P, M;
 const MIN = 60 * 1000;
@@ -689,6 +691,115 @@ test("la pasada: de a una", async () => {
   } finally {
     E._dep.pedir = pedirReal;
   }
+});
+
+// ---------- the last call ----------
+
+// Tomorrow at an hour: the last call keeps to Claudia's waking hours, and its tests mustn't depend on the clock.
+function manana(hora) {
+  const d = new Date(Date.now() + DIA);
+  d.setHours(hora, 0, 0, 0);
+  return d.getTime();
+}
+// A market an admin opened in a group, closing then, as if opened at "abierto".
+function deUnAdmin(chat, titulo, cierra, abierto) {
+  const id = M.abrirMercado(chat, "admin", titulo, ["Sí", "No"], cierra);
+  F.actualizarMercado(id, { creado: abierto });
+  return id;
+}
+
+test("el último llamado: unas tres horas antes del cierre, una vez, y los mercados de un partido en un solo mensaje", async () => {
+  const U = await import("../lib/ultimo-llamado.js");
+  const inicio = manana(18);
+  const chat = grupo();
+  const vuelta = partido({ id: 1, local: NACIONAL, visitante: FLAMENGO, inicio, fase: "quarterfinals", leg: 2, competencia: "conmebol.libertadores" });
+  const client = clienteFalso();
+  assert.equal(await P.abrirMercadosSolos(inicio - 23 * HORA, client), 2);
+  const [m90] = F.mercadosDelPartido(chat, vuelta.id, "90");
+  const [mPasa] = F.mercadosDelPartido(chat, vuelta.id, "pasa");
+  assert.ok(M.jugar(chat, "a", m90.id, "Nacional", 30).ok && M.jugar(chat, "b", m90.id, "Flamengo", 10).ok);
+  globalThis.enviados = [];
+  assert.equal(await U.chequearUltimosLlamados(inicio - 3 * HORA - 5 * MIN, client), 0, "a más de tres horas, todavía no");
+  assert.equal(await U.chequearUltimosLlamados(inicio - 3 * HORA + 2 * MIN, client), 1);
+  const [{ msg }] = globalThis.enviados;
+  const noventa = `📊 \\*Mercado #${m90.id}: Nacional vs Flamengo \\(a los 90'\\)\\*\\n1\\. Nacional — 30 UruCoins · paga x1\\.33\\n2\\. Empate — 0 UruCoins\\n3\\. Flamengo — 10 UruCoins · paga x4\\.00\\nPozo: 40 UruCoins \\(2 apuestas\\) · Cierra [^\\n]+\\nApostá con \\.jugar ${m90.id} <opción> <cantidad>`;
+  const pasa = `📊 \\*Mercado #${mPasa.id}: ¿Quién pasa\\? Nacional vs Flamengo\\*\\n[^]+\\nApostá con \\.jugar ${mPasa.id} <opción> <cantidad>`;
+  assert.match(msg.text, new RegExp(`^⏰ Quedan 2 h 58 min para apostar: Nacional vs Flamengo · Libertadores · hoy 18:00\\n\\n${noventa}\\n\\n${pasa}$`));
+  assert.equal(msg.mentions, undefined, "sin arrobar a nadie");
+  assert.equal(await U.chequearUltimosLlamados(inicio - 2 * HORA, client), 0, "una sola vez");
+  assert.deepEqual([F.getMercado(m90.id).recordado, F.getMercado(mPasa.id).recordado], [1, 1]);
+});
+
+test("el último llamado de un mercado de un admin: no si lo abrió hace poco ni con media hora o menos, ni anulado", async () => {
+  const U = await import("../lib/ultimo-llamado.js");
+  const ahora = manana(15);
+  const chat = grupo();
+  const viejo = deUnAdmin(chat, "Llueve", ahora + 2 * HORA + 10 * MIN, ahora - 5 * HORA);
+  const nuevo = deUnAdmin(chat, "Graniza", ahora + 2 * HORA + 10 * MIN, ahora - HORA);
+  const justo = deUnAdmin(chat, "Truena", ahora + 30 * MIN, ahora - 5 * HORA);
+  const anulado = deUnAdmin(chat, "Nieva", ahora + 2 * HORA, ahora - 5 * HORA);
+  assert.ok(M.resolver(chat, "admin", anulado, "anulado").ok);
+  const client = clienteFalso();
+  assert.equal(await U.chequearUltimosLlamados(ahora, client), 1);
+  assert.match(aca(chat)[0], new RegExp(`^⏰ Quedan 2 h 10 min para apostar\\.\\n\\n📊 \\*Mercado #${viejo}: Llueve\\*\\n1\\. Sí — 0 UruCoins\\n2\\. No — 0 UruCoins\\nPozo: 0 UruCoins \\(0 apuestas\\) · Cierra [^\\n]+\\nApostá con \\.jugar ${viejo} <opción> <cantidad>$`));
+  // Two hours after it was opened, the recent one gets its own.
+  assert.equal(await U.chequearUltimosLlamados(ahora + 55 * MIN, client), 0);
+  assert.equal(await U.chequearUltimosLlamados(ahora + HORA, client), 1);
+  assert.match(aca(chat)[1], new RegExp(`^⏰ Quedan 1 h 10 min para apostar\\.\\n\\n📊 \\*Mercado #${nuevo}: Graniza\\*\\n`));
+  assert.deepEqual([justo, anulado].map((id) => F.getMercado(id).recordado), [0, 0]);
+});
+
+test("el último llamado espera a que abra el horario de juegos, de noche no sale, y donde no andan los mercados tampoco", async () => {
+  const U = await import("../lib/ultimo-llamado.js");
+  const client = clienteFalso();
+  const ahora = manana(15);
+  const conHorario = grupo({ horarioJuegos: "16:00-23:00" });
+  const sinCasino = grupo();
+  const enHorario = deUnAdmin(conHorario, "Llueve", ahora + 2 * HORA + 30 * MIN, ahora - DIA);
+  deUnAdmin(sinCasino, "Llueve", ahora + 2 * HORA + 30 * MIN, ahora - DIA);
+  F.updateChat(sinCasino, { casino: 0 });
+  assert.equal(await U.chequearUltimosLlamados(ahora, client), 0, "a las 15 el horario está cerrado");
+  assert.equal(await U.chequearUltimosLlamados(ahora + HORA, client), 1, "a las 16 abre");
+  assert.match(aca(conHorario)[0], new RegExp(`^⏰ Quedan 1 h 30 min para apostar\\.\\n\\n📊 \\*Mercado #${enHorario}: Llueve\\*\\n`));
+  assert.deepEqual(aca(sinCasino), []);
+  // Not at night: one that closes at 08:00 gets none, its three hours being Claudia's night; one at 10:00, after 09:00.
+  const chat = grupo();
+  const ocho = deUnAdmin(chat, "Madruga", manana(8), ahora - 2 * DIA);
+  const diez = deUnAdmin(chat, "Desayuna", manana(10), ahora - 2 * DIA);
+  for (const t of [manana(5), manana(6) + 30 * MIN, manana(7) + 25 * MIN, manana(8) + 55 * MIN]) assert.equal(await U.chequearUltimosLlamados(t, client), 0, new Date(t).toTimeString());
+  assert.equal(await U.chequearUltimosLlamados(manana(9) + 10 * MIN, client), 1);
+  assert.match(aca(chat)[0], new RegExp(`^⏰ Quedan 50 min para apostar\\.\\n\\n📊 \\*Mercado #${diez}: Desayuna\\*\\n`));
+  assert.equal(F.getMercado(ocho).recordado, 0);
+});
+
+test("el último llamado que no pudo salir se intenta en la pasada siguiente", async () => {
+  const U = await import("../lib/ultimo-llamado.js");
+  const ahora = manana(15);
+  const chat = grupo();
+  const id = deUnAdmin(chat, "Llueve", ahora + 2 * HORA + 30 * MIN, ahora - DIA);
+  const client = clienteFalso();
+  const enviar = client.sendMessage;
+  let fallas = 1;
+  client.sendMessage = async (c, msg) => {
+    if (fallas-- > 0) throw new Error("socket");
+    return enviar(c, msg);
+  };
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await U.chequearUltimosLlamados(ahora, client), 0);
+  } finally {
+    console.error = errorReal;
+  }
+  assert.equal(F.getMercado(id).recordado, 0, "desmarcado");
+  assert.equal(await U.chequearUltimosLlamados(ahora + 5 * MIN, client), 1);
+  assert.deepEqual([F.getMercado(id).recordado, aca(chat).length], [1, 1]);
+});
+
+// lib/tareas-programadas.js can't be run in a test (it sets timers): its source is read.
+test("consistencia: las tareas de cada 5 minutos dan el último llamado", () => {
+  const fuente = fs.readFileSync(new URL("../lib/tareas-programadas.js", import.meta.url), "utf8");
+  assert.match(fuente, /chequearUltimosLlamados\(\)\.catch/);
 });
 
 // ---------- the commands ----------

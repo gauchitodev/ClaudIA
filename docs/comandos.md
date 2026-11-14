@@ -76,7 +76,7 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |
-| `.mercados` 📊 | Apuestas sobre eventos reales que abre un admin (y yo, un día antes de cada partido de Peñarol o Nacional): .mercado 7 muestra uno y .jugar 7 Nacional 20 apuesta. Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo. |
+| `.mercados` 📊 | Apuestas sobre eventos reales que abre un admin (y yo, un día antes de cada partido de Peñarol o Nacional): .mercado 7 muestra uno y .jugar 7 Nacional 20 apuesta. Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo. Unas tres horas antes del cierre vuelvo a mostrar cada mercado, con su pozo. |
 | `.partidos` ⚽ | Los partidos de la semana del Uruguayo, la Libertadores, la Sudamericana y la selección, con el número para abrirles apuestas; .partidos libertadores (o uruguayo, sudamericana, seleccion) muestra todos los de esa. |
 
 <a id="descargas"></a>
