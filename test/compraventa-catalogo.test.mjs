@@ -17,6 +17,12 @@ const DIA = 24 * HORA;
 const INICIO = Date.now();
 const hoyALas = (hora, minutos = 0) => new Date(INICIO).setHours(hora, minutos, 0, 0);
 const MODO_COMPRAVENTA = { games: 0, charla: 0, saludos: 0, monedas: 0, ascensos: 0, recapSemanal: 0 };
+// Whom each group lists, and with which number, as Baileys' groupMetadata gives them: the catalogue asks for them
+// (lib/cache-grupos.js) for its numbers. By default, a group's two people by their LID, with the numbers their rows
+// have. A group in sinLista doesn't answer.
+const listas = new Map();
+const sinLista = new Set();
+const listaDe = (chat) => listas.get(chat) ?? [111, 222].map((n) => ({ id: `${n}@lid`, phoneNumber: `59899000${n}@s.whatsapp.net`, admin: null }));
 
 before(async () => {
   ({ F } = await prepararBase("catalogo"));
@@ -24,6 +30,10 @@ before(async () => {
   Modo = await import("../lib/modo.js");
   Config = (await import("../plugins/config-on-off.js")).default;
   VerConfig = (await import("../plugins/grupo-config.js")).default;
+  conexion.client.groupMetadata = async (chat) => {
+    if (sinLista.has(chat)) throw new Error("no contesta");
+    return { id: chat, subject: "Ventas", participants: listaDe(chat) };
+  };
 });
 
 // A buy-and-sell group of a test's own, with people named like their ids and something up. A pass goes over every
@@ -55,7 +65,9 @@ const sinErrores = async (hacer) => {
   }
 };
 
-test("el catálogo sale solo en un grupo de compraventa: la lista de .catalogo, con título y cómo entrar en ella", async () => {
+// The list is .catalogo numero's: whoever wants something writes to whoever posted it from there. By name, they had to
+// find them among the group's members, or know of .catalogo numero.
+test("el catálogo sale solo en un grupo de compraventa: la lista de .catalogo numero, con título y cómo entrar en ella", async () => {
   const chat = "cat-sale@g.us";
   const [bici, mesa] = grupo(chat);
   const ahora = hoyALas(13);
@@ -68,12 +80,72 @@ test("el catálogo sale solo en un grupo de compraventa: la lista de .catalogo, 
   assert.deepEqual(resto, []);
   assert.deepEqual(catalogo, {
     text:
-      `🛒 *CATÁLOGO DEL GRUPO*\n\n🏷️ *EN VENTA* (2)\n*#${mesa}* mesa de luz $ 800 — P111\n*#${bici}* bici rodado 26 $ 4.000 — P111\n\n` +
-      "Detalle: .catalogo N · teléfonos: .catalogo numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>\n" +
+      `🛒 *CATÁLOGO DEL GRUPO*\n\n🏷️ *EN VENTA* (2)\n*#${mesa}* mesa de luz $ 800 — +59899000111 (P111)\n*#${bici}* bici rodado 26 $ 4.000 — +59899000111 (P111)\n\n` +
+      "Detalle: .catalogo N numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>\n" +
       "📌 ¿Vendés algo? Empezá tu mensaje con «vendo», decí qué es y a cuánto, y queda en esta lista.",
   });
   assert.equal(catalogo.mentions, undefined, "no arroba a nadie");
   assert.deepEqual(estado(chat), [ahora, idDe(catalogo)], "queda anotado cuándo salió y con qué mensaje");
+});
+
+// The number is the one the group lists each one with, as .catalogo numero's (lib/menciones.js): the one their row has
+// may be one they had before, someone else's by now, and one the group doesn't show isn't the bot's to show. With no
+// list of the group at hand, by name, as .catalogo: a catalogue of "sin número" tells less than one of names.
+test("con el teléfono con el que el grupo muestra a cada uno, no el de su fila; sin la lista del grupo, por nombre", async () => {
+  const chat = "cat-telefonos@g.us";
+  const [bici] = grupo(chat, { avisos: ["bici rodado 26 $ 4.000"] });
+  F.initDataDB({ chat, sender: "333@lid", senderJid: "59899000333@s.whatsapp.net", pushName: "P333" });
+  const mesa = C.publicar(chat, "222@lid", "vendo", "mesa de luz $ 800").numero;
+  const heladera = C.publicar(chat, "333@lid", "compro", "heladera chica").numero;
+  // Each one the way a group may list them: by LID with a number other than their row's, by number with the LID
+  // apart, and by LID alone.
+  listas.set(chat, [
+    { id: "111@lid", phoneNumber: "59899000999@s.whatsapp.net", admin: null },
+    { id: "59899000222@s.whatsapp.net", lid: "222@lid", admin: null },
+    { id: "333@lid", admin: null },
+  ]);
+  const ahora = hoyALas(13);
+  escriben(chat, 10, ahora - HORA);
+  let antes = globalThis.enviados.length;
+  await C.mostrarCatalogos(ahora);
+  assert.deepEqual(enviadosA(chat, antes), [
+    {
+      text: [
+        "🛒 *CATÁLOGO DEL GRUPO*",
+        "",
+        "🏷️ *EN VENTA* (2)",
+        `*#${mesa}* mesa de luz $ 800 — +59899000222 (P222)`,
+        `*#${bici}* bici rodado 26 $ 4.000 — +59899000999 (P111)`,
+        "",
+        "🔎 *SE BUSCA* (1)",
+        `*#${heladera}* heladera chica — P333 (sin número)`,
+        "",
+        "Detalle: .catalogo N numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>",
+        "📌 ¿Vendés algo? Empezá tu mensaje con «vendo», decí qué es y a cuánto, y queda en esta lista.",
+      ].join("\n"),
+    },
+  ]);
+
+  // Without the group's list: WhatsApp doesn't answer and there's no copy, or the list comes empty.
+  for (const [otro, sinLaLista] of [
+    ["cat-sin-lista@g.us", (c) => sinLista.add(c)],
+    ["cat-lista-vacia@g.us", (c) => listas.set(c, [])],
+  ]) {
+    const [numero] = grupo(otro, { avisos: ["bici rodado 26 $ 4.000"] });
+    sinLaLista(otro);
+    escriben(otro, 10, ahora - HORA);
+    antes = globalThis.enviados.length;
+    await sinErrores(() => C.mostrarCatalogos(ahora));
+    const [porNombre, ...resto] = enviadosA(otro, antes);
+    assert.deepEqual(resto, [], otro);
+    assert.equal(
+      porNombre.text,
+      `🛒 *CATÁLOGO DEL GRUPO*\n\n🏷️ *EN VENTA* (1)\n*#${numero}* bici rodado 26 $ 4.000 — P111\n\n` +
+        "Detalle: .catalogo N · teléfonos: .catalogo numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>\n" +
+        "📌 ¿Vendés algo? Empezá tu mensaje con «vendo», decí qué es y a cuánto, y queda en esta lista.",
+      otro,
+    );
+  }
 });
 
 test("sale entre las 11 y las 21, como la ronda del día", async () => {
@@ -310,7 +382,7 @@ test(".catalogoauto off lo apaga y on lo vuelve a prender; .config y .modo lo mu
   assert.ok(Config.cmd.includes("catalogoauto"));
   assert.equal(F.getChat(chat).catalogoAuto, 1, "prendido de entrada");
   assert.match(await verConfig(), /✅ Catálogo cada tanto, en modo compraventa \(\.catalogoauto\)/);
-  assert.match(Modo.textoModo(chat), /apagados\. Muestro el catálogo cada 4 horas, de 11 a 21 \(\.catalogoauto off lo apaga\)\.\n/);
+  assert.match(Modo.textoModo(chat), /apagados\. Muestro el catálogo cada 4 horas, de 11 a 21, con el teléfono de quien publicó cada una \(\.catalogoauto off lo apaga\)\.\n/);
 
   await config(["off"]);
   assert.equal(F.getChat(chat).catalogoAuto, 0);

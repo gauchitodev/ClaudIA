@@ -350,7 +350,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.monedas` 🪙 | Economía de UruCoins del grupo. |
 | `.ascensos` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
-| `.catalogoauto` 🛒 | En modo compraventa, el catálogo sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
+| `.catalogoauto` 🛒 | En modo compraventa, el catálogo con los teléfonos sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
 | `.mercadosauto` ⚽ | Los mercados que abro sola un día antes de cada partido de Peñarol o Nacional. |
 | `.reacciones` 💚 | El bot reacciona a mensajes. |
 | `.preguntadeldia` 💬 | Pregunta del día para arrancar charla. |
@@ -419,7 +419,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 🔎 **Ver y buscar**
 - .catalogo — todo lo activo · .catalogo N — el detalle de la #N
 - .catalogo numero — con el teléfono de quien publicó cada una, para escribirle sin arrobarlo (el detalle: .catalogo N numero)
-- En modo compraventa lo muestro yo cada 4 horas, entre las 11 y las 21, si el grupo estuvo escribiendo, y borro el anterior
+- En modo compraventa lo muestro yo con los teléfonos cada 4 horas, entre las 11 y las 21, si el grupo estuvo escribiendo, y borro el anterior
 - .vendo o .compro sin texto — solo las de ese tipo
 - .buscar &lt;palabra&gt; — filtra por palabra
 - .mias — las tuyas, con su número
