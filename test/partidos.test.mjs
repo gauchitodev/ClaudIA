@@ -349,8 +349,10 @@ test(".evento partido N: el resultado a los 90, o quién pasa si se define ahí"
   assert.ok(r.ok);
   const m = F.getMercado(r.id);
   assert.deepEqual([m.titulo, m.opciones, m.partido, m.tipo, m.cierra_en, m.chat], ["Nacional vs Albion (a los 90')", ["Nacional", "Empate", "Albion"], liga.id, "90", liga.inicio, chat]);
-  assert.match(r.mensaje, new RegExp(`^⚽ Partido #${liga.id}: Nacional vs Albion · Uruguayo · .+\\n\\n📊 \\*Mercado #${r.id}: Nacional vs Albion \\(a los 90'\\)\\*\\n`));
-  assert.match(r.mensaje, new RegExp(`\\nApostá con \\.jugar ${r.id} <opción> <cantidad>\\n\\nLas apuestas cierran cuando empieza el partido, y el resultado lo cargo yo cuando termine\\.$`));
+  assert.match(r.mensaje, new RegExp(`^⚽ Partido #${liga.id}: Nacional vs Albion · Uruguayo · `));
+  assert.match(r.mensaje, /Nacional vs Albion · Resultado a los 90 minutos/);
+  assert.ok(r.mensaje.includes(`Apuesta #${r.id}`));
+  assert.match(r.mensaje, /Respondé a este mensaje con \*\.apostar Nacional 20\*/);
   assert.equal(P.abrirDesdeLista(chat, "admin", liga.id, "90", ahora).error, `Ya hay un mercado de ese partido: el #${r.id}.`);
   assert.equal(P.abrirDesdeLista(chat, "admin", liga.id, "pasa", ahora).error, `En el #${liga.id} no se pasa de fase: abrí el de los 90 minutos con .evento partido ${liga.id}.`);
   assert.equal(P.abrirDesdeLista(chat, "admin", liga.id, "goles", ahora).error, `Uso: .evento partido ${liga.id} (el resultado a los 90 minutos) o .evento partido ${liga.id} pasa (quién pasa de fase).`);
@@ -403,7 +405,9 @@ test("los partidos de Peñarol y Nacional abren su mercado solos un día antes, 
   for (const chat of [uno, otro]) {
     const [texto] = aca(chat);
     const [m] = F.mercadosDelPartido(chat, nacional.id, "90");
-    assert.match(texto, new RegExp(`^⚽ Juega Nacional: Nacional vs Albion · Uruguayo · .+\\n\\n📊 \\*Mercado #${m.id}: Nacional vs Albion \\(a los 90'\\)\\*\\n`));
+    assert.match(texto, /^⚽ Juega Nacional: Nacional vs Albion · Uruguayo · /);
+    assert.match(texto, /Resultado a los 90 minutos/);
+    assert.ok(texto.includes(`Apuesta #${m.id}`));
     assert.equal(F.mercadosDelPartido(chat, nacional.id, "pasa").length, 0);
   }
   assert.deepEqual([aca(sinAuto), aca(sinCasino)], [[], []]);
@@ -431,7 +435,7 @@ test("con horario de juegos, el mercado de Peñarol o Nacional se abre cuando ab
   assert.match(aca(chat)[0], /^⚽ Juega Nacional: Nacional vs Albion/);
 });
 
-test("el clásico, y una vuelta de copa con los dos mercados en un solo mensaje", async () => {
+test("el clásico, y una vuelta de copa con una tarjeta por apuesta para poder responderla", async () => {
   const ahora = Date.now();
   const chat = grupo();
   partido({ id: 1, local: PENAROL, visitante: NACIONAL, inicio: ahora + 5 * HORA });
@@ -439,12 +443,14 @@ test("el clásico, y una vuelta de copa con los dos mercados en un solo mensaje"
   const ida = partido({ id: 3, local: PENAROL, visitante: PALMEIRAS, inicio: ahora + 7 * HORA, fase: "quarterfinals", leg: 1, competencia: "conmebol.libertadores" });
   const client = clienteFalso();
   assert.equal(await P.abrirMercadosSolos(ahora, client), 4);
-  const [clasico, copa, laIda] = aca(chat);
+  const [clasico, copa, clasifica, laIda] = aca(chat);
   assert.match(clasico, /^⚽ ¡Clásico! Peñarol vs Nacional · Uruguayo · /);
   assert.match(copa, /^⚽ Juega Nacional: Nacional vs Flamengo · Libertadores · /);
   const [m90] = F.mercadosDelPartido(chat, vuelta.id, "90");
   const [mPasa] = F.mercadosDelPartido(chat, vuelta.id, "pasa");
-  assert.match(copa, new RegExp(`Mercado #${m90.id}: Nacional vs Flamengo \\(a los 90'\\)[\\s\\S]*Mercado #${mPasa.id}: ¿Quién pasa\\? Nacional vs Flamengo`));
+  assert.match(copa, /Nacional vs Flamengo · Resultado a los 90 minutos/);
+  assert.match(clasifica, /Nacional vs Flamengo · Quién clasifica/);
+  assert.deepEqual([F.mercadoDelMensaje(chat, "MSG2").id, F.mercadoDelMensaje(chat, "MSG3").id], [m90.id, mPasa.id]);
   assert.equal(F.mercadosDelPartido(chat, ida.id, "pasa").length, 0, "en la ida, solo el de los 90");
   assert.match(laIda, /^⚽ Juega Peñarol: Peñarol vs Palmeiras/);
   // One an admin voided isn't opened again.
@@ -473,6 +479,29 @@ test("si no puede avisar en un grupo, los mercados de ahí quedan anulados y no 
   assert.equal(m.estado, "anulado");
   assert.equal(F.mercadosDelPartido(vuelta, p.id, "90")[0].estado, "abierto");
   assert.equal(await P.abrirMercadosSolos(ahora + MIN, clienteFalso()), 0);
+});
+
+test("si falla la segunda tarjeta, la primera sigue abierta con sus apuestas", async (t) => {
+  const ahora = Date.now();
+  const chat = grupo();
+  const p = partido({ id: 1, local: NACIONAL, visitante: FLAMENGO, inicio: ahora + 5 * HORA, fase: "quarterfinals", leg: 2, competencia: "conmebol.libertadores" });
+  const client = clienteFalso();
+  const enviar = client.sendMessage;
+  t.mock.method(console, "error", () => {});
+  client.sendMessage = async (donde, msg) => {
+    if (msg.text.includes("Quién clasifica")) throw new Error("socket");
+    const enviado = await enviar(donde, msg);
+    const [m] = F.mercadosDelPartido(chat, p.id, "90");
+    assert.ok(M.jugar(chat, "a", m.id, "Nacional", 20).ok);
+    return enviado;
+  };
+  assert.equal(await P.abrirMercadosSolos(ahora, client), 1);
+  const [noventa] = F.mercadosDelPartido(chat, p.id, "90");
+  const [pasa] = F.mercadosDelPartido(chat, p.id, "pasa");
+  assert.deepEqual([noventa.estado, pasa.estado], ["abierto", "anulado"]);
+  assert.equal(F.apuestaEnMercado(noventa.id, "a").cantidad, 20);
+  assert.equal(F.mercadoDelMensaje(chat, "MSG1").id, noventa.id);
+  assert.equal(await P.abrirMercadosSolos(ahora + MIN, client), 0);
 });
 
 // ---------- following them ----------
@@ -708,7 +737,7 @@ function deUnAdmin(chat, titulo, cierra, abierto) {
   return id;
 }
 
-test("el último llamado: unas tres horas antes del cierre, una vez, y los mercados de un partido en un solo mensaje", async () => {
+test("el último llamado: unas tres horas antes del cierre, una vez, con una tarjeta por apuesta", async () => {
   const U = await import("../lib/ultimo-llamado.js");
   const inicio = manana(18);
   const chat = grupo();
@@ -720,12 +749,18 @@ test("el último llamado: unas tres horas antes del cierre, una vez, y los merca
   assert.ok(M.jugar(chat, "a", m90.id, "Nacional", 30).ok && M.jugar(chat, "b", m90.id, "Flamengo", 10).ok);
   globalThis.enviados = [];
   assert.equal(await U.chequearUltimosLlamados(inicio - 3 * HORA - 5 * MIN, client), 0, "a más de tres horas, todavía no");
-  assert.equal(await U.chequearUltimosLlamados(inicio - 3 * HORA + 2 * MIN, client), 1);
-  const [{ msg }] = globalThis.enviados;
-  const noventa = `📊 \\*Mercado #${m90.id}: Nacional vs Flamengo \\(a los 90'\\)\\*\\n1\\. Nacional — 30 UruCoins · paga x1\\.33\\n2\\. Empate — 0 UruCoins\\n3\\. Flamengo — 10 UruCoins · paga x4\\.00\\nPozo: 40 UruCoins \\(2 apuestas\\) · Cierra [^\\n]+\\nApostá con \\.jugar ${m90.id} <opción> <cantidad>`;
-  const pasa = `📊 \\*Mercado #${mPasa.id}: ¿Quién pasa\\? Nacional vs Flamengo\\*\\n[^]+\\nApostá con \\.jugar ${mPasa.id} <opción> <cantidad>`;
-  assert.match(msg.text, new RegExp(`^⏰ Quedan 2 h 58 min para apostar: Nacional vs Flamengo · Libertadores · hoy 18:00\\n\\n${noventa}\\n\\n${pasa}$`));
-  assert.equal(msg.mentions, undefined, "sin arrobar a nadie");
+  assert.equal(await U.chequearUltimosLlamados(inicio - 3 * HORA + 2 * MIN, client), 2);
+  const [noventa, pasa] = globalThis.enviados.map((e) => e.msg);
+  for (const msg of [noventa, pasa]) {
+    assert.match(msg.text, /^⏰ Quedan 2 h 58 min para apostar: Nacional vs Flamengo · Libertadores · hoy 18:00/);
+    assert.match(msg.text, /Respondé a este mensaje con \*\.apostar Nacional 20\*/);
+    assert.equal(msg.mentions, undefined, "sin arrobar a nadie");
+  }
+  assert.match(noventa.text, /Resultado a los 90 minutos/);
+  assert.match(noventa.text, /Nacional — 30 UruCoins · paga x1\.33/);
+  assert.match(noventa.text, /Pozo: 40 UruCoins/);
+  assert.match(pasa.text, /Quién clasifica/);
+  assert.deepEqual([F.mercadoDelMensaje(chat, "MSG1").id, F.mercadoDelMensaje(chat, "MSG2").id], [m90.id, mPasa.id]);
   assert.equal(await U.chequearUltimosLlamados(inicio - 2 * HORA, client), 0, "una sola vez");
   assert.deepEqual([F.getMercado(m90.id).recordado, F.getMercado(mPasa.id).recordado], [1, 1]);
 });
@@ -741,11 +776,13 @@ test("el último llamado de un mercado de un admin: no si lo abrió hace poco ni
   assert.ok(M.resolver(chat, "admin", anulado, "anulado").ok);
   const client = clienteFalso();
   assert.equal(await U.chequearUltimosLlamados(ahora, client), 1);
-  assert.match(aca(chat)[0], new RegExp(`^⏰ Quedan 2 h 10 min para apostar\\.\\n\\n📊 \\*Mercado #${viejo}: Llueve\\*\\n1\\. Sí — 0 UruCoins\\n2\\. No — 0 UruCoins\\nPozo: 0 UruCoins \\(0 apuestas\\) · Cierra [^\\n]+\\nApostá con \\.jugar ${viejo} <opción> <cantidad>$`));
+  assert.match(aca(chat)[0], /^⏰ Quedan 2 h 10 min para apostar\.\n\n📊 \*Llueve\*/);
+  assert.ok(aca(chat)[0].includes(`Apuesta #${viejo}`));
   // Two hours after it was opened, the recent one gets its own.
   assert.equal(await U.chequearUltimosLlamados(ahora + 55 * MIN, client), 0);
   assert.equal(await U.chequearUltimosLlamados(ahora + HORA, client), 1);
-  assert.match(aca(chat)[1], new RegExp(`^⏰ Quedan 1 h 10 min para apostar\\.\\n\\n📊 \\*Mercado #${nuevo}: Graniza\\*\\n`));
+  assert.match(aca(chat)[1], /^⏰ Quedan 1 h 10 min para apostar\.\n\n📊 \*Graniza\*/);
+  assert.ok(aca(chat)[1].includes(`Apuesta #${nuevo}`));
   assert.deepEqual([justo, anulado].map((id) => F.getMercado(id).recordado), [0, 0]);
 });
 
@@ -760,7 +797,8 @@ test("el último llamado espera a que abra el horario de juegos, de noche no sal
   F.updateChat(sinCasino, { casino: 0 });
   assert.equal(await U.chequearUltimosLlamados(ahora, client), 0, "a las 15 el horario está cerrado");
   assert.equal(await U.chequearUltimosLlamados(ahora + HORA, client), 1, "a las 16 abre");
-  assert.match(aca(conHorario)[0], new RegExp(`^⏰ Quedan 1 h 30 min para apostar\\.\\n\\n📊 \\*Mercado #${enHorario}: Llueve\\*\\n`));
+  assert.match(aca(conHorario)[0], /^⏰ Quedan 1 h 30 min para apostar\.\n\n📊 \*Llueve\*/);
+  assert.ok(aca(conHorario)[0].includes(`Apuesta #${enHorario}`));
   assert.deepEqual(aca(sinCasino), []);
   // Not at night: one that closes at 08:00 gets none, its three hours being Claudia's night; one at 10:00, after 09:00.
   const chat = grupo();
@@ -768,7 +806,8 @@ test("el último llamado espera a que abra el horario de juegos, de noche no sal
   const diez = deUnAdmin(chat, "Desayuna", manana(10), ahora - 2 * DIA);
   for (const t of [manana(5), manana(6) + 30 * MIN, manana(7) + 25 * MIN, manana(8) + 55 * MIN]) assert.equal(await U.chequearUltimosLlamados(t, client), 0, new Date(t).toTimeString());
   assert.equal(await U.chequearUltimosLlamados(manana(9) + 10 * MIN, client), 1);
-  assert.match(aca(chat)[0], new RegExp(`^⏰ Quedan 50 min para apostar\\.\\n\\n📊 \\*Mercado #${diez}: Desayuna\\*\\n`));
+  assert.match(aca(chat)[0], /^⏰ Quedan 50 min para apostar\.\n\n📊 \*Desayuna\*/);
+  assert.ok(aca(chat)[0].includes(`Apuesta #${diez}`));
   assert.equal(F.getMercado(ocho).recordado, 0);
 });
 
@@ -796,6 +835,32 @@ test("el último llamado que no pudo salir se intenta en la pasada siguiente", a
   assert.deepEqual([F.getMercado(id).recordado, aca(chat).length], [1, 1]);
 });
 
+test("los recordatorios se reintentan por tarjeta, sin repetir la que ya salió", async (t) => {
+  const U = await import("../lib/ultimo-llamado.js");
+  const ahora = manana(15);
+  const chat = grupo();
+  const p = partido({ id: 1, local: NACIONAL, visitante: FLAMENGO, inicio: ahora + 2 * HORA, fase: "quarterfinals", leg: 2, competencia: "conmebol.libertadores" });
+  const noventa = P.abrirDesdeLista(chat, "admin", p.id, "90", ahora).id;
+  const pasa = P.abrirDesdeLista(chat, "admin", p.id, "pasa", ahora).id;
+  for (const id of [noventa, pasa]) F.actualizarMercado(id, { creado: ahora - 3 * HORA });
+  const client = clienteFalso();
+  const enviar = client.sendMessage;
+  let falla = true;
+  t.mock.method(console, "error", () => {});
+  client.sendMessage = async (donde, msg) => {
+    if (falla && msg.text.includes("Quién clasifica")) {
+      falla = false;
+      throw new Error("socket");
+    }
+    return enviar(donde, msg);
+  };
+  assert.equal(await U.chequearUltimosLlamados(ahora, client), 1);
+  assert.deepEqual([noventa, pasa].map((id) => F.getMercado(id).recordado), [1, 0]);
+  assert.equal(await U.chequearUltimosLlamados(ahora + 5 * MIN, client), 1);
+  assert.equal(globalThis.enviados.length, 2);
+  assert.deepEqual([F.mercadoDelMensaje(chat, "MSG1").id, F.mercadoDelMensaje(chat, "MSG2").id], [noventa, pasa]);
+});
+
 // lib/tareas-programadas.js can't be run in a test (it sets timers): its source is read.
 test("consistencia: las tareas de cada 5 minutos dan el último llamado", () => {
   const fuente = fs.readFileSync(new URL("../lib/tareas-programadas.js", import.meta.url), "utf8");
@@ -817,13 +882,13 @@ test("los comandos: .partidos, .evento partido N pasa y .mercadosauto", async ()
   await Jugadores.run(m, { client, args: ["libertadores"], command: "partidos", chat: F.getChat(chat) });
   assert.match(globalThis.enviados.at(-1).msg.text, /^⚽ \*Próximos partidos de la Libertadores\*\n#\d+ · .+ · Nacional vs Flamengo · Libertadores$/m);
   await Admin.run(m, { client, args: ["partido", String(vuelta.id), "pasa"], text: `partido ${vuelta.id} pasa`, command: "evento", chat: F.getChat(chat), isOwner: false });
-  assert.match(globalThis.enviados.at(-1).msg.text, /^⚽ Partido #\d+: Nacional vs Flamengo · Libertadores/);
+  assert.match(globalThis.enviados.at(-1).msg.text, /^📊 \*Nacional vs Flamengo · Quién clasifica/);
   assert.equal(F.mercadosDelPartido(chat, vuelta.id, "pasa").length, 1);
   await Admin.run(m, { client, args: ["Partido", "999999"], text: "Partido 999999", command: "evento", chat: F.getChat(chat), isOwner: false });
   assert.equal(globalThis.enviados.at(-1).msg.text, "❌ No hay ningún partido con ese número. Mirá los próximos con .partidos");
   // The usual .evento still is.
   await Admin.run(m, { client, args: "Llueve | Sí | No | en 1h".split(" "), text: "Llueve | Sí | No | en 1h", command: "evento", chat: F.getChat(chat), isOwner: false });
-  assert.match(globalThis.enviados.at(-1).msg.text, /^📊 \*Mercado #\d+: Llueve\*/);
+  assert.match(globalThis.enviados.at(-1).msg.text, /^📊 \*Llueve\*/);
   // .mercadosauto off: the group gets none on its own.
   assert.ok(Config.cmd.includes("mercadosauto"));
   await Config.run(m, { client, command: "mercadosauto", args: ["off"], isAdmin: true, isOwner: false, chat: F.getChat(chat), botSettings: {} });

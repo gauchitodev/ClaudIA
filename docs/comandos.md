@@ -76,7 +76,8 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |
-| `.mercados` 📊 | Apuestas sobre eventos reales que abre un admin (y yo, un día antes de cada partido de Peñarol o Nacional): .mercado 7 muestra uno y .jugar 7 Nacional 20 apuesta. Lo apostado se reparte entre los que aciertan, según lo que puso cada uno; si nadie acierta, se devuelve todo. Unas tres horas antes del cierre vuelvo a mostrar cada mercado, con su pozo. |
+| `.apuestas` 📊 | Las apuestas disponibles: elegí una con .apuestas 7 y respondé a su tarjeta con .apostar Nacional 20. Los avisos de los partidos también se pueden responder. Cada tarjeta dice si es el resultado a los 90 minutos o quién clasifica. Unas tres horas antes del cierre vuelvo a mostrar cada apuesta, con su pozo. |
+| `.apostar Nacional 20` 📊 | Respondiendo a la tarjeta de una apuesta: elegí equipo u opción y cantidad. Sin responder: .apostar 7 Nacional 20. Las cuotas cambian hasta el cierre y el cobro incluye lo apostado; el pozo se reparte entre quienes aciertan, según cuánto pusieron. Si nadie acierta, se devuelve todo. También siguen andando .jugar 7 Nacional 20, .mercados y .mercado 7. |
 | `.partidos` ⚽ | Los partidos de la semana del Uruguayo, la Libertadores, la Sudamericana y la selección, con el número para abrirles apuestas; .partidos libertadores (o uruguayo, sudamericana, seleccion) muestra todos los de esa. |
 
 <a id="descargas"></a>

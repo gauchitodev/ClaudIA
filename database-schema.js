@@ -380,6 +380,15 @@ export function ponerAlDia(db) {
       PRIMARY KEY (mercado_id, usuario)
     )
   `);
+  // Each card belongs to one market. Replies still find it after a restart, without trusting the quoted text.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mensajes_mercado (
+      chat TEXT NOT NULL,
+      mensaje_id TEXT NOT NULL,
+      mercado_id INTEGER NOT NULL,
+      PRIMARY KEY (chat, mensaje_id)
+    )
+  `);
   // A market on a match the bot follows (lib/partidos.js): which one (partido), what it's about ("90": the result at
   // 90 minutes, "pasa": who goes through) and whether the admins were told the bot has no result for it (avisado).
   // The bot resolves those on its own; the rest, an admin with .resolver. And of any market, whether its last call

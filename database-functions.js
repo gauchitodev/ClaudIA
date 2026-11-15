@@ -1020,6 +1020,16 @@ export function apuestasDeMercado(mercadoId) {
   return db.prepare(`SELECT * FROM apuestas_mercado WHERE mercado_id = ? ORDER BY fecha ASC`).all(mercadoId);
 }
 
+export function guardarMensajeMercado(chat, mensajeId, mercadoId) {
+  if (!mensajeId) return;
+  db.prepare(`INSERT OR IGNORE INTO mensajes_mercado (chat, mensaje_id, mercado_id) SELECT chat, ?, id FROM mercados WHERE chat = ? AND id = ?`).run(mensajeId, chat, mercadoId);
+}
+
+export function mercadoDelMensaje(chat, mensajeId) {
+  if (!mensajeId) return null;
+  return parsearMercado(db.prepare(`SELECT m.* FROM mercados m JOIN mensajes_mercado a ON a.mercado_id = m.id AND a.chat = m.chat WHERE a.chat = ? AND a.mensaje_id = ?`).get(chat, mensajeId));
+}
+
 // The markets on a match in a group, of a kind ("90" or "pasa"), whatever their state: one annulled with its match
 // still linked counts, so the bot doesn't open it again.
 export function mercadosDelPartido(chat, partido, tipo) {

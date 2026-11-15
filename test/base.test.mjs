@@ -70,6 +70,8 @@ test("migra los mercados sin las columnas del partido, y los grupos sin el inter
   for (const c of ["partido", "tipo", "avisado", "recordado"]) assert.ok(cols("mercados").includes(c), `falta mercados.${c}`);
   const m = F.getMercado(1);
   assert.deepEqual([m.titulo, m.opciones, m.partido, m.tipo, m.avisado, m.recordado], ["Clásico", ["Peñarol", "Nacional"], null, null, 0, 0], "el mercado de antes queda, sin partido ni último llamado");
+  assert.deepEqual(cols("mensajes_mercado"), ["chat", "mensaje_id", "mercado_id"], "la base vieja recibe la tabla de tarjetas");
+  F.guardarMensajeMercado(G, "TARJETA-ANTES-DE-REINICIAR", m.id);
   assert.ok(cols("chats").includes("mercadosAuto"));
   F.initDataDB({ chat: G, sender: "111@lid", senderJid: "", pushName: "Ana" });
   assert.equal(F.getChat(G).mercadosAuto, 1, "prendido");
@@ -85,6 +87,7 @@ test("migra los mercados sin las columnas del partido, y los grupos sin el inter
   assert.deepEqual(F.getPartido(id).resultado, { definicion: "90", goles: [2, 1], a90: null });
   assert.notEqual(F.guardarPartido({ ...p, clave: "espn:2" }, 7), id);
   globalThis.db = F.loadDatabase(); // idempotente
+  assert.equal(F.mercadoDelMensaje(G, "TARJETA-ANTES-DE-REINICIAR").id, m.id, "una segunda migración conserva la tarjeta");
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

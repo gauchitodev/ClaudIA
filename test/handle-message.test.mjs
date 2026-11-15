@@ -916,10 +916,11 @@ test("el horario de juegos no frena los mercados: se miran, se apuesta, un admin
   cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
   const client = cliente();
   let n = 0;
-  const mandar = async (quien, texto) => {
+  const mandar = async (quien, texto, citado = null) => {
     globalThis.enviados = [];
     const key = { remoteJid: MERCADOS, fromMe: false, id: `MERCADOS${++n}`, participant: quien };
-    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
+    const message = citado ? { extendedTextMessage: { text: texto, contextInfo: { stanzaId: citado.id, participant: BOT, remoteJid: MERCADOS, quotedMessage: { conversation: citado.texto } } } } : { conversation: texto };
+    await handleMessage.call(client, { key, message, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
     return globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
   };
   for (const [quien, nombre] of [[ANA, "Ana"], [BETO, "Beto"]]) F.initDataDB({ chat: MERCADOS, sender: quien, senderJid: "", pushName: nombre });
@@ -930,22 +931,33 @@ test("el horario de juegos no frena los mercados: se miran, se apuesta, un admin
   fijarSaldo(F, MERCADOS, BETO, 500);
 
   const abierto = await mandar(ANA, ".evento ¿Llueve mañana? | Sí | No | en 2h");
-  const [, id] = abierto.match(/Mercado #(\d+)/) || [];
+  const [, id] = abierto.match(/Apuesta #(\d+)/) || [];
   assert.ok(id, `un admin lo abre: ${abierto}`);
-  assert.match(await mandar(BETO, `.jugar ${id} Sí 20`), new RegExp(`^📊 Le jugaste 20 UruCoins a \\*Sí\\* en el mercado #${id}`));
+  const citado = { id: "MSG1", texto: abierto };
+  assert.match(await mandar(BETO, ".apostar Sí 5", citado), /^✅ Apostaste \*5 UruCoins\* a \*Sí\*/);
+  assert.match(await mandar(BETO, `.jugar ${id} Sí 20`), /^✅ Apostaste \*20 UruCoins\* a \*Sí\*/);
+  assert.match(await mandar(BETO, `.apostar ${id} Sí 10`), /llevás 35/);
+  assert.match(await mandar(BETO, ".apuestas"), new RegExp(`#${id}`));
   assert.match(await mandar(BETO, ".mercados"), new RegExp(`#${id}`));
   assert.match(await mandar(BETO, `.mercado ${id}`), /¿Llueve mañana\?/);
   assert.doesNotMatch(await mandar(BETO, ".partidos"), /🕒/);
+  F.updateChat(MERCADOS, { juegosApagados: '["mercados"]' });
+  const saldo = F.getSaldoCoins(MERCADOS, BETO);
+  assert.match(await mandar(BETO, ".apostar Sí 5", citado), /\.juego mercados on/);
+  assert.equal(F.getSaldoCoins(MERCADOS, BETO), saldo);
+  F.updateChat(MERCADOS, { juegosApagados: "[]" });
   assert.match(await mandar(ANA, `.resolver ${id} anulado`), new RegExp(`Mercado #${id} anulado`));
   assert.match(await mandar(BETO, ".ruleta 20 rojo"), /^🕒 Acá los juegos van de /, "la ruleta espera al horario");
   // A group that puts the markets in its hours (.horariojuegos mercados on) has them wait as before: the notice was
   // just given, so a 🕒 reaction.
   F.updateChat(MERCADOS, { mercadosEnHorario: 1 });
-  for (const [quien, texto] of [[BETO, ".mercados"], [BETO, `.jugar ${id} No 20`], [BETO, ".partidos"], [ANA, ".evento Otra | Sí | No | en 2h"], [ANA, `.resolver ${id} No`]]) {
+  for (const [quien, texto] of [[BETO, ".apuestas"], [BETO, `.apostar ${id} No 20`], [BETO, ".mercados"], [BETO, `.jugar ${id} No 20`], [BETO, ".partidos"], [ANA, ".evento Otra | Sí | No | en 2h"], [ANA, `.resolver ${id} No`]]) {
     assert.equal(await mandar(quien, texto), "🕒", texto);
   }
   F.updateChat(MERCADOS, { mercadosEnHorario: 0, casino: 0 });
   assert.equal(await mandar(BETO, ".mercados"), CASINO_APAGADO, ".casino off sí los frena");
+  assert.equal(await mandar(BETO, ".apuestas"), CASINO_APAGADO);
+  assert.equal(await mandar(BETO, ".apostar Sí 5", citado), CASINO_APAGADO);
 });
 
 // .juego 4enlinea off (lib/juegos-apagados.js) stops starting that one game: the moves, giving up and clearing the

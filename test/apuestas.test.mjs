@@ -86,7 +86,7 @@ test("mercados: crear, jugar, resolver a pozo, anular y vencer", () => {
   assert.ok(!M.crearMercadoDesdeTexto(chat, "admin", "T | A | B | ayer").ok);
   const c = M.crearMercadoDesdeTexto(chat, "admin", "Peñarol vs Nacional | Peñarol | Empate | Nacional | en 2h");
   const n = c.id;
-  assert.ok(c.ok && c.mensaje.includes(`Mercado #${n}:`));
+  assert.ok(c.ok && c.mensaje.includes(`Apuesta #${n}`));
   assert.equal(F.contarPendientesPorTipo().length, 2, "cierre y anulación agendados");
   assert.ok(M.jugar(chat, "a", n, "Peñarol", 60).ok && M.jugar(chat, "b", n, "3", 40).ok && M.jugar(chat, "c", n, "peñ", 20).ok && M.jugar(chat, "a", n, "1", 40).ok);
   assert.match(M.jugar(chat, "a", n, "Nacional", 10).error, /cambiar de bando/);
@@ -152,8 +152,8 @@ test("mercados: la opción y «anulado» se leen con un signo pegado al final", 
 // ---------- no bets on games ----------
 
 test("apuestas: en los juegos no se apuesta, solo en el casino", async () => {
-  // .apostar let people bet on a game after seeing the question (or with one hangman letter to go) and double their
-  // whole balance; it was removed on 2026-09-23. A merge that brings back an old copy would bring that back.
+  // The old .apostar let people bet after seeing a game's question and double their balance. Today's .apostar is
+  // only the markets' friendlier command: it must never bring that game-betting machinery back.
   const U = await import("../lib/urucoins.js");
   assert.equal(U.apostar, undefined);
   assert.equal(U.juegoIniciado, undefined);
@@ -162,6 +162,11 @@ test("apuestas: en los juegos no se apuesta, solo en el casino", async () => {
   const usan = fs
     .readdirSync(carpeta)
     .filter((f) => f.endsWith(".js"))
-    .filter((f) => /plugin\.cmd = \[[^\]]*"apostar"|\bjuegoIniciado\b|\bapostar\(/.test(fs.readFileSync(new URL(f, carpeta), "utf8")));
-  assert.deepEqual(usan, [], "ningún plugin declara .apostar ni abre apuestas sobre un juego");
+    .filter((f) => /\bjuegoIniciado\b|\bapostar\(/.test(fs.readFileSync(new URL(f, carpeta), "utf8")));
+  assert.deepEqual(usan, [], "ningún plugin abre apuestas sobre un juego");
+  const conApostar = [];
+  for (const archivo of fs.readdirSync(carpeta).filter((f) => f.endsWith(".js"))) {
+    if ((await import(new URL(archivo, carpeta))).default?.cmd?.includes("apostar")) conApostar.push(archivo);
+  }
+  assert.deepEqual(conApostar, ["coins-mercado.js"], ".apostar pertenece solo a los mercados");
 });
