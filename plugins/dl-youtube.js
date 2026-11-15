@@ -10,11 +10,9 @@ import { updateUser } from "../database-functions.js";
 import { encolarDescarga } from "../lib/cola-descargas.js";
 import { gastarCoins, getSaldoCoins, ganarCoins, movimientosHoy } from "../database-functions.js";
 import { COINS, monedasActivas } from "../lib/urucoins.js";
-import { esParticipante, esElBot } from "../lib/identidad.js";
 import { registrarFalloDescarga } from "../lib/pendientes.js";
 import { RUTA_YT_DLP } from "../load-functions.js";
 import { recordarAudioEnviado } from "../lib/audios.js";
-import { elegirAlAzar } from "../lib/azar.js";
 import { generoDe, concordar } from "../lib/genero.js";
 import txt from "../lib/strings.js";
 
@@ -29,7 +27,7 @@ const plugin = {};
 plugin.cmd = ["play", "audio", "video", "playya", "videoya"];
 plugin.botAdmin = true;
 
-plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetadata }) => {
+plugin.run = async (m, { client, args, text, isOwner, command, user }) => {
   // .playya / .videoya: same as .play / .video, but if there's a queue it skips it by paying UruCoins.
   const saltarCooldown = /ya$/i.test(command);
   const cmdBase = command.toLowerCase().replace(/ya$/, "");
@@ -81,18 +79,9 @@ plugin.run = async (m, { client, args, text, isOwner, command, user, groupMetada
     }),
   );
 
-  if (adelante > 0) {
-    // The joke: in a group, the song is "in the cola" of someone picked at random (not the bot, not whoever asked).
-    // Both by either identity: a group may list people (and the bot) by number.
-    const candidatos = m.isGroup ? (groupMetadata?.participants ?? []).filter((v) => !esElBot(v, client) && !esParticipante(v, { lid: m.sender, jid: m.senderJid })).map((v) => v.id) : [];
-    if (candidatos.length > 0) {
-      const victima = elegirAlAzar(candidatos);
-      const aviso = `⏳ Tu ${tipoPedido === "audio" ? "canción" : "descarga"} está en la cola de @${victima.split("@")[0]} 🍑\nHay ${adelante} antes que la tuya, ya te la mando bo.`;
-      await client.sendMessage(m.chat, { text: aviso, mentions: [victima] }, { quoted: m });
-    } else {
-      await client.sendText(m.chat, `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.`, m);
-    }
-  }
+  // Whoever asked hears how many go first, and nobody else is named: whoever is tagged gets a notification for
+  // something they didn't ask for.
+  if (adelante > 0) await client.sendText(m.chat, `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.`, m);
 };
 
 export default plugin;

@@ -104,21 +104,33 @@ test("si el ✅ no sale, el tema ya se mandó: no baja otro ni paga dos veces", 
   assert.equal(F.getSaldoCoins(G, YO), COINS.MUSICA, "una sola paga por la música");
 });
 
-// The joke when a song has to wait: it's "in the queue" of someone in the group, never the bot nor whoever asked. A
-// group that lists people by number names both by it, with the LID apart, and the joke used to pick either of them
-// there.
-test("la cola de .play no se la cuelga al bot ni a quien pidió, aunque el grupo los liste por número", async () => {
+// When a download has to wait, whoever asked hears how many go first, and nobody else in the group is named: whoever
+// is tagged gets a notification for something they didn't ask for.
+test(".play y .video en la cola dicen cuántas hay antes, sin nombrar ni arrobar a nadie del grupo", async () => {
   const { encolarDescarga } = await import("../lib/cola-descargas.js");
   let soltar;
   encolarDescarga(() => new Promise((resolve) => (soltar = resolve)));
   const bot = conexion.client.user;
+  // The bot, whoever asks, and two more: one listed by LID with the number apart, one by LID alone.
   const participants = [
     { id: bot.jid, lid: bot.lid, admin: "admin" },
     { id: "59899000071@s.whatsapp.net", lid: YO, admin: null },
+    { id: "300000000000072@lid", phoneNumber: "59899000072@s.whatsapp.net", admin: null },
+    { id: "300000000000073@lid", admin: null },
   ];
   const m = { chat: G, sender: YO, senderJid: "59899000071@s.whatsapp.net", isGroup: true, react: () => {} };
-  await D.default.run(m, { client: conexion.client, args: ["tema"], text: "tema", isOwner: false, command: "play", user: { lastmining: 0, commandAttempts: 0 }, groupMetadata: { participants } });
-  assert.match(ultimoEnviado().msg.text, /^⏳ Tu descarga está en la cola\. Hay 1 antes que la tuya/);
+  for (const [command, adelante] of [
+    ["play", 1],
+    ["video", 2],
+  ]) {
+    const antes = globalThis.enviados.length;
+    await D.default.run(m, { client: conexion.client, args: ["tema"], text: "tema", isOwner: false, command, user: { lastmining: 0, commandAttempts: 0 }, groupMetadata: { participants } });
+    assert.deepEqual(
+      globalThis.enviados.slice(antes).map((e) => e.msg),
+      [{ text: `⏳ Tu descarga está en la cola. Hay ${adelante} antes que la tuya, ya te la mando bo.` }],
+      command,
+    );
+  }
   soltar();
   await terminarCola();
 });
