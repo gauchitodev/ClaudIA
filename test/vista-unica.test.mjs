@@ -9,7 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { proto } from "@whiskeysockets/baileys";
 import { serialize, smsg } from "../lib/wa-socket.js";
-import { esVistaUnica } from "../lib/vista-unica.js";
+import { esVistaUnica, esVistaUnicaRecibida } from "../lib/vista-unica.js";
 import { G } from "./helpers.mjs";
 
 serialize();
@@ -248,4 +248,28 @@ test("consistencia: todo plugin que baja o reenvía un archivo citado pasa por p
   assert.ok(encontrados.length >= 10 && encontrados.includes("sticker.js"), `el escaneo encontró muy pocos plugins (${encontrados.length}): no está andando`);
   assert.deepEqual(sinRegla, [], `estos plugins toman un archivo citado sin pasar por puedeRecuperarCitado (lib/vista-unica.js):\n${sinRegla.join("\n")}`);
   assert.match(fs.readFileSync(path.join(carpeta, "_anti-delete-messages.js"), "utf8"), /esVistaUnica\(msg\.message\)/, "el anti-delete tiene que saltear los ver una vez");
+});
+
+// How a view-once reaches the bot: no content, and Baileys' mark on the key (Utils/decode-wa-message.js). The mark has
+// to get through the serializer to the hook that deletes it with .antivistaunica on (plugins/_chatbot-events.js), and
+// the deletion has to go out for that key, in the real plugin with the real message.
+test(".antivistaunica: el ver una vez que llega sin contenido se reconoce y se borra por su clave", async () => {
+  const c = cliente();
+  const recibido = (key, message) => smsg(c, { key: { remoteJid: G, fromMe: false, participant: "beto@lid", ...key }, message });
+  const m = recibido({ id: "VO9", isViewOnce: true });
+  assert.deepEqual([m.mtype, m.text, m.sender, esVistaUnicaRecibida(m)], ["", "", "beto@lid", true]);
+  for (const [nombre, formato] of Object.entries(FORMATOS)) assert.equal(esVistaUnicaRecibida(recibido({ id: "VO8" }, decodificado(formato))), true, nombre);
+  assert.equal(esVistaUnicaRecibida(recibido({ id: "F1" }, decodificado(foto()))), false, "una foto común");
+  assert.equal(esVistaUnicaRecibida(respuesta(c, FORMATOS.V2, { texto: "jaja" })), false, "una respuesta a un ver una vez");
+  assert.equal(esVistaUnicaRecibida(recibido({ id: "S1" })), false, "sin contenido y sin la marca");
+
+  const Eventos = (await import("../plugins/_chatbot-events.js")).default;
+  const opciones = { client: c, isOwner: false, isMod: false, isBotAdmin: true, user: {}, chat: { antiViewOnce: 1 } };
+  await Eventos.before(m, opciones);
+  assert.equal(m.moderado, true);
+  assert.deepEqual(c.mensajes.map((x) => x.delete && [x.delete.id, x.delete.participant]), [["VO9", "beto@lid"]]);
+  // what Baileys builds from it goes out as a deletion of that message, the mark on the key and all
+  const revocar = decodificado({ protocolMessage: { key: c.mensajes[0].delete, type: proto.Message.ProtocolMessage.Type.REVOKE } });
+  assert.deepEqual([revocar.protocolMessage.key.id, revocar.protocolMessage.key.participant, revocar.protocolMessage.type], ["VO9", "beto@lid", 0]);
+  assert.match(c.textos.join("\n"), /en este grupo no se mandan mensajes de ver una vez/);
 });

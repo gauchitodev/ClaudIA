@@ -227,3 +227,45 @@ test("ubicación en tiempo real: se borra solo con .antiubicacion, y dice por qu
   await correrHooks(m, prendida);
   assert.deepEqual([m.borrado, avisos()], [undefined, []], "la ubicación fija queda");
 });
+
+// A view-once reaches the bot with no content, marked on its key (lib/vista-unica.js). With .antivistaunica on it's
+// deleted, saying why once every so often for each person; never from a mod or someone above, nor with the bot not an
+// admin. The anti-delete doesn't hold it back: it never re-posts a view-once. And a plain photo answering one stays.
+test("ver una vez: se borra solo con .antivistaunica, y dice por qué", async () => {
+  let n = 0;
+  const vistaUnica = (sender, extra = {}) => mensaje(sender, "", { mtype: "", message: null, key: { id: `vu-${n++}`, participant: sender, isViewOnce: true }, ...extra });
+  const avisos = () => globalThis.enviados.map((e) => e.msg?.text || "");
+  let m = vistaUnica("711@lid");
+  await correrHooks(m);
+  assert.deepEqual([m.borrado, m.moderado, avisos()], [undefined, undefined, []], "apagada, como viene");
+
+  const prendida = { chat: { antiViewOnce: 1 } };
+  m = vistaUnica("711@lid");
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, m.moderado, avisos()], [true, true, ["👁️ @711, en este grupo no se mandan mensajes de ver una vez: lo borré."]]);
+  assert.deepEqual(globalThis.enviados[0].msg.mentions, ["711@lid"]);
+  m = vistaUnica("711@lid");
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, avisos()], [true, []], "otra enseguida: se borra igual, sin repetir el aviso");
+
+  for (const rango of [{ isMod: true }, { isOwner: true }, { isBotAdmin: false }]) {
+    m = vistaUnica("712@lid");
+    await correrHooks(m, { ...prendida, rango });
+    assert.deepEqual([m.borrado, avisos()], [undefined, []], JSON.stringify(rango));
+  }
+  m = vistaUnica("713@lid");
+  await correrHooks(m, { chat: { antiViewOnce: 1, antiDelete: 1 } });
+  assert.equal(m.borrado, true, "con el anti-eliminar prendido también");
+  // with its content, in any of the wrappers
+  m = mensaje("714@lid", "", { mtype: "viewOnceMessageV2", message: { viewOnceMessageV2: { message: { imageMessage: { mimetype: "image/jpeg" } } } } });
+  await correrHooks(m, prendida);
+  assert.equal(m.borrado, true);
+  // a plain photo, and one that answers a view-once
+  m = mensaje("715@lid", "", { mtype: "imageMessage", message: { imageMessage: { mimetype: "image/jpeg", contextInfo: { quotedMessage: { viewOnceMessageV2: { message: { imageMessage: {} } } } } } } });
+  await correrHooks(m, prendida);
+  assert.deepEqual([m.borrado, avisos()], [undefined, []], "la foto común queda");
+  // the live location's notice and this one don't hide each other
+  m = mensaje("711@lid", "", { mtype: "liveLocationMessage", message: { liveLocationMessage: {} } });
+  await correrHooks(m, { chat: { antiLiveLocation: 1 } });
+  assert.equal(avisos().length, 1);
+});

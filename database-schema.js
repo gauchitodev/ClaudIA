@@ -115,6 +115,7 @@ export function ponerAlDia(db) {
       iniciativa BOOLEAN DEFAULT 0,
       horarioGrupoFalla INTEGER DEFAULT 0,
       antiLiveLocation BOOLEAN DEFAULT 0,
+      antiViewOnce BOOLEAN DEFAULT 0, -- whether a view-once from whoever isn't a mod or above is deleted (.antivistaunica)
       redes TEXT DEFAULT "{}", -- the group's social links by network, as .redes loads them (lib/redes.js)
       voz TEXT DEFAULT "", -- when Claudia answers with a voice note: "", "audios" or "siempre" (.voz, lib/voz.js)
       stickersAuto BOOLEAN DEFAULT 1, -- whether she sends the group's stickers unasked (.respuestastickers, lib/stickers-grupo.js)
@@ -129,12 +130,12 @@ export function ponerAlDia(db) {
 
   // Migration: activity switches (daily question, lightning trivia, weekly recap), game hours, the marketplace mode
   // switches (chat, greetings, coins, promotions), Claudia's initiative, since when the group hours can't be kept
-  // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion), the catalogue a buy-and-sell group
+  // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and a view-once too (.antivistaunica), the catalogue a buy-and-sell group
   // gets unasked (its switch, when it last went out and as which message), the markets the bot opens on its own
   // (.mercadosauto) and whether the markets keep to the games' hours (.horariojuegos mercados), on databases that
   // already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);

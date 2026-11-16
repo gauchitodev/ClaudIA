@@ -1,4 +1,5 @@
 import { estadoDe } from "../lib/estado-de-plugins.js";
+import { esVistaUnicaRecibida } from "../lib/vista-unica.js";
 
 const plugin = (m) => m;
 plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-functions.js)
@@ -11,12 +12,13 @@ plugin.moderacion = true; // runs before the other hooks (hooksEnOrden, load-fun
 // (lib/estado-de-plugins.js): in a variable of the plugin, saving the file (load-functions.js imports it as a new
 // module) brought the notice again.
 const AVISO_UBICACION_MS = 10 * 60 * 1000;
-// `${chat} ${sender}` -> when they were last told
+// `${chat} ${sender}` -> when they were last told about a live location; the view-once notice below keeps its own
+// count under `${chat} ${sender} vista-unica`
 const avisadosUbicacion = estadoDe("_chatbot-events", () => new Map());
-function hayQueAvisar(chat, sender, ahora = Date.now()) {
+function hayQueAvisar(chat, sender, de = "", ahora = Date.now()) {
   const avisados = avisadosUbicacion;
   for (const [clave, cuando] of avisados) if (ahora - cuando >= AVISO_UBICACION_MS) avisados.delete(clave);
-  const clave = `${chat} ${sender}`;
+  const clave = `${chat} ${sender}${de && ` ${de}`}`;
   if (avisados.has(clave)) return false;
   avisados.set(clave, ahora);
   return true;
@@ -36,6 +38,17 @@ plugin.before = async (m, { client, isOwner, isMod, isBotAdmin, user, chat }) =>
     m.moderado = true;
     await m.delete();
     if (hayQueAvisar(m.chat, m.sender)) client.sendText(m.chat, `📍 @${m.sender.split("@")[0]}, en este grupo no se comparte la ubicación en tiempo real: la borré.`, null, { mentions: [m.sender] }).catch(console.error);
+    return;
+  }
+
+  // A view-once photo, video or voice note in a group with .antivistaunica on: nobody can moderate what only shows
+  // once, the bot least of all, which doesn't even get its content. Off unless the group turns it on; from a mod or
+  // above it stays. The anti-delete is no reason to leave it: it never re-posts a view-once
+  // (plugins/_anti-delete-messages.js). One notice per person every AVISO_UBICACION_MS, as above.
+  if (chat.antiViewOnce && isBotAdmin && !isMod && !isOwner && esVistaUnicaRecibida(m)) {
+    m.moderado = true;
+    await m.delete();
+    if (hayQueAvisar(m.chat, m.sender, "vista-unica")) client.sendText(m.chat, `👁️ @${m.sender.split("@")[0]}, en este grupo no se mandan mensajes de ver una vez: lo borré.`, null, { mentions: [m.sender] }).catch(console.error);
     return;
   }
 

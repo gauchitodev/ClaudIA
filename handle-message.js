@@ -150,6 +150,9 @@ export async function handleMessage(nMsg) {
     // .inactivos all the same, though no counter counts it (anotarPresencia). Someone warned who answered "acá estoy"
     // with a link stayed warned, and could be removed.
     if (m.moderado) anotarPresencia(m);
+    // A view-once the bot got without its content (lib/vista-unica.js) came this far for the moderation alone: there's
+    // nothing in it to greet, count, remember or run.
+    if (!m.message && !m.messageStubType) return;
     // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among
     // them). Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and
     // so did whoever the blacklist was about to remove.

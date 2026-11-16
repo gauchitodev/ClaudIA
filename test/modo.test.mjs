@@ -126,7 +126,22 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   assert.equal(F.getChat(chat).antiLiveLocation, 0);
   const VerConfig = (await import("../plugins/grupo-config.js")).default;
   await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
-  assert.match(ultimo(), /\n❌ Anti ubicación en tiempo real \(\.antiubicacion\)\n/);
+  assert.match(ultimo(), /\n❌ Anti ubicación en tiempo real \(\.antiubicacion\)\n❌ Anti mensajes de ver una vez \(\.antivistaunica\)\n/);
+  // .antivistaunica, the same way, and by its other name
+  assert.equal(F.getChat(chat).antiViewOnce, 0);
+  await config("antivistaunica", ["on"]);
+  assert.match(ultimo(), /Opción: `antivistaunica`\n• Estado: Activado/);
+  assert.equal(F.getChat(chat).antiViewOnce, 1);
+  await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  assert.match(ultimo(), /\n✅ Anti mensajes de ver una vez \(\.antivistaunica\)\n/);
+  await config("avu", ["off"]);
+  assert.match(ultimo(), /Opción: `antivistaunica`\n• Estado: Desactivado/);
+  await config("avu", ["on"]);
+  assert.equal(F.getChat(chat).antiViewOnce, 1);
+  await config("antiviewonce", ["off"]);
+  assert.match(ultimo(), /Opción: `antivistaunica`\n• Estado: Desactivado/);
+  assert.equal(F.getChat(chat).antiViewOnce, 0);
+  await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   // the switches that had no line: the status mentions, the stickers on her own, and how the voice is set
   assert.match(ultimo(), /\n❌ Anti menciones del grupo en estados \(\.antiestados\)\n✅ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: apagada \(\.voz\)\n/);
   await config("antiestados", ["on"]);

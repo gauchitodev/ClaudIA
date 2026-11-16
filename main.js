@@ -159,7 +159,9 @@ async function startBot() {
     await procesarTanda(chatUpdate.messages, async (m) => {
       // Group notices (someone joined, was promoted, requested to join, etc.) arrive without "message" but with
       // messageStubType, and _detect-events, the blacklist and the group metadata refresh all need them.
-      if (!m?.message && !m?.messageStubType) return;
+      // A view-once arrives with neither: WhatsApp doesn't hand its content to a linked device, and Baileys marks the
+      // key (lib/vista-unica.js). It goes on for the moderation alone (.antivistaunica); handle-message stops it there.
+      if (!m?.message && !m?.messageStubType && !m?.key?.isViewOnce) return;
       if (m.message && Object.keys(m.message)[0] === "ephemeralMessage") m.message = m.message.ephemeralMessage.message;
       if (m.key && m.key.remoteJid === "status@broadcast") return;
       // "notify" = arrived live; "append" = came from history. handle-message uses it to ignore stale commands.

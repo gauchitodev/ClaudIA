@@ -334,6 +334,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.antiinstagram` 🔗 | Elimina links de Instagram. |
 | `.antitelegram` 🔗 | Elimina links de Telegram. |
 | `.antiubicacion` 📍 | Borra la ubicación en tiempo real que comparte quien no es admin ni moderador. |
+| `.antivistaunica / .avu` 👁️ | Borra las fotos, los videos y los audios de ver una vez que manda quien no es admin ni moderador. |
 | `.antiestados` 📵 | Avisa y expulsa a quien menciona al grupo en un estado (si Claudia es admin; a mods y admins no). |
 | `.welcome` 👋 | Da la bienvenida a nuevos participantes. |
 | `.detect` 👀 | Avisa cuando hay nuevos admins, o se hacen cambios en el grupo. |

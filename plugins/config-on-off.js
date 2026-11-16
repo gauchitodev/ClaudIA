@@ -4,7 +4,7 @@ import { leerInterruptor, limpiarPalabra } from "../lib/comandos.js";
 import { cambiarJuego } from "../lib/juegos-apagados.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto", "mercadosauto"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "antivistaunica", "antiviewonce", "avu", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto", "mercadosauto"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, isAdmin, chat, botSettings }) => {
@@ -39,6 +39,10 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     antiinstagram: { key: "antiInstagram", from: "chat" },
     antiig: { key: "antiInstagram", from: "chat" },
     antiubicacion: { key: "antiLiveLocation", from: "chat" },
+    // View-once photos, videos and voice notes from whoever isn't a mod or above get deleted (plugins/_chatbot-events.js).
+    antivistaunica: { key: "antiViewOnce", from: "chat" },
+    antiviewonce: { key: "antiViewOnce", from: "chat" },
+    avu: { key: "antiViewOnce", from: "chat" },
     reactions: { key: "reactions", from: "chat" },
     reacciones: { key: "reactions", from: "chat" },
     juegos: { key: "games", from: "chat" },
@@ -87,7 +91,7 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
   // ".casino on" with the casino already on switched it off — and on/off is how the README, Claudia's manual and the
   // casino's own notice (handle-message.js) tell people to use it. Any other word touches nothing: ".bc hola" used to
   // ban the chat.
-  const nombreComando = command === "18" ? "modoadulto" : command;
+  const nombreComando = command === "18" ? "modoadulto" : ["antiviewonce", "avu"].includes(command) ? "antivistaunica" : command;
   const pedido = limpiarPalabra(args[0]);
   const prender = leerInterruptor(pedido);
   // ".juegos mines off" is one game, as .juego mines off has it (lib/juegos-apagados.js): people write the plural they
