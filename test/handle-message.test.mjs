@@ -78,6 +78,37 @@ function llega(client, sender, texto) {
   return { id, hecho };
 }
 
+// A view-once comes with no content, marked on its key (lib/vista-unica.js), and main.js lets it through for the
+// moderation alone. From someone silenced it's deleted like anything else of theirs, whatever the group's switch says;
+// from anyone else, only with .antivistaunica on. And no hook after the moderation ever sees it.
+test("un ver una vez: al silenciado se le borra siempre, a los demás con .antivistaunica, y no llega a los otros hooks", async () => {
+  const vieron = [];
+  cargados.plugins = { "_chatbot-events.js": carpeta["_chatbot-events.js"], "espia.js": { before: async (m) => vieron.push(m.key.id) } };
+  const client = cliente();
+  const mandar = async (sender) => {
+    globalThis.enviados = [];
+    const id = `VISTAUNICA${String(++numero).padStart(4, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id, participant: sender, isViewOnce: true }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Ana", _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.some((e) => e.msg?.delete?.id === id);
+  };
+  assert.equal(await mandar(ANA), false, "apagada y sin silenciar, queda");
+  F.updateUserInGroup(BETO, GRUPO, { mute: true });
+  try {
+    assert.equal(await mandar(BETO), true, "al silenciado se le borra con la opción apagada");
+    assert.deepEqual(globalThis.enviados.filter((e) => e.msg?.text), [], "y sin aviso, como todo lo suyo");
+  } finally {
+    F.updateUserInGroup(BETO, GRUPO, { mute: false });
+  }
+  F.updateChat(GRUPO, { antiViewOnce: 1 });
+  try {
+    assert.equal(await mandar(ANA), true, "prendida, se borra");
+    assert.match(globalThis.enviados.map((e) => e.msg?.text || "").join("\n"), /no se mandan mensajes de ver una vez/);
+  } finally {
+    F.updateChat(GRUPO, { antiViewOnce: 0 });
+  }
+  assert.deepEqual(vieron, [], "ningún hook fuera de la moderación lo ve");
+});
+
 // The moderation deletes the message and marks it (m.moderado), and the hooks after it leave it alone: the dispatcher
 // has to as well. ".tt <link>" with TikTok links banned had the link deleted and warned about, and then .tt downloaded
 // the video and posted it.

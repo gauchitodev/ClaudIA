@@ -96,7 +96,9 @@ export async function handleMessage(nMsg) {
     if (botSettings.autoRead && m.message) await this.readMessages([m.key]);
     // Muted user. What they take back still leaves Claudia's memory: muted after writing, their deletion never got
     // there, since no hook sees their messages.
-    if (user.inGroup[m.chat]?.mute && m.message) {
+    // A view-once of theirs goes too, though it comes with no content (lib/vista-unica.js), and whether or not the group
+    // has .antivistaunica on.
+    if (user.inGroup[m.chat]?.mute && (m.message || m.key?.isViewOnce)) {
       anotarPresencia(m);
       try {
         aplicarAMemoria(m, { guardar: false });
