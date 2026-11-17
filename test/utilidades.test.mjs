@@ -694,27 +694,6 @@ test("una imagen que no baja: .pelicula e .ig mandan el texto igual, y .getpp y 
   assert.equal(archivos.length, 4, "sin póster, ni lo intenta");
 });
 
-test(".emojimix: un sticker que no se pudo armar no sale como archivo, y si no sale ninguno lo dice", async () => {
-  const P = (await import("../plugins/sticker-emoji-mix.js")).default;
-  const fetchReal = globalThis.fetch;
-  const errorReal = console.error;
-  configuracion.tenorApiKey = "clave";
-  globalThis.fetch = async (url) => (String(url).includes("tenor.googleapis.com") ? { ok: true, status: 200, json: async () => ({ results: [{ url: "http://127.0.0.1:9/a.png" }, { url: "http://127.0.0.1:9/b.png" }] }) } : { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) });
-  console.error = () => {};
-  const archivos = [];
-  const textos = [];
-  try {
-    const client = { sendFile: async (chat, archivo) => archivos.push(archivo), sendText: async (chat, t) => textos.push(t) };
-    await P.run({ chat: G }, { client, text: "😀+🥲", args: ["😀+🥲"], usedPrefix: ".", command: "emojimix" });
-  } finally {
-    globalThis.fetch = fetchReal;
-    console.error = errorReal;
-    configuracion.tenorApiKey = "";
-  }
-  assert.deepEqual(archivos, []);
-  assert.deepEqual(textos, ["No pude armar el sticker de esa mezcla, probá de nuevo en un rato."]);
-});
-
 // .addowner rewrote config.toml with toml.stringify: every comment explaining the settings was gone.
 test(".addowner y .removeowner cambian solo la línea de owners de config.toml", async () => {
   const P = await import("../plugins/owner-add-owner.js");

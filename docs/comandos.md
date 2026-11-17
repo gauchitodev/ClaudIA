@@ -119,7 +119,6 @@ _Para todos. Se abre con `.menu convertidores`, `.menu stickers`, `.menu sticker
 | `.morse <texto>` 📡 | Lo pasa a código morse, y el morse a texto (o respondé a un mensaje). |
 | `.wm pack\|autor` 🏷️ | Cambia el nombre del pack y el autor del sticker que respondés. |
 | `.img` | Convierte un sticker en imagen. |
-| `.emojimix` <🤣+😍> | Fusiona dos emojis: hasta 3 stickers. |
 | `.stickerazar [tema]` 🎲 | Uno de los stickers que mandó el grupo, al azar o de un tema (risa, perro, enojo). |
 | `.sacarsticker` | (Admins) Respondiendo a un sticker: Claudia no lo manda más. |
 | `.respuestastickers on/off` | (Admins) Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |

@@ -25,7 +25,6 @@ const SIN_NADA = {
   numberBot: "",
   geminiApiKey: "",
   groqApiKey: "",
-  tenorApiKey: "",
   cerebrasApiKey: "",
   openrouterApiKey: "",
   nvidiaApiKey: "",

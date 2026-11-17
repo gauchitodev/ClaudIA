@@ -19,9 +19,6 @@ openrouterApiKey = ""
 # API key de NVIDIA NIM. Tercer respaldo de IA. Opcional.
 nvidiaApiKey = ""
 
-# API key de Tenor (Google). Solo la usa .emojimix. Opcional.
-tenorApiKey = ""
-
 # API key de Cerebras. Último respaldo de IA; sin saldo cargado no responde. Opcional.
 cerebrasApiKey = ""
 
