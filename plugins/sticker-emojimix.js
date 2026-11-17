@@ -6,6 +6,7 @@ const segmentador = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const plugin = {};
 plugin.cmd = ["emojimix"];
+plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix }) => {
   const texto = text?.trim() || m.quoted?.text || "";
@@ -17,7 +18,7 @@ plugin.run = async (m, { client, text, usedPrefix }) => {
   const [primero, segundo] = emojis;
   const mezcla = await buscarMezcla(primero, segundo);
   if (mezcla.estado === "no_disponible") {
-    return client.sendText(m.chat, "⏳ Todavía no tengo el catálogo de Emojis: lo estoy obteniendo... Probá de nuevo en un rato.", m);
+    return client.sendText(m.chat, "⏳ Todavía no tengo el catálogo de Emoji Kitchen: lo estoy bajando. Probá de nuevo en un rato.", m);
   }
   if (mezcla.estado === "no_soportado") {
     const { sinCatalogo } = mezcla;
@@ -31,7 +32,8 @@ plugin.run = async (m, { client, text, usedPrefix }) => {
   let webp;
   try {
     const png = await bajarMezcla(mezcla.url);
-    webp = await ffmpeg(png, ["-loglevel", "error", "-vcodec", "libwebp", "-lossless", "1", "-compression_level", "6"], "png", "webp");
+    // Emoji Kitchen's images are 534 px squares, and a sticker is 512.
+    webp = await ffmpeg(png, ["-loglevel", "error", "-vf", "scale=512:512:flags=lanczos", "-vcodec", "libwebp", "-lossless", "1", "-compression_level", "6"], "png", "webp");
     await client.sendFile(m.chat, await addExif(webp.data), null, null, m);
   } catch (e) {
     console.error(`[emojimix] no pude armar ${primero} + ${segundo}:`, e?.message || e);

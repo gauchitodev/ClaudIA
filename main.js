@@ -244,8 +244,8 @@ instalarDevolucionAlCerrar();
 iniciarPendientes();
 iniciarTareasProgramadas();
 
-// emoji kitchens index (.emojimix) read from disk or downloaded in the background. Not awaited it must not hold up the
-// connection, and it never throws
+// Emoji Kitchen's index (.emojimix): downloaded in the background if there's none on disk, or it's old. Not awaited:
+// it must not hold up the connection, and it never rejects.
 iniciarEmojimix();
 
 await installYtDlp();
