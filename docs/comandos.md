@@ -115,6 +115,7 @@ _Para todos. Se abre con `.menu convertidores`, `.menu stickers`, `.menu sticker
 | `.s` 🃏 | Convierte una imagen o video en sticker. |
 | `.ttp <texto>` ✏️ | Convierte texto en sticker. |
 | `.ttp2 <texto>` 🔖 | Convierte texto en sticker RGB. |
+| `.emojimix <emoji>+<emoji>` 🧑‍🍳 | Mezcla dos emojis en un sticker: .emojimix 😎+🔥. |
 | `.qr <texto o link>` 📱 | Lo convierte en un código QR (o respondé a un mensaje). |
 | `.morse <texto>` 📡 | Lo pasa a código morse, y el morse a texto (o respondé a un mensaje). |
 | `.wm pack\|autor` 🏷️ | Cambia el nombre del pack y el autor del sticker que respondés. |

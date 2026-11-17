@@ -6,6 +6,7 @@ import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
 import { loadDatabase } from "./database-functions.js";
+import { iniciarEmojimix } from "./lib/emojimix.js";
 import { contarReaccion } from "./lib/reacciones.js";
 import { iniciarPendientes } from "./lib/pendientes.js";
 import { iniciarTareasProgramadas } from "./lib/tareas-programadas.js";
@@ -242,6 +243,10 @@ instalarDevolucionAlCerrar();
 // Pending items (download retries): checks every minute whether there's anything to run.
 iniciarPendientes();
 iniciarTareasProgramadas();
+
+// emoji kitchens index (.emojimix) read from disk or downloaded in the background. Not awaited it must not hold up the
+// connection, and it never throws
+iniciarEmojimix();
 
 await installYtDlp();
 
