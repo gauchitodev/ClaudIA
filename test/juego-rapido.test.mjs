@@ -95,3 +95,18 @@ for (const [archivo, cmd, tiempo] of [
     }
   });
 }
+
+// .ordenar showed the word in its own order now and then ("sol" one time in six): the answer, in plain sight. Every
+// word on the list goes out with the same letters in another order, every time.
+test(".ordenar: la palabra nunca sale ya ordenada, y sale con sus mismas letras", async () => {
+  const { PALABRAS, desordenar } = await import("../plugins/fun-ordenar-palabra.js");
+  const letras = (p) => [...p].sort().join("");
+  for (const palabra of PALABRAS) {
+    for (let i = 0; i < 40; i++) {
+      const desordenada = desordenar(palabra);
+      assert.notEqual(desordenada, palabra);
+      assert.equal(letras(desordenada), letras(palabra));
+    }
+  }
+  assert.equal(desordenar("aa"), "aa", "sin otro orden posible, no se queda dando vueltas");
+});

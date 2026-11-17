@@ -1,6 +1,6 @@
 import { juegoTerminado } from "../lib/urucoins.js";
 import { abrirJuego, limpiarRespuesta } from "../lib/juego-rapido.js";
-import { elegirAlAzar } from "../lib/azar.js";
+import { elegirAlAzar, mezclar } from "../lib/azar.js";
 import { esComando } from "../lib/comandos.js";
 import txt from "../lib/strings.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
@@ -16,12 +16,21 @@ export const PALABRAS = ["sol", "casa", "perro", "gato", "luz", "río", "árbol"
 // chat -> the word in play, kept where a reload of this file doesn't lose it (lib/estado-de-plugins.js)
 const ordenarPalabra = estadoDe("fun-ordenar-palabra", () => ({}));
 
+// The word with its letters in another order, never its own: "sol" went out as "sol" one time in six, the answer in
+// plain sight. A word whose letters are all the same has no other order, and comes back as it is. Exported for the
+// tests.
+export function desordenar(palabra) {
+  const letras = [...palabra];
+  if (new Set(letras).size < 2) return palabra;
+  let desordenada;
+  do desordenada = mezclar(letras).join("");
+  while (desordenada === palabra);
+  return desordenada;
+}
+
 plugin.run = async (m, { client, chat }) => {
   const palabra = elegirAlAzar(PALABRAS);
-  const desordenada = palabra
-    .split("")
-    .sort(() => Math.random() - 0.5)
-    .join("");
+  const desordenada = desordenar(palabra);
 
   // The chat is taken before the word goes out, and only this game's timer can end it: see lib/juego-rapido.js.
   const abierto = await abrirJuego(ordenarPalabra, m.chat, {
