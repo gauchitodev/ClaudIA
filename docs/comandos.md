@@ -225,6 +225,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 |---|---|
 | `.ping` 🏓 | ¿Está Claudia? Contesta Pong, lo que tarda WhatsApp en responderle y desde cuándo está prendida. |
 | `.clima [ciudad]` 🌦️ | Clima de ahora y de mañana; sin ciudad, Montevideo. |
+| `.satinf` 🛰️ | Video del satélite GOES-19 con las últimas 8 horas de la región, en infrarrojo; .satvis en luz visible (de día). Como sticker, .ssatinf y .ssatvis. |
 | `.recordame <cuándo> <texto>` ⏰ | Ej: .recordame en 2h sacar la pizza · .recordatorios · .olvidar &lt;n&gt; |
 | `.cumple 08/10/1997` 🎂 | Anotá tu cumple, con el año; con .cumples (o .cumpleaños) ves los del grupo y cuántos cumple cada uno, por nombre de WhatsApp y sin arrobar; con alias o numero al final, por apodo o por número. |
 | `.agedist [n]` 📊 | Cómo se reparten las edades del grupo según los cumples anotados, en tramos de 5 años (o de n: .agedist 2) y por generación. También .distedad y .edades. |
