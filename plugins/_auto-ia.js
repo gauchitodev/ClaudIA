@@ -24,6 +24,7 @@ import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
+import { diarioParaPrompt } from "../lib/diario.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
@@ -358,6 +359,10 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     // The group's social links (.redes, lib/redes.js), to hand over when someone asks for the group's Instagram.
     const redes = textoRedesParaPrompt(m.chat);
     if (redes) partes.push(redes);
+    // Her diary of the group, where it's on (.diario, lib/diario.js): what was talked about these days, nobody named,
+    // and only the days since whoever she's answering came in.
+    const diario = diarioParaPrompt(m.chat, { para: [m.sender, m.senderJid], ahora });
+    if (diario) partes.push(diario);
   }
 
   // their role-play job: Claudia knows it and can tease them about it, when what's said to her (the message, the one it

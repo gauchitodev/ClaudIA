@@ -124,7 +124,8 @@ export function ponerAlDia(db) {
       catalogoMostrado INTEGER DEFAULT 0, -- when that catalogue last went out
       catalogoMensaje TEXT DEFAULT "", -- and its message's id: it's deleted when the next one goes out
       mercadosAuto BOOLEAN DEFAULT 1, -- whether the bot opens the markets of Peñarol's and Nacional's matches (lib/partidos.js)
-      mercadosEnHorario BOOLEAN DEFAULT 0 -- whether the betting markets keep to the games' hours too (.horariojuegos mercados)
+      mercadosEnHorario BOOLEAN DEFAULT 0, -- whether the betting markets keep to the games' hours too (.horariojuegos mercados)
+      diarioDesde INTEGER DEFAULT 0 -- since when Claudia keeps a diary of the group, in ms; 0 while it's off (.diario, lib/diario.js)
     )
   `);
 
@@ -132,10 +133,10 @@ export function ponerAlDia(db) {
   // switches (chat, greetings, coins, promotions), Claudia's initiative, since when the group hours can't be kept
   // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and a view-once too (.antivistaunica), the catalogue a buy-and-sell group
   // gets unasked (its switch, when it last went out and as which message), the markets the bot opens on its own
-  // (.mercadosauto) and whether the markets keep to the games' hours (.horariojuegos mercados), on databases that
-  // already exist.
+  // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados) and since when she keeps a
+  // diary of the group (.diario), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -821,6 +822,20 @@ export function ponerAlDia(db) {
       descripcion TEXT,
       intentos INTEGER NOT NULL DEFAULT 0,
       ultimo_intento INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Claudia's diary of each group that turned it on (.diario, lib/diario.js): a row per group and day, with a few lines
+  // on what was talked about, nobody named. It's the one place where something of what people say is written to
+  // disk, and it goes on its own after DIARIO.DIAS days. texto: the lines, one per line break, or "" for a day she
+  // went over and found nothing worth noting; hasta: up to when the group's messages are in it, in ms.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS diario_grupo (
+      chat TEXT NOT NULL,
+      dia TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      hasta INTEGER NOT NULL,
+      PRIMARY KEY (chat, dia)
     )
   `);
 

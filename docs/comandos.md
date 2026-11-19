@@ -323,7 +323,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 
 _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `.menu ajustes`._
 
-> _Las opciones de on u off, sin nada, se invierten; .juego, .iniciativa, .voz, .horariojuegos y .modo solos muestran cómo están._
+> _Las opciones de on u off, sin nada, se invierten; .juego, .iniciativa, .diario, .voz, .horariojuegos y .modo solos muestran cómo están._
 
 | Comando | Qué hace |
 |---|---|
@@ -347,6 +347,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
 | `.charla` 💬 | Charla automática de Claudia cuando la nombran. |
 | `.iniciativa on\|off` 🙋 | Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene. |
+| `.diario on\|off` 📔 | Claudia lleva un diario del grupo: pocas líneas por día de qué se habló, sin nombrar a nadie, guardadas 14 días. Sin nada, lo muestra (a cualquiera); con "borrar", lo borra entero. |
 | `.voz on\|aveces\|siempre\|off` 🎙️ | Claudia contesta con nota de voz: on, cuando le hablan por nota de voz; aveces, eso y alguna respuesta corta de vez en cuando; siempre, todo lo que dice (las respuestas largas van por texto). Sin nada, muestra cómo viene. |
 | `.vistazo [prueba]` 👀 | Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada. |
 | `.saludos` 👋 | Saludo automático cuando alguien dice hola. |

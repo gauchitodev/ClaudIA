@@ -1550,6 +1550,47 @@ export function limpiarMemoriaGrupo(chat) {
   return db.prepare(`DELETE FROM memoria_grupo WHERE chat = ?`).run(chat).changes;
 }
 
+// ===================== Claudia's diary of a group (lib/diario.js) =====================
+
+// The groups with the diary on: [{ chat, desde (when it was turned on, or last erased) }].
+export function chatsConDiario() {
+  return db.prepare(`SELECT remoteJid AS chat, diarioDesde AS desde FROM chats WHERE diarioDesde > 0`).all();
+}
+
+// A group's days, the oldest first: [{ dia ("2026-11-19"), texto, hasta }]. desdeDia: only from that day on.
+export function diasDelDiario(chat, desdeDia = "") {
+  return db.prepare(`SELECT dia, texto, hasta FROM diario_grupo WHERE chat = ? AND dia >= ? ORDER BY dia`).all(chat, desdeDia);
+}
+
+// Up to when a group's messages are noted, in ms: 0 with nothing noted.
+export function diarioHasta(chat) {
+  return db.prepare(`SELECT MAX(hasta) AS hasta FROM diario_grupo WHERE chat = ?`).get(chat)?.hasta || 0;
+}
+
+// A day's entry as it is now, and up to when it covers: the latest of what it had and what it's given.
+export function guardarDiaDelDiario(chat, dia, texto, hasta) {
+  db.prepare(`INSERT INTO diario_grupo (chat, dia, texto, hasta) VALUES (?, ?, ?, ?) ON CONFLICT(chat, dia) DO UPDATE SET texto = excluded.texto, hasta = MAX(hasta, excluded.hasta)`).run(chat, dia, texto, hasta);
+}
+
+// A group's whole diary, gone. Returns how many days had something written.
+export function borrarDiario(chat) {
+  const escritos = db.prepare(`SELECT COUNT(*) AS n FROM diario_grupo WHERE chat = ? AND texto <> ''`).get(chat).n;
+  db.prepare(`DELETE FROM diario_grupo WHERE chat = ?`).run(chat);
+  return escritos;
+}
+
+// The days before a given one, in every group: what's kept no longer.
+export function podarDiarios(antesDe) {
+  return db.prepare(`DELETE FROM diario_grupo WHERE dia < ?`).run(antesDe).changes;
+}
+
+// When someone last came into a group, by any of their ids, in ms: 0 if the bot didn't see it (presencia_grupo).
+export function ingresoAlGrupo(chat, ids) {
+  const suyos = (ids || []).filter(Boolean);
+  if (!suyos.length) return 0;
+  return db.prepare(`SELECT MAX(ingreso) AS ingreso FROM presencia_grupo WHERE chat = ? AND usuario IN (${marcasDe(suyos)})`).get(chat, ...suyos)?.ingreso || 0;
+}
+
 // ===================== Claudia's initiative =====================
 
 const asegurarEstadoIniciativa = (chat) => db.prepare(`INSERT OR IGNORE INTO iniciativa_estado (chat) VALUES (?)`).run(chat);

@@ -65,7 +65,7 @@ test("menú: cada uno ve los temas que puede usar", () => {
   assert.match(temas(OWNER), /🥷 owner/);
   assert.equal(menu({ pedido: "admins" }), "🛡️ Ese tema es para admins y moderadores del grupo.");
   assert.equal(menu({ pedido: "owner", ...MOD }), "🥷 Ese tema es solo del owner del bot.");
-  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._\n▸ \.modoadmin/);
+  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._\n▸ \.modoadmin/);
   // In private: no group rank, and the menus that only work in groups aren't offered.
   const privado = menu({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null });
   assert.doesNotMatch(privado, /admins/);
@@ -87,7 +87,7 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
   const miembro = menu({ pedido: "todo" });
   const mod = menu({ pedido: "TODO", ...MOD });
   assert.doesNotMatch(miembro, /Configuración|Admins y moderadores/);
-  assert.match(mod, /⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._/);
+  assert.match(mod, /⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._/);
   assert.doesNotMatch(mod, /viceversa/, "el título viejo, de antes de que los interruptores aceptaran on y off");
   assert.doesNotMatch(mod, /▸ \.vendo/, "la compraventa está en .menuventas");
   const principales = (texto) => texto.split("\n").map((l) => M.comandoDeLinea(l)).filter(Boolean);
