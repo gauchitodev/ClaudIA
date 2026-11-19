@@ -11,7 +11,7 @@ import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
 import { recordarMensaje, editarMensaje, esComando } from "../lib/contexto-chat.js";
 import { entradasDelHilo, lineasDelHilo, leyendaDe } from "../lib/hilo.js";
 import { conMarca } from "../lib/adjuntos.js";
-import { sinRecordar } from "../lib/envios.js";
+import { sinRecordar, yaReaccionoElBot } from "../lib/envios.js";
 import { quienEscribe } from "../lib/quien-escribe.js";
 import { diaYHora } from "../lib/tiempo.js";
 import { fechaDe } from "../lib/memoria-corta.js";
@@ -27,9 +27,9 @@ import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
-import { PALABRAS_CLAVE, normalizar } from "../lib/iniciativa.js";
+import { PALABRAS_CLAVE, EMOJIS_INICIATIVA, emojiPropio, normalizar } from "../lib/iniciativa.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
-import { anotar, tomarTanda, cuandoContesta, sigueLaLlamada, esLlamadaSola, TURNOS } from "../lib/turnos-de-claudia.js";
+import { anotar, tomarTanda, soltarTurno, cuandoContesta, sigueLaLlamada, esLlamadaSola, anotarSilencio, insiste, olvidarSilencio, TURNOS } from "../lib/turnos-de-claudia.js";
 import { configuracion } from "../lib/configuracion.js";
 import { cargados } from "../lib/plugins-cargados.js";
 
@@ -84,6 +84,38 @@ const ESQUEMA_RESPUESTA = {
   required: ["comando", "respuesta"],
 };
 
+// ---------- how she answers ----------
+// With words, always, until now: named in passing by people talking among themselves, she'd cut in, and to a "gracias"
+// or a "jaja" she'd answer again, so the last word was hers every time. A person lets those go by, or reacts. Where it
+// fits she's offered that too: a reaction ("reaccion") or nothing at all ("nada"), on top of words ("texto").
+//
+// What's offered is decided here, not by the AI: what isn't offered isn't in the schema, as with her glances
+// (esquemaVistazo, lib/vistazos.js). Only in a group, for a single message with nothing else waiting (atender):
+//   - named by the word alone ("el bot anda lento"): any of the three;
+//   - a reply to a message of hers: words or a reaction;
+//   - mentioned with @, called by name alone or right after it, a voice note, an audio to hear, or someone she let go
+//     by a moment ago and who's back (insiste, lib/turnos-de-claudia.js): words.
+function formasPara(m, { leHablan, laMencionan, esRespuestaAlBot, solo, notaDeVoz, insistio }) {
+  if (!m.isGroup || !leHablan || laMencionan || solo || notaDeVoz || insistio || esAudio(m.quoted)) return [];
+  return esRespuestaAlBot ? ["reaccion"] : ["reaccion", "nada"];
+}
+
+// The schema with what's offered, ahead of the answer: the model writes the fields in the schema's order (Gemini's
+// structured output), and it's to decide how before it writes what. With nothing offered, the schema as it was.
+function esquemaPara(formas) {
+  if (!formas.length) return ESQUEMA_RESPUESTA;
+  const { comando, argumento, ...resto } = ESQUEMA_RESPUESTA.properties;
+  return {
+    type: "object",
+    properties: { comando, argumento, forma: { type: "string", enum: ["texto", ...formas] }, emoji: { type: "string", enum: EMOJIS_INICIATIVA }, ...resto },
+    required: ["comando", "forma", "respuesta"],
+  };
+}
+
+// What she's told about it. In doubt, words: someone ignored who was talking to her shows more than an answer too many.
+const FORMA_AL_PASAR = `(También solo para vos: en ese mensaje te nombran, pero fijate en el hilo si te hablan a vos, y decí en "forma" cómo seguís. Si hablan de vos entre ellos, o te nombran al pasar sin preguntarte ni pedirte nada, poné "nada" y dejá "respuesta" vacía: nadie contesta cada vez que lo nombran. Si no pide respuesta pero te causa algo (te agradecen, te elogian, hacen un chiste con vos), poné "reaccion", elegí el emoji en "emoji" y dejá "respuesta" vacía. Si te hablan a vos, te preguntan o te piden algo, o si dudás, poné "texto" y contestá como siempre.)`;
+const FORMA_DE_CIERRE = `(También solo para vos: te responden a un mensaje tuyo, y en "forma" decís cómo seguís. Si es un cierre que no pide respuesta (un "gracias", un "jaja", un "dale", un emoji), poné "reaccion", elegí el emoji en "emoji" y dejá "respuesta" vacía: la última palabra no tiene por qué ser siempre tuya. Si te preguntan, te discuten o te cuentan algo, o si dudás, poné "texto" y contestá como siempre.)`;
+
 // Numbered references ("[1]", "[2, 3]") a grounded answer may carry: in a chat they're noise.
 export const sinReferencias = (texto) => texto.replace(/\s?\[\d+(?:,\s*\d+)*\]/g, "").trim();
 
@@ -130,7 +162,9 @@ async function atender(chat) {
     .slice(0, -1)
     .filter((e) => !e.solo)
     .slice(-TURNOS.MAX_ANTES);
-  await contestar(ultimo.m, ultimo.permisos, { nombre: ultimo.nombre, antes, citar: !ultimo.solo && ahora - ultimo.en >= TURNOS.CITA_DESDE_MS });
+  // Anything but words only for a message that's alone: with more waiting, somebody among them is owed an answer.
+  const formas = tanda.length === 1 ? ultimo.formas || [] : [];
+  await contestar(ultimo.m, ultimo.permisos, { nombre: ultimo.nombre, antes, formas, citar: !ultimo.solo && ahora - ultimo.en >= TURNOS.CITA_DESDE_MS });
 }
 
 const plugin = (m) => m;
@@ -206,7 +240,10 @@ plugin.before = async (m, permisos) => {
     // Her turn (lib/turnos-de-claudia.js): now, or once the pause is over or a bare call's question had time to come.
     const suyos = (m.mentionedJid || []).filter((j) => esElBot(j, client)).map((j) => j.split("@")[0].split(":")[0]);
     const solo = leHablan && !notaDeVoz && esLlamadaSola(m.text, suyos);
-    const cuando = anotar(m.chat, { m, permisos, nombre, persona: m.sender, solo }, ahora);
+    // How she may answer it (formasPara), told now: whether its author is insisting is about when it was sent.
+    const insistio = insiste(m.chat, [m.sender, m.senderJid], ahora);
+    const formas = formasPara(m, { leHablan, laMencionan, esRespuestaAlBot, solo, notaDeVoz, insistio });
+    const cuando = anotar(m.chat, { m, permisos, nombre, persona: m.sender, solo, formas }, ahora);
     if (cuando > ahora) {
       programar(m.chat, cuando - ahora);
       return;
@@ -218,8 +255,9 @@ plugin.before = async (m, permisos) => {
 };
 
 // The answer to a message for her. antes: what else was said to her before it and is still unanswered, which she
-// answers too; citar: it comes late, and quotes the message so it reads as said to someone.
-async function contestar(m, { client, participants, isAdmin, isMod, isOwner, user, chat }, { nombre, antes = [], citar = false }) {
+// answers too; citar: it comes late, and quotes the message so it reads as said to someone; formas: how else she may
+// answer it, besides with words (formasPara).
+async function contestar(m, { client, participants, isAdmin, isMod, isOwner, user, chat }, { nombre, antes = [], citar = false, formas = [] }) {
   const notaDeVoz = esAudio(m) && !m.text;
   const esRespuestaAlBot = m.quoted && m.quoted.fromMe;
   const cita = citar ? m : null;
@@ -349,12 +387,15 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     `(Instrucción para vos, no la muestres en tu respuesta: clasificá el pedido en el campo "comando" - usá "play" si piden bajar audio de YouTube, "video" si piden bajar video, "tagall" si piden mencionar a todo el grupo, "llamar" si piden mencionar varias veces a alguien, o "ninguno" si no corresponde nada de eso. Si es "play" o "video", poné en "argumento" el tema o título pedido; dejalo vacío en los demás casos. En "respuesta" escribí tu respuesta de charla normal, con tu onda de siempre. IMPORTANTE: si el pedido es "play" o "video", NO digas que ya se lo mandaste ni que estás por hacerlo - vos no ejecutás nada ahí, el sistema le va a indicar el comando exacto para pedirlo directamente. Si en cambio activás "tagall" o "llamar", esas sí van a pasar apenas las marques - así que tu respuesta tiene que acompañar eso, no contradecirlo ni bromear como si no lo fueras a hacer. REGLA DE ORO: vos existís solo mientras escribís este mensaje. Nunca prometas hacer algo después ("déjame ver", "te aviso", "lo pruebo más tarde", "me fijo y te digo"): no podés, sería mentir. Si no podés hacer algo, decilo claro y sin vueltas. Única excepción: si la persona te pide que vuelvas a intentar más tarde una descarga que le falló, poné "reintentar" en true y en "respuesta" decí solo que lo dejás anotado, sin decir cuándo - el sistema le confirma la hora, o le avisa si no había nada para reintentar. BÚSQUEDAS: si te preguntan si algo es verdad, o te piden un dato del mundo real que se pueda verificar (una noticia, algo que pasó, un dato de un tema de música o de una banda que no tengas claro, como quién lo escribió o de dónde es), poné en "buscar" una consulta corta para buscar en internet: el sistema la busca y te deja contestar con lo que encuentre. En ese caso, en "respuesta" poné algo corto que sirva por si la búsqueda falla, sin afirmar nada que no sepas. Si es un bolazo, una joda o un chisme del grupo, una opinión o algo que sabés de sobra, NO busques: contestá como siempre y dejá "buscar" vacío. FUENTES: poné "fuentes" en true solo si te piden las fuentes, los links o de dónde sacaste algo; el sistema manda los links que tenga, vos nunca escribas links. AUDIOS: si hay un audio adjunto, en "resumenAudio" poné en una línea qué dice o qué es (por ejemplo "cuenta que se le rompió el auto" o "un tema de rock en inglés"); si no hay audio, dejalo vacío. Si te enterás de algo nuevo que valga la pena recordar de la persona (un gusto, una manía, un dato personal chico, una joda interna), ponelo corto en "recordar"; si no hay nada nuevo, dejalo vacío. Nunca inventes datos falsos, y nunca guardes cosas sensibles como salud, plata, contraseñas o dirección.)`,
   );
 
+  if (formas.length) partes.push(formas.includes("nada") ? FORMA_AL_PASAR : FORMA_DE_CIERRE);
+
   const consulta = partes.join("\n\n");
 
-  // the 'typing...' starts before asking the AI, the way a person would
-  await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
+  // the 'typing...' starts before asking the AI, the way a person would. Not when she may end up sending nothing: the
+  // group would see her typing, and then nothing. If she does answer, it shows while she types (decir).
+  if (!formas.length) await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
 
-  const resultado = await preguntarIA(consulta, { schema: ESQUEMA_RESPUESTA, adjuntos });
+  const resultado = await preguntarIA(consulta, { schema: esquemaPara(formas), adjuntos });
 
   // The doors, again, right before she says anything: the AI took a while, and in the meantime an admin may have put
   // .banchat, .modoadmin or .charla off, or the owner banned the person. She used to say her piece anyway. Once
@@ -419,6 +460,34 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   }
 
   if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);
+
+  // ---------- with words, or not ----------
+  // What she chose among what was offered; anything else that comes back is words (a fallback model gets the schema
+  // as text, and may make one up). A command, a retry, a search or sources are things to say, whatever she chose.
+  const elegida = formas.includes(datos.forma) ? datos.forma : "texto";
+  const forma = comando !== "ninguno" || quiereReintentar || aBuscar || pideFuentes ? "texto" : elegida;
+  const deQuien = [m.sender, m.senderJid];
+  if (forma !== "texto") {
+    // One of her own emojis, on the message that named her. Not over a reaction of the bot's on it (🔥 for a streak):
+    // WhatsApp keeps one per account, and hers would take its place. The reactions' queue may drop it (lib/envios.js),
+    // and then she said nothing at all.
+    let emoji = forma === "reaccion" ? emojiPropio(datos.emoji) : null;
+    if (emoji && (!m.key?.id || yaReaccionoElBot(m.key.id) || !puedeHablar())) emoji = null;
+    if (emoji && !(await client.sendMessage(m.chat, { react: { text: emoji, key: m.key } }).catch(() => null))) emoji = null;
+    // If they come back about it, they get words. And her turn goes back: whoever talks to her next doesn't wait on a
+    // message she never sent, and what waited meanwhile is seen to now.
+    const ya = _dep.ahora();
+    anotarSilencio(m.chat, deQuien, ya);
+    soltarTurno(m.chat);
+    const cuando = cuandoContesta(m.chat, ya);
+    if (cuando !== null) programar(m.chat, Math.max(0, cuando - ya));
+    // Counted last, so that the database failing doesn't keep her turn: for .actividad to tell how often she lets
+    // things go by. A reaction with whom it was to, like the ones of her glances, and a silence with nothing but that
+    // it was one.
+    registrarIntervencion(emoji ? { chat: m.chat, tipo: "reaccion-charla", objetivoId: m.key.id, objetivoUsuario: m.sender, texto: emoji } : { chat: m.chat, tipo: "silencio" });
+    return;
+  }
+  olvidarSilencio(m.chat, deQuien);
 
   // what Claudia says also goes into the short-term memory
   // Only the first message carries the typing delay: if Claudia sends two in a row, the second follows right after.

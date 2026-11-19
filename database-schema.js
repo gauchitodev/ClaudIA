@@ -559,7 +559,9 @@ export function ponerAlDia(db) {
 
   // Claudia's initiative (lib/iniciativa.js): per group, how far she has read, when she glances next, whether she was
   // told to be quiet, and the day's counters. intervenciones is what she said or did in a group: her replies when
-  // named ("charla") and what she did on her own (reactions, quoted replies, comments), with whether anyone answered.
+  // named ("charla"), the times she was named and reacted instead ("reaccion-charla") or let it go by ("silencio",
+  // plugins/_auto-ia.js), and what she did on her own (reactions, quoted replies, comments), with whether anyone
+  // answered.
   db.exec(`
     CREATE TABLE IF NOT EXISTS iniciativa_estado (
       chat TEXT PRIMARY KEY,
