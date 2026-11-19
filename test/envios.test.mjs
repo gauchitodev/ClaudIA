@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createHash } from "node:crypto";
 import { prepararBase, ultimoEnviado } from "./helpers.mjs";
 import { conexion } from "../lib/conexion.js";
 
@@ -190,13 +191,14 @@ test("envíos: lo que borra el bot sale de la memoria corta de Claudia; si el bo
 
 test("envíos: cuenta por chat, hora y tipo, y los privados van todos juntos", async () => {
   const { client } = clienteEnvuelto();
+  const privadosAntes = contados("privado").texto || 0; // other tests here send by private too, whichever runs first
   await client.sendMessage("conteo@g.us", { text: "hola" });
   await client.sendMessage("conteo@g.us", { image: { url: "x.jpg" } });
   await client.sendMessage("123@lid", { text: "por privado" });
   await client.sendMessage("456@s.whatsapp.net", { text: "otro privado" });
 
   assert.deepEqual(contados("conteo@g.us"), { texto: 1, multimedia: 1 });
-  assert.equal(contados("privado").texto, 2, "a quién le habló por privado no se guarda");
+  assert.equal(contados("privado").texto - privadosAntes, 2, "a quién le habló por privado no se guarda");
   const hora = new Date().getHours();
   assert.ok(F.enviosBotPorHora("conteo@g.us", [hoy()]).some((r) => r.hora === hora && r.total === 2), "queda en la hora en que salió");
 });
@@ -427,4 +429,112 @@ test("consistencia: wa-socket envuelve sendMessage, y la cola se pide en un solo
       });
   }
   assert.deepEqual(porAfuera, [], `mandan por fuera de sendMessage, sin cola ni conteo:\n${porAfuera.join("\n")}`);
+});
+
+// ---------- what stays in Claudia's memory ----------
+
+// What the bot sent used to leave no trace in her memory, but for what she said chatting: she saw the ".ruleta 100
+// rojo" someone typed and not what came of it. Now it stays there as hers and as the bot's machinery, which .resumen
+// and her glances leave out as they do the commands (fueComando), and her chat gets the last few (lib/hilo.js).
+test("envíos: lo que manda el bot queda en la memoria corta de Claudia, como suyo y como automático", async () => {
+  const CC = await import("../lib/contexto-chat.js");
+  const chat = "recuerda@g.us";
+  const ANA = "7300001@lid";
+  F.initDataDB({ chat, sender: ANA, senderJid: "", pushName: "Ana" });
+  const { client } = clienteEnvuelto();
+  await client.sendMessage(chat, { text: "🎡 salió el 14, @7300001 gana 200", mentions: [ANA] }, { quoted: { key: { id: "CMD1" } } });
+  await client.sendMessage(chat, { text: "bien ahí @7300001", contextInfo: { mentionedJid: [ANA] } });
+  await client.sendMessage(chat, { image: { url: "x.jpg" }, caption: "el catálogo de hoy" });
+  await client.sendMessage(chat, { sticker: Buffer.from("un sticker") });
+  await client.sendMessage(chat, { audio: { url: "tema.mp3" }, ptt: false, caption: null });
+  await client.sendMessage(chat, { document: { url: "b.db" }, fileName: "backup.db" });
+  await client.sendMessage(chat, { poll: { name: "¿Asado el sábado?", values: ["sí", "no"] } });
+
+  const guardadas = CC.contextoChat.get(chat);
+  assert.deepEqual(guardadas.map((e) => e.texto), ["🎡 salió el 14, @Ana gana 200", "bien ahí @Ana", "📷 (foto) el catálogo de hoy", "💟 (sticker)", "🎤 (audio)", "📎 (archivo: backup.db)", "📊 (encuesta: ¿Asado el sábado?)"], "con las menciones como nombres, y lo que no es texto por su marca");
+  assert.deepEqual(guardadas.map((e) => e.id), ["MSG1", "MSG2", "MSG3", "MSG4", "MSG5", "MSG6", "MSG7"]);
+  assert.ok(guardadas.every((e) => e.esBot && e.nombre === "Claudia" && e.comando === true && CC.fueComando(e)), "como lo que hace el bot, no como su charla");
+  assert.deepEqual([guardadas[0].citaId, guardadas[1].citaId], ["CMD1", undefined], "con el comando al que contesta");
+  assert.equal(guardadas[3].sha, createHash("sha256").update("un sticker").digest("hex"), "un sticker, con el nombre de su archivo");
+
+  // What isn't something the bot said to the chat stays out: a reaction, a forward (somebody else's message), an edit,
+  // an empty text, and what goes to a status or a channel.
+  await client.sendMessage(chat, { react: { text: "🔥", key: { id: "CMD1" } } });
+  await client.sendMessage(chat, { forward: { key: { id: "F1" }, message: { conversation: "lo que alguien había borrado" } } });
+  await client.sendMessage(chat, { forward: { key: { id: "F2" }, message: { imageMessage: {} } }, caption: "con un pie puesto encima", mentions: [ANA] });
+  await client.sendMessage(chat, { edit: { id: "MSG1" }, text: "corregido" });
+  await client.sendMessage(chat, { text: "" });
+  await client.sendMessage("status@broadcast", { text: "un estado" });
+  await client.sendMessage("120363000000000000@newsletter", { text: "al canal" });
+  assert.equal(CC.contextoChat.get(chat).length, 7);
+  assert.equal(CC.contextoChat.get("status@broadcast"), undefined);
+  assert.equal(CC.contextoChat.get("120363000000000000@newsletter"), undefined);
+
+  // A private chat has its own memory, and what the bot deletes of its own leaves it.
+  await client.sendMessage(ANA, { text: "por privado" });
+  assert.deepEqual(CC.contextoChat.get(ANA).map((e) => [e.texto, e.comando]), [["por privado", true]]);
+  await client.sendMessage(chat, { delete: { remoteJid: chat, fromMe: true, id: "MSG3" } });
+  assert.equal(CC.contextoChat.get(chat).some((e) => e.id === "MSG3"), false);
+});
+
+test("envíos: sinRecordar deja afuera de su memoria lo que se manda adentro, y solo eso", async () => {
+  const CC = await import("../lib/contexto-chat.js");
+  const chat = "sin-recordar@g.us";
+  const { client, salidas } = clienteEnvuelto();
+  const textos = () => (CC.contextoChat.get(chat) || []).map((e) => e.texto);
+  const enviado = await E.sinRecordar(() => client.sendMessage(chat, { text: "esto lo guarda quien lo manda" }));
+  assert.equal(enviado.key.id, "MSG1", "devuelve lo que devuelve el envío");
+  assert.deepEqual(textos(), []);
+  // Awaited or not, with a turn to wait for in between, and next to a send that isn't inside.
+  await Promise.all([E.sinRecordar(() => client.sendMessage(chat, { text: "adentro" })), client.sendMessage(chat, { text: "afuera" }), E.sinRecordar(async () => void (await client.sendMessage(chat, { text: "adentro también" })))]);
+  assert.equal(salidas.length, 4);
+  assert.deepEqual(textos(), ["afuera"]);
+  await client.sendMessage(chat, { text: "y después, de nuevo" });
+  assert.deepEqual(textos(), ["afuera", "y después, de nuevo"]);
+  await assert.rejects(() => E.sinRecordar(() => Promise.reject(new Error("no salió"))), /no salió/);
+});
+
+test("envíos: si su memoria falla, el mensaje igual se da por mandado", async () => {
+  const { client, salidas } = clienteEnvuelto();
+  const errorReal = console.error;
+  const errores = [];
+  db.prepare = () => {
+    throw new Error("base caída");
+  };
+  console.error = (...args) => errores.push(args.join(" "));
+  try {
+    // The name of whoever it mentions comes from the database.
+    const enviado = await client.sendMessage("memoria-falla@g.us", { text: "hola @7300009", mentions: ["7300009@lid"] });
+    assert.equal(enviado.key.id, "MSG1");
+    assert.equal(salidas.length, 1);
+    assert.ok(errores.some((e) => /\[envios\] no se pudo dejar un envío en la memoria de Claudia: base caída/.test(e)), errores.join("\n"));
+  } finally {
+    delete db.prepare;
+    console.error = errorReal;
+  }
+});
+
+// The anti-delete shows the group again what someone deleted, and what's deleted is forgotten: that one send stays out.
+test("envíos: lo que vuelve a mostrar el anti-borrado no entra en la memoria de Claudia", async () => {
+  const { serialize, smsg, mensajeGuardado } = await import("../lib/wa-socket.js");
+  serialize();
+  const AntiBorrado = (await import("../plugins/_anti-delete-messages.js")).default;
+  const CC = await import("../lib/contexto-chat.js");
+  const chat = "antiborrado@g.us";
+  const { client, salidas } = clienteEnvuelto();
+  Object.assign(client, {
+    user: { lid: "bot@lid", id: "bot@s.whatsapp.net", jid: "bot@s.whatsapp.net" },
+    chats: { [chat]: { subject: "Grupo", messages: { D1: { key: { remoteJid: chat, fromMe: false, id: "D1", participant: "beto@lid" }, message: { conversation: "mi clave es pepito123" } } } } },
+    parseMention: () => [],
+  });
+  client.loadMessage = (id, donde) => mensajeGuardado(client.chats, id, donde);
+  client.serializeM = (msg) => smsg(client, msg);
+  CC.recordarMensaje(chat, "Beto", "mi clave es pepito123", false, { id: "D1", usuario: "beto@lid" });
+  CC.olvidarMensaje(chat, "D1"); // the deletion, as the memory's own hook takes it
+  await AntiBorrado.before({ chat, sender: "beto@lid", message: { protocolMessage: { type: 0, key: { id: "D1" } } } }, { client, chat: { antiDelete: 1 }, isWaAdmin: false });
+  assert.equal(salidas.length, 1);
+  assert.match(salidas[0].contenido.text, /pepito123/, "el grupo lo ve de nuevo");
+  assert.deepEqual(CC.contextoChat.get(chat) || [], [], "y ella lo sigue olvidando");
+  await client.sendMessage(chat, { text: "otra cosa" });
+  assert.deepEqual(CC.contextoChat.get(chat).map((e) => e.texto), ["otra cosa"]);
 });

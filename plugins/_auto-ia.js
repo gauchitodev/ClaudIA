@@ -8,7 +8,12 @@ import { tratoPara, generoDe, tratoDeQuienesAparecen, personasDe } from "../lib/
 import { textoRedesParaPrompt } from "../lib/redes.js";
 import { sinMenciones, conNombres, nombreDe } from "../lib/menciones.js";
 import { esElBot, lidsMencionadosActual } from "../lib/identidad.js";
-import { recordarMensaje, textoContexto, entradasDeContexto, esComando } from "../lib/contexto-chat.js";
+import { recordarMensaje, editarMensaje, esComando } from "../lib/contexto-chat.js";
+import { entradasDelHilo, lineasDelHilo, leyendaDe } from "../lib/hilo.js";
+import { conMarca } from "../lib/adjuntos.js";
+import { sinRecordar } from "../lib/envios.js";
+import { quienEscribe } from "../lib/quien-escribe.js";
+import { diaYHora } from "../lib/tiempo.js";
 import { fechaDe } from "../lib/memoria-corta.js";
 import { mencionesParaTodos, textoSinNadie } from "../lib/menciones-generales.js";
 import { programarReintento } from "../lib/pendientes.js";
@@ -246,10 +251,21 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const quien = { isOwner, isAdmin, isMod };
   partes.push(conocimientoPara(m.text, { quien, sinPermiso: (manual) => sinPermisoEn(manual, quien) }));
 
-  // What came before this message: it goes separately, and others may have come in after it while the hooks ran.
-  const contexto = textoContexto(m.chat, m.id ?? m.key?.id);
-  if (contexto) {
-    partes.push(`Últimos mensajes del grupo, del más viejo al más nuevo (es contexto para seguir el hilo, no lo repitas):\n${contexto}`);
+  // The day and the time. She used to get them only on her glances (lib/vistazos.js): talked to, she couldn't tell a
+  // "buen día" at four in the morning from one at noon.
+  const ahora = _dep.ahora();
+  partes.push(`Ahora es ${diaYHora(ahora)}.`);
+
+  // What came before this message (lib/hilo.js): it goes separately, and others may have come in after it while the
+  // hooks ran. Each line with how long ago it was: without it, something said five hours back read like the line
+  // before.
+  const hilo = entradasDelHilo(m.chat, m.id ?? m.key?.id);
+  if (hilo.length) {
+    const lineas = lineasDelHilo(hilo, { ahora, chat: m.chat }).map((linea) => `- ${linea.texto}`);
+    partes.push(`Últimos mensajes ${m.isGroup ? "del grupo" : "de este chat"}, del más viejo al más nuevo, con hace cuánto se mandó cada uno (es contexto para seguir el hilo, no lo repitas):\n${lineas.join("\n")}`);
+    // What a mark is, and what of hers there is the bot's machinery, when there's any of either.
+    const leyenda = leyendaDe(hilo);
+    if (leyenda) partes.push(`(${leyenda})`);
   }
 
   // What she learned of this person in this group (lib/memoria-persona.js):
@@ -258,6 +274,10 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   if (memoria) {
     partes.push(`Lo que ya sabés de ${nombre} por charlas anteriores en este grupo: ${memoria}`);
   }
+
+  // And who they are in the group and to the bot (lib/quien-escribe.js), as background.
+  const quienEs = quienEscribe({ chat: m.chat, usuario: m.sender, numero: m.senderJid, user, nombre, esGrupo: Boolean(m.isGroup), isOwner, isAdmin, isMod, ahora });
+  if (quienEs) partes.push(quienEs);
 
   // group memory (.recordá que ...): inside jokes and facts the group noted down for her
   if (m.isGroup) {
@@ -288,7 +308,7 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   // And the others the conversation shows: whoever wrote the messages above and whoever this one mentions, each by
   // the name they go by here. She used to know it only of whoever was talking to her, and answered about the rest
   // by their name, or their nickname.
-  const deLaCharla = personasDe(entradasDeContexto(m.chat, m.id ?? m.key?.id));
+  const deLaCharla = personasDe(hilo);
   const mencionados = (m.mentionedJid || []).map((id) => ({ id, nombre: nombreDe(id) }));
   const tratoDeOtros = tratoDeQuienesAparecen([...deLaCharla, ...mencionados], { donde: "que aparecen en la charla", menos: [m.sender, m.senderJid] });
   if (tratoDeOtros) partes.push(tratoDeOtros);
@@ -387,9 +407,15 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const resumenAudio = typeof datos.resumenAudio === "string" ? datos.resumenAudio.trim().slice(0, 200) : "";
 
   // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on. Where
-  // it was sent, not where she got through hearing it: what was said meanwhile came after it.
+  // it was sent, not where she got through hearing it: what was said meanwhile came after it. It's there already, as
+  // its mark (lib/memoria-corta.js): that becomes what it said, as an edit by whoever sent it. Stored here only if it
+  // wasn't.
   if (notaDeVoz && resumenAudio) {
-    recordarMensaje(m.chat, nombre, `🎤 (audio) ${resumenAudio}`, false, { id: m.id ?? m.key?.id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
+    const id = m.id ?? m.key?.id;
+    const dicho = conMarca("audio", resumenAudio);
+    if (!editarMensaje(m.chat, id, dicho, [m.sender, m.senderJid, m.key?.participant])) {
+      recordarMensaje(m.chat, nombre, dicho, false, { id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
+    }
   }
 
   if (nuevoRecuerdo) anotarDe(m.sender, m.chat, nuevoRecuerdo);
@@ -410,8 +436,10 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
       await (audio ? grabar : tipear)(client, m.chat, texto);
       if (!puedeHablar()) return; // the typing takes a few seconds too
     }
-    const enviado = audio ? await client.sendFile(m.chat, audio, "voz.mp3", null, quoted, true) : await client.sendText(m.chat, texto, quoted);
-    recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id });
+    // Kept in her memory right below, as her chat and with what she said aloud: lib/envios.js would leave it there as
+    // the bot's machinery, and of a voice note it only knows it's an audio.
+    const enviado = await sinRecordar(() => (audio ? client.sendFile(m.chat, audio, "voz.mp3", null, quoted, true) : client.sendText(m.chat, texto, quoted)));
+    recordarMensaje(m.chat, "Claudia", texto, true, { id: enviado?.key?.id, comando: false, citaId: quoted?.key?.id || null });
     // Answering when named counts as talking too: the initiative's "no more than the average" rule looks at it.
     if (m.isGroup) registrarIntervencion({ chat: m.chat, tipo: "charla", mensajeId: enviado?.key?.id || null, texto });
     return enviado;

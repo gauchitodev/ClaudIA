@@ -10,7 +10,7 @@ import { estadoDe } from "../lib/estado-de-plugins.js";
 // summaries and in the recap, and about anybody else, she went by the name.
 // Gemini is swapped for a fake that keeps what it was asked.
 
-let F, Ge, CC, AutoIA, Ia, V, R, Recap, A, RITMO;
+let F, Ge, CC, H, AutoIA, Ia, V, R, Recap, A, RITMO;
 let pedidos = []; // the prompts the AI got
 const fetchReal = globalThis.fetch;
 const logReal = console.log;
@@ -40,6 +40,7 @@ before(async () => {
   };
   Ge = await import("../lib/genero.js");
   CC = await import("../lib/contexto-chat.js");
+  H = await import("../lib/hilo.js");
   AutoIA = (await import("../plugins/_auto-ia.js")).default;
   Ia = (await import("../plugins/tools-ia.js")).default;
   V = await import("../lib/vistazos.js");
@@ -112,10 +113,11 @@ test("el trato de quienes aparecen: sin quien el prompt ya distingue, por cualqu
 
 test("el trato de una charla guardada: quien escribió cada mensaje, sin los de Claudia", () => {
   const chat = "genero-guardada@g.us";
-  charlar(chat, [[BETO, "che, ¿salimos el sábado?"], [CARO, "yo no puedo"], [ANA, "yo sí"]]);
+  const ahora = Date.now();
+  charlar(chat, [[BETO, "che, ¿salimos el sábado?"], [CARO, "yo no puedo"], [ANA, "yo sí"]], ahora);
   CC.recordarMensaje(chat, "Claudia", "pasenla lindo", true, { id: "BOT1" });
   CC.recordarMensaje(chat, "Dani", "mensaje sin autor guardado", false, { id: "SIN-AUTOR" });
-  const entradas = CC.entradasDeContexto(chat);
+  const entradas = H.entradasDelHilo(chat);
   assert.equal(entradas.length, 5);
   assert.equal(Ge.tratoDeLaCharla(entradas), LINEA("Beto (hombre) y Ana (mujer)"));
   assert.equal(Ge.tratoDeLaCharla(entradas, { menos: [ANA], donde: "que aparecen en la charla" }), LINEA("Beto (hombre)", "que aparecen en la charla"));
@@ -125,12 +127,13 @@ test("el trato de una charla guardada: quien escribió cada mensaje, sin los de 
   assert.equal(Ge.tratoDeLaCharla([{ usuario: BETO, nombre: "Betito", texto: "buenas" }]), LINEA("Betito (hombre)"));
   // Hers aside even when one is kept with an author.
   assert.equal(Ge.tratoDeLaCharla([{ esBot: true, usuario: BETO, nombre: "Claudia", texto: "dale" }]), "");
-  // The entries are the ones the context's text is made of: the same lines, up to the message being answered.
-  assert.equal(CC.textoContexto(chat).split("\n").length, 5);
-  assert.match(CC.textoContexto(chat), /\n- Ana: yo sí\n- Claudia \(vos\): pasenla lindo\n- Dani: mensaje sin autor guardado$/);
-  assert.deepEqual(CC.entradasDeContexto(chat, `${chat}-2`).map((e) => e.texto), ["che, ¿salimos el sábado?", "yo no puedo"]);
-  assert.equal(CC.textoContexto(chat, `${chat}-2`), "- Beto: che, ¿salimos el sábado?\n- Caro: yo no puedo");
-  assert.equal(CC.textoContexto("genero-sin-nada@g.us"), "");
+  // The entries are the ones the thread's text is made of (lib/hilo.js): the same lines, up to the message being
+  // answered.
+  assert.equal(H.textoDelHilo(chat, null, ahora).split("\n").length, 5);
+  assert.match(H.textoDelHilo(chat, null, ahora), /\n- Ana \(hace 1 min\): yo sí\n- Claudia \(vos, recién\): pasenla lindo\n- Dani \(recién\): mensaje sin autor guardado$/);
+  assert.deepEqual(H.entradasDelHilo(chat, `${chat}-2`).map((e) => e.texto), ["che, ¿salimos el sábado?", "yo no puedo"]);
+  assert.equal(H.textoDelHilo(chat, `${chat}-2`, ahora), "- Beto (hace 3 min): che, ¿salimos el sábado?\n- Caro (hace 2 min): yo no puedo");
+  assert.equal(H.textoDelHilo("genero-sin-nada@g.us"), "");
 });
 
 // Talking to Claudia: her prompt already told how to address whoever is talking to her.
@@ -152,7 +155,7 @@ test("charlando: le llega el trato de quienes escribieron antes y de quien se me
   assert.match(prompt, /Mensaje de Ana: "claudia, ¿le avisamos a @Dani\?"/, "con el nombre con que la IA la ve");
   // Who's talking to her isn't told twice, and nobody who set nothing is told at all.
   assert.equal(prompt.match(/anotaron su género/g).length, 1);
-  assert.doesNotMatch(prompt, /Ana \(mujer\)|Caro \(/);
+  assert.doesNotMatch(prompt, /Ana \(mujer\)|Caro \((mujer|hombre)\)/);
 
   // Asked by someone who set nothing: the others' still goes.
   const deCaro = await hablarle(chat, CARO, "claudia, ¿qué hacemos?");
@@ -269,6 +272,22 @@ test("el recap: la frase de lo más comentado se pide con el trato de quienes es
   assert.equal(pedidos.length, 1);
   assert.doesNotMatch(pedidos[0], /mensaje viejo/);
   assert.ok(pedidos[0].includes(`- Beto: mensaje 149 de la semana\n\n${LINEA("Beto (hombre)")}\n\n(Instrucción para vos, no la muestres: decí en UNA sola frase`), pedidos[0]);
+
+  // What isn't text and has nothing said with it isn't what was talked about, nor what the bot sent (lib/adjuntos.js).
+  const conFotos = "genero-recap-fotos@g.us";
+  F.initDataDB({ chat: conFotos, sender: CARO, senderJid: "", pushName: "Caro" });
+  F.sumarMensajeDiario(conFotos, CARO, A.claveDia());
+  for (let i = 0; i < 40; i++) CC.recordarMensaje(conFotos, "Caro", `mensaje ${i} de la semana`, false, { id: `F${i}`, usuario: CARO });
+  for (let i = 0; i < 200; i++) CC.recordarMensaje(conFotos, "Caro", "📷 (foto)", false, { id: `FOTO${i}`, usuario: CARO, comando: false });
+  CC.recordarMensaje(conFotos, "Caro", "📷 (foto) el asado del sábado", false, { id: "FOTO-CON-PIE", usuario: CARO, comando: false });
+  CC.recordarMensaje(conFotos, "Claudia", "🎡 salió el 14", true, { id: "AUTO", comando: true });
+  pedidos = [];
+  await Recap.armarRecap(conFotos);
+  assert.equal(pedidos.length, 1);
+  assert.match(pedidos[0], /- Caro: mensaje 0 de la semana\n/, "las fotos no empujan afuera lo que se dijo");
+  assert.match(pedidos[0], /- Caro: 📷 \(foto\) el asado del sábado\n/);
+  assert.equal(pedidos[0].match(/\(foto\)/g).length, 1);
+  assert.doesNotMatch(pedidos[0], /🎡/);
 
   // Nobody who set anything: the prompt as it was.
   const otro = "genero-recap-sin@g.us";

@@ -441,6 +441,96 @@ test("vistazo: a un audio le reacciona pero no lo cita", async () => {
   assert.equal(informe.decision.accion, "nada");
 });
 
+// What isn't text is in what she reads, by its mark (lib/adjuntos.js, lib/hilo.js): a photo, a sticker by what the AI
+// saw in it, whom each message answers. She reacts or answers only to what she can read, and quotes only text.
+test("vistazo: ve las fotos y los stickers por su marca, reacciona a lo que puede leer y no cita un adjunto", async () => {
+  const H = await import("../lib/hilo.js");
+  const chat = nuevoGrupo();
+  charlar(chat);
+  const SHA_GATO = "a".repeat(64);
+  const de = (quien, id, haceMin, extra = {}) => ({ id, usuario: `${quien}@lid`, participant: `${quien}@lid`, fecha: AHORA - haceMin * MIN, comando: false, ...extra });
+  C.recordarMensaje(chat, "Carla", "📷 (foto)", false, de("Carla", "F1", 9));
+  C.recordarMensaje(chat, "Carla", "📷 (foto)", false, de("Carla", "F2", 8.9));
+  C.recordarMensaje(chat, "Carla", "📷 (foto) el asado de ayer", false, de("Carla", "F3", 8));
+  C.recordarMensaje(chat, "Beto", "💟 (sticker)", false, de("Beto", "ST1", 7, { sha: SHA_GATO, citaId: "F3", citaA: "Carla" }));
+  C.recordarMensaje(chat, "Beto", "💟 (sticker)", false, de("Beto", "ST2", 6, { sha: "b".repeat(64) }));
+  C.recordarMensaje(chat, "Ana", ".ruleta 100 rojo", false, de("Ana", "CMD", 5, { comando: true }));
+  C.recordarMensaje(chat, "Claudia", "🎡 salió el 14 rojo", true, { id: "AUTO", fecha: AHORA - 5 * MIN + 1000, comando: true, citaId: "CMD" });
+  const real = H._dep.descripcion;
+  H._dep.descripcion = (sha) => (sha === SHA_GATO ? "gato llorando, para tristeza exagerada" : null);
+  try {
+    decisiones.push({ motivo: "x", reacciones: [{ mensaje: 6, emoji: "😂" }, { mensaje: 8, emoji: "👀" }], accion: "responder", mensaje: 5, texto: "qué pinta ese asado" });
+    const client = cliente(chat);
+    const informe = await V.hacerVistazo(client, chat, { ahora: AHORA });
+    const leido = ultimoPrompt().match(/Lo que te perdiste[^\n]*\n([\s\S]*?)\n\n/)[1].split("\n");
+    assert.deepEqual(leido, [
+      "[1] Ana (hace 20 min): che, ¿vieron el partido de anoche?",
+      "[2] Beto (hace 18 min): sí, un desastre el arbitraje",
+      "[3] Carla (hace 15 min): yo me dormí en el primer tiempo",
+      "[4] Ana (hace 10 min): jaja típico de Carla",
+      "- Carla (hace 9 min): 📷 (2 fotos)",
+      "[5] Carla (hace 8 min): 📷 (foto) el asado de ayer",
+      "[6] Beto (hace 7 min, respondiendo a Carla): 💟 (sticker: gato llorando, para tristeza exagerada)",
+      "- Beto (hace 6 min): 💟 (sticker)",
+      "[7] Beto (hace 2 min): el domingo hay otro, ¿lo vemos juntos?",
+    ], "lo que no puede leer va sin número, y lo que mandó el bot por un comando no va");
+    assert.ok(ultimoPrompt().includes(`\n\n(${H.LEYENDA_ADJUNTOS})\n\n`), "con qué es una marca");
+    assert.match(ultimoPrompt(), /Los audios \(🎤\) no se pueden citar, ni las fotos, los videos, los stickers o los archivos/);
+    assert.deepEqual(client.salidas.map((s) => s.contenido.react?.key.id ?? s.contenido.text), ["ST1"], "al sticker que leyó le reacciona; a la foto con pie no la cita");
+    assert.equal(informe.decision.accion, "nada");
+    assert.equal(informe.leidos, 7, "cuenta lo que pudo leer");
+  } finally {
+    H._dep.descripcion = real;
+  }
+  // Without anything it explains, the prompt carries no legend, as before.
+  const sinNada = nuevoGrupo();
+  charlar(sinNada);
+  decisiones.push({ motivo: "x", reacciones: [], accion: "nada", mensaje: 0, texto: "" });
+  await V.hacerVistazo(cliente(sinNada), sinNada, { ahora: AHORA });
+  assert.equal(ultimoPrompt().includes(H.LEYENDA_ADJUNTOS), false);
+});
+
+// Photos with nothing said aren't conversation to her tact, as they weren't when they left no trace at all.
+test("vistazo: si lo único nuevo son fotos sin nada dicho, no gasta una llamada", async () => {
+  const chat = nuevoGrupo();
+  for (let i = 0; i < 6; i++) C.recordarMensaje(chat, "Ana", "📷 (foto)", false, { id: `SOLA${i}`, usuario: "Ana@lid", participant: "Ana@lid", fecha: AHORA - (10 - i) * MIN, comando: false });
+  const antes = consultas;
+  const informe = await V.hacerVistazo(cliente(chat), chat, { ahora: AHORA });
+  assert.equal(consultas, antes);
+  assert.equal(informe.tacto, "no hay nada nuevo");
+  assert.equal(informe.leidos, 0);
+});
+
+// Her own comment goes out through the same sendMessage as everything (lib/envios.js keeps what the bot sends as its
+// machinery): it stays in her memory once, as her chat.
+test("vistazo: lo que comenta queda en su memoria como charla suya, una sola vez", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  decisiones.push({ motivo: "me prendo", reacciones: [], accion: "responder", mensaje: 5, texto: "yo me prendo" });
+  const client = cliente(chat);
+  E.envolverEnvios(client);
+  client.sendText = (jid, text, quoted) => client.sendMessage(jid, { text }, quoted ? { quoted } : {});
+  await V.hacerVistazo(client, chat, { ahora: AHORA });
+  const suyas = C.mensajesRecientes(chat, 0).filter((e) => e.esBot);
+  assert.deepEqual(suyas.map((e) => [e.texto, e.comando, e.citaId, e.id]), [["yo me prendo", false, "A5", "BOT1"]]);
+  assert.equal(C.fueComando(suyas[0]), false, ".resumen y el vistazo siguiente la leen como charla");
+});
+
+// .vistazo cita quotes the last message the way a glance would: one a glance can quote, so not a photo, which is kept
+// as its mark. .vistazo reaccion takes the photo: a reaction needs only its key.
+test(".vistazo cita: cita lo último que un vistazo puede citar, no una foto", async () => {
+  const chat = nuevoGrupo();
+  charlar(chat);
+  C.recordarMensaje(chat, "Carla", "📷 (foto) mirá esto", false, { id: "FOTO", usuario: "Carla@lid", participant: "Carla@lid", fecha: AHORA - MIN / 2, comando: false });
+  const client = cliente(chat);
+  const pedir = (opcion) => OwnerVistazo.run({ chat, isGroup: true, sender: "100@lid", senderJid: "59899100100@s.whatsapp.net", id: "PIDE" }, { client, args: [opcion], isOwner: true });
+  await pedir("cita");
+  assert.deepEqual(client.salidas[0].quoted, { key: { remoteJid: chat, fromMe: false, id: "A5", participant: "Beto@lid" }, message: { conversation: "el domingo hay otro, ¿lo vemos juntos?" } });
+  assert.match(client.salidas[1].contenido.text, /Cita de prueba sobre el mensaje A5 de Beto/);
+  await pedir("reaccion");
+  assert.equal(client.salidas[2].contenido.react.key.id, "FOTO");
+});
+
 test("ambiente: un mensaje que arranca con una mención no es un comando", async () => {
   const chat = nuevoGrupo();
   const fila = F.getChat(chat);

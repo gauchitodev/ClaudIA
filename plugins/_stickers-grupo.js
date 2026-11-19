@@ -36,7 +36,7 @@ async function atender(m, client, contestar) {
   const eleccion = await elegirRespuesta(m.chat, { suTexto: m.quoted.text || "", recibido: buffer, excluir });
   if (eleccion && !eleccion.sha) return; // nothing she has fits: better nothing than any old one
   await pausa(1000 + Math.floor(_dep.random() * 2000)); // nobody answers a sticker in the same second
-  const enviado = eleccion ? await mandarSticker(client, m.chat, eleccion.sha, m) : await mandarStickerAlAzar(client, m.chat, m, { excluir });
+  const enviado = eleccion ? await mandarSticker(client, m.chat, eleccion.sha, m, { suyo: true }) : await mandarStickerAlAzar(client, m.chat, m, { excluir, suyo: true });
   if (enviado) ritmoDeClaudia.set(m.chat, Date.now());
 }
 

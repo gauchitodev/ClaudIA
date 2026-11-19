@@ -130,6 +130,16 @@ test(".stickerazar manda uno del grupo, y no repite los últimos mientras haya o
     salieron.add(S.shaDe(globalThis.enviados.at(-1).msg.sticker));
   }
   assert.equal(salieron.size, 3, "con el dado fijo, igual sale uno distinto cada vez");
+  // A command's sticker isn't hers to keep: what the bot sends, lib/envios.js leaves in her memory as its machinery.
+  assert.equal(C.contextoChat.get(chat), undefined);
+  const E = await import("../lib/envios.js");
+  const envuelto = clienteFalso();
+  E.envolverEnvios(envuelto);
+  await Azar.run({ chat, isGroup: true }, { client: envuelto });
+  assert.deepEqual(
+    C.contextoChat.get(chat).map((e) => [e.texto, e.esBot, e.comando, e.sha]),
+    [["💟 (sticker)", true, true, S.shaDe(globalThis.enviados.at(-1).msg.sticker)]],
+  );
 });
 
 test("si le contestan a ella con un sticker, guarda ese y a veces contesta con otro", async () => {
@@ -153,10 +163,33 @@ test("si le contestan a ella con un sticker, guarda ese y a veces contesta con o
   await Hook.enCurso;
   assert.equal(globalThis.enviados.length, 1);
   assert.ok(Buffer.isBuffer(globalThis.enviados[0].msg.sticker));
+  // It stays in her short-term memory as something she did, by its file.
+  assert.deepEqual(
+    C.contextoChat.get(chat).map((e) => [e.nombre, e.texto, e.esBot, e.comando, e.sha, e.id]),
+    [["Claudia", "💟 (sticker)", true, false, S.shaDe(globalThis.enviados[0].msg.sticker), "MSG1"]],
+  );
 
   await Hook.before(stickerDe(chat, webp("a-ella"), { quoted: { fromMe: true, id: "BOT2" } }), permisos);
   await Hook.enCurso;
   assert.equal(globalThis.enviados.length, 1, "y no de nuevo enseguida");
+});
+
+// Her sticker goes out through the same sendMessage as everything, which keeps what the bot sends as its machinery
+// (lib/envios.js): it stays in her memory once, as hers.
+test("el sticker con que contesta queda en su memoria una sola vez, como suyo, también por el envío de verdad", async () => {
+  const E = await import("../lib/envios.js");
+  const chat = nuevoGrupo();
+  for (const c of ["e1", "e2", "e3"]) S.guardarSticker(chat, "x", webp(c));
+  const client = clienteFalso();
+  E.envolverEnvios(client);
+  S._dep.random = () => 0.1;
+  await Hook.before(stickerDe(chat, webp("a-ella"), { quoted: { fromMe: true, id: "BOT1" }, key: { id: "EL-QUE-LLEGA" } }), { client, chat: {}, user: {}, isMod: false, isOwner: false });
+  await Hook.enCurso;
+  assert.equal(globalThis.enviados.length, 1);
+  assert.deepEqual(
+    C.contextoChat.get(chat).map((e) => [e.texto, e.esBot, e.comando, e.sha, e.citaId]),
+    [["💟 (sticker)", true, false, S.shaDe(globalThis.enviados[0].msg.sticker), "EL-QUE-LLEGA"]],
+  );
 });
 
 test("nunca contesta con el mismo sticker que le mandaron; si no tiene otro, no contesta", async () => {
@@ -247,6 +280,10 @@ test("vistazo: sin stickers descriptos ni se le ofrece; con ellos, elige uno de 
     [["sticker", "BOT1", primero]],
   );
   assert.match(informe.resumen, /un sticker/);
+  // In her memory it's hers, and she reads it by what the AI saw in it (lib/hilo.js).
+  const suyos = C.mensajesRecientes(otro, 0).filter((e) => e.esBot);
+  assert.deepEqual(suyos.map((e) => [e.texto, e.comando, e.sha, e.id]), [["💟 (sticker)", false, S.shaDe(webp(elegido)), "BOT1"]]);
+  assert.equal((await import("../lib/hilo.js")).textoDe(suyos[0]), `💟 (sticker: ${primero})`);
 
   // A number that isn't on the list sends nothing.
   const tercero = grupoCharlando();
@@ -353,6 +390,8 @@ test("contestando un sticker, la IA elige cuál según lo que dijo ella; 0 es ni
   const segundo = pedido.texto.match(/2\. (.+)/)[1];
   const esperado = Object.keys(lista).find((c) => lista[c] === segundo);
   assert.equal(S.shaDe(globalThis.enviados[0].msg.sticker), S.shaDe(webp(esperado)));
+  // The one she chose stays in her memory as hers, like one drawn at random.
+  assert.deepEqual(C.contextoChat.get(chat).map((e) => [e.texto, e.esBot, e.comando, e.sha]), [["💟 (sticker)", true, false, S.shaDe(webp(esperado))]]);
 
   // "recibido" got kept as new and its description was attempted: the pause between answers is per group, so a fresh
   // group each time.

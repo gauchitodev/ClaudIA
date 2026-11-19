@@ -2,9 +2,11 @@ import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { nombreDeGrupo } from "../lib/cache-grupos.js";
 import { esVistaUnica } from "../lib/vista-unica.js";
 import { esElBot } from "../lib/identidad.js";
+import { sinRecordar } from "../lib/envios.js";
 
 const plugin = (m) => m;
-plugin.before = async (m, { client, chat, isWaAdmin }) => {
+
+async function mostrarDeNuevo(m, { client, chat, isWaAdmin }) {
   if (!chat.antiDelete) return;
   try {
     if (m.message?.protocolMessage?.type === 0) {
@@ -91,6 +93,10 @@ ${msg.key.remoteJid.endsWith("@g.us") ? `*┃ Grupo:* ${nombreGrupo}` : "*┃ Ch
   } catch (e) {
     console.log(e);
   }
-};
+}
+
+// What it shows again stays out of Claudia's memory (lib/envios.js keeps there what the bot sends): the group sees the
+// deleted message once more, and she still forgets it, as she does whatever anyone deletes (lib/memoria-corta.js).
+plugin.before = (m, permisos) => sinRecordar(() => mostrarDeNuevo(m, permisos));
 
 export default plugin;

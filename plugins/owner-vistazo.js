@@ -1,6 +1,7 @@
 import { getChat } from "../database-functions.js";
 import { mensajesRecientes, fueComando } from "../lib/contexto-chat.js";
 import { hacerVistazo, textoInforme, claveDe, citaDe } from "../lib/vistazos.js";
+import { seCita } from "../lib/hilo.js";
 import { duracion } from "../lib/tiempo.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 
@@ -27,7 +28,8 @@ plugin.run = async (m, { client, args, isOwner }) => {
 
   if (opcion === "reaccion" || opcion === "reacción" || opcion === "cita") {
     // The way a glance tells commands apart (fueComando): by any prefix, "@Sol ¿venís?" was one, and it was skipped.
-    const entrada = [...mensajesRecientes(m.chat, 0)].reverse().find((e) => !e.esBot && e.id && e.id !== m.id && !fueComando(e));
+    // And the way it tells what it can quote (seCita, lib/hilo.js): a photo is kept as its mark, not as what it is.
+    const entrada = [...mensajesRecientes(m.chat, 0)].reverse().find((e) => !e.esBot && e.id && e.id !== m.id && !fueComando(e) && (opcion !== "cita" || seCita(e)));
     if (!entrada) return client.sendText(m.chat, "No tengo en memoria ningún mensaje de alguien (con su id) para probar.", m);
     if (opcion === "cita") await client.sendText(m.chat, "(prueba de cita)", citaDe(m.chat, entrada));
     else await client.sendMessage(m.chat, { react: { text: "👀", key: claveDe(m.chat, entrada) } });

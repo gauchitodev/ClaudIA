@@ -88,7 +88,7 @@ test("un ver una vez: al silenciado se le borra siempre, a los demás con .antiv
   const mandar = async (sender) => {
     globalThis.enviados = [];
     const id = `VISTAUNICA${String(++numero).padStart(4, "0")}`;
-    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id, participant: sender, isViewOnce: true }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Ana", _upsertType: "notify", _llegada: Date.now() });
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id, participant: sender, isViewOnce: true }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: sender === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
     return globalThis.enviados.some((e) => e.msg?.delete?.id === id);
   };
   assert.equal(await mandar(ANA), false, "apagada y sin silenciar, queda");
@@ -236,12 +236,61 @@ test("memoria corta: cada mensaje entra cuando llega, aunque los hooks de antes 
   const pregunta = llega(client, BETO, "claudia, ¿la bici que publicaron recién tiene cambios?");
   await Promise.all([venta.hecho, pregunta.hecho]);
   const contexto = prompts.at(-1).match(/Últimos mensajes del grupo[^\n]*\n([\s\S]*?)\n\n/)?.[1];
-  assert.equal(contexto, "- Ana: #vendo bici rodado 26, $ 4.000, Pocitos", "Claudia contesta sabiendo de la venta, y la pregunta va aparte");
+  assert.equal(contexto, "- Ana (recién): #vendo bici rodado 26, $ 4.000, Pocitos", "Claudia contesta sabiendo de la venta, y la pregunta va aparte");
   assert.deepEqual(
     contextoChat.get(GRUPO).map((x) => [x.nombre, x.id]),
     [["Ana", venta.id], ["Beto", pregunta.id], ["Claudia", contextoChat.get(GRUPO).at(-1).id]],
     "en el orden en que llegaron",
   );
+});
+
+// What isn't text gets to her memory too, by its mark (lib/adjuntos.js), with whom it answers: off the message as
+// Baileys hands it over, through the serializer (m.quoted, the caption as m.text). A photo used to leave nothing unless
+// it had a caption, which stayed as loose text; a sticker or somebody's voice note, nothing at all.
+test("memoria corta: una foto que responde a alguien, un sticker y un audio llegan a su hilo por su marca", async () => {
+  cargados.plugins = Object.fromEntries(Object.entries(carpeta).filter(([, p]) => typeof p?.before === "function" && (p.trasModeracion || p.alFinal)));
+  // A group of its own: she answers once every 20 s in each, and what she says here mustn't hold up another test's.
+  const grupo = "120363000000000031@g.us";
+  const client = cliente();
+  const entra = async (sender, message) => {
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    // Stamped a second ahead, which the memory takes as now: WhatsApp's stamp is in whole seconds.
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: sender }, message, messageTimestamp: Math.floor(Date.now() / 1000) + 1, pushName: sender === ANA ? "Ana" : "Beto", _upsertType: "notify", _llegada: Date.now() });
+    return id;
+  };
+  const pregunta = await entra(ANA, { conversation: "¿alguien tiene una foto del asado?" });
+  await entra(BETO, { imageMessage: { caption: "acá va", contextInfo: { stanzaId: pregunta, participant: ANA, quotedMessage: { conversation: "¿alguien tiene una foto del asado?" } } } });
+  await entra(BETO, { imageMessage: { mimetype: "image/jpeg" } });
+  await entra(ANA, { stickerMessage: { fileSha256: Buffer.alloc(32, 9), fileLength: 1000 } });
+  await entra(ANA, { audioMessage: { seconds: 72, ptt: true } });
+  await entra(BETO, { documentWithCaptionMessage: { message: { documentMessage: { fileName: "lista.pdf", caption: "lo que falta comprar" } } } });
+  await carpeta["_stickers-grupo.js"].enCurso; // the sticker's own hook, which downloads it, is done
+  assert.deepEqual(
+    contextoChat.get(grupo).map((x) => [x.nombre, x.texto, x.citaId, x.citaA]),
+    [
+      ["Ana", "¿alguien tiene una foto del asado?", undefined, undefined],
+      ["Beto", "📷 (foto) acá va", pregunta, "Ana"],
+      ["Beto", "📷 (foto)", undefined, undefined],
+      ["Ana", "💟 (sticker)", undefined, undefined],
+      ["Ana", "🎤 (audio de 1:12)", undefined, undefined],
+      ["Beto", "📎 (archivo: lista.pdf) lo que falta comprar", undefined, undefined],
+    ],
+  );
+  assert.equal(contextoChat.get(grupo)[3].sha, "09".repeat(32));
+
+  prompts.length = 0;
+  await entra(ANA, { conversation: "claudia, ¿viste todo lo que mandaron?" });
+  const hilo = prompts.at(-1).match(/Últimos mensajes del grupo[^\n]*\n([\s\S]*?)\n\n/)?.[1];
+  assert.deepEqual(hilo?.split("\n"), [
+    "- Ana (recién): ¿alguien tiene una foto del asado?",
+    "- Beto (recién, respondiendo a Ana): 📷 (foto) acá va",
+    "- Beto (recién): 📷 (foto)",
+    "- Ana (recién): 💟 (sticker)",
+    "- Ana (recién): 🎤 (audio de 1:12)",
+    "- Beto (recién): 📎 (archivo: lista.pdf) lo que falta comprar",
+  ]);
+  assert.match(prompts.at(-1), /Lo que empieza con un emoji y un paréntesis, como «📷 \(foto\)», es algo que mandaron y no es texto/);
+  assert.match(prompts.at(-1), /\n\nAhora es [a-záé]+ \d+ de [a-z]+ de \d{4}, \d\d:\d\d\.\n\n/);
 });
 
 // .id (plugins/owner-get-user-data.js) is for every admin: the group's WhatsApp admins, the bot's (.adminbot) and the

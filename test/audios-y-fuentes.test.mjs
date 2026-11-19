@@ -89,7 +89,7 @@ test("nota de voz respondiéndole: lo último que se dijo antes sigue en el cont
   recordarMensaje(C, "Beto", "¿alguien sabe a qué hora abre el museo?", false, { id: "ANTES-AUDIO" });
   clasificacion = { comando: "ninguno", respuesta: "A las 10, creo", resumenAudio: "pregunta si ella sabe" };
   await mandar({ mtype: "audioMessage", msg: { seconds: 5, mimetype: "audio/ogg; codecs=opus" }, download: async () => AUDIO, quoted: { id: "CL-2", fromMe: true, text: "¿Qué hacemos el domingo?" } });
-  assert.match(textoDe(pedidos[0]), /- Beto: ¿alguien sabe a qué hora abre el museo\?/);
+  assert.match(textoDe(pedidos[0]), /- Beto \(recién\): ¿alguien sabe a qué hora abre el museo\?/);
 });
 
 test("los demás audios del grupo no los escucha", async () => {

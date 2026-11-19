@@ -435,10 +435,10 @@ test("avisos al owner: con la base fallando, el aviso sale igual y el freno sigu
   assert.equal(globalThis.enviados.length, 1);
 });
 
-test("memoria corta y memoria del grupo", () => {
+test("memoria corta y memoria del grupo", async () => {
   for (let i = 0; i < 250; i++) CC.recordarMensaje("c", `u${i}`, `mensaje ${i}`);
   assert.equal(CC.contextoChat.get("c").length, 250, "lo de las últimas 6 horas queda todo");
-  assert.equal(CC.textoContexto("c", false).split("\n").length, 14);
+  assert.equal((await import("../lib/hilo.js")).textoDelHilo("c").split("\n").length, 14);
   assert.match(Mem.recordar(G, "u", "que Fulano siempre llega tarde").mensaje, /Anotado \(#1\): Fulano siempre llega tarde/);
   assert.match(Mem.recordar(G, "u", "x").error, /^¿Qué anoto\? Ej: \.nota /);
   assert.match(Mem.recordar(G, "u", "que la contraseña del wifi es 1234").error, /no lo guardo/);

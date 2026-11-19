@@ -106,6 +106,31 @@ test("sin nada son los últimos 15 minutos, y lo de antes no entra", async () =>
   assert.doesNotMatch(pedidos[0], /de antes/);
 });
 
+// The memory keeps what isn't text too, as a mark (lib/adjuntos.js), and what the bot sends (lib/envios.js). A summary
+// goes on as before: by what was said, a caption and what a voice note said included.
+test("una foto sin nada dicho y lo que mandó el bot no entran al resumen; una foto con pie, sí", async () => {
+  const ahora = Date.now();
+  llenar(4, MIN, { desde: ahora });
+  for (let i = 0; i < 20; i++) CC.recordarMensaje(C, "Ana", "📷 (foto)", false, { fecha: ahora - 50 * 1000 + i * 1000, comando: false });
+  CC.recordarMensaje(C, "Beto", "💟 (sticker)", false, { fecha: ahora - 25 * 1000, comando: false });
+  CC.recordarMensaje(C, "Beto", "🎤 (audio de 0:40)", false, { fecha: ahora - 24 * 1000, comando: false, esAudio: true });
+  CC.recordarMensaje(C, "Beto", "📷 (foto) así quedó el asado", false, { fecha: ahora - 20 * 1000, comando: false });
+  CC.recordarMensaje(C, "Claudia", "🎡 salió el 14 rojo", true, { fecha: ahora - 10 * 1000, comando: true });
+  assert.match(await pedir(), /^📝 \*Resumen de los últimos 15 min\* \(5 mensajes\)/);
+  assert.match(pedidos[0], /Beto: 📷 \(foto\) así quedó el asado/);
+  assert.equal(pedidos[0].match(/\(foto\)/g).length, 1);
+  assert.doesNotMatch(pedidos[0], /sticker|audio de|🎡/);
+
+  // And with nothing but photos, there's nothing to tell, and no request spent.
+  CC.contextoChat.delete(C);
+  R.resumenesGuardados.delete(C);
+  R.ultimoResumen.delete(C);
+  for (let i = 0; i < 30; i++) CC.recordarMensaje(C, "Ana", "📷 (foto)", false, { fecha: ahora - 60 * 1000 + i * 1000, comando: false });
+  const antes = llamadas;
+  assert.match(await pedir(), /^Casi no hubo mensajes/);
+  assert.equal(llamadas, antes);
+});
+
 test("con pocos mensajes el encabezado dice el tiempo pedido", async () => {
   llenar(10, 10 * MIN);
   assert.match(await pedir(["6"]), /^📝 \*Resumen de las últimas 6 h\* \(10 mensajes\)/);
