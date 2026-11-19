@@ -160,12 +160,13 @@ test(".notas yo muestra lo que sabe de vos en el grupo, y .notas olvidame lo bor
     await Memoria.run({ chat: SUYO, sender: ANA, isGroup: true }, { client: conexion.client, text: accion, args: [accion], command: "notas", isAdmin: false, isOwner: false });
     return ultimoEnviado().msg.text;
   };
-  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto\nPara que me lo olvide: .notas olvidame");
+  const DE_VOS = (...cosas) => `🧠 Lo que sé de vos en este grupo:\n${cosas.map((que, i) => `${i + 1}. ${que}`).join("\n")}\nPara que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame`;
+  assert.equal(await pedir("yo"), DE_VOS("tiene un perro que se llama Toto"), "lo de antes de las fechas, sin fecha");
   // What she noted while chatting may hold the digits of a LID she was told about: sendText tagged that person. Whoever
   // the bot knows goes by name, as in .notas.
   conBeto();
   MP.anotarDe(ANA, SUYO, "le debe una ronda a @300000000000096 y a @300000000000003");
-  assert.equal(await pedir("yo"), "🧠 Lo que sé de vos en este grupo: tiene un perro que se llama Toto · le debe una ronda a 300000000000096 y a @Beto\nPara que me lo olvide: .notas olvidame");
+  assert.equal(await pedir("yo"), DE_VOS("tiene un perro que se llama Toto", "le debe una ronda a 300000000000096 y a @Beto (hoy)"));
   assert.equal(menciones(ultimoEnviado().msg.text), 0);
   assert.equal(await pedir("olvidame"), "🧠 Listo, me olvidé de lo que sabía de vos en este grupo.");
   assert.equal(MP.memoriaDe(ANA, SUYO), "");

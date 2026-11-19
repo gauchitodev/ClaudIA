@@ -12,7 +12,8 @@ const [ANA, BETO] = ["111@lid", "222@lid"];
 const PIE = "\n\nPara borrar: .notas borrar <número> (quien la anotó o un admin) · .notas limpiar (admin)\nLo que sé de vos: .notas yo · para que lo olvide: .notas olvidame";
 const lista = (...notas) => `🧠 *Notas del grupo* (${notas.length}/40)\n${notas.map(([id, texto]) => `#${id} · ${texto}`).join("\n")}${PIE}`;
 const VACIA = "No tengo ninguna nota de este grupo todavía. Anotame algo con .nota <algo>";
-const DE_VOS = (que) => `🧠 Lo que sé de vos en este grupo: ${que}\nPara que me lo olvide: .notas olvidame`;
+// What .notas yo answers: each thing she knows, numbered and with when she learned it (today, for what these note).
+const DE_VOS = (...cosas) => `🧠 Lo que sé de vos en este grupo:\n${cosas.map((que, i) => `${i + 1}. ${que} (hoy)`).join("\n")}\nPara que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame`;
 
 before(async () => {
   ({ F } = await prepararBase("notas"));

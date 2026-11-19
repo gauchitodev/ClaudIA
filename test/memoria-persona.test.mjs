@@ -1,0 +1,615 @@
+// What Claudia knows of each person in a group (lib/memoria-persona.js), now with when she learned each thing. It was
+// one text of the last six, with no dates: "rinde Anatomía en diciembre" read the same in January as the day it was
+// said, the same thing told three times took three places, and the seventh pushed out the first, whatever it was. Now
+// each has its date, the same thing again is the one she had, and when they're too many she goes over them herself.
+// And she keeps when each person last talked to her, to notice who's back (lib/quien-escribe.js).
+// Gemini is swapped for canned answers (her chat's, and the one that goes over what she knows), and her clock and her
+// timers are the test's: nothing waits for real.
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { prepararBase, clienteFalso, ultimoEnviado } from "./helpers.mjs";
+import { configuracion } from "../lib/configuracion.js";
+import { conexion } from "../lib/conexion.js";
+import { estadoDe } from "../lib/estado-de-plugins.js";
+
+let F, MP, T, Q, IA, AutoIA, Turnos, Notas, Cumple, RITMO;
+const prompts = []; // what her chat, or a greeting, asked the AI
+let respuesta; // and what it answers
+let repasos; // what was asked to go over what she knows: [{ texto, opciones }]
+let repaso; // and what comes back: a function of the prompt, sync or async
+let ahora; // her clock
+const relojes = []; // the turns she left for later
+const fetchReal = globalThis.fetch;
+const logReal = console.log;
+const ritmoReal = {};
+const depReal = {};
+const ritmoDeClaudia = estadoDe("ia-ultima-respuesta", () => new Map()); // her pace in each chat (plugins/_auto-ia.js)
+
+const HORA = 60 * 60 * 1000;
+const DIA = 24 * HORA;
+const BOT = "200000000000009@lid";
+const [ANA, BETO] = ["7400001@lid", "7400002@lid"];
+// A fixed afternoon: the dates she's told are by the calendar.
+const AHORA = new Date(2026, 10, 18, 15, 0).getTime();
+const hace = (dias) => AHORA - dias * DIA;
+
+before(async () => {
+  ({ F } = await prepararBase("memoria-persona"));
+  configuracion.geminiApiKey = "clave";
+  ({ RITMO } = await import("../lib/ritmo.js"));
+  for (const k of ["TIPEO_MIN_MS", "TIPEO_MAX_MS", "TIPEO_POR_LETRA_MS", "MIN_ENTRE_MENSAJES_MS"]) ritmoReal[k] = RITMO[k];
+  Object.assign(RITMO, { TIPEO_MIN_MS: 0, TIPEO_MAX_MS: 1, TIPEO_POR_LETRA_MS: 0, MIN_ENTRE_MENSAJES_MS: 0 });
+  console.log = () => {}; // the AI module narrates which model answered
+  globalThis.fetch = async (url, opciones) => {
+    prompts.push(JSON.parse(opciones.body).contents[0].parts.at(-1).text);
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: typeof respuesta === "string" ? respuesta : JSON.stringify(respuesta) }] } }] }) };
+  };
+  MP = await import("../lib/memoria-persona.js");
+  T = await import("../lib/tiempo.js");
+  Q = await import("../lib/quien-escribe.js");
+  IA = await import("../plugins/_auto-ia.js");
+  AutoIA = IA.default;
+  Turnos = await import("../lib/turnos-de-claudia.js");
+  Notas = (await import("../plugins/memoria-grupo.js")).default;
+  Cumple = await import("../lib/cumpleanos.js");
+  Object.assign(depReal, { preguntar: MP._dep.preguntar, ia: { ...IA._dep } });
+  MP._dep.preguntar = async (texto, opciones) => {
+    repasos.push({ texto, opciones });
+    return repaso(texto);
+  };
+  IA._dep.ahora = () => ahora;
+  IA._dep.programar = (fn, ms) => {
+    const reloj = { fn, ms };
+    relojes.push(reloj);
+    return reloj;
+  };
+  IA._dep.cancelar = (reloj) => {
+    if (relojes.includes(reloj)) relojes.splice(relojes.indexOf(reloj), 1);
+  };
+});
+after(() => {
+  globalThis.fetch = fetchReal;
+  console.log = logReal;
+  Object.assign(RITMO, ritmoReal);
+  MP._dep.preguntar = depReal.preguntar;
+  Object.assign(IA._dep, depReal.ia);
+});
+beforeEach(() => {
+  MP._pruebas.reiniciar();
+  Turnos.reiniciarTurnos();
+  ritmoDeClaudia.clear();
+  relojes.length = 0;
+  prompts.length = 0;
+  repasos = [];
+  repaso = () => ({ ok: false });
+  respuesta = { comando: "ninguno", respuesta: "Dale." };
+  ahora = AHORA;
+});
+
+let grupos = 0;
+// A group of the test's own, where the bot knows Ana and Beto.
+function grupo() {
+  const chat = `memoria-persona-${++grupos}@g.us`;
+  F.initDataDB({ chat, sender: ANA, senderJid: "", pushName: "Ana" });
+  F.initDataDB({ chat, sender: BETO, senderJid: "", pushName: "Beto" });
+  F.getUser(ANA, chat);
+  F.getUser(BETO, chat);
+  return chat;
+}
+const sabe = (chat, usuario = ANA) => MP.recuerdosDe(usuario, chat).map((r) => [r.dato, r.fecha]);
+// What she'd come to know one thing at a time, each a day after the one before, the last one today.
+function aprender(chat, datos, usuario = ANA) {
+  datos.forEach((dato, i) => MP.anotarDe(usuario, chat, dato, hace(datos.length - 1 - i)));
+}
+const DIEZ = ["le gusta el rock nacional", "tiene un perro que se llama Toto", "es hincha de Peñarol", "le gusta el rock", "estudia Medicina", "rinde Anatomía en diciembre", "odia madrugar", "vive en Pocitos", "se mudó a Malvín", "toca la guitarra"];
+// What the AI answers when she goes over them: each note, and the numbers of the ones it comes from.
+const notas = (...lista) => ({ ok: true, texto: JSON.stringify({ notas: lista.map(([texto, ...de]) => ({ texto, de })) }) });
+
+// ---------- how long ago ----------
+
+test("hace cuánto, en palabras redondas y por el calendario", () => {
+  const tarde = new Date(2026, 10, 18, 15, 0).getTime();
+  const dia = (anio, mes, d, hora = 12) => new Date(anio, mes - 1, d, hora).getTime();
+  assert.equal(T.diasDeCalendario(dia(2026, 11, 18, 0), tarde), 0);
+  assert.equal(T.diasDeCalendario(dia(2026, 11, 17, 23), tarde), 1, "anoche fue ayer, aunque sean pocas horas");
+  assert.equal(T.diasDeCalendario(dia(2026, 11, 17, 23), dia(2026, 11, 18, 1)), 1);
+  assert.equal(T.diasDeCalendario(dia(2026, 11, 17, 1), dia(2026, 11, 18, 23)), 1, "y casi dos días de reloj, también");
+  assert.equal(T.diasDeCalendario(dia(2026, 10, 18), tarde), 31);
+  assert.equal(T.diasDeCalendario(dia(2025, 11, 18), tarde), 365);
+  assert.equal(T.diasDeCalendario(dia(2026, 11, 19), tarde), -1);
+
+  assert.deepEqual(
+    [1, 2, 13, 14, 20, 21, 59, 60, 89, 90, 364, 365, 729, 730, 1500].map(T.tiempoRedondo),
+    ["1 día", "2 días", "13 días", "2 semanas", "2 semanas", "3 semanas", "8 semanas", "2 meses", "2 meses", "3 meses", "12 meses", "más de un año", "más de un año", "más de 2 años", "más de 4 años"],
+  );
+
+  assert.equal(T.haceCuanto(tarde - HORA, tarde), "hoy");
+  assert.equal(T.haceCuanto(dia(2026, 11, 17, 23), tarde), "ayer");
+  assert.equal(T.haceCuanto(dia(2026, 11, 16), tarde), "hace 2 días");
+  assert.equal(T.haceCuanto(dia(2026, 10, 28), tarde), "hace 3 semanas");
+  assert.equal(T.haceCuanto(dia(2026, 3, 10), tarde), "hace 8 meses");
+  assert.equal(T.haceCuanto(dia(2025, 6, 1), tarde), "hace más de un año");
+  assert.equal(T.haceCuanto(dia(2026, 11, 20), tarde), "hoy", "un reloj corrido no da una fecha por venir");
+});
+
+// ---------- what she keeps ----------
+
+test("cada cosa queda con su fecha, y la misma cosa dicha de nuevo es la que ya tenía, de ahora", () => {
+  const chat = grupo();
+  assert.deepEqual(MP.anotarDe(ANA, chat, "  le gusta el   rock nacional ", hace(20)), [{ dato: "le gusta el rock nacional", fecha: hace(20) }]);
+  MP.anotarDe(ANA, chat, "tiene un perro que se llama Toto", hace(10));
+  MP.anotarDe(ANA, chat, "rinde Anatomía en diciembre", hace(1));
+  assert.deepEqual(sabe(chat), [
+    ["le gusta el rock nacional", hace(20)],
+    ["tiene un perro que se llama Toto", hace(10)],
+    ["rinde Anatomía en diciembre", hace(1)],
+  ]);
+  assert.equal(MP.memoriaDe(ANA, chat), "le gusta el rock nacional | tiene un perro que se llama Toto | rinde Anatomía en diciembre");
+  assert.equal(
+    MP.textoDeRecuerdos(MP.recuerdosDe(ANA, chat), AHORA),
+    "le gusta el rock nacional (hace 2 semanas) · tiene un perro que se llama Toto (hace 10 días) · rinde Anatomía en diciembre (ayer). Entre paréntesis va cuándo te enteraste de cada cosa: lo de hace mucho puede haber cambiado",
+  );
+
+  // Told again, with other capitals, accents or signs: it's the one she had, as of now and as it was said this time,
+  // and it goes last, where the newest is. It used to take another place of the six.
+  MP.anotarDe(ANA, chat, "¡Tiene  un perro que se llama Tóto!", AHORA);
+  assert.deepEqual(sabe(chat), [
+    ["le gusta el rock nacional", hace(20)],
+    ["rinde Anatomía en diciembre", hace(1)],
+    ["¡Tiene un perro que se llama Tóto!", AHORA],
+  ]);
+  // The signs between the words don't make it another one either.
+  MP.anotarDe(ANA, chat, "Le gusta el rock - nacional :)", AHORA);
+  assert.deepEqual(sabe(chat), [
+    ["rinde Anatomía en diciembre", hace(1)],
+    ["¡Tiene un perro que se llama Tóto!", AHORA],
+    ["Le gusta el rock - nacional :)", AHORA],
+  ]);
+  // Something else that looks like it is something else.
+  MP.anotarDe(ANA, chat, "tiene un perro", AHORA);
+  MP.anotarDe(ANA, chat, "tiene 1 perro que se llama Toto", AHORA);
+  assert.equal(sabe(chat).length, 5);
+
+  // To each their own, in each group; nothing in private, nothing sensitive, nothing empty.
+  const otro = grupo();
+  assert.deepEqual([sabe(chat, BETO), sabe(otro)], [[], []]);
+  const nada = [
+    ["7400001@s.whatsapp.net", "le gusta el mate"],
+    [chat, "su contraseña del wifi es toto123"],
+    [chat, "   "],
+    [chat, null],
+  ];
+  for (const [donde, dato] of nada) assert.equal(MP.anotarDe(ANA, donde, dato, AHORA), null, String(dato));
+  assert.equal(sabe(chat).length, 5);
+  assert.equal(MP.anotarDe(ANA, chat, "x".repeat(500), AHORA).at(-1).dato.length, MP.MEMORIA_PERSONA.MAX_DATO);
+  assert.equal(MP.anotarDe("7499999@lid", chat, "alguien que el bot no conoce", AHORA), null);
+  assert.equal(MP.textoDeRecuerdos([]), "");
+});
+
+test("pasado el tope se va lo que supo hace más tiempo, y lo dicho de nuevo ya no es lo más viejo", () => {
+  const chat = grupo();
+  aprender(chat, DIEZ);
+  assert.deepEqual(sabe(chat).map(([dato]) => dato), DIEZ, "hasta el tope entran todas");
+  // The first one she noted, heard again today: it's the newest now, and the one to go is the one that came after it.
+  MP.anotarDe(ANA, chat, DIEZ[0], AHORA);
+  assert.deepEqual(sabe(chat).map(([dato]) => dato), [...DIEZ.slice(1), DIEZ[0]]);
+  MP.anotarDe(ANA, chat, "la once", AHORA);
+  assert.deepEqual(sabe(chat).map(([dato]) => dato), [...DIEZ.slice(2), DIEZ[0], "la once"]);
+});
+
+test("lo guardado antes de las fechas se lee igual, sin fecha, y es lo primero en irse", () => {
+  const chat = grupo();
+  F.updateUserInGroup(ANA, chat, { memoria: "tiene un perro que se llama Toto | es hincha de Peñarol" });
+  assert.deepEqual(sabe(chat), [
+    ["tiene un perro que se llama Toto", 0],
+    ["es hincha de Peñarol", 0],
+  ]);
+  assert.equal(MP.memoriaDe(ANA, chat), "tiene un perro que se llama Toto | es hincha de Peñarol");
+  assert.equal(MP.textoDeRecuerdos(MP.recuerdosDe(ANA, chat), AHORA), "tiene un perro que se llama Toto · es hincha de Peñarol", "sin fechas, no hay nada que explicar");
+  MP.anotarDe(ANA, chat, "odia madrugar", AHORA);
+  assert.deepEqual(F.getUser(ANA).inGroup[chat].memoria, [
+    { dato: "tiene un perro que se llama Toto", fecha: 0 },
+    { dato: "es hincha de Peñarol", fecha: 0 },
+    { dato: "odia madrugar", fecha: AHORA },
+  ]);
+  assert.match(MP.textoDeRecuerdos(MP.recuerdosDe(ANA, chat), AHORA), /^tiene un perro que se llama Toto · es hincha de Peñarol · odia madrugar \(hoy\)\. Entre paréntesis/);
+  // Said again, it has a date from then on.
+  MP.anotarDe(ANA, chat, "es hincha de peñarol", AHORA);
+  assert.deepEqual(sabe(chat), [
+    ["tiene un perro que se llama Toto", 0],
+    ["odia madrugar", AHORA],
+    ["es hincha de peñarol", AHORA],
+  ]);
+  for (let i = 0; i < 8; i++) MP.anotarDe(ANA, chat, `cosa ${i}`, AHORA);
+  assert.deepEqual([sabe(chat).length, sabe(chat)[0]], [10, ["odia madrugar", AHORA]]);
+
+  // Whatever is in the row, nothing breaks.
+  const raros = [
+    [null, []],
+    [123, [["123", 0]]],
+    // The old text was cut to its last 600 letters, wherever that fell: in the middle of the mark between two, too.
+    [
+      " es hincha de Peñarol | odia madrugar",
+      [
+        ["es hincha de Peñarol", 0],
+        ["odia madrugar", 0],
+      ],
+    ],
+    [" | odia madrugar", [["odia madrugar", 0]]],
+    [
+      [{ dato: 5 }, null, "suelto", { dato: "sirve", fecha: "ayer" }, { dato: "", fecha: 3 }, { dato: "con fecha", fecha: "1700" }],
+      [
+        ["sirve", 0],
+        ["con fecha", 1700],
+      ],
+    ],
+  ];
+  for (const [guardado, esperado] of raros) {
+    F.updateUserInGroup(ANA, chat, { memoria: guardado });
+    assert.deepEqual(sabe(chat), esperado, JSON.stringify(guardado));
+  }
+});
+
+// ---------- going over them ----------
+
+test("al llegar al tope las repasa: junta lo que dice lo mismo, y cada una es de la última vez que lo supo", async () => {
+  const chat = grupo();
+  aprender(chat, DIEZ.slice(0, 9));
+  assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), false, "con menos del tope no hay nada que repasar");
+  assert.equal(repasos.length, 0);
+
+  aprender(chat, DIEZ);
+  repaso = () => notas(["le gusta el rock, sobre todo el nacional", 1, 4], ["vive en Malvín", 8, 9], ["tiene un perro, Toto", 2], ["  estudia Medicina y rinde   Anatomía en diciembre ", 5, 6], ["toca la guitarra", 10]);
+  assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), true);
+  assert.equal(repasos.length, 1);
+  assert.match(repasos[0].texto, /^Estas son las notas que fuiste tomando de Ana charlando en un grupo, cada una con cuándo la anotaste:\n1\. \(hace 9 días\) le gusta el rock nacional\n2\. \(hace 8 días\) tiene un perro que se llama Toto\n/);
+  assert.match(repasos[0].texto, /\n9\. \(ayer\) se mudó a Malvín\n10\. \(hoy\) toca la guitarra\n\n\(Instrucción para vos, no la muestres: son demasiadas\. Dejá como mucho 6,/);
+  assert.deepEqual(Object.keys(repasos[0].opciones.schema.properties), ["notas"]);
+  assert.deepEqual(
+    sabe(chat),
+    [
+      ["tiene un perro, Toto", hace(8)],
+      ["le gusta el rock, sobre todo el nacional", hace(6)],
+      ["estudia Medicina y rinde Anatomía en diciembre", hace(4)],
+      ["vive en Malvín", hace(1)],
+      ["toca la guitarra", hace(0)],
+    ],
+    "de lo que supo hace más a lo más nuevo, cada una con la fecha de su nota más nueva",
+  );
+  assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), false, "y ya no hay nada que repasar");
+
+  // What was kept before the dates goes in as from long ago, and takes the date of what it's joined with. Six is as
+  // many as may be left.
+  const viejo = grupo();
+  F.updateUserInGroup(ANA, viejo, { memoria: DIEZ.slice(0, 9).join(" | ") });
+  MP.anotarDe(ANA, viejo, "le gusta mucho el rock", AHORA);
+  repaso = () => notas(["le gusta el rock", 1, 4, 10], ["es hincha de Peñarol", 3], ["tiene un perro, Toto", 2], ["estudia Medicina", 5], ["odia madrugar", 7], ["vive en Malvín", 8, 9]);
+  assert.equal(await MP.repasarRecuerdos(ANA, viejo, undefined, AHORA), true);
+  assert.match(repasos.at(-1).texto, /de esa persona charlando en un grupo, cada una con cuándo la anotaste:\n1\. \(hace mucho, no sabés cuándo\) le gusta el rock nacional\n/);
+  assert.deepEqual(sabe(viejo), [
+    ["es hincha de Peñarol", 0],
+    ["tiene un perro, Toto", 0],
+    ["estudia Medicina", 0],
+    ["odia madrugar", 0],
+    ["vive en Malvín", 0],
+    ["le gusta el rock", AHORA],
+  ]);
+});
+
+test("si lo que vuelve del repaso no sirve, lo que sabía queda como estaba", async () => {
+  const chat = grupo();
+  aprender(chat, DIEZ);
+  const antes = sabe(chat);
+  const malas = [
+    { ok: false, texto: JSON.stringify({ notas: [{ texto: "le gusta el rock", de: [1] }] }) },
+    { ok: true, texto: "no es JSON" },
+    { ok: true, texto: JSON.stringify({ otra: "cosa" }) },
+    { ok: true, texto: JSON.stringify({ notas: "le gusta el rock" }) },
+    notas(),
+    notas(["una", 1], ["dos", 2], ["tres", 3], ["cuatro", 4], ["cinco", 5], ["seis", 6], ["siete", 7]),
+    notas(["le gusta el rock", 1], ["sale de la nada"]),
+    notas(["le gusta el rock", 1], ["de una nota que no existe", 11]),
+    notas(["le gusta el rock", 1], ["de una nota que no existe", 0]),
+    notas(["le gusta el rock", 1], ["   ", 2]),
+    notas(["le gusta el rock", 1], ["su contraseña del wifi es toto123", 2]),
+    { ok: true, texto: JSON.stringify({ notas: [{ texto: "le gusta el rock", de: "1" }] }) },
+    { ok: true, texto: JSON.stringify({ notas: [null] }) },
+    undefined,
+  ];
+  for (const mala of malas) {
+    repaso = () => mala;
+    assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), false, JSON.stringify(mala));
+    assert.deepEqual(sabe(chat), antes);
+  }
+  assert.equal(repasos.length, malas.length);
+  // And a call that blows up leaves her free to go over them the next time.
+  repaso = () => {
+    throw new Error("sin red");
+  };
+  await assert.rejects(MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), /sin red/);
+  repaso = () => notas(["le gusta el rock", 1, 4]);
+  assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), true);
+  assert.deepEqual(sabe(chat), [["le gusta el rock", hace(6)]]);
+});
+
+test("si lo que sabía cambió mientras lo repasaba, el repaso no se aplica: lo olvidado no vuelve y lo nuevo no se pierde", async () => {
+  // The AI's answer comes back once `hacer` has happened.
+  const mientras = (chat, hacer) => {
+    let soltar;
+    const pensando = new Promise((resolve) => (soltar = resolve));
+    repaso = async () => (await pensando, notas(["le gusta el rock", 1, 4], ["tiene un perro, Toto", 2]));
+    const repasando = MP.repasarRecuerdos(ANA, chat, "Ana", AHORA);
+    hacer();
+    soltar();
+    return repasando;
+  };
+  const lleno = () => {
+    const chat = grupo();
+    aprender(chat, DIEZ);
+    return chat;
+  };
+
+  // With nothing in between, that answer is what she's left with.
+  const quieta = lleno();
+  assert.equal(await mientras(quieta, () => {}), true);
+  assert.deepEqual(sabe(quieta), [
+    ["tiene un perro, Toto", hace(8)],
+    ["le gusta el rock", hace(6)],
+  ]);
+
+  // Asked to be forgotten while she was at it: forgotten stays forgotten.
+  const olvidada = lleno();
+  assert.equal(await mientras(olvidada, () => MP.olvidarDe(ANA, olvidada)), false);
+  assert.deepEqual(sabe(olvidada), []);
+
+  // One thing forgotten: what she made of the list it was in would bring it back.
+  const unaMenos = lleno();
+  assert.equal(await mientras(unaMenos, () => MP.olvidarUno(ANA, unaMenos, 2)), false);
+  assert.deepEqual(sabe(unaMenos).map(([dato]) => dato), [DIEZ[0], ...DIEZ.slice(2)]);
+
+  // Something learned meanwhile: it's there, and wasn't in what she went over.
+  const nueva = lleno();
+  assert.equal(await mientras(nueva, () => MP.anotarDe(ANA, nueva, "empezó natación", AHORA + 5000)), false);
+  assert.deepEqual(sabe(nueva).map(([dato]) => dato), [...DIEZ.slice(1), "empezó natación"]);
+
+  // One of them said again: it's from now, and not from when that list had it.
+  const repetida = lleno();
+  assert.equal(await mientras(repetida, () => MP.anotarDe(ANA, repetida, DIEZ[9], AHORA + 5000)), false);
+  assert.deepEqual([sabe(repetida).length, sabe(repetida).at(-1)], [10, [DIEZ[9], AHORA + 5000]]);
+});
+
+test("repasa de a una persona por vez, y con un tope de consultas por día", async () => {
+  const chat = grupo();
+  aprender(chat, DIEZ);
+  aprender(chat, DIEZ, BETO);
+  let soltar;
+  const pensando = new Promise((resolve) => (soltar = resolve));
+  repaso = async () => (await pensando, notas(["le gusta el rock", 1, 4]));
+  const primero = MP.repasarRecuerdos(ANA, chat, "Ana", AHORA);
+  assert.equal(await MP.repasarRecuerdos(ANA, chat, "Ana", AHORA), false, "ya las está repasando");
+  assert.equal(repasos.length, 1);
+  // Somebody else's, meanwhile, is another matter, and so is what she knows of the same person in another group.
+  const otroGrupo = grupo();
+  aprender(otroGrupo, DIEZ);
+  const deBeto = MP.repasarRecuerdos(BETO, chat, "Beto", AHORA);
+  const enOtro = MP.repasarRecuerdos(ANA, otroGrupo, "Ana", AHORA);
+  assert.equal(repasos.length, 3);
+  soltar();
+  assert.deepEqual([await primero, await deBeto, await enOtro], [true, true, true]);
+  for (const lista of [sabe(chat), sabe(chat, BETO), sabe(otroGrupo)]) assert.deepEqual(lista, [["le gusta el rock", hace(6)]]);
+
+  // The day's cap is everybody's: past it, what she knows of each stays at its own cap until tomorrow.
+  const tope = MP.MEMORIA_PERSONA.REPASOS_DIA;
+  MP.MEMORIA_PERSONA.REPASOS_DIA = 2;
+  MP._pruebas.reiniciar();
+  try {
+    repaso = () => ({ ok: false });
+    const otros = [grupo(), grupo(), grupo()];
+    for (const g of otros) aprender(g, DIEZ);
+    repasos = [];
+    for (const g of otros) await MP.repasarRecuerdos(ANA, g, "Ana", AHORA);
+    assert.equal(repasos.length, 2, "la tercera del día no llega a la IA");
+    await MP.repasarRecuerdos(ANA, otros[2], "Ana", AHORA + HORA);
+    assert.equal(repasos.length, 2, "ni un rato después");
+    await MP.repasarRecuerdos(ANA, otros[2], "Ana", AHORA + DIA);
+    assert.equal(repasos.length, 3, "al otro día, sí");
+  } finally {
+    MP.MEMORIA_PERSONA.REPASOS_DIA = tope;
+  }
+});
+
+// ---------- what each one sees and can have forgotten ----------
+
+test(".notas yo las muestra numeradas y con hace cuánto, y .notas olvidame <número> saca una sola", async () => {
+  const chat = grupo();
+  const pedir = async (...args) => {
+    await Notas.run({ chat, sender: ANA, isGroup: true }, { client: conexion.client, text: args.slice(1).join(" "), args: args.slice(1), command: args[0], isAdmin: false, isOwner: false });
+    return ultimoEnviado().msg.text;
+  };
+  const hoy = Date.now();
+  const cuatro = () => {
+    MP.anotarDe(ANA, chat, "le gusta el rock nacional", hoy - 250 * DIA);
+    MP.anotarDe(ANA, chat, "tiene un perro que se llama Toto", hoy - 21 * DIA);
+    MP.anotarDe(ANA, chat, "odia madrugar", hoy - DIA);
+    MP.anotarDe(ANA, chat, "rinde Anatomía en diciembre", hoy);
+  };
+  cuatro();
+  MP.anotarDe(BETO, chat, "es hincha de Peñarol", hoy);
+  const PIE = "Para que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame";
+  const SIN_NUMERO = "❌ Para que me olvide de una sola cosa pasame su número, por ejemplo: .notas olvidame 2 (los números salen en .notas yo). Para que me olvide de todo: .notas olvidame todo";
+  assert.equal(await pedir("notas", "yo"), `🧠 Lo que sé de vos en este grupo:\n1. le gusta el rock nacional (hace 8 meses)\n2. tiene un perro que se llama Toto (hace 3 semanas)\n3. odia madrugar (ayer)\n4. rinde Anatomía en diciembre (hoy)\n${PIE}`);
+
+  assert.equal(await pedir("notas", "olvidame", "2"), "🧠 Listo, me olvidé de eso: tiene un perro que se llama Toto");
+  assert.equal(await pedir("notas", "yo"), `🧠 Lo que sé de vos en este grupo:\n1. le gusta el rock nacional (hace 8 meses)\n2. odia madrugar (ayer)\n3. rinde Anatomía en diciembre (hoy)\n${PIE}`);
+  for (const numero of ["0", "4", "99"]) assert.equal(await pedir("notas", "olvidame", numero), `❌ No tengo nada tuyo con el número ${numero}: mirá qué hay con .notas yo`, numero);
+  for (const numero of [0, 4, 1.5, NaN, -1, undefined, "x"]) assert.equal(MP.olvidarUno(ANA, chat, numero), null, String(numero));
+  // With anything else after it, it's not "all of it": whatever came after "olvidame" used to be ignored, and
+  // "olvidame la 2" wiped everything she knew.
+  for (const resto of [["la", "2"], ["2", "3"], ["de", "lo", "del", "perro"], ["2a"], ["-1"], ["1.5"], ["todo", "ya"]]) assert.equal(await pedir("notas", "olvidame", ...resto), SIN_NUMERO, resto.join(" "));
+  assert.equal(sabe(chat).length, 3);
+  assert.equal(sabe(chat, BETO).length, 1, "y nunca lo de otro");
+
+  // In the singular too, where "olvidame 1" isn't a note of the group's.
+  assert.equal(await pedir("nota", "olvidame", "1"), "🧠 Listo, me olvidé de eso: le gusta el rock nacional");
+  assert.equal(await pedir("notas", "OLVIDAME", "2"), "🧠 Listo, me olvidé de eso: rinde Anatomía en diciembre");
+  assert.equal(await pedir("notas", "olvidame", "1"), "🧠 Listo, me olvidé de eso: odia madrugar");
+  assert.deepEqual([sabe(chat), F.getUser(ANA).inGroup[chat].memoria], [[], ""], "la última no deja una lista vacía en la base");
+  assert.equal(await pedir("notas", "yo"), "🧠 No tengo nada anotado de vos en este grupo.");
+  assert.equal(await pedir("notas", "olvidame", "1"), "❌ No tengo nada tuyo con el número 1: mirá qué hay con .notas yo");
+  assert.equal(sabe(chat, BETO).length, 1);
+
+  // What she's told she forgot is shown as .notas yo shows it: the digits of a LID she noted would tag that person.
+  MP.anotarDe(ANA, chat, "le debe una ronda a @7400002", hoy);
+  assert.equal(await pedir("notas", "yo"), `🧠 Lo que sé de vos en este grupo:\n1. le debe una ronda a @Beto (hoy)\n${PIE}`);
+  assert.equal(await pedir("notas", "olvidame", "1"), "🧠 Listo, me olvidé de eso: le debe una ronda a @Beto");
+
+  // "olvidame todo" is all of it, said in full: in the plural and in the singular.
+  for (const comando of ["notas", "nota"]) {
+    cuatro();
+    assert.equal(await pedir(comando, "olvidame", "TODO"), "🧠 Listo, me olvidé de lo que sabía de vos en este grupo.", comando);
+    assert.deepEqual(sabe(chat), []);
+  }
+  assert.equal(F.memoriaGrupo(chat).length, 0, "y nada de esto quedó como nota del grupo");
+});
+
+// ---------- in what she's asked, and when they last talked ----------
+
+// Ana, or whoever, writes in the group: to Claudia, tagging her, unless told otherwise.
+async function llega(chat, texto, { sender = ANA, aElla = true } = {}) {
+  const client = { ...clienteFalso(), user: { lid: BOT, id: "59800000009@s.whatsapp.net", jid: "59800000009@s.whatsapp.net" }, sendPresenceUpdate: async () => {} };
+  const m = {
+    chat,
+    isGroup: true,
+    sender,
+    senderJid: "",
+    pushName: sender === ANA ? "Ana" : "Beto",
+    text: aElla ? `@${BOT.split("@")[0]} ${texto}` : texto,
+    mentionedJid: aElla ? [BOT] : [],
+    quoted: null,
+    key: { remoteJid: chat, fromMe: false, id: `P${Math.random()}`, participant: sender },
+  };
+  await AutoIA.before(m, { client, participants: [], isBotAdmin: true, isOwner: false, isAdmin: false, isMod: false, user: F.getUser(sender, chat), chat: {} });
+}
+// The same with her turn free, and no turn left for later: she answers there and then. Returns what the AI was asked.
+async function escribe(chat, texto, opciones) {
+  ritmoDeClaudia.delete(chat);
+  prompts.length = 0;
+  await llega(chat, texto, opciones);
+  assert.equal(relojes.length, 0, "no dejó ningún turno para después");
+  return prompts[0];
+}
+
+test("charlando: le llega lo que sabe con hace cuánto, lo que aprende queda con fecha, y al llegar al tope lo repasa sola", async () => {
+  const chat = grupo();
+  MP.anotarDe(ANA, chat, "le gusta el rock nacional", hace(250));
+  MP.anotarDe(ANA, chat, "rinde Anatomía en diciembre", hace(1));
+  respuesta = { comando: "ninguno", respuesta: "¡Suerte con eso!", recordar: "consiguió trabajo en una veterinaria" };
+  const pedido = await escribe(chat, "¿sabés que conseguí laburo?");
+  assert.ok(pedido.includes("\n\nLo que ya sabés de Ana por charlas anteriores en este grupo: le gusta el rock nacional (hace 8 meses) · rinde Anatomía en diciembre (ayer). Entre paréntesis va cuándo te enteraste de cada cosa: lo de hace mucho puede haber cambiado.\n\n"), pedido);
+  assert.match(pedido, /o de que cambió algo que ya sabías de ella, ponelo corto en "recordar"/);
+  assert.deepEqual(sabe(chat).at(-1), ["consiguió trabajo en una veterinaria", AHORA], "con la hora de su reloj");
+  assert.equal(sabe(chat).length, 3);
+  assert.equal(repasos.length, 0, "con tres no hay nada que repasar");
+  // Of someone she knows nothing of, nothing is said.
+  respuesta = { comando: "ninguno", respuesta: "Nada todavía." };
+  assert.doesNotMatch(await escribe(chat, "¿y de mí qué sabés?", { sender: BETO }), /Lo que ya sabés de/);
+
+  // The tenth thing brings on the review, after her answer and without anybody waiting for it.
+  const lleno = grupo();
+  aprender(lleno, DIEZ.slice(0, 9));
+  let llego;
+  const repasado = new Promise((resolve) => (llego = resolve));
+  repaso = () => (setImmediate(llego), notas(["le gusta el rock", 1, 4], ["tiene un perro, Toto", 2], ["trabaja en una veterinaria", 10]));
+  respuesta = { comando: "ninguno", respuesta: "¡Qué bueno!", recordar: "trabaja en una veterinaria" };
+  ahora = AHORA + 2 * DIA;
+  await escribe(lleno, "¿te conté que ya arranqué en la veterinaria?");
+  await repasado;
+  assert.equal(repasos.length, 1);
+  assert.match(repasos[0].texto, /^Estas son las notas que fuiste tomando de Ana charlando en un grupo, cada una con cuándo la anotaste:\n1\. \(hace 10 días\) le gusta el rock nacional\n[^]*\n10\. \(hoy\) trabaja en una veterinaria\n\n/);
+  assert.deepEqual(sabe(lleno), [
+    ["tiene un perro, Toto", hace(7)],
+    ["le gusta el rock", hace(5)],
+    ["trabaja en una veterinaria", AHORA + 2 * DIA],
+  ]);
+});
+
+test("cuándo le habló cada uno por última vez: lo anota al contestarle con palabras, y se da cuenta de quien vuelve", async () => {
+  const chat = grupo();
+  const ultima = (usuario = ANA) => F.getUser(usuario).inGroup[chat].ultimaCharla;
+  assert.equal(ultima(), undefined);
+  assert.doesNotMatch(await escribe(chat, "¿cómo andás hoy?"), /que no te hablaba/, "de quien no tiene anotado nada no supone una primera vez");
+  assert.deepEqual(globalThis.enviados.map((e) => e.msg.text), ["Dale."]);
+  assert.equal(ultima(), AHORA);
+  assert.equal(ultima(BETO), undefined, "solo de quien le habló");
+
+  // A few days later it's nothing to remark on; after a week, it is.
+  ahora = AHORA + 6 * DIA;
+  assert.doesNotMatch(await escribe(chat, "¿todo bien por ahí?"), /que no te hablaba/);
+  assert.equal(ultima(), AHORA + 6 * DIA);
+  ahora = AHORA + 27 * DIA;
+  assert.match(await escribe(chat, "¿me extrañaste?"), /\n\nSobre Ana, para que sepas con quién hablás \(es de fondo: no lo saques si no viene al caso\): ([^\n]*; )?hacía 3 semanas que no te hablaba\.\n\n/);
+  assert.equal(ultima(), AHORA + 27 * DIA);
+  assert.doesNotMatch(await escribe(chat, "¿y ahora?"), /que no te hablaba/, "ya le habló: no se lo repite en el mensaje que sigue");
+
+  // Named in passing and let go by, she didn't talk to them: it doesn't count.
+  respuesta = { comando: "ninguno", forma: "nada", respuesta: "" };
+  ahora = AHORA + 40 * DIA;
+  assert.match(await escribe(chat, "el bot anda lento hoy", { aElla: false }), /hacía 13 días que no te hablaba/);
+  assert.deepEqual(globalThis.enviados, [], "no dijo nada");
+  assert.equal(ultima(), AHORA + 27 * DIA);
+
+  // The line itself, by the calendar.
+  const fila = (dias) => ({ inGroup: { [chat]: { ultimaCharla: AHORA - dias * DIA } } });
+  const dice = (user, extra = {}) => Q.quienEscribe({ chat, usuario: BETO, nombre: "Beto", user, ahora: AHORA, ...extra });
+  assert.equal(dice(fila(6)), "");
+  assert.equal(dice(fila(7)), "Sobre Beto, para que sepas con quién hablás (es de fondo: no lo saques si no viene al caso): hacía 7 días que no te hablaba.");
+  assert.equal(dice({ inGroup: { [chat]: { ultimaCharla: new Date(2026, 10, 11, 23, 50).getTime() } } }), dice(fila(7)), "una semana de calendario, aunque falten horas");
+  assert.match(dice(fila(400)), /: hacía más de un año que no te hablaba\.$/);
+  assert.match(dice(fila(30), { isAdmin: true }), /: es admin del grupo; hacía 4 semanas que no te hablaba\.$/);
+  assert.equal(dice({ inGroup: { [chat]: { ultimaCharla: 0 } } }), "");
+  assert.equal(dice({ inGroup: { "otro@g.us": { ultimaCharla: 1 } } }), "", "lo de otro grupo es de otro grupo");
+  assert.equal(dice(fila(30), { esGrupo: false }), "", "en privado no hay grupo del que acordarse");
+
+  // And .notas olvidame takes it too, whether or not she knew anything else.
+  assert.equal(MP.olvidarDe(ANA, chat), false, "no tenía nada anotado");
+  assert.equal(ultima(), 0);
+  MP.anotarDe(ANA, chat, "le gusta el rock", AHORA);
+  MP.anotarCharla([ANA, null, ANA, BETO], chat, AHORA);
+  assert.deepEqual([ultima(), ultima(BETO)], [AHORA, AHORA]);
+  assert.equal(MP.olvidarDe(ANA, chat), true);
+  assert.deepEqual([sabe(chat), ultima(), ultima(BETO)], [[], 0, AHORA], "lo suyo, y solo lo suyo");
+  MP.anotarCharla([ANA], "7400001@s.whatsapp.net", AHORA);
+  assert.equal(F.getUser(ANA).inGroup["7400001@s.whatsapp.net"], undefined, "en privado no anota nada");
+});
+
+test("a los que les contesta juntos, en una tanda, les anota la charla a todos", async () => {
+  const chat = grupo();
+  const ultima = (usuario) => F.getUser(usuario).inGroup[chat].ultimaCharla;
+  // Two people talk to her while she can't answer yet: when her turn comes she answers both, in one message.
+  ritmoDeClaudia.set(chat, ahora);
+  await llega(chat, "¿a qué hora juega Uruguay?");
+  await llega(chat, "¿y contra quién juega?", { sender: BETO });
+  assert.deepEqual([prompts.length, relojes.length, ultima(ANA), ultima(BETO)], [0, 1, undefined, undefined], "esperan su turno");
+  ahora += Turnos.TURNOS.PAUSA_MS + 1000;
+  await relojes.shift().fn();
+  assert.match(prompts[0], /Antes de ese mensaje también te escribieron/);
+  assert.deepEqual([prompts.length, relojes.length, ultima(ANA), ultima(BETO)], [1, 0, ahora, ahora]);
+});
+
+test("el saludo de cumpleaños lleva lo que sabe con hace cuánto", async () => {
+  const chat = grupo();
+  const hoy = new Date();
+  hoy.setHours(10, 0, 0, 0);
+  MP.anotarDe(ANA, chat, "le gusta el rock nacional", hoy.getTime() - 21 * DIA);
+  const hora = Cumple.CUMPLE.HORA_SALUDO;
+  Cumple.CUMPLE.HORA_SALUDO = 0;
+  respuesta = "@MENCION ¡Feliz cumple!";
+  F.setCumple(chat, ANA, hoy.getDate(), hoy.getMonth() + 1);
+  try {
+    await Cumple.chequearCumpleanos(hoy);
+    assert.ok(prompts.at(-1).startsWith("Hoy es el cumpleaños de Ana (lo que sabés de esta persona por charlas anteriores en este grupo: le gusta el rock nacional (hace 3 semanas). Entre paréntesis va cuándo te enteraste de cada cosa: lo de hace mucho puede haber cambiado). Escribí "), prompts.at(-1));
+  } finally {
+    Cumple.CUMPLE.HORA_SALUDO = hora;
+    F.borrarCumple(chat, ANA);
+  }
+});

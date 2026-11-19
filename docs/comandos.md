@@ -236,7 +236,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.misredes instagram @usuario` 🔗 | Tus redes en tu perfil de este grupo (Instagram, X, TikTok, Threads, Bluesky, Mastodon, Discord…), por usuario o por link; .misredes las muestra, .misredes @mención las de otro y .misredes borrar instagram la saca. |
 | `.rango` 🎖️ | Tu rango por antigüedad y actividad; .rangos muestra la escalera. |
 | `.nota <algo>` 🧠 | Anotale a Claudia un dato o chiste del grupo (también .recordá que &lt;algo&gt;); .notas las lista y .notas borrar &lt;número&gt; saca una. |
-| `.notas yo` 🧠 | Lo que Claudia anotó de vos charlando en este grupo; .notas olvidame lo borra. |
+| `.notas yo` 🧠 | Lo que Claudia anotó de vos charlando en este grupo, con hace cuánto; .notas olvidame lo borra todo y, con su número (olvidame 2), una sola cosa. |
 | `.traducir <texto>` 🌐 | Lo traduce al castellano (o respondé a un mensaje). |
 | `.rae <palabra>` 📚 | Definición de la RAE (ej: .rae mal de ojo). |
 | `.horoscopo <signo>` 🔮 | Tu horóscopo del día. |
