@@ -1,6 +1,7 @@
 import { preguntarIA, modeloActivo } from "../lib/ia.js";
 import { preguntarGemini } from "../lib/gemini.js";
 import { esAudio, audioParaIA, tituloDeAudioEnviado } from "../lib/audios.js";
+import { esFoto, fotoDe, fotoParaIA, recordarLoVisto } from "../lib/fotos.js";
 import { guardarFuentes, fuentesPara, textoFuentes } from "../lib/fuentes.js";
 import { registrarIntervencion, isCommandBlacklisted, getChat, getUser } from "../database-functions.js";
 import { recuerdosDe, textoDeRecuerdos, anotarDe, repasarRecuerdos, anotarCharla } from "../lib/memoria-persona.js";
@@ -102,14 +103,35 @@ function formasPara(m, { leHablan, laMencionan, esRespuestaAlBot, solo, notaDeVo
 
 // The schema with what's offered, ahead of the answer: the model writes the fields in the schema's order (Gemini's
 // structured output), and it's to decide how before it writes what. With nothing offered, the schema as it was.
-function esquemaPara(formas) {
-  if (!formas.length) return ESQUEMA_RESPUESTA;
+// conFoto: a photo goes attached (lib/fotos.js), and what it shows comes before all of that, in "resumenFoto": she
+// decides and answers having looked.
+function esquemaPara(formas, conFoto = false) {
+  if (!formas.length && !conFoto) return ESQUEMA_RESPUESTA;
   const { comando, argumento, ...resto } = ESQUEMA_RESPUESTA.properties;
+  const deLaFoto = conFoto ? { resumenFoto: { type: "string" } } : {};
+  const deLaForma = formas.length ? { forma: { type: "string", enum: ["texto", ...formas] }, emoji: { type: "string", enum: EMOJIS_INICIATIVA } } : {};
   return {
     type: "object",
-    properties: { comando, argumento, forma: { type: "string", enum: ["texto", ...formas] }, emoji: { type: "string", enum: EMOJIS_INICIATIVA }, ...resto },
-    required: ["comando", "forma", "respuesta"],
+    properties: { comando, argumento, ...deLaFoto, ...deLaForma, ...resto },
+    required: ["comando", ...(conFoto ? ["resumenFoto"] : []), ...(formas.length ? ["forma"] : []), "respuesta"],
   };
+}
+
+// What she's told when a photo goes attached, after everything else: what to put in "resumenFoto". It stays in her
+// short-term memory in the photo's place, so nothing personal that can be read in the photo goes into it.
+const SOBRE_LA_FOTO = `(También solo para vos: en "resumenFoto" poné en una línea qué muestra la foto adjunta, por ejemplo "un perro durmiendo en un sillón" o "una captura de un chat sobre el parcial". No copies ahí datos personales que se lean en ella, como números de documento, direcciones o teléfonos.)`;
+
+// Why she didn't get to look at a photo that was for her.
+const NO_LA_VIO = { "una-vez": "es de las que se ven una sola vez, y esas no las abrís", pesada: "es demasiado pesada", formato: "viene en un formato que no podés abrir", error: "no se pudo bajar" };
+
+// What she's told of the photo that came for her: whose it is and that it goes attached, or why she couldn't look at
+// it, so she doesn't talk as if she had. laFoto: what fotoDe found, with who brought it (de, and their ids in quien).
+function sobreLaFoto(laFoto, foto) {
+  const deQuienEs = () => (laFoto.suya ? "que mandaste vos" : laFoto.quien.includes(laFoto.autor) ? "que es suya" : `que mandó ${nombreDe(laFoto.autor)}`);
+  const cual = laFoto.citada ? `foto que cita ${laFoto.de}, ${deQuienEs()}` : `foto que mandó ${laFoto.de}`;
+  // "Esa sí la ves": of the other photos in the thread she's told she knows only their mark (LEYENDA_ADJUNTOS).
+  if (foto.ok) return `Va adjunta la ${cual}: esa sí la ves, mirala para contestar.`;
+  return `(No pudiste ver la ${cual}: ${NO_LA_VIO[foto.motivo]}. Si hace falta decilo con naturalidad, y no inventes lo que muestra.)`;
 }
 
 // What she's told about it. In doubt, words: someone ignored who was talking to her shows more than an answer too many.
@@ -121,9 +143,10 @@ export const sinReferencias = (texto) => texto.replace(/\s?\[\d+(?:,\s*\d+)*\]/g
 
 // Look it up on the web and answer with that, in Claudia's voice and without links (those only go out if asked).
 // Only Gemini can search; null when it can't, and the answer the chat already had is used instead.
-export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", nombre }) {
+export async function buscarEnInternet({ contexto, consulta, resumenAudio = "", resumenFoto = "", nombre }) {
   const partes = [contexto];
   if (resumenAudio) partes.push(`(Lo que había en el audio, que ya escuchaste: ${resumenAudio})`);
+  if (resumenFoto) partes.push(`(Lo que mostraba la foto, que ya viste: ${resumenFoto})`);
   partes.push(
     `Buscá en internet: ${consulta}. Para noticias y hechos, priorizá medios de noticias y fuentes serias. Con lo que encuentres, contestale a ${nombre} con tu onda de siempre y corto, como un mensaje de WhatsApp: si es verdad, si es falso o si no está claro, y el dato justo, sin tirar más información de la que te pidieron. No pongas links, referencias numeradas ni una lista de fuentes: si te las piden, el sistema las manda aparte. Si no encontrás nada confiable, decilo sin vueltas. No prometas buscar más después.`,
   );
@@ -184,9 +207,10 @@ plugin.before = async (m, permisos) => {
     if (m.moderado) return;
     // A reaction arrives as a message whose text is the emoji: it isn't something anyone said.
     if (m.mtype === "reactionMessage") return;
-    // A voice note has no text, but it can be an answer to Claudia: that one she listens to (further down).
+    // A voice note has no text, but it can be an answer to Claudia: that one she listens to (further down). And so can
+    // a photo with no caption: that one she looks at (lib/fotos.js).
     const notaDeVoz = esAudio(m) && !m.text;
-    if (!m.text && !notaDeVoz) return;
+    if (!m.text && !notaDeVoz && !esFoto(m)) return;
 
     // Without a name, "alguien": the digits of their id would be their LID, which only the admins see (.id).
     const nombre = user?.apodo || m.pushName || user?.pushName || "alguien";
@@ -232,14 +256,15 @@ plugin.before = async (m, permisos) => {
 
     // she answers if she's named OR if someone replies to a message of hers, and the next message of whoever just
     // called her by name alone. A voice note never names her, so she only hears the ones that answer her or follow such
-    // a call: the rest of the group's audios are none of her business.
+    // a call: the rest of the group's audios are none of her business. The same goes for a photo with no caption.
     const leHablan = esRespuestaAlBot || mencionaPalabra || laMencionan;
     const ahora = _dep.ahora();
     if (!leHablan && !sigueLaLlamada(m.chat, m.sender, ahora)) return;
 
     // Her turn (lib/turnos-de-claudia.js): now, or once the pause is over or a bare call's question had time to come.
     const suyos = (m.mentionedJid || []).filter((j) => esElBot(j, client)).map((j) => j.split("@")[0].split(":")[0]);
-    const solo = leHablan && !notaDeVoz && esLlamadaSola(m.text, suyos);
+    // A photo is never a bare call, whatever its caption: "claudia" under one is "look at this", and she looks.
+    const solo = leHablan && !notaDeVoz && !esFoto(m) && esLlamadaSola(m.text, suyos);
     // How she may answer it (formasPara), told now: whether its author is insisting is about when it was sent.
     const insistio = insiste(m.chat, [m.sender, m.senderJid], ahora);
     const formas = formasPara(m, { leHablan, laMencionan, esRespuestaAlBot, solo, notaDeVoz, insistio });
@@ -274,7 +299,16 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   } else if (citaAudio && !temaEnviado) {
     audio = await audioParaIA(m.quoted);
   }
-  const adjuntos = audio?.ok ? [audio.adjunto] : [];
+
+  // ---------- the photo, if there is one to look at ----------
+  // The one that's for her (lib/fotos.js): this message's own, or the one it quotes, or failing both the latest among
+  // the messages she answers along with it. One per answer, and none with an audio to hear: the request has room for
+  // one or the other. A view-once is never opened, whoever quotes it.
+  const traen = [{ m, nombre }, ...[...antes].reverse()].map((e) => ({ ...fotoDe(e.m), de: e.nombre, quien: [e.m.sender, e.m.senderJid] }));
+  const laFoto = notaDeVoz || citaAudio ? null : traen.find((f) => f.origen) || null;
+  let foto = null; // { ok, adjunto } or { ok: false, motivo }
+  if (laFoto) foto = laFoto.unaVez ? { ok: false, motivo: "una-vez" } : await fotoParaIA(laFoto.origen);
+  const adjuntos = [audio, foto].filter((a) => a?.ok).map((a) => a.adjunto);
 
   // What they said, with its mentions as names ("@Ana"), and the same for the message of hers they answer: a mention
   // travels as the digits of a LID, which only the admins get to see (.id), and she'd repeat them to the group.
@@ -351,6 +385,9 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const tratoDeOtros = tratoDeQuienesAparecen([...deLaCharla, ...mencionados], { donde: "que aparecen en la charla", menos: [m.sender, m.senderJid] });
   if (tratoDeOtros) partes.push(tratoDeOtros);
 
+  // A photo with no caption says nothing: she's told that, instead of a message of "". (What else comes with no text
+  // is a voice note, which has its own words below.)
+  const suMensaje = m.text ? `"${dicho}"` : "una foto, sin nada escrito";
   const sinEscuchar = audio && !audio.ok ? ` (Ese audio no lo pudiste escuchar: ${audio.motivo === "largo" ? "es demasiado largo" : "no se pudo bajar"}. Si hace falta decilo con naturalidad, y no inventes lo que dice.)` : "";
   if (notaDeVoz) {
     const aQue = citado ? ` a este mensaje tuyo: "${citado}"` : "";
@@ -361,16 +398,17 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     const deQuien = m.quoted.fromMe ? "tuyo" : "que mandó alguien del grupo";
     partes.push(`${nombre} cita un audio ${deQuien} y te dice: "${dicho}". El audio va adjunto: escuchalo para contestar (puede ser alguien hablando o un tema de música).${sinEscuchar}`);
   } else if (esRespuestaAlBot && m.quoted.text) {
-    partes.push(`${nombre} responde a este mensaje tuyo: "${citado}"\n\nSu mensaje: "${dicho}"\n\nContestá siguiendo la charla, con tu onda.`);
+    partes.push(`${nombre} responde a este mensaje tuyo: "${citado}"\n\nSu mensaje: ${suMensaje}\n\nContestá siguiendo la charla, con tu onda.`);
   } else {
-    partes.push(`Mensaje de ${nombre}: "${dicho}"`);
+    partes.push(`Mensaje de ${nombre}: ${suMensaje}`);
   }
   // What else was said to her while it wasn't her turn (lib/turnos-de-claudia.js), which she used to drop: she answers
   // it in this same message. Named here, since the messages above are context she's told not to repeat.
   if (antes.length) {
-    const lineas = antes.map((e) => `${e.nombre}: "${e.m.text ? conNombres(e.m.text, e.m.mentionedJid).slice(0, 300) : "(un audio)"}"`);
+    const lineas = antes.map((e) => `${e.nombre}: "${e.m.text ? conNombres(e.m.text, e.m.mentionedJid).slice(0, 300) : esFoto(e.m) ? "(una foto)" : "(un audio)"}"`);
     partes.push(`Antes de ese mensaje también te escribieron, y todavía no les contestaste: ${lineas.join(" · ")}. Contestales también en esta misma respuesta, a cada uno por su nombre.`);
   }
+  if (laFoto) partes.push(sobreLaFoto(laFoto, foto));
 
   // The sources of an earlier search, in case they're what's being asked for.
   const previas = fuentesPara(m.chat, esRespuestaAlBot ? m.quoted.id : null);
@@ -387,6 +425,7 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     `(Instrucción para vos, no la muestres en tu respuesta: clasificá el pedido en el campo "comando" - usá "play" si piden bajar audio de YouTube, "video" si piden bajar video, "tagall" si piden mencionar a todo el grupo, "llamar" si piden mencionar varias veces a alguien, o "ninguno" si no corresponde nada de eso. Si es "play" o "video", poné en "argumento" el tema o título pedido; dejalo vacío en los demás casos. En "respuesta" escribí tu respuesta de charla normal, con tu onda de siempre. IMPORTANTE: si el pedido es "play" o "video", NO digas que ya se lo mandaste ni que estás por hacerlo - vos no ejecutás nada ahí, el sistema le va a indicar el comando exacto para pedirlo directamente. Si en cambio activás "tagall" o "llamar", esas sí van a pasar apenas las marques - así que tu respuesta tiene que acompañar eso, no contradecirlo ni bromear como si no lo fueras a hacer. REGLA DE ORO: vos existís solo mientras escribís este mensaje. Nunca prometas hacer algo después ("déjame ver", "te aviso", "lo pruebo más tarde", "me fijo y te digo"): no podés, sería mentir. Si no podés hacer algo, decilo claro y sin vueltas. Única excepción: si la persona te pide que vuelvas a intentar más tarde una descarga que le falló, poné "reintentar" en true y en "respuesta" decí solo que lo dejás anotado, sin decir cuándo - el sistema le confirma la hora, o le avisa si no había nada para reintentar. BÚSQUEDAS: si te preguntan si algo es verdad, o te piden un dato del mundo real que se pueda verificar (una noticia, algo que pasó, un dato de un tema de música o de una banda que no tengas claro, como quién lo escribió o de dónde es), poné en "buscar" una consulta corta para buscar en internet: el sistema la busca y te deja contestar con lo que encuentre. En ese caso, en "respuesta" poné algo corto que sirva por si la búsqueda falla, sin afirmar nada que no sepas. Si es un bolazo, una joda o un chisme del grupo, una opinión o algo que sabés de sobra, NO busques: contestá como siempre y dejá "buscar" vacío. FUENTES: poné "fuentes" en true solo si te piden las fuentes, los links o de dónde sacaste algo; el sistema manda los links que tenga, vos nunca escribas links. AUDIOS: si hay un audio adjunto, en "resumenAudio" poné en una línea qué dice o qué es (por ejemplo "cuenta que se le rompió el auto" o "un tema de rock en inglés"); si no hay audio, dejalo vacío. Si te enterás de algo nuevo que valga la pena recordar de la persona (un gusto, una manía, un dato personal chico, una joda interna), o de que cambió algo que ya sabías de ella, ponelo corto en "recordar"; si no hay nada nuevo, dejalo vacío. Nunca inventes datos falsos, y nunca guardes cosas sensibles como salud, plata, contraseñas o dirección.)`,
   );
 
+  if (foto?.ok) partes.push(SOBRE_LA_FOTO);
   if (formas.length) partes.push(formas.includes("nada") ? FORMA_AL_PASAR : FORMA_DE_CIERRE);
 
   const consulta = partes.join("\n\n");
@@ -395,7 +434,7 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   // group would see her typing, and then nothing. If she does answer, it shows while she types (decir).
   if (!formas.length) await client.sendPresenceUpdate("composing", m.chat).catch(() => {});
 
-  const resultado = await preguntarIA(consulta, { schema: esquemaPara(formas), adjuntos });
+  const resultado = await preguntarIA(consulta, { schema: esquemaPara(formas, Boolean(foto?.ok)), adjuntos });
 
   // The doors, again, right before she says anything: the AI took a while, and in the meantime an admin may have put
   // .banchat, .modoadmin or .charla off, or the owner banned the person. She used to say her piece anyway. Once
@@ -445,7 +484,11 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const quiereReintentar = datos.reintentar === true;
   const aBuscar = typeof datos.buscar === "string" ? datos.buscar.trim().slice(0, 200) : "";
   const pideFuentes = datos.fuentes === true;
-  const resumenAudio = typeof datos.resumenAudio === "string" ? datos.resumenAudio.trim().slice(0, 200) : "";
+  // What the audio said and what the photo showed, in a line. Not from a fallback model, which got neither (lib/ia.js):
+  // whatever it says of them, it made up, and it used to be kept as what the voice note said.
+  const loQueHabia = (campo) => (!resultado.sinAdjuntos && typeof datos[campo] === "string" ? datos[campo].trim().slice(0, 200) : "");
+  const resumenAudio = loQueHabia("resumenAudio");
+  const resumenFoto = foto?.ok ? loQueHabia("resumenFoto") : "";
 
   // A voice note enters the thread as what it said, so a later "¿y vos qué opinás?" has something to go on. Where
   // it was sent, not where she got through hearing it: what was said meanwhile came after it. It's there already, as
@@ -458,6 +501,10 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
       recordarMensaje(m.chat, nombre, dicho, false, { id, usuario: m.sender, participant: m.key?.participant, esAudio: true, fecha: fechaDe(m) });
     }
   }
+
+  // And a photo she looked at stays as what it showed, in the message it came in: a later "¿y el de atrás quién es?"
+  // has something to go on, with the photo itself kept nowhere (lib/fotos.js).
+  if (resumenFoto) recordarLoVisto(m.chat, laFoto.id, resumenFoto);
 
   // What she learned of them goes with what she knew, and when that's too much she goes over it, in the background:
   // nobody waits for it (lib/memoria-persona.js).
@@ -536,7 +583,7 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     let texto = respuesta;
     let fuentesNuevas = [];
     if (aBuscar && puedeHablar()) {
-      const busqueda = await buscarEnInternet({ contexto: contextoBusqueda, consulta: aBuscar, resumenAudio, nombre });
+      const busqueda = await buscarEnInternet({ contexto: contextoBusqueda, consulta: aBuscar, resumenAudio, resumenFoto, nombre });
       if (busqueda) ({ texto, fuentes: fuentesNuevas } = busqueda);
     }
     const enviado = await decir(texto, cita);
