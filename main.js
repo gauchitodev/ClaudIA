@@ -18,6 +18,7 @@ import { procesarTanda } from "./lib/tandas.js";
 import { confirmarOwnersCadaTanto } from "./lib/identidad.js";
 import { alCambiarParticipantes } from "./lib/participantes.js";
 import { recuperarMemoria } from "./lib/relevo-memoria.js";
+import { mensajeParaReenviar } from "./lib/reenvios.js";
 import { abrirSesion, borrarSesion } from "./lib/sesion.js";
 import qrcode from "qrcode-terminal";
 import txt from "./lib/strings.js";
@@ -58,7 +59,9 @@ async function startBot() {
     // on purpose, since with it the tablet would fetch every link the bot sends, outside lib/descarga-segura.js.
     syncFullHistory: false,
     shouldSyncHistoryMessage: () => false,
-    getMessage: () => null,
+    // What Baileys asks for when it has to send a message again and no longer has it: the bot keeps none, and counts
+    // how many times it's asked (lib/reenvios.js).
+    getMessage: mensajeParaReenviar,
     // Without this, Baileys asks WhatsApp for the group's participant list on EVERY message the bot sends there,
     // which is how accounts get rate-limited. See lib/cache-grupos.js. It runs on the send path, so it never
     // throws: if the cache can't answer, Baileys asks on its own, exactly like it did before.

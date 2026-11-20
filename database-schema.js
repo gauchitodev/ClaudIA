@@ -546,6 +546,17 @@ export function ponerAlDia(db) {
   // The owner's notices (lib/avisos.js): when each kind last went out, for its throttle. In memory, an update forgot
   // it, and a notice held back for six hours could come again right after one.
   db.exec(`CREATE TABLE IF NOT EXISTS avisos_owner (clave TEXT PRIMARY KEY, ultimo INTEGER NOT NULL)`);
+  // The resends the bot couldn't make (lib/reenvios.js), by day: someone couldn't read one of its messages and asked
+  // for it again when Baileys no longer had it to send. Only how many, neither which message nor who asked. It's born
+  // with the row of the day it's made, at 0: that's since when they're counted, which .estado says while it's been less
+  // than the week it adds up.
+  const habiaReenvios = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reenvios_perdidos'`).get();
+  db.exec(`CREATE TABLE IF NOT EXISTS reenvios_perdidos (fecha TEXT PRIMARY KEY, mensajes INTEGER NOT NULL DEFAULT 0)`);
+  if (!habiaReenvios) {
+    const hoy = new Date();
+    const dos = (n) => String(n).padStart(2, "0");
+    db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes) VALUES (?, 0)`).run(`${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}-${dos(hoy.getDate())}`);
+  }
 
   // Group memory: facts and inside jokes the group tells Claudia to remember with .recordá que
   db.exec(`

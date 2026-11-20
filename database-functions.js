@@ -1359,6 +1359,18 @@ export function podarEnviosBot(antesDe) {
   return db.prepare(`DELETE FROM envios_bot WHERE fecha < ?`).run(antesDe).changes;
 }
 
+// ---------- the resends the bot couldn't make (lib/reenvios.js) ----------
+export function sumarReenvioPerdido(fecha) {
+  db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes) VALUES (?, 1) ON CONFLICT(fecha) DO UPDATE SET mensajes = mensajes + 1`).run(fecha);
+}
+
+// { hoy, semana, desde }: the ones of a day, the ones from another day on, and the first day there's a row for (the
+// table is born with one, database-schema.js), or null.
+export function leerReenviosPerdidos(hoy, desdeElDia) {
+  const sql = `SELECT COALESCE(SUM(CASE WHEN fecha = ? THEN mensajes END), 0) AS hoy, COALESCE(SUM(CASE WHEN fecha >= ? THEN mensajes END), 0) AS semana, MIN(fecha) AS desde FROM reenvios_perdidos`;
+  return db.prepare(sql).get(hoy, desdeElDia);
+}
+
 // ---------- the commands people use (lib/usos.js) ----------
 export function sumarUsoComando(chat, fecha, comando) {
   db.prepare(`INSERT INTO usos_comandos (chat, fecha, comando, usos) VALUES (?, ?, ?, 1) ON CONFLICT(chat, fecha, comando) DO UPDATE SET usos = usos + 1`).run(chat, fecha, comando);

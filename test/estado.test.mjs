@@ -76,3 +76,32 @@ test(".estado cuenta los plugins cargados", async (t) => {
   await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
   assert.match(ultimoEnviado().msg.text, / · plugins: 3\n/);
 });
+
+// How many of the bot's messages someone asked for again when Baileys no longer had them (lib/reenvios.js): the line
+// that's there to tell whether keeping what the bot sends is worth it.
+test(".estado dice cuántos reenvíos no pudo hacer, hoy y en 7 días, y desde cuándo cuenta mientras no pasó la semana", async () => {
+  const R = await import("../lib/reenvios.js");
+  const { db } = await import("../database-functions.js");
+  const client = conexion.client;
+  client.groupFetchAllParticipating = async () => ({});
+  const estado = async () => {
+    await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+    return ultimoEnviado().msg.text;
+  };
+  const hoy = new Date();
+  const desdeHoy = ` \\(cuento desde el ${hoy.getDate()}/${hoy.getMonth() + 1}\\)`;
+  assert.match(await estado(), new RegExp(`\\n🗂️ Caché de grupos: .+\\n📨 Reenvíos que no pude hacer: hoy 0 · 7 días: 0${desdeHoy}\\n🗃️ En memoria: `));
+
+  // Two phones that couldn't read the same message, one of them asking twice.
+  for (const quien of ["200000000000001:5@lid", "200000000000002@lid", "200000000000001:5@lid"]) R.mensajeParaReenviar({ remoteJid: "g1@g.us", id: "3EB0E1", fromMe: true, participant: quien });
+  assert.match(await estado(), new RegExp(`\\n📨 Reenvíos que no pude hacer: hoy 2 · 7 días: 2${desdeHoy}\\n`));
+
+  // Counted since long before: three more some days ago, and the week is whole.
+  const dos = (n) => String(n).padStart(2, "0");
+  const dia = (atras) => {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - atras, 12);
+    return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+  };
+  db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes) VALUES (?, 0), (?, 3), (?, 40)`).run(dia(30), dia(3), dia(9));
+  assert.match(await estado(), /\n📨 Reenvíos que no pude hacer: hoy 2 · 7 días: 5\n/);
+});

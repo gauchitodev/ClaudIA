@@ -7,6 +7,7 @@ import { modelosEnPausa } from "../lib/gemini.js";
 import { modeloActivo } from "../lib/ia.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
+import { reenviosPerdidos } from "../lib/reenvios.js";
 import { colaDescargas } from "../lib/cola-descargas.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
@@ -47,6 +48,13 @@ plugin.run = async (m, { client }) => {
   const c = estadisticas();
   const cache = `${c.grupos} ${c.grupos === 1 ? "grupo" : "grupos"} · ${c.aciertos} aciertos, ${c.pedidos} pedidos`;
 
+  // The messages of the bot's someone asked for again when Baileys no longer had them to send (lib/reenvios.js): for
+  // whoever asked, that message stays as "Esperando el mensaje". The line is here to tell whether keeping what the bot
+  // sends is worth it (issue #5).
+  const r = reenviosPerdidos(new Date(ahora));
+  const [, mes, dia] = (r.desde || "").split("-").map(Number);
+  const reenvios = `hoy ${r.hoy} · 7 días: ${r.semana}${r.desde ? ` (cuento desde el ${dia}/${mes})` : ""}`;
+
   // What client.chats holds (lib/wa-socket.js, pushMessage): an entry per chat and per person who writes, and up to 40
   // recent messages in each chat and in each person someone quoted. Only a restart empties it: this line sits next to
   // the memory to tell whether it needs a ceiling.
@@ -67,6 +75,7 @@ plugin.run = async (m, { client }) => {
     `🗄️ Último backup: ${backup} · base: ${base}`,
     `👥 Grupos: ${grupos} · usuarios: ${getTotalUsers()} · plugins: ${Object.keys(cargados.plugins || {}).length}`,
     `🗂️ Caché de grupos: ${cache}`,
+    `📨 Reenvíos que no pude hacer: ${reenvios}`,
     `🗃️ En memoria: ${enMemoria}`,
     `💾 Memoria: ${tamano(process.memoryUsage().rss)} · carga: ${os.loadavg()[0].toFixed(2)}`,
     `🔋 Batería: ${bateria}`,
