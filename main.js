@@ -1,7 +1,7 @@
 import "./arranque.js";
-import { DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
+import { DisconnectReason, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
 import { configuracion } from "./lib/configuracion.js";
-import { rmSync, mkdirSync } from "fs";
+import { mkdirSync } from "fs";
 import { makeWASocket, serialize } from "./lib/wa-socket.js";
 import pino from "pino";
 import { installYtDlp, loadPlugins, watchPlugins } from "./load-functions.js";
@@ -18,16 +18,13 @@ import { procesarTanda } from "./lib/tandas.js";
 import { confirmarOwnersCadaTanto } from "./lib/identidad.js";
 import { alCambiarParticipantes } from "./lib/participantes.js";
 import { recuperarMemoria } from "./lib/relevo-memoria.js";
+import { abrirSesion, borrarSesion } from "./lib/sesion.js";
 import qrcode from "qrcode-terminal";
 import txt from "./lib/strings.js";
 import { conexion } from "./lib/conexion.js";
 const handler = await import("./handle-message.js");
 
 serialize();
-
-// The folder WhatsApp's session is kept in, so that the bot doesn't pair again on each start (README); deleted when the
-// session is closed from the phone. It was a global (authFile) that only this file read.
-const CARPETA_DE_SESION = "botSession";
 
 let intentosReconexion = 0;
 const MAX_REINTENTOS = 5;
@@ -41,7 +38,9 @@ let watchPluginsIniciado = false;
 let horaConexion = 0;
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(CARPETA_DE_SESION);
+  // WhatsApp's session, so that the bot doesn't pair again on each start: lib/sesion.js keeps it, and every change
+  // Baileys makes to it goes there (saveCreds below, and keys on its own).
+  const { state, saveCreds } = abrirSesion();
 
   const { version, isLatest } = await fetchLatestBaileysVersion();
   console.log(`🔢 Usando versión de WhatsApp Web: ${version.join(".")}${isLatest ? " (Última versión)" : ""}`);
@@ -96,7 +95,7 @@ async function startBot() {
 
     if (connection === "close" && lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
       console.log('❌ La sesión fue cerrada desde WhatsApp. Se borrarán las credenciales.');
-      rmSync(`./${CARPETA_DE_SESION}`, { recursive: true, force: true });
+      borrarSesion();
       setTimeout(() => process.exit(0), 2000);
       return;
     }
@@ -226,6 +225,11 @@ if (memoria.restaurada) console.log(`🧠 Memoria de los chats recuperada: ${mem
 
 // database-functions.js keeps the connection, and whatever else needs it imports it from there.
 loadDatabase();
+
+// WhatsApp's session, opened here before startBot asks for it: the first start with lib/sesion.js brings in the files
+// the session was kept in, and if that fails the bot has to stop, as when the database doesn't open (start-process.js
+// tries again), not go on without a connection. startBot isn't awaited, so what fails in it is only logged.
+abrirSesion();
 
 // Temp folder for downloads, stickers and canvas (it's in .gitignore, so a fresh clone won't have it).
 mkdirSync("./tmp", { recursive: true });

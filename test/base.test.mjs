@@ -829,13 +829,22 @@ test("una base nueva nace con todo: loadDatabase sobre una carpeta vacía no mig
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-// The schema is in one place: no other file of the bot's creates or changes a table or an index.
+// The schema is in one place: no other file of the bot's creates or changes a table or an index. WhatsApp's session is
+// not in this database but in a file of its own (lib/sesion.js says why), with one table, which that file makes: that
+// one statement is let through there, and nothing else.
 test("las tablas y los índices se crean solo en database-schema.js", () => {
   const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
   const archivos = fs.readdirSync(raiz).filter((f) => f.endsWith(".js") && !["database-schema.js", "eslint.config.js"].includes(f));
   for (const carpeta of ["lib", "plugins"]) archivos.push(...fs.readdirSync(path.join(raiz, carpeta)).filter((f) => f.endsWith(".js")).map((f) => path.join(carpeta, f)));
   assert.ok(archivos.length > 100, `se encontraron muy pocos archivos (${archivos.length}): el escaneo no está andando`);
-  const conEsquema = archivos.filter((a) => /\b(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX)|ALTER TABLE)\b/.test(fs.readFileSync(path.join(raiz, a), "utf8")));
+  const DE_LA_SESION = "CREATE TABLE IF NOT EXISTS sesion (";
+  const codigoDe = (a) => {
+    const codigo = fs.readFileSync(path.join(raiz, a), "utf8");
+    if (a !== path.join("lib", "sesion.js")) return codigo;
+    assert.ok(codigo.includes(DE_LA_SESION), "lib/sesion.js ya no crea su tabla así: esta excepción sobra o hay que ponerla al día");
+    return codigo.replace(DE_LA_SESION, "");
+  };
+  const conEsquema = archivos.filter((a) => /\b(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX)|ALTER TABLE)\b/.test(codigoDe(a)));
   assert.deepEqual(conEsquema, []);
 });
 
