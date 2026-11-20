@@ -547,11 +547,29 @@ export function ponerAlDia(db) {
   // it, and a notice held back for six hours could come again right after one.
   db.exec(`CREATE TABLE IF NOT EXISTS avisos_owner (clave TEXT PRIMARY KEY, ultimo INTEGER NOT NULL)`);
   // The resends the bot couldn't make (lib/reenvios.js), by day: someone couldn't read one of its messages and asked
-  // for it again when Baileys no longer had it to send. Only how many, neither which message nor who asked. It's born
-  // with the row of the day it's made, at 0: that's since when they're counted, which .estado says while it's been less
-  // than the week it adds up.
+  // for it again when Baileys no longer had it to send. Only how many, neither which message nor who asked: all of them
+  // (mensajes), and by why it was missing, one column each (causaDe in lib/reenvios.js). It's born with the row of the
+  // day it's made, at 0: that's since when they're counted, which .estado says while it's been less than the week it
+  // adds up.
   const habiaReenvios = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reenvios_perdidos'`).get();
-  db.exec(`CREATE TABLE IF NOT EXISTS reenvios_perdidos (fecha TEXT PRIMARY KEY, mensajes INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reenvios_perdidos (
+      fecha TEXT PRIMARY KEY,
+      mensajes INTEGER NOT NULL DEFAULT 0,
+      antes_de_arrancar INTEGER NOT NULL DEFAULT 0,
+      tarde INTEGER NOT NULL DEFAULT 0,
+      reciente INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  // Migration: why each one was missing, on the table from before it was told (2026-11-20). What it had counted stays,
+  // with no why: .estado shows those apart.
+  const columnasReenvios = db.prepare(`PRAGMA table_info(reenvios_perdidos)`).all().map((c) => c.name);
+  for (const columna of ["antes_de_arrancar", "tarde", "reciente"]) {
+    if (!columnasReenvios.includes(columna)) {
+      db.exec(`ALTER TABLE reenvios_perdidos ADD COLUMN ${columna} INTEGER NOT NULL DEFAULT 0`);
+      console.log(`🟢 Migración: columna '${columna}' agregada a reenvios_perdidos`);
+    }
+  }
   if (!habiaReenvios) {
     const hoy = new Date();
     const dos = (n) => String(n).padStart(2, "0");

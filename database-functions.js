@@ -1360,15 +1360,21 @@ export function podarEnviosBot(antesDe) {
 }
 
 // ---------- the resends the bot couldn't make (lib/reenvios.js) ----------
-export function sumarReenvioPerdido(fecha) {
-  db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes) VALUES (?, 1) ON CONFLICT(fecha) DO UPDATE SET mensajes = mensajes + 1`).run(fecha);
+// Why one was missing is one of these columns, and nothing else: it goes into the SQL.
+const CAUSAS_DE_REENVIO = new Set(["antes_de_arrancar", "tarde", "reciente"]);
+
+export function sumarReenvioPerdido(fecha, causa) {
+  if (!CAUSAS_DE_REENVIO.has(causa)) throw new Error(`no sé por qué faltaba ese reenvío: ${causa}`);
+  db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes, ${causa}) VALUES (?, 1, 1) ON CONFLICT(fecha) DO UPDATE SET mensajes = mensajes + 1, ${causa} = ${causa} + 1`).run(fecha);
 }
 
-// { hoy, semana, desde }: the ones of a day, the ones from another day on, and the first day there's a row for (the
-// table is born with one, database-schema.js), or null.
+// { hoy, semana, antesDeArrancar, tarde, reciente, desde }: the ones of a day, the ones from another day up to that one,
+// and those by why, and the first day there's a row for (the table is born with one, database-schema.js), or null. A
+// day after "hoy" doesn't count: there's none unless the tablet's clock went back.
 export function leerReenviosPerdidos(hoy, desdeElDia) {
-  const sql = `SELECT COALESCE(SUM(CASE WHEN fecha = ? THEN mensajes END), 0) AS hoy, COALESCE(SUM(CASE WHEN fecha >= ? THEN mensajes END), 0) AS semana, MIN(fecha) AS desde FROM reenvios_perdidos`;
-  return db.prepare(sql).get(hoy, desdeElDia);
+  const enLaSemana = (columna) => `COALESCE(SUM(CASE WHEN fecha BETWEEN @desde AND @hoy THEN ${columna} END), 0)`;
+  const sql = `SELECT COALESCE(SUM(CASE WHEN fecha = @hoy THEN mensajes END), 0) AS hoy, ${enLaSemana("mensajes")} AS semana, ${enLaSemana("antes_de_arrancar")} AS antesDeArrancar, ${enLaSemana("tarde")} AS tarde, ${enLaSemana("reciente")} AS reciente, MIN(fecha) AS desde FROM reenvios_perdidos`;
+  return db.prepare(sql).get({ hoy, desde: desdeElDia });
 }
 
 // ---------- the commands people use (lib/usos.js) ----------

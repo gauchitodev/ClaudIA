@@ -7,7 +7,7 @@ import { modelosEnPausa } from "../lib/gemini.js";
 import { modeloActivo } from "../lib/ia.js";
 import { estadisticas, guardarVarios } from "../lib/cache-grupos.js";
 import { leerBateria, estadoBateria } from "../lib/bateria.js";
-import { reenviosPerdidos } from "../lib/reenvios.js";
+import { reenviosPerdidos, REENVIOS } from "../lib/reenvios.js";
 import { colaDescargas } from "../lib/cola-descargas.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
@@ -53,7 +53,10 @@ plugin.run = async (m, { client }) => {
   // sends is worth it (issue #5).
   const r = reenviosPerdidos(new Date(ahora));
   const [, mes, dia] = (r.desde || "").split("-").map(Number);
-  const reenvios = `hoy ${r.hoy} · 7 días: ${r.semana}${r.desde ? ` (cuento desde el ${dia}/${mes})` : ""}`;
+  // And, when there were any, why they were missing, which is what says what would have had them: see causaDe there.
+  const porQue = [`${r.antesDeArrancar} de antes de arrancar`, `${r.tarde} de más de ${REENVIOS.EN_BAILEYS_MS / 60000} min`, `${r.reciente} ${r.reciente === 1 ? "reciente" : "recientes"}`];
+  if (r.sinClasificar) porQue.push(`${r.sinClasificar} sin clasificar`);
+  const reenvios = `hoy ${r.hoy} · 7 días: ${r.semana}${r.desde ? ` (cuento desde el ${dia}/${mes})` : ""}${r.semana ? ` · ${porQue.join(", ")}` : ""}`;
 
   // What client.chats holds (lib/wa-socket.js, pushMessage): an entry per chat and per person who writes, and up to 40
   // recent messages in each chat and in each person someone quoted. Only a restart empties it: this line sits next to
