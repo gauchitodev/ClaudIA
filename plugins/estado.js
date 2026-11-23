@@ -56,7 +56,21 @@ plugin.run = async (m, { client }) => {
   // And, when there were any, why they were missing, which is what says what would have had them: see causaDe there.
   const porQue = [`${r.antesDeArrancar} de antes de arrancar`, `${r.tarde} de más de ${REENVIOS.EN_BAILEYS_MS / 60000} min`, `${r.reciente} ${r.reciente === 1 ? "reciente" : "recientes"}`];
   if (r.sinClasificar) porQue.push(`${r.sinClasificar} sin clasificar`);
-  const reenvios = `hoy ${r.hoy} · 7 días: ${r.semana}${r.desde ? ` (cuento desde el ${dia}/${mes})` : ""}${r.semana ? ` · ${porQue.join(", ")}` : ""}`;
+  // And, on a line under it, what asked for them, with the most devices of each kind that asked in one day: that tells
+  // many people missing a message from a few devices asking for a lot, and what Baileys would do with one handed over
+  // (quienPide there). "Distintos por día" is said once, with the first kind that has any.
+  const quienes = [
+    [r.deTelefono, r.telefonos, "teléfonos"],
+    [r.deVinculado, r.vinculados, "dispositivos vinculados"],
+    [r.dePropio, r.propios, "mi propio número"],
+  ];
+  const primero = quienes.findIndex(([pedidos]) => pedidos);
+  const porQuien = quienes.map(([pedidos, dispositivos, nombre], i) => {
+    if (!pedidos) return `0 desde ${nombre}`;
+    return `${pedidos} desde ${nombre} (hasta ${dispositivos}${i === primero ? ` ${dispositivos === 1 ? "distinto" : "distintos"} por día` : ""})`;
+  });
+  if (r.sinQuien) porQuien.push(`${r.sinQuien} de antes de contar quién`);
+  const reenvios = `hoy ${r.hoy} · 7 días: ${r.semana}${r.desde ? ` (cuento desde el ${dia}/${mes})` : ""}${r.semana ? ` · ${porQue.join(", ")}\n   └ Me los pidieron: ${porQuien.join(", ")}` : ""}`;
 
   // What client.chats holds (lib/wa-socket.js, pushMessage): an entry per chat and per person who writes, and up to 40
   // recent messages in each chat and in each person someone quoted. Only a restart empties it: this line sits next to

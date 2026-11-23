@@ -1362,19 +1362,47 @@ export function podarEnviosBot(antesDe) {
 // ---------- the resends the bot couldn't make (lib/reenvios.js) ----------
 // Why one was missing is one of these columns, and nothing else: it goes into the SQL.
 const CAUSAS_DE_REENVIO = new Set(["antes_de_arrancar", "tarde", "reciente"]);
+// And what asked for it is one of these, each with its two columns: the ones it asked for, and how many of them asked
+// that day.
+const QUIEN_PIDE_REENVIO = new Map([
+  ["telefono", ["de_telefono", "telefonos"]],
+  ["vinculado", ["de_vinculado", "vinculados"]],
+  ["propio", ["de_propio", "propios"]],
+]);
 
-export function sumarReenvioPerdido(fecha, causa) {
+// One more that day, with why it was missing and what asked for it; "dispositivoNuevo", when that one hadn't asked yet
+// that day.
+export function sumarReenvioPerdido(fecha, causa, quien, dispositivoNuevo) {
   if (!CAUSAS_DE_REENVIO.has(causa)) throw new Error(`no sé por qué faltaba ese reenvío: ${causa}`);
-  db.prepare(`INSERT INTO reenvios_perdidos (fecha, mensajes, ${causa}) VALUES (?, 1, 1) ON CONFLICT(fecha) DO UPDATE SET mensajes = mensajes + 1, ${causa} = ${causa} + 1`).run(fecha);
+  if (!QUIEN_PIDE_REENVIO.has(quien)) throw new Error(`no sé quién pidió ese reenvío: ${quien}`);
+  const [pedidos, dispositivos] = QUIEN_PIDE_REENVIO.get(quien);
+  const uno = dispositivoNuevo ? 1 : 0;
+  const sql = `INSERT INTO reenvios_perdidos (fecha, mensajes, ${causa}, ${pedidos}, ${dispositivos}) VALUES (?, 1, 1, 1, ?)
+    ON CONFLICT(fecha) DO UPDATE SET mensajes = mensajes + 1, ${causa} = ${causa} + 1, ${pedidos} = ${pedidos} + 1, ${dispositivos} = ${dispositivos} + ?`;
+  db.prepare(sql).run(fecha, uno, uno);
 }
 
-// { hoy, semana, antesDeArrancar, tarde, reciente, desde }: the ones of a day, the ones from another day up to that one,
-// and those by why, and the first day there's a row for (the table is born with one, database-schema.js), or null. A
-// day after "hoy" doesn't count: there's none unless the tablet's clock went back.
+// The ones of a day (hoy), and of the days from another one up to it: all of them (semana), by why (antesDeArrancar,
+// tarde, reciente) and by what asked (deTelefono, deVinculado, dePropio), and the most of each that asked on one of
+// those days (telefonos, vinculados, propios). And the first day there's a row for (desde: the table is born with one,
+// database-schema.js), or null. A day after "hoy" doesn't count: there's none unless the tablet's clock went back.
 export function leerReenviosPerdidos(hoy, desdeElDia) {
-  const enLaSemana = (columna) => `COALESCE(SUM(CASE WHEN fecha BETWEEN @desde AND @hoy THEN ${columna} END), 0)`;
-  const sql = `SELECT COALESCE(SUM(CASE WHEN fecha = @hoy THEN mensajes END), 0) AS hoy, ${enLaSemana("mensajes")} AS semana, ${enLaSemana("antes_de_arrancar")} AS antesDeArrancar, ${enLaSemana("tarde")} AS tarde, ${enLaSemana("reciente")} AS reciente, MIN(fecha) AS desde FROM reenvios_perdidos`;
-  return db.prepare(sql).get({ hoy, desde: desdeElDia });
+  const enLaSemana = (columna, juntar = "SUM") => `COALESCE(${juntar}(CASE WHEN fecha BETWEEN @desde AND @hoy THEN ${columna} END), 0)`;
+  const columnas = [
+    `COALESCE(SUM(CASE WHEN fecha = @hoy THEN mensajes END), 0) AS hoy`,
+    `${enLaSemana("mensajes")} AS semana`,
+    `${enLaSemana("antes_de_arrancar")} AS antesDeArrancar`,
+    `${enLaSemana("tarde")} AS tarde`,
+    `${enLaSemana("reciente")} AS reciente`,
+    `${enLaSemana("de_telefono")} AS deTelefono`,
+    `${enLaSemana("de_vinculado")} AS deVinculado`,
+    `${enLaSemana("de_propio")} AS dePropio`,
+    `${enLaSemana("telefonos", "MAX")} AS telefonos`,
+    `${enLaSemana("vinculados", "MAX")} AS vinculados`,
+    `${enLaSemana("propios", "MAX")} AS propios`,
+    `MIN(fecha) AS desde`,
+  ];
+  return db.prepare(`SELECT ${columnas.join(", ")} FROM reenvios_perdidos`).get({ hoy, desde: desdeElDia });
 }
 
 // ---------- the commands people use (lib/usos.js) ----------

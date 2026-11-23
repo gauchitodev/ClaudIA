@@ -548,9 +548,10 @@ export function ponerAlDia(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS avisos_owner (clave TEXT PRIMARY KEY, ultimo INTEGER NOT NULL)`);
   // The resends the bot couldn't make (lib/reenvios.js), by day: someone couldn't read one of its messages and asked
   // for it again when Baileys no longer had it to send. Only how many, neither which message nor who asked: all of them
-  // (mensajes), and by why it was missing, one column each (causaDe in lib/reenvios.js). It's born with the row of the
-  // day it's made, at 0: that's since when they're counted, which .estado says while it's been less than the week it
-  // adds up.
+  // (mensajes), by why it was missing, one column each (causaDe in lib/reenvios.js), and by what asked for it, two each
+  // (quienPide there): the ones it asked for (de_telefono, de_vinculado, de_propio) and how many of them asked that day
+  // (telefonos, vinculados, propios). It's born with the row of the day it's made, at 0: that's since when they're
+  // counted, which .estado says while it's been less than the week it adds up.
   const habiaReenvios = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reenvios_perdidos'`).get();
   db.exec(`
     CREATE TABLE IF NOT EXISTS reenvios_perdidos (
@@ -558,13 +559,20 @@ export function ponerAlDia(db) {
       mensajes INTEGER NOT NULL DEFAULT 0,
       antes_de_arrancar INTEGER NOT NULL DEFAULT 0,
       tarde INTEGER NOT NULL DEFAULT 0,
-      reciente INTEGER NOT NULL DEFAULT 0
+      reciente INTEGER NOT NULL DEFAULT 0,
+      de_telefono INTEGER NOT NULL DEFAULT 0,
+      de_vinculado INTEGER NOT NULL DEFAULT 0,
+      de_propio INTEGER NOT NULL DEFAULT 0,
+      telefonos INTEGER NOT NULL DEFAULT 0,
+      vinculados INTEGER NOT NULL DEFAULT 0,
+      propios INTEGER NOT NULL DEFAULT 0
     )
   `);
-  // Migration: why each one was missing, on the table from before it was told (2026-11-20). What it had counted stays,
-  // with no why: .estado shows those apart.
+  // Migration: why each one was missing, on the table from before it was told (2026-11-20), and what asked for it, on
+  // the one from before that was (2026-11-23). What it had counted stays, with no why or with nothing said of who:
+  // .estado shows those apart.
   const columnasReenvios = db.prepare(`PRAGMA table_info(reenvios_perdidos)`).all().map((c) => c.name);
-  for (const columna of ["antes_de_arrancar", "tarde", "reciente"]) {
+  for (const columna of ["antes_de_arrancar", "tarde", "reciente", "de_telefono", "de_vinculado", "de_propio", "telefonos", "vinculados", "propios"]) {
     if (!columnasReenvios.includes(columna)) {
       db.exec(`ALTER TABLE reenvios_perdidos ADD COLUMN ${columna} INTEGER NOT NULL DEFAULT 0`);
       console.log(`🟢 Migración: columna '${columna}' agregada a reenvios_perdidos`);
