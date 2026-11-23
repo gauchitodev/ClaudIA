@@ -345,17 +345,54 @@ test(".enviados general: todos juntos, con los grupos que más la hacen hablar",
   else assert.doesNotMatch(texto, /Reacciones que la cola/);
 });
 
-test(".enviados: en un grupo muestra ese grupo; con todo, o por privado, el general", async () => {
+// The plugin. In a group, that group's, for its admins: onlyAdmin, which handle-message.js opens to WhatsApp's admins,
+// the bot's and the owner. The general one names the other groups, so whoever isn't the owner gets a notice in its
+// place: by any of its names, and from a private chat too, should one ever get that far.
+test(".enviados: a un admin, lo de su grupo; el general, con todo o por privado, solo al owner", async () => {
   const P = (await import("../plugins/owner-enviados.js")).default;
-  assert.equal(P.onlyOwner, true, "el general lista todos los grupos: solo el owner");
-  const correr = (m, args = []) => P.run(m, { client: conexion.client, args });
+  assert.deepEqual([P.onlyAdmin, P.onlyOwner, P.onlyGroup], [true, undefined, undefined], "de los admins, y sin onlyGroup: el owner lo pide por privado");
+  const [SUYO, AJENO] = ["deana@g.us", "debeto@g.us"];
+  conexion.client.chats[SUYO] = { subject: "El grupo de Ana" };
+  conexion.client.chats[AJENO] = { subject: "El grupo de Beto" };
+  for (let i = 0; i < 60; i++) F.sumarEnvioBot(SUYO, hoy(), 21, "texto");
+  for (let i = 0; i < 50; i++) F.sumarEnvioBot(AJENO, hoy(), 22, "texto");
+  const correr = async (m, isOwner, args = []) => {
+    const antes = globalThis.enviados.length;
+    await P.run(m, { client: conexion.client, args, isOwner });
+    assert.equal(globalThis.enviados.length, antes + 1, "una sola respuesta");
+    assert.equal(ultimoEnviado().chat, m.chat, "donde se pidió");
+    return ultimoEnviado().msg.text;
+  };
+  const enElGrupo = { chat: SUYO, isGroup: true };
+  const porPrivado = { chat: "59899111222@s.whatsapp.net", isGroup: false };
 
-  await correr({ chat: "panel@g.us", isGroup: true });
-  assert.match(ultimoEnviado().msg.text, /LO QUE MANDÉ EN ESTE GRUPO/);
-  await correr({ chat: "panel@g.us", isGroup: true }, ["todo"]);
-  assert.match(ultimoEnviado().msg.text, /🤖 \*LO QUE MANDÉ\*\n/);
-  await correr({ chat: "59899111222@s.whatsapp.net", isGroup: false });
-  assert.match(ultimoEnviado().msg.text, /🤖 \*LO QUE MANDÉ\*\n/);
+  // The owner: the group's where it's asked, and the general one with "todo" or from a private chat.
+  const delGrupo = await correr(enElGrupo, true);
+  assert.match(delGrupo, /^🤖 \*LO QUE MANDÉ EN ESTE GRUPO\*\n\nHoy: \*60\* mensajes/);
+  assert.doesNotMatch(delGrupo, /Beto|Dónde/);
+  for (const [m, args] of [[enElGrupo, ["todo"]], [porPrivado, []]]) {
+    const general = await correr(m, true, args);
+    assert.match(general, /^🤖 \*LO QUE MANDÉ\*\n/);
+    assert.match(general, /\n\*Dónde\*\n(.+\n)*El grupo de Beto: 50 · \d+%/, "el general nombra los grupos");
+  }
+
+  // An admin who isn't the owner: the same panel of their group, and nothing of the general one.
+  assert.equal(await correr(enElGrupo, false), delGrupo);
+  const SOLO_OWNER = "🤖 Lo de todos los grupos juntos es solo para el owner. Lo que mandé en un grupo lo ven sus admins ahí, con .enviados.";
+  for (const args of [["todo"], ["TODOS"], ["general"]]) assert.equal(await correr(enElGrupo, false, args), SOLO_OWNER, args[0]);
+  assert.equal(await correr(porPrivado, false), SOLO_OWNER, "por privado tampoco");
+
+  // And the menus say the same: the group's one among the admins' commands, the general one among the owner's. So
+  // does Claudia's manual, and she doesn't recommend it to a moderator or to a member (sinPermisoEn).
+  const M = await import("../lib/menu.js");
+  const lineasDe = (clave) => M.seccionesDelMenu(".").find((s) => s.clave === clave).lineas;
+  assert.match(lineasDe("admins"), /^▸ \.enviados 🤖 – `Solo admins: /m);
+  assert.match(lineasDe("owner"), /^▸ \.enviados todo 🤖 – `/m);
+  const { MANUAL } = await import("../lib/manual-claudia.js");
+  assert.match(MANUAL, / \.enviados \(admins\): cuánto mandaste vos en ese grupo[^\n]*? con \.enviados todo o por privado, es solo del owner\./);
+  const plugins = { "owner-enviados": P };
+  const sinPermiso = (quien) => M.sinPermisoEn("Probá .enviados.", { ...quien, plugins });
+  assert.deepEqual([sinPermiso({}), sinPermiso({ isMod: true }), sinPermiso({ isMod: true, isAdmin: true })], [["enviados"], ["enviados"], []]);
 });
 
 test(".actividad muestra lo que dijo Claudia hoy y qué parte del grupo es", () => {

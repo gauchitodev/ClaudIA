@@ -510,6 +510,52 @@ test(".id: un admin, de la gente de su grupo; el owner, de cualquiera", async ()
   assert.match(await pide(DUENO, ".id +598 99 000 008", delDueno), /Nombre actual: Fede[\s\S]*Lid: 300000000000008@lid/);
 });
 
+// .enviados (plugins/owner-enviados.js) is for every admin, as .id: what the bot sent in their group, to WhatsApp's
+// admins, the bot's and the owner, and the admins-only notice to a moderator or anyone else. What it sent everywhere
+// names the other groups: with "todo" only the owner gets it, and from a private chat, where nobody else is an admin.
+test(".enviados: lo de su grupo, a los admins de WhatsApp y del bot y al owner; lo de todos los grupos, solo al owner", async () => {
+  const { claveDia } = await import("../lib/actividad.js");
+  const [SUYO, AJENO] = ["120363000000000071@g.us", "120363000000000072@g.us"];
+  const [CARLA, DANI, DUENO] = ["300000000000004@lid", "300000000000005@lid", "300000000000006@lid"];
+  const nombres = { [ANA]: "Ana", [BETO]: "Beto", [CARLA]: "Carla", [DANI]: "Dani", [DUENO]: "Dueño" };
+  const grupos = { [SUYO]: "El grupo de Ana", [AJENO]: "El grupo de al lado" };
+  cargados.plugins = { "owner-enviados.js": carpeta["owner-enviados.js"] };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: grupos[id], participants: [{ id: ANA, admin: "admin" }, ...[BETO, CARLA, DANI, DUENO].map((p) => ({ id: p, admin: null })), { id: BOT, admin: "admin" }] });
+  F.setRolGrupo(SUYO, CARLA, "admin");
+  F.setRolGrupo(SUYO, DANI, "mod");
+  for (let i = 0; i < 3; i++) F.sumarEnvioBot(SUYO, claveDia(), 21, "texto");
+  F.sumarEnvioBot(AJENO, claveDia(), 22, "texto");
+  // In the group, or from a private chat (chat null): there the chat is the person. The owner's message carries their
+  // number too, which is how handle-message recognizes the owner.
+  const pide = async (sender, texto, { chat = SUYO, alt = null } = {}) => {
+    globalThis.enviados = [];
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    const key = chat ? { remoteJid: chat, fromMe: false, id, participant: sender, ...(alt && { participantAlt: alt }) } : { remoteJid: sender, fromMe: false, id, ...(alt && { remoteJidAlt: alt }) };
+    await handleMessage.call(client, { key, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: nombres[sender], _upsertType: "notify", _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text).join("\n");
+  };
+  const delDueno = { alt: "59899111222@s.whatsapp.net" };
+  const deSuGrupo = /^🤖 \*LO QUE MANDÉ EN ESTE GRUPO\*\n\nHoy: \*3\* mensajes/;
+  const deTodos = /^🤖 \*LO QUE MANDÉ\*\n\nHoy: \*4\* mensajes[\s\S]*\n\*Dónde\*\nEl grupo de Ana: 3 · 75%\nEl grupo de al lado: 1 · 25%/;
+  const SOLO_OWNER = "🤖 Lo de todos los grupos juntos es solo para el owner. Lo que mandé en un grupo lo ven sus admins ahí, con .enviados.";
+
+  for (const [quien, cual, opciones] of [[ANA, "un admin de WhatsApp"], [CARLA, "un admin del bot"], [DUENO, "el owner", delDueno]]) {
+    const texto = await pide(quien, ".enviados", opciones);
+    assert.match(texto, deSuGrupo, cual);
+    assert.doesNotMatch(texto, /al lado|Dónde/, `${cual}: de los otros grupos, nada`);
+  }
+  assert.equal(await pide(DANI, ".enviados"), txt.onlyAdmin, "un moderador, no");
+  assert.equal(await pide(BETO, ".enviados"), txt.onlyAdmin, "ni alguien sin rol");
+
+  assert.match(await pide(DUENO, ".enviados todo", delDueno), deTodos, "el owner, con todo");
+  assert.match(await pide(DUENO, ".enviados", { chat: null, ...delDueno }), deTodos, "y por privado");
+  assert.equal(await pide(ANA, ".enviados todo"), SOLO_OWNER, "un admin de WhatsApp, no");
+  assert.equal(await pide(CARLA, ".enviados general"), SOLO_OWNER, "ni un admin del bot");
+  assert.equal(await pide(DANI, ".enviados todo"), txt.onlyAdmin, "un moderador, lo de siempre");
+  assert.equal(await pide(ANA, ".enviados", { chat: null }), txt.onlyAdmin, "y por privado nadie es admin");
+});
+
 // The greeting goes out right after the moderation, before the other hooks: Claudia's answer to the same "hola claudia"
 // comes after it.
 test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async () => {

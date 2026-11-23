@@ -303,6 +303,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.delcumple @mención` 🗑️ | Solo admins: borra el cumple de alguien. Con su número (+598 99 123 456), el de quien ya no está. |
 | `.conteo` 🏆 | Ver los 10 que mas hablan en este grupo. |
 | `.actividad` 📊 | Cuánto se habla en el grupo y a qué hora, de los últimos 7 días. |
+| `.enviados` 🤖 | Solo admins: cuánto mandé yo en este grupo en los últimos 7 días, por día, hora y tipo. |
 | `.usos` 📈 | Qué comandos se usan más en el grupo, en los últimos 30 días. |
 | `.estado` 🤖 | Estado del bot: conexión, IA, descargas, backups, batería. |
 | `.bat` 🔋 | Solo admins: batería del teléfono o la tablet donde corre el bot (necesita Termux:API). |
@@ -374,7 +375,7 @@ _Solo para el owner del bot. Se abre con `.menu owner`, `.menu dueno`._
 | `.setppbot` 📷 | Establece foto de perfil al bot. |
 | `.setbotname` ✏️ | Establece nombre al bot [no funciona con WhatsApp Business] |
 | `.backup` 🗄️ | Copia de la base y te la manda por privado. |
-| `.enviados` 🤖 | Cuánto mandé, por día, hora y tipo: en un grupo, ese grupo; con todo, el general. |
+| `.enviados todo` 🤖 | Cuánto mandé entre todos los grupos, por día, hora y tipo, y en cuáles más; por privado alcanza con .enviados. |
 | `.podar` 🗑️ | Borra el detalle de más de 90 días (actividad por hora, envíos del bot y usos de comandos). |
 | `.ajustar @mención 50` 🪙 | Corrección de UruCoins a mano (negativo para sacar). |
 | `.setpareja @a @b` 💞 | Los pone de pareja de una; con "\| 3 días", desde hace cuánto. |
