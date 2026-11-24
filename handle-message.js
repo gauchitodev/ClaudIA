@@ -15,6 +15,7 @@ import { anotarPresencia, anotarCierreDe } from "./lib/inactivos.js";
 import { guardarAtrasado, aplicarAMemoria } from "./lib/memoria-corta.js";
 import txt from "./lib/strings.js";
 import { cargados } from "./lib/plugins-cargados.js";
+import { piezaDe } from "./lib/antiflood.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -45,6 +46,11 @@ function fueraDelModoAdmin(command) {
 // Handles an incoming message from msgQueue in main.js
 export async function handleMessage(nMsg) {
   if (!nMsg) return;
+  // What the message is a piece of (a photo of an album, the HD copy of a photo) is in its messageContextInfo, which
+  // pushMessage takes off the message right below, before any hook gets to see it (lib/wa-socket.js): read first, for
+  // the anti-flood, which counts an album as one message (lib/antiflood.js).
+  const pieza = piezaDe(nMsg.message);
+  if (pieza) nMsg._pieza = pieza;
   this.pushMessage(nMsg).catch(console.error);
   let m = nMsg;
   if (!m) return;

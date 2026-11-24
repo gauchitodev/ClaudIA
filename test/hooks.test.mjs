@@ -104,7 +104,7 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
     if (p?.jugadas) marcados.jugadas.push(archivo);
     if (p?.alFinal) marcados.alFinal.push(archivo);
   }
-  assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
+  assert.deepEqual(marcados.moderacion.sort(), ["_all-anti-links.js", "_anti-Link-grupos-canales.js", "_anti-link-plus.js", "_antiflood.js", "_chatbot-events.js", "_manejador-lista-negra.js"]);
   assert.deepEqual(marcados.trasModeracion, ["_memoria-corta.js"]);
   // The games played with plain messages take their moves before the rest: one message, one game.
   assert.deepEqual(marcados.jugadas.sort(), ["_fun-ttt.js", "fun-4enlinea.js", "fun-ahorcado.js"]);

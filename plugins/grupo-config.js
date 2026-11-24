@@ -1,6 +1,7 @@
 import { rolesPorPersona } from "../lib/roles.js";
 import { apagadosDe } from "../lib/juegos-apagados.js";
 import { MODOS_VOZ } from "../lib/voz.js";
+import { limiteEnPalabras } from "../lib/antiflood.js";
 
 const plugin = {};
 plugin.cmd = ["config"];
@@ -9,7 +10,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, antiViewOnce, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto, mercadosEnHorario } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, antiViewOnce, antiFlood, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, charla, saludos, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto, mercadosEnHorario } = chat;
   // Once per person, as .roles: someone with a role under each of their ids came out twice. And as the group lists
   // them: a role under a number that moved on named whoever had it before.
   const roles = rolesPorPersona(m.chat, groupMetadata?.participants);
@@ -36,6 +37,7 @@ ${antiTiktok ? "✅" : "❌"} Anti links TikTok
 ${antiTelegram ? "✅" : "❌"} Anti links Telegram
 ${antiLiveLocation ? "✅" : "❌"} Anti ubicación en tiempo real (.antiubicacion)
 ${antiViewOnce ? "✅" : "❌"} Anti mensajes de ver una vez (.antivistaunica)
+${antiFlood ? "✅" : "❌"} Anti flood: ${limiteEnPalabras()} (.antiflood)
 ${games ? "✅" : "❌"} Uso de juegos
 ${casino ? "✅" : "❌"} Casino y apuestas (.casino)
 🎮 Juegos apagados de a uno: ${apagadosDe(chat).join(", ") || "ninguno"} (.juego)

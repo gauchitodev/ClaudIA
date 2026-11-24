@@ -2,6 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, G, ultimoEnviado, fijarSaldo } from "./helpers.mjs";
 import { conexion } from "../lib/conexion.js";
+import txt from "../lib/strings.js";
 
 let F, M, U, A, R, Pf, Modo, Config;
 before(async () => {
@@ -148,6 +149,42 @@ test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la mu
   F.updateChat(chat, { voz: "aveces", stickersAuto: 0 });
   await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   assert.match(ultimo(), /\n✅ Anti menciones del grupo en estados \(\.antiestados\)\n❌ Stickers por su cuenta \(\.respuestastickers\)\n🎙️ Voz: a veces \(\.voz\)\n/);
+});
+
+// .antiflood, the same way: off unless the group turns it on, an admin's to turn and not a moderator's, and .config says
+// how it is, with the limit, right under the view-once line (lib/antiflood.js, plugins/_antiflood.js).
+test(".antiflood: apagada por defecto, la prende y la apaga un admin, y .config la muestra con su límite", async () => {
+  const chat = "antiflood@g.us";
+  F.initDataDB({ chat, sender: "111@lid", senderJid: "111@s.whatsapp.net" });
+  assert.equal(F.getChat(chat).antiFlood, 0);
+  assert.ok(Config.cmd.includes("antiflood"));
+  const config = (args, quien = { isAdmin: true }) => Config.run({ ...msg, chat }, { client: conexion.client, command: "antiflood", args, isOwner: false, isAdmin: false, ...quien, chat: F.getChat(chat), botSettings: {} });
+  const VerConfig = (await import("../plugins/grupo-config.js")).default;
+  const panel = async () => {
+    await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+    return ultimo();
+  };
+  assert.match(await panel(), /\n❌ Anti mensajes de ver una vez \(\.antivistaunica\)\n❌ Anti flood: 8 mensajes en 10 segundos \(\.antiflood\)\n[✅❌] Uso de juegos\n/);
+
+  await config(["on"]);
+  assert.match(ultimo(), /Opción: `antiflood`\n• Estado: Activado$/);
+  assert.equal(F.getChat(chat).antiFlood, 1);
+  assert.match(await panel(), /\n✅ Anti flood: 8 mensajes en 10 segundos \(\.antiflood\)\n/);
+  await config(["on"]);
+  assert.match(ultimo(), /Estado: Activado \(ya estaba así\)$/);
+
+  // A moderator sees the option in the menu and doesn't get to turn it: what it gives ends in a removal.
+  await config(["off"], { isAdmin: false, isMod: true });
+  assert.equal(ultimo(), txt.onlyAdmin);
+  assert.equal(F.getChat(chat).antiFlood, 1);
+
+  // With nothing it flips, as every switch.
+  await config([]);
+  assert.match(ultimo(), /Opción: `antiflood`\n• Estado: Desactivado$/);
+  assert.equal(F.getChat(chat).antiFlood, 0);
+  await config(["cualquiera"]);
+  assert.equal(ultimo(), "Usá .antiflood on o .antiflood off (sin nada, lo invierte).");
+  assert.equal(F.getChat(chat).antiFlood, 0);
 });
 
 // .anticall and .audios saved an option nothing ever read: they're gone, and so are their columns (database-schema.js).

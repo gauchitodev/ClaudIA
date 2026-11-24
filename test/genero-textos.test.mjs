@@ -180,7 +180,7 @@ test("los avisos fijos pasan por concordar: lo que dicen en femenino, y que cada
   assert.equal(Ge.concordarPlural(txt.parejaCasamientoAlready, "mujer"), "*[❕]* Ya están casadas 🥰");
   // The sites that can't be run here from end to end: the call is what's checked.
   for (const [ruta, patron] of [
-    ["plugins/grupo-advertir.js", /concordar\(txt\.advertirKick\(quien\), generoDe\(quien\)\)/],
+    ["lib/advertencias.js", /concordar\(txt\.advertirKick\(quien\), generoDe\(quien\)\)/],
     ["plugins/_anti-Link-grupos-canales.js", /concordar\(txt\.antiGroupsSuccess\(m\.sender\), generoDe\(m\.sender\)\)/],
     ["plugins/fun-ruleta-del-ban.js", /concordar\(txt\.ruletaDelBan\(user\), generoDe\(user\)\)/],
     ["plugins/dl-youtube.js", /concordar\(txt\.banSpam, generoDe\(m\.sender\)\)/],

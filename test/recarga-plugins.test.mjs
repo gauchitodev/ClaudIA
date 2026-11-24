@@ -102,6 +102,42 @@ test("recarga: el aviso de la ubicación en tiempo real no se repite por recarga
   }
 });
 
+// And so the anti-flood: what each person sent in the last seconds, and whether they were already told, is in
+// lib/antiflood.js. In the plugin's own module, saving its file in the middle of a burst started the count over, and
+// whoever had already been told got the notice again in place of the warning.
+test("recarga: guardar el plugin del anti-flood en medio de una ráfaga no le reinicia la cuenta", async () => {
+  const plugins = `${path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugins")}/`;
+  const A = await import("../lib/antiflood.js");
+  const avisos = [];
+  const client = { user: { lid: "200000000000001@lid" }, sendText: async (chat, texto) => (avisos.push(texto), {}) };
+  const opciones = { client, participants: [], isOwner: false, isMod: false, isBotAdmin: true, chat: { antiFlood: 1 } };
+  let n = 0;
+  const escribir = async () => {
+    const plugin = cargados.plugins["_antiflood"];
+    await plugin.before({ isGroup: true, chat: "recarga-flood@g.us", sender: "300000000000006@lid", senderJid: "", mtype: "conversation", message: { conversation: "hola" }, key: { id: `RECARGA${++n}` }, messageTimestamp: 1_800_000_000 }, opciones);
+    await plugin.enCurso;
+  };
+  const logReal = console.log;
+  console.log = () => {};
+  A.reiniciarAntiflood();
+  try {
+    await L.recargarPlugin("_antiflood.js", "rename", plugins);
+    const antes = cargados.plugins["_antiflood"];
+    for (let i = 0; i < 5; i++) await escribir();
+    await L.recargarPlugin("_antiflood.js", "change", plugins); // the file was saved
+    assert.notEqual(cargados.plugins["_antiflood"], antes, "es el plugin vuelto a cargar");
+    for (let i = 0; i < 2; i++) await escribir();
+    assert.deepEqual(avisos, [], "cinco de antes y dos de después son siete");
+    await escribir();
+    assert.equal(avisos.length, 1, "el octavo, contando los de antes de recargar");
+    assert.match(avisos[0], /^🌊 @300000000000006, aflojá un poco: mandaste 8 mensajes en 10 segundos/);
+  } finally {
+    console.log = logReal;
+    delete cargados.plugins["_antiflood"];
+    A.reiniciarAntiflood();
+  }
+});
+
 test("consistencia: watchPlugins recarga cada archivo con recargarPlugin", () => {
   const fuente = fs.readFileSync(new URL("../load-functions.js", import.meta.url), "utf8");
   assert.match(fuente, /watch\("\.\/plugins\/"[^]*?recargarPlugin\(filename, eventType\)/);

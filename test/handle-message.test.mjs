@@ -556,6 +556,126 @@ test(".enviados: lo de su grupo, a los admins de WhatsApp y del bot y al owner; 
   assert.equal(await pide(ANA, ".enviados", { chat: null }), txt.onlyAdmin, "y por privado nadie es admin");
 });
 
+// ---------- The anti-flood (.antiflood, plugins/_antiflood.js), from the message as Baileys hands it over ----------
+
+const AVISO_FLOOD = (quien) => `🌊 @${quien.split("@")[0]}, aflojá un poco: mandaste 8 mensajes en 10 segundos y así no se puede seguir la charla. No borro nada, pero si seguís así lo próximo es una advertencia.`;
+
+// A group of the test's own with the anti-flood on (its count is by group and person), and what sends a message there:
+// "segundo" is when it was sent, counted from a moment 20 s back, in whole seconds as WhatsApp stamps them.
+// Everyone by the name the rest of this file knows them by: a message brings its sender's name, and the bot keeps the
+// last one it saw (syncUserInfo), which other tests read back (.id).
+const NOMBRES_FLOOD = { [ANA]: "Ana", [BETO]: "Beto", [BOT]: "Claudia", "300000000000004@lid": "Carla", "300000000000006@lid": "Dueño" };
+async function conAntiflood(grupo, { plugins = {}, gente = [ANA, BETO], admins = [] } = {}) {
+  (await import("../lib/antiflood.js")).reiniciarAntiflood();
+  carpeta["_antiflood.js"].enCurso = undefined; // not another test's step, should one have failed halfway
+  cargados.plugins = { "_antiflood.js": carpeta["_antiflood.js"], ...plugins };
+  const client = cliente();
+  client.groupMetadata = async (id) => ({ id, subject: "Grupo", participants: [...gente.map((p) => ({ id: p, admin: admins.includes(p) ? "admin" : null })), { id: BOT, admin: "admin" }] });
+  for (const quien of gente) F.initDataDB({ chat: grupo, sender: quien, senderJid: "", pushName: NOMBRES_FLOOD[quien] });
+  F.updateChat(grupo, { antiFlood: 1 });
+  const base = Math.floor(Date.now() / 1000) - 20;
+  // Not a "hola": handle-message greets back the first one of a group, and that's a text of the bot's too.
+  const manda = async (sender, { contenido = { conversation: "dale" }, segundo = 0, key = {} } = {}) => {
+    const id = `FLOOD${String(++numero).padStart(6, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: grupo, fromMe: false, id, participant: sender, ...key }, message: contenido, messageTimestamp: base + segundo, pushName: NOMBRES_FLOOD[sender], _upsertType: "notify", _llegada: Date.now() });
+    await carpeta["_antiflood.js"].enCurso;
+    return id;
+  };
+  const avisos = () => globalThis.enviados.map((e) => e.msg?.text).filter(Boolean);
+  return { client, manda, avisos };
+}
+
+// An album is its cover and then each photo as a message of its own, pointing at the cover from its messageContextInfo.
+// pushMessage takes that off the message, in place and before handle-message goes on (lib/wa-socket.js), so no hook
+// ever saw it: handle-message reads it first. Without that, twelve photos were twelve messages, and sharing an album
+// was a flood.
+test("anti-flood: un álbum cuenta como un mensaje aunque pushMessage le saque la marca, y la copia HD de una foto no cuenta", async () => {
+  const G = "120363000000000091@g.us";
+  const { client, manda, avisos } = await conAntiflood(G);
+  client.pushMessage = async (msg) => {
+    if (msg.message) delete msg.message.messageContextInfo;
+  };
+  const asociado = (tipo, id) => ({ messageContextInfo: { messageAssociation: { associationType: tipo, parentMessageKey: { remoteJid: G, fromMe: false, id } } } });
+  const tapa = await manda(ANA, { contenido: { albumMessage: { expectedImageCount: 12 } } });
+  let unaFoto;
+  for (let i = 0; i < 12; i++) unaFoto = await manda(ANA, { contenido: { imageMessage: { caption: "la playa" }, ...asociado(1, tapa) }, segundo: 1 });
+  // The HD copy of a photo comes as a message too, wrapped, a piece of the photo (HD_IMAGE_DUAL_UPLOAD).
+  for (let i = 0; i < 10; i++) await manda(ANA, { contenido: { associatedChildMessage: { message: { imageMessage: { caption: "la playa" }, ...asociado(10, unaFoto) } } }, segundo: 1 });
+  assert.deepEqual(avisos(), [], "un álbum de doce fotos y diez copias en HD: un mensaje");
+  for (let i = 0; i < 6; i++) await manda(ANA, { segundo: 2 });
+  assert.deepEqual(avisos(), [], "el álbum y seis mensajes son siete");
+  await manda(ANA, { segundo: 3 });
+  assert.deepEqual(avisos(), [AVISO_FLOOD(ANA)]);
+  assert.deepEqual(globalThis.enviados.at(-1), { chat: G, msg: { text: AVISO_FLOOD(ANA), mentions: [ANA] } });
+});
+
+// Nothing is deleted or marked: the eighth message is told about and goes on like any other, to the counters and to
+// its command. And handle-message isn't held behind the notice.
+test("anti-flood: el octavo mensaje avisa y sigue su camino: se cuenta y su comando corre", async () => {
+  const G = "120363000000000092@g.us";
+  const corridos = [];
+  const vieron = [];
+  const { manda, avisos } = await conAntiflood(G, {
+    plugins: { "_messsage-count.js": carpeta["_messsage-count.js"], "mira.js": { before: async (m) => vieron.push(m.key.id) }, "espia.js": { cmd: ["espia"], run: async (m) => corridos.push(m.key.id) } },
+  });
+  const mandados = [];
+  for (let i = 0; i < 7; i++) mandados.push(await manda(ANA, { segundo: i }));
+  assert.deepEqual(avisos(), []);
+  mandados.push(await manda(ANA, { contenido: { conversation: ".espia" }, segundo: 7 }));
+  assert.deepEqual(avisos(), [AVISO_FLOOD(ANA)]);
+  assert.deepEqual(corridos, [mandados[7]], "su comando corre");
+  assert.deepEqual(vieron, mandados, "los otros hooks ven los ocho");
+  assert.equal(F.getUser(ANA, G).inGroup[G].messageCount, 8, "y cuentan como mensajes");
+  assert.deepEqual(globalThis.enviados.filter((e) => e.msg?.delete), [], "nada borrado");
+  // Someone else's messages in the same group are their own count.
+  for (let i = 0; i < 7; i++) await manda(BETO, { segundo: i });
+  assert.deepEqual(avisos(), [AVISO_FLOOD(ANA)]);
+});
+
+// Who it leaves alone, by the roles handle-message works out: WhatsApp's admins, the bot's moderators, the owner by
+// their number, and what the owner types from the bot's own phone (fromMe).
+test("anti-flood: ni a un admin de WhatsApp, ni a un moderador del bot, ni al owner, ni a lo que sale del teléfono del bot; a los demás, aviso y advertencia", async () => {
+  const G = "120363000000000093@g.us";
+  const [CARLA, DUENO] = ["300000000000004@lid", "300000000000006@lid"];
+  const { manda, avisos } = await conAntiflood(G, { gente: [ANA, BETO, CARLA, DUENO], admins: [ANA] });
+  F.setRolGrupo(G, CARLA, "mod");
+  const dieciseis = async (sender, key) => {
+    for (let i = 0; i < 16; i++) await manda(sender, { segundo: i % 8, key });
+  };
+  await dieciseis(ANA);
+  assert.deepEqual(avisos(), [], "un admin de WhatsApp");
+  await dieciseis(CARLA);
+  assert.deepEqual(avisos(), [], "un moderador del bot");
+  await dieciseis(DUENO, { participantAlt: "59899111222@s.whatsapp.net" });
+  assert.deepEqual(avisos(), [], "el owner");
+  await dieciseis(BOT, { fromMe: true });
+  assert.deepEqual(avisos(), [], "el owner, desde el teléfono del bot");
+  // Whoever has no role: the notice at the eighth, and at the next eight, sent once it was out, the warning.
+  for (let i = 0; i < 8; i++) await manda(BETO, { segundo: i });
+  assert.deepEqual(avisos(), [AVISO_FLOOD(BETO)], "y a quien no tiene ningún rol, sí");
+  assert.equal(F.advertenciasDe(BETO, G), 0);
+  for (let i = 0; i < 8; i++) await manda(BETO, { segundo: 8 + i });
+  assert.deepEqual(avisos(), [AVISO_FLOOD(BETO), txt.advertirSuccess(BETO, "flood: 8 mensajes en 10 segundos, después del aviso", 1, 3)], "y si sigue, la advertencia");
+  assert.equal(F.advertenciasDe(BETO, G), 1);
+  assert.deepEqual(globalThis.enviados.at(-1).msg.mentions, [BETO]);
+});
+
+// After a reconnection what was said meanwhile arrives all at once: counted by when it arrived, any busy minute was a
+// flood. It goes by when each message was sent, and what's over a minute old never gets to a hook.
+test("anti-flood: una tanda atrasada se mide por la hora de cada mensaje, y lo de más de un minuto no cuenta", async () => {
+  const G = "120363000000000094@g.us";
+  const { manda, avisos } = await conAntiflood(G);
+  // Eight messages sent over 35 s, between 50 and 15 s ago, handled one after another right now.
+  for (let i = 0; i < 8; i++) await manda(ANA, { segundo: -30 + i * 5 });
+  assert.deepEqual(avisos(), [], "ocho mensajes en 35 segundos no son un flood, lleguen como lleguen");
+  // Eight from 70 s ago: too old for the hooks (handle-message.js), so they aren't part of anything.
+  for (let i = 0; i < 8; i++) await manda(BETO, { segundo: -50 });
+  for (let i = 0; i < 7; i++) await manda(BETO, { segundo: 10 });
+  assert.deepEqual(avisos(), []);
+  await manda(BETO, { segundo: 11 });
+  assert.deepEqual(avisos(), [AVISO_FLOOD(BETO)]);
+});
+
 // The greeting goes out right after the moderation, before the other hooks: Claudia's answer to the same "hola claudia"
 // comes after it.
 test("el saludo sale antes que la respuesta de Claudia al mismo mensaje", async () => {

@@ -1,6 +1,6 @@
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { prepararBase, G, ultimoEnviado } from "./helpers.mjs";
+import { prepararBase, G, ultimoEnviado, esperar } from "./helpers.mjs";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
 
@@ -222,4 +222,84 @@ test(".listaadv la ven los moderadores y los admins en el grupo, y por privado s
   const privado = "59899111222@s.whatsapp.net";
   assert.equal(permisosDe(privado, "100@lid").isMod, false, "un admin de un grupo no es moderador en privado");
   assert.equal(permisosDe(privado, "100@lid", { esOwner: true }).isMod, true);
+});
+
+// The third warning removes: it announces it, asks WhatsApp, and only then touches the count. A second third warning in
+// between read the same count, and announced and removed all over again: nobody types .adv that fast, but the anti-flood
+// gives warnings on its own in the middle of a burst (plugins/_antiflood.js), and a moderator may be typing .adv at the
+// same flood. One place gives them all (lib/advertencias.js), and it lets one removal through at a time.
+test("dos terceras advertencias a la vez lo sacan una sola vez", async () => {
+  const { darAdvertencia } = await import("../lib/advertencias.js");
+  F.setAdvertencias("222@lid", G, 2);
+  const anotadas = () => F.antecedentesDe("222@lid", G).total;
+  const antes = anotadas();
+  // WhatsApp takes its time to answer the removal.
+  const responder = conexion.client.groupParticipantsUpdate;
+  let contestar;
+  const espera = new Promise((r) => (contestar = r));
+  conexion.client.groupParticipantsUpdate = async (chat, ...a) => (chat === G && (await espera), responder(chat, ...a));
+  try {
+    const deClaudia = { motivo: "flood", dadoPor: "999@lid", expulsarA: "222@lid" };
+    // What each of these gives, or "sigue esperando" if it was left waiting for WhatsApp too: awaited as it is, that
+    // hung the test instead of failing it.
+    const pronto = (promesa) => Promise.race([promesa, esperar(200).then(() => "sigue esperando")]);
+    const primera = darAdvertencia(conexion.client, G, "222@lid", deClaudia);
+    assert.deepEqual(await pronto(darAdvertencia(conexion.client, G, "222@lid", deClaudia)), { advertencias: 3, saliendo: true }, "otra del anti-flood, en el medio");
+    assert.deepEqual(await pronto(darAdvertencia(conexion.client, G, "5989911222@s.whatsapp.net", deClaudia)), { advertencias: 3, saliendo: true }, "nombrada por su número, es la misma persona");
+    // Another group's removal is another matter: it doesn't wait for this one.
+    F.setAdvertencias("222@lid", H, 2);
+    assert.deepEqual(await pronto(darAdvertencia(conexion.client, H, "222@lid", deClaudia)), { advertencias: 3, expulsion: { ok: true, status: "200" } });
+    assert.deepEqual(expulsiones, [{ chat: H, ids: ["222@lid"], accion: "remove" }]);
+    expulsiones = [];
+    await pronto(correr(Warn, "@222 flood", { mentionedJid: ["222@lid"] }));
+    assert.equal(ultimo(), "Ya lo estoy sacando: con la advertencia anterior llegó a 3.", "y el .adv de un moderador");
+    assert.deepEqual([expulsiones.length, anotadas() - antes, F.advertenciasDe("222@lid", G)], [0, 0, 2], "nada cambió todavía");
+
+    contestar();
+    assert.deepEqual(await primera, { advertencias: 3, expulsion: { ok: true, status: "200" } });
+  } finally {
+    conexion.client.groupParticipantsUpdate = responder;
+  }
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["222@lid"], accion: "remove" }], "una sola expulsión");
+  assert.equal(globalThis.enviados.filter((e) => e.chat === G && /SERÁS ELIMINAD/.test(e.msg?.text)).length, 1, "anunciada una sola vez en este grupo");
+  assert.deepEqual([anotadas() - antes, F.advertenciasDe("222@lid", G)], [1, 0], "una anotada, y la cuenta en cero");
+
+  // Once it's over, the next third warning goes through like any other.
+  F.setAdvertencias("222@lid", G, 2);
+  await correr(Warn, "@222 otra vez", { mentionedJid: ["222@lid"] });
+  assert.equal(expulsiones.length, 2);
+  assert.equal(F.advertenciasDe("222@lid", G), 0);
+});
+
+// The third warning removes by the id the group lists the person under, which is the one WhatsApp takes. In a group
+// that lists people by number, the id of their row (their LID, where the count is kept) came back with an error status
+// that nobody read: announced, and still there.
+test("a la tercera lo saca por el id con que el grupo lo lista, no por el de su fila", async () => {
+  const porNumero = [
+    { id: "5989911111@s.whatsapp.net", lid: "111@lid", admin: null },
+    { id: "999@lid", admin: "admin" },
+  ];
+  F.setAdvertencias("111@lid", G, 2);
+  const text = "@111 otra vez";
+  await Warn.run(m(text, { mentionedJid: ["111@lid"] }), { client: conexion.client, text, command: "adv", usedPrefix: ".", participants: porNumero, isOwner: false, isWaAdmin: true });
+  assert.deepEqual(expulsiones, [{ chat: G, ids: ["5989911111@s.whatsapp.net"], accion: "remove" }]);
+  assert.equal(F.advertenciasDe("111@lid", G), 0);
+});
+
+// .adv answers the command it was given, quoting it: the warning, the announcement of the removal and, if WhatsApp says
+// no, that too. The anti-flood's warning, which nobody typed, quotes nothing (test/antiflood.test.mjs).
+test(".adv contesta citando el comando: la advertencia, el anuncio de la expulsión y el aviso de que no lo dejaron", async () => {
+  const citados = [];
+  const enviar = conexion.client.sendText;
+  conexion.client.sendText = (chat, text, quoted, opciones) => (citados.push(quoted?.text), enviar(chat, text, quoted, opciones));
+  try {
+    await correr(Warn, "@222 spam", { mentionedJid: ["222@lid"] });
+    F.setAdvertencias("222@lid", G, 2);
+    statusExpulsion = "403";
+    await correr(Warn, "@222 insultos", { mentionedJid: ["222@lid"] });
+  } finally {
+    conexion.client.sendText = enviar;
+  }
+  assert.deepEqual(citados, ["@222 spam", "@222 insultos", "@222 insultos"]);
+  assert.match(ultimo(), /^No me dejaron echarlo \(error 403\)/);
 });

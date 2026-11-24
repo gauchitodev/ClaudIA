@@ -4,7 +4,7 @@ import { leerInterruptor, limpiarPalabra } from "../lib/comandos.js";
 import { cambiarJuego } from "../lib/juegos-apagados.js";
 
 const plugin = {};
-plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "antivistaunica", "antiviewonce", "avu", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto", "mercadosauto"];
+plugin.cmd = ["antiestados", "antistatus", "modoadmin", "adminmode", "welcome", "detect", "delete", "antieliminar", "modoadulto", "18", "adultmode", "mentions", "menciones", "bc", "banchat", "autoread", "antiprivate", "antiprivado", "anticanales", "antigrupos", "allantilink", "antilink2", "antitiktok", "antitt", "antitelegram", "antitg", "antiinstagram", "antiig", "antiubicacion", "antivistaunica", "antiviewonce", "avu", "antiflood", "reactions", "reacciones", "juegos", "games", "preguntadeldia", "triviarelampago", "recapsemanal", "charla", "saludos", "monedas", "ascensos", "casino", "respuestastickers", "catalogoauto", "mercadosauto"];
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, isAdmin, chat, botSettings }) => {
@@ -43,6 +43,8 @@ plugin.run = async (m, { client, command, args = [], usedPrefix = ".", isOwner, 
     antivistaunica: { key: "antiViewOnce", from: "chat" },
     antiviewonce: { key: "antiViewOnce", from: "chat" },
     avu: { key: "antiViewOnce", from: "chat" },
+    // Whoever isn't a mod or above and sends too many messages in a row is told, and then warned (plugins/_antiflood.js).
+    antiflood: { key: "antiFlood", from: "chat" },
     reactions: { key: "reactions", from: "chat" },
     reacciones: { key: "reactions", from: "chat" },
     juegos: { key: "games", from: "chat" },
