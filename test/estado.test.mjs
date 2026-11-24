@@ -48,6 +48,20 @@ test(".estado dice con qué zona horaria anda el bot", async () => {
   assert.match(ultimoEnviado().msg.text.split("\n")[0], new RegExp(` · Node v[\\d.]+ · ${zona.replaceAll("/", "\\/").replaceAll("+", "\\+")}$`));
 });
 
+// Which Baileys the tablet has, and whether the fix for the sessions is on it (lib/parche-baileys.js): through WhatsApp,
+// the only way to see that an update took.
+test(".estado dice qué Baileys tiene el bot y si lleva el arreglo de las sesiones", async () => {
+  const { lineaDeBaileys } = await import("../lib/parche-baileys.js");
+  const client = conexion.client;
+  client.groupFetchAllParticipating = async () => ({});
+  await P.run({ chat: "x@g.us", sender: "a@lid" }, { client });
+  const lineas = ultimoEnviado().msg.text.split("\n");
+  assert.match(lineas[1], /^🧩 Baileys \d+\.\d+\.\d+\S* · con el arreglo de las sesiones$/);
+  assert.equal(lineas[1], lineaDeBaileys());
+  assert.match(lineas[0], /^🤖 \*Claudia /);
+  assert.match(lineas[2], /^⏱️ Encendida: /);
+});
+
 // The queue is lib/cola-descargas.js's, and .estado reads it from there.
 test(".estado dice cuántas descargas hay en curso y en cola", async () => {
   const { colaDescargas } = await import("../lib/cola-descargas.js");

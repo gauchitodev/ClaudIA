@@ -197,6 +197,14 @@ npm ci   # solo si cambió package-lock.json (en Termux, con el GYP_DEFINES de a
 
 y reiniciar el bot: cortar el proceso de `main.js` alcanza, `start-process.js` lo vuelve a levantar con el código nuevo.
 
+### El arreglo de Baileys
+
+El Baileys publicado (7.0.0-rc14) le abre una sesión nueva al teléfono de cada persona cada vez que vuelve a pedirle a WhatsApp sus dispositivos, que al enviar es cada cinco minutos. Las sesiones se apilan y se dañan: a esa gente los mensajes del bot le pueden quedar en «Esperando el mensaje», y el bot puede dejar de leer lo que mandan (`Bad MAC` en el log). Está reportado en Baileys ([#2901](https://github.com/WhiskeySockets/Baileys/issues/2901)), con un arreglo propuesto y todavía sin publicar.
+
+Mientras tanto el bot lo arregla en el paquete instalado, cambiando una línea (`lib/parche-baileys.js`). No hay que hacer nada: lo pone `npm ci` al instalar, y si una actualización no reinstaló nada, lo pone el bot al arrancar y se reinicia solo, una vez, para cargarlo. `.estado` dice qué Baileys hay y si lleva el arreglo. A mano es `node scripts/parchar-baileys.mjs`, y reiniciar.
+
+El arreglo frena el problema, pero no repara las sesiones que ya quedaron rotas. Si después de actualizar el bot sigue sin leer a alguna gente, hay que volver a vincular: cerrar la sesión desde el teléfono (Dispositivos vinculados) y arrancar de nuevo. Los datos del bot no se pierden.
+
 ## Tests y lint
 
 `npm test` corre la suite con el test runner de Node contra una base SQLite temporal, y `npm run lint` corre ESLint. Las dos cosas corren solas en GitHub Actions, en Node 22, 24 y 26, en cada push a `main` y en cada pull request.

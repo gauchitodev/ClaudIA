@@ -23,6 +23,12 @@ import { abrirSesion, borrarSesion } from "./lib/sesion.js";
 import qrcode from "qrcode-terminal";
 import txt from "./lib/strings.js";
 import { conexion } from "./lib/conexion.js";
+import { ponerParcheAlArrancar } from "./lib/parche-baileys.js";
+
+// Baileys's fix for the sessions, for an update that reinstalled nothing: if it has to put it on, this process stops
+// here and the next one loads it (lib/parche-baileys.js). Ahead of everything else.
+ponerParcheAlArrancar();
+
 const handler = await import("./handle-message.js");
 
 serialize();

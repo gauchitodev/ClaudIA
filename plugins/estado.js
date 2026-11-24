@@ -12,6 +12,7 @@ import { colaDescargas } from "../lib/cola-descargas.js";
 import { configuracion } from "../lib/configuracion.js";
 import { conexion } from "../lib/conexion.js";
 import { cargados } from "../lib/plugins-cargados.js";
+import { lineaDeBaileys } from "../lib/parche-baileys.js";
 
 const plugin = {};
 plugin.cmd = ["estado", "status"];
@@ -85,6 +86,8 @@ plugin.run = async (m, { client }) => {
 
   const texto = [
     `🤖 *Claudia ${configuracion.botVersion}* · Node ${process.version} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
+    // Which Baileys it runs on, and whether the fix for the sessions is on it (lib/parche-baileys.js).
+    lineaDeBaileys(),
     `⏱️ Encendida: ${duracion(process.uptime() * 1000)} · conectada: ${conectada}`,
     `🧠 IA: ${ia}`,
     `📥 Descargas: ${descargas}`,
