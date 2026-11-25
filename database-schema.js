@@ -109,6 +109,7 @@ export function ponerAlDia(db) {
       casino BOOLEAN DEFAULT 1,
       ascensos BOOLEAN DEFAULT 1,
       diversion BOOLEAN DEFAULT 1, -- whether the fun commands run in the group (plugin.diversion; .diversion, .modo compraventa turns it off)
+      convertidores BOOLEAN DEFAULT 1, -- whether the stickers and converters run in the group (plugin.convertidores; .convertidores, the same)
       reglas TEXT DEFAULT "",
       plantilla TEXT DEFAULT "",
       horarioGrupo TEXT DEFAULT "",
@@ -154,6 +155,15 @@ export function ponerAlDia(db) {
       db.exec(`ALTER TABLE chats ADD COLUMN diversion BOOLEAN DEFAULT 1`);
       const apagada = db.prepare(`UPDATE chats SET diversion = 0 WHERE games = 0 AND monedas = 0`).run().changes;
       console.log(`🟢 Migración: columna 'diversion' agregada a la tabla chats${apagada ? `, apagada en ${apagada} grupo(s) de compraventa` : ""}`);
+    })();
+  }
+  // The stickers' and converters' switch (.convertidores), the same way and for the same groups: .modo compraventa turns
+  // it off too.
+  if (!columnasChats.includes("convertidores")) {
+    db.transaction(() => {
+      db.exec(`ALTER TABLE chats ADD COLUMN convertidores BOOLEAN DEFAULT 1`);
+      const apagados = db.prepare(`UPDATE chats SET convertidores = 0 WHERE games = 0 AND monedas = 0`).run().changes;
+      console.log(`🟢 Migración: columna 'convertidores' agregada a la tabla chats${apagados ? `, apagada en ${apagados} grupo(s) de compraventa` : ""}`);
     })();
   }
 

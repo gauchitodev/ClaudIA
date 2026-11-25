@@ -14,6 +14,7 @@ const NIVEL = requerir("qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel");
 
 const plugin = {};
 plugin.cmd = ["qr"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 // The limit counts characters as people see them, an emoji with its skin tone or a flag being one, and it caps the

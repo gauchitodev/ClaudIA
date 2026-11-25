@@ -6,6 +6,7 @@ const segmentador = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const plugin = {};
 plugin.cmd = ["emojimix"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text, usedPrefix }) => {

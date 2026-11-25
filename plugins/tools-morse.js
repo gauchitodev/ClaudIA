@@ -6,6 +6,7 @@ import { conNombres, sinMenciones } from "../lib/menciones.js";
 
 const plugin = {};
 plugin.cmd = ["morse", "tmorse", "traducirmorse"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 // The text's limit counts characters as people see them, an emoji being one, as .qr's does. The code's is what .morse

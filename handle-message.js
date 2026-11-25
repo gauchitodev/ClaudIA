@@ -4,7 +4,7 @@ import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo,
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { juegoApagadoPara, correspondeAvisarApagado, textoJuegoApagado } from "./lib/juegos-apagados.js";
 import { CASINO_APAGADO } from "./lib/casino.js";
-import { DIVERSION_APAGADA } from "./lib/modo.js";
+import { DIVERSION_APAGADA, CONVERTIDORES_APAGADOS } from "./lib/modo.js";
 import { parsearComando, pareceComando, esComando } from "./lib/comandos.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
@@ -317,9 +317,16 @@ export async function handleMessage(nMsg) {
       }
 
       // Fun (plugin.diversion): couples and families, quotes and jokes, the horoscope, the verses, the weekly hashtags'
-      // lists, .tts… With .diversion off (.modo compraventa turns it off) they don't run in the group; in private they do.
+      // lists… With .diversion off (.modo compraventa turns it off) they don't run in the group; in private they do.
       if (plugin.diversion && m.isGroup && chat.diversion === 0) {
         rechazar(() => this.sendText(m.chat, DIVERSION_APAGADA, m));
+        continue;
+      }
+
+      // Stickers and converters (plugin.convertidores): .s, .ttp, .tts, .vn, .qr, the audio effects… The same, with
+      // .convertidores.
+      if (plugin.convertidores && m.isGroup && chat.convertidores === 0) {
+        rechazar(() => this.sendText(m.chat, CONVERTIDORES_APAGADOS, m));
         continue;
       }
 

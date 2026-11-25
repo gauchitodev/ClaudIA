@@ -38,6 +38,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(db.prepare(`SELECT antiLiveLocation FROM chats WHERE remoteJid = ?`).get(G).antiLiveLocation, 0, "la ubicación en tiempo real, sin borrar al migrar");
   assert.equal(db.prepare(`SELECT antiFlood FROM chats WHERE remoteJid = ?`).get(G).antiFlood, 0, "el anti-flood, apagado al migrar");
   assert.equal(db.prepare(`SELECT diversion FROM chats WHERE remoteJid = ?`).get(G).diversion, 1, "la diversión, prendida al migrar en un grupo que no es de compraventa");
+  assert.equal(db.prepare(`SELECT convertidores FROM chats WHERE remoteJid = ?`).get(G).convertidores, 1, "y los convertidores");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT juegosApagados FROM chats WHERE remoteJid = ?`).get(G).juegosApagados, "[]", "ningún juego apagado de a uno al migrar");
@@ -96,6 +97,42 @@ test("migra los grupos sin el interruptor de la diversión: apagada en los de co
   // A group the bot comes into afterwards has it on.
   F.initDataDB({ chat: "nuevo@g.us", sender: "111@lid", senderJid: "", pushName: "Ana" });
   assert.equal(F.getChat("nuevo@g.us").diversion, 1);
+});
+
+// .convertidores came after .diversion, on databases that have the fun's switch already: the same way, for the same
+// groups, whatever their fun says (one may have turned it back on), and its column with them or not at all.
+test("migra los grupos sin el interruptor de los convertidores: apagados en los de compraventa, de una vez y una sola vez", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-convertidores-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const VENTAS = "ventas@g.us";
+  const VENTAS_CON_DIVERSION = "ventasdiversion@g.us";
+  const AMIGOS = "amigos@g.us";
+  const SIN_JUEGOS = "sinjuegos@g.us";
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE chats (remoteJid TEXT PRIMARY KEY, games BOOLEAN DEFAULT 1, monedas BOOLEAN DEFAULT 1, diversion BOOLEAN DEFAULT 1)`);
+  for (const [chat, games, monedas, diversion] of [[VENTAS, 0, 0, 0], [VENTAS_CON_DIVERSION, 0, 0, 1], [AMIGOS, 1, 1, 1], [SIN_JUEGOS, 0, 1, 1]]) vieja.prepare(`INSERT INTO chats VALUES (?, ?, ?, ?)`).run(chat, games, monedas, diversion);
+  vieja.exec(`CREATE TRIGGER sin_escribir BEFORE UPDATE ON chats BEGIN SELECT RAISE(ABORT, 'corte'); END`);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  assert.throws(() => F.loadDatabase(), /corte/);
+  const cruda = new Database("./database/database.db");
+  assert.ok(!cruda.prepare(`PRAGMA table_info(chats)`).all().some((c) => c.name === "convertidores"), "sin los grupos, tampoco la columna");
+  cruda.exec(`DROP TRIGGER sin_escribir`);
+  cruda.close();
+
+  const dichos = [];
+  t.mock.method(console, "log", (...a) => dichos.push(a.join(" ")));
+  globalThis.db = F.loadDatabase();
+  const fila = (chat) => db.prepare(`SELECT diversion, convertidores FROM chats WHERE remoteJid = ?`).get(chat);
+  assert.deepEqual([VENTAS, VENTAS_CON_DIVERSION, AMIGOS, SIN_JUEGOS].map(fila), [{ diversion: 0, convertidores: 0 }, { diversion: 1, convertidores: 0 }, { diversion: 1, convertidores: 1 }, { diversion: 1, convertidores: 1 }]);
+  assert.ok(dichos.includes("🟢 Migración: columna 'convertidores' agregada a la tabla chats, apagada en 2 grupo(s) de compraventa"), dichos.join("\n"));
+  assert.ok(!dichos.some((d) => d.includes("'diversion'")), "la diversión ya estaba: no se toca");
+  F.updateChat(VENTAS, { convertidores: 1 });
+  globalThis.db = F.loadDatabase();
+  assert.equal(fila(VENTAS).convertidores, 1, "prendidos después, siguen prendidos");
 });
 
 // The markets on a match the bot follows (lib/partidos.js) need three columns the markets table didn't have, the groups

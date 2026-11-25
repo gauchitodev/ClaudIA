@@ -5,6 +5,7 @@ import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["s", "sticker", "stiker"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, isAdmin, isOwner }) => {

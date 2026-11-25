@@ -136,15 +136,15 @@ test("menú: cada plugin de la economía y del casino tiene una línea", () => {
   assert.deepEqual(plugins.filter(([, p]) => !p.cmd.some((c) => nombrados.has(c))).map(([archivo]) => archivo), []);
 });
 
-// .modo compraventa turns off the games, the economy and the fun; .casino, the casino alone. The index offered their
-// topics anyway.
+// .modo compraventa turns off the games, the economy, the fun and the converters; .casino, the casino alone. The index
+// offered their topics anyway.
 test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo piden dice cómo se prende", () => {
   const temas = (opciones) => menu(opciones).split("📂")[1].split("📜")[0];
-  const COMPRAVENTA = { ...ABIERTO, games: 0, monedas: 0, diversion: 0 };
+  const COMPRAVENTA = { ...ABIERTO, games: 0, monedas: 0, diversion: 0, convertidores: 0 };
   assert.match(temas({}), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
   const enVentas = temas({ datosChat: COMPRAVENTA });
   // The games' topic went too, now that .besar and .siono are games: they were the two that kept it there.
-  for (const fuera of ["coins", "casino", "canvas", "juegos", "pareja", "familia", "biblia"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
+  for (const fuera of ["coins", "casino", "canvas", "juegos", "pareja", "familia", "biblia", "convertidores", "audio"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
   for (const queda of ["temáticas", "descargas", "extras"]) assert.match(enVentas, new RegExp(queda), queda);
   assert.doesNotMatch(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /UruCoins\*|Casino y apuestas|\.ruleta|\.laburos/);
   assert.match(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🗳️ \*Temáticas y ranking\*/);
@@ -156,11 +156,23 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.equal(menu({ pedido: "pareja", datosChat: COMPRAVENTA }), "💞 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
   assert.equal(menu({ pedido: "familia", datosChat: COMPRAVENTA }), "👨‍👩‍👧 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
   assert.equal(menu({ pedido: "biblia", datosChat: COMPRAVENTA }), "🙏 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
+  // The converters' topic goes whole: the admins' tools that were in it (.sacarsticker, .respuestastickers, .r) went to
+  // their own topics, and they kept it there.
+  assert.equal(menu({ pedido: "convertidores", datosChat: COMPRAVENTA }), "🔄 Ese tema está apagado en este grupo: un admin lo prende con .convertidores on.");
+  assert.equal(menu({ pedido: "audio", datosChat: COMPRAVENTA }), "🎚️ Ese tema está apagado en este grupo: un admin lo prende con .convertidores on.");
+  assert.match(menu({ pedido: "extras", datosChat: COMPRAVENTA }), /\n▸ \.r 👁️ /);
+  assert.match(menu({ pedido: "admins", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.sacarsticker 🃏 /);
+  assert.match(menu({ pedido: "config", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.respuestastickers 🃏 /);
   // The fun alone off, in a group of friends: its topics go, the games stay.
   const SIN_DIVERSION = { ...ABIERTO, diversion: 0 };
   assert.match(temas({ datosChat: SIN_DIVERSION }), /🎮 juegos/);
   for (const fuera of ["pareja", "familia", "biblia"]) assert.doesNotMatch(temas({ datosChat: SIN_DIVERSION }), new RegExp(fuera), fuera);
   assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN_DIVERSION }), /💞 pareja/, "en privado no hay interruptores");
+  // And the converters alone off: their two topics go, the fun stays.
+  const SIN_CONVERTIDORES = { ...ABIERTO, convertidores: 0 };
+  assert.match(temas({ datosChat: SIN_CONVERTIDORES }), /💞 pareja/);
+  for (const fuera of ["convertidores", "audio"]) assert.doesNotMatch(temas({ datosChat: SIN_CONVERTIDORES }), new RegExp(fuera), fuera);
+  assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN_CONVERTIDORES }), /🔄 convertidores/, "en privado tampoco");
   assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🗳️ temáticas · 🎧 descargas/);
 
   // With only the casino off, the economy stays.
@@ -188,17 +200,24 @@ test("diversión: los comandos para divertirse llevan un interruptor, y los tema
   // .delttt clears a tic-tac-toe room already open; .noaura and .siaura are about oneself (plugins/fun-noaura.js).
   assert.deepEqual(sinInterruptor.sort(), ["fun-noaura", "fun-ttt-del"]);
   const deDiversion = new Set(plugins.filter(([, p]) => p.diversion).map(([archivo]) => archivo));
-  for (const archivo of ["fun-orsi", "fun-say", "fun-fake-reply", "fun-ruleta-del-ban", "fun-suicidarse", "faggi", "horoscopo", "versiculos-biblia", "queja-del-lunes", "historias-random", "recomendado-del-dia", "recomendar-cine", "convert-text-to-ptt", "lista-parejas"]) {
+  for (const archivo of ["fun-orsi", "fun-say", "fun-fake-reply", "fun-ruleta-del-ban", "fun-suicidarse", "faggi", "horoscopo", "versiculos-biblia", "queja-del-lunes", "historias-random", "recomendado-del-dia", "recomendar-cine", "lista-parejas"]) {
     assert.ok(deDiversion.has(archivo), archivo);
   }
   for (const archivo of ["fun-besar", "fun-si-o-no", "coins-poker-cartas"]) assert.equal(cargados.plugins[archivo].juego, true, `${archivo} va con los juegos`);
-  assert.deepEqual(plugins.filter(([, p]) => p.diversion && (p.juego || p.casino || p.economia)).map(([archivo]) => archivo), [], "nada es dos cosas a la vez");
+  // The stickers and converters, .tts among them: a converter, not fun.
+  const deConvertidores = plugins.filter(([, p]) => p.convertidores).map(([archivo]) => archivo).sort();
+  assert.deepEqual(deConvertidores, ["audio-effects", "convert-sticker-to-img", "convert-text-to-ptt", "convert-to-mp3", "convert-to-ptt", "convert-to-url", "sticker", "sticker-azar", "sticker-emojimix", "sticker-ttp", "sticker-ttp2", "sticker-wm", "tools-change-resolution", "tools-morse", "tools-qr"]);
+  // A plugin of the fun or of the converters carries that switch alone.
+  const interruptores = (p) => ["juego", "casino", "economia", "diversion", "convertidores"].filter((marca) => p[marca]);
+  assert.deepEqual(plugins.filter(([, p]) => (p.diversion || p.convertidores) && interruptores(p).length > 1).map(([archivo]) => archivo), [], "nada es dos cosas a la vez");
   // The menu's topics that are fun through and through: each command in them, by every plugin that answers to it.
-  const enTemas = M.entradasDelMenu(".").filter((e) => ["pareja", "familia", "biblia"].includes(e.seccion.clave));
-  assert.ok(enTemas.length >= 14, `pocas líneas (${enTemas.length})`);
-  for (const e of enTemas) {
-    const duenos = plugins.filter(([, p]) => p.cmd.includes(e.cmd));
-    assert.ok(duenos.length && duenos.every(([, p]) => p.diversion), `.${e.cmd} (${e.seccion.clave})`);
+  for (const [marca, claves, minimo] of [["diversion", ["pareja", "familia", "biblia"], 14], ["convertidores", ["convertidores", "audio"], 15]]) {
+    const enTemas = M.entradasDelMenu(".").filter((e) => claves.includes(e.seccion.clave));
+    assert.ok(enTemas.length >= minimo, `pocas líneas de ${marca} (${enTemas.length})`);
+    for (const e of enTemas) {
+      const duenos = plugins.filter(([, p]) => p.cmd.includes(e.cmd));
+      assert.ok(duenos.length && duenos.every(([, p]) => p[marca]), `.${e.cmd} (${e.seccion.clave})`);
+    }
   }
 });
 
@@ -343,7 +362,7 @@ test("menú: la línea de .info dice lo que cuenta .info", () => {
 test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-message", () => {
   // The ranking leaves out what wouldn't run here. If handle-message checks change, lib/menu.js has to follow.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "juegoApagadoPara(chat, command, args)", "plugin.economia && m.isGroup && chat.monedas === 0", "plugin.diversion && m.isGroup && chat.diversion === 0"]) {
+  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "juegoApagadoPara(chat, command, args)", "plugin.economia && m.isGroup && chat.monedas === 0", "plugin.diversion && m.isGroup && chat.diversion === 0", "plugin.convertidores && m.isGroup && chat.convertidores === 0"]) {
     assert.ok(fuente.includes(condicion), `handle-message ya no chequea «${condicion}»: revisá puedeCorrerAca en lib/menu.js`);
   }
 });

@@ -121,14 +121,11 @@ _Para todos. Se abre con `.menu convertidores`, `.menu stickers`, `.menu sticker
 | `.wm pack\|autor` 🏷️ | Cambia el nombre del pack y el autor del sticker que respondés. |
 | `.img` | Convierte un sticker en imagen. |
 | `.stickerazar [tema]` 🎲 | Uno de los stickers que mandó el grupo, al azar o de un tema (risa, perro, enojo). |
-| `.sacarsticker` | (Admins) Respondiendo a un sticker: Claudia no lo manda más. |
-| `.respuestastickers on/off` | (Admins) Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |
 | `.tts <texto>` 🔖 | Convierte texto a audio, con la voz de Claudia si está instalada (edge-tts); .tts -en para otro idioma. |
 | `.tomp3` 🔖 | Convierte un video o nota de voz a audio MP3. |
 | `.vn` 🎙️ | Convierte el audio o video que respondés en nota de voz. |
 | `.res 500` 📐 | Cambia el tamaño de la imagen que respondés: .res 500 o .res 300x600. |
 | `.tourl` 🔗 | Sube la imagen o el video que respondés a tmpfiles.org y devuelve el link (lo abre cualquiera que lo tenga). |
-| `.r` 👁️ | Reenvía la foto o el video de ver una vez que respondés; los de otra persona, solo admins. |
 
 <a id="canvas"></a>
 ## 🖼️ Canvas con fotos
@@ -254,6 +251,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.calc <cuenta>` 🧮 | Calculadora: + - x ÷, ^ para potencias, porcentajes (1500 + 10%, 20% de 1500) y paréntesis; los decimales van con punto. |
 | `.serie [género]` 🎬 | Recomienda una serie (o una película, con .pelicula) del género que digas, o una cualquiera con random. |
 | `.ss <url>` 🖥️ | Captura de pantalla de una página web. |
+| `.r` 👁️ | Reenvía la foto o el video de ver una vez que respondés; los de otra persona, solo admins. |
 | `.suicidarse` 💀 | Te expulsa del grupo a vos (sí, de verdad). |
 
 <a id="admins"></a>
@@ -316,6 +314,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.admins <mensaje>` 🪧 | Llama a los admins con un mensaje. |
 | `.say <texto>` 🗣️ | El bot lo repite como propio. |
 | `.fr @mención <texto>` 💬 | Manda un mensaje citando uno inventado de esa persona; parece real, por eso es de moderadores. |
+| `.sacarsticker` 🃏 | Solo admins: respondiendo a un sticker, Claudia no lo manda más en el grupo. |
 | `.link` 🔗 | Solo admins: el link de invitación del grupo. |
 | `.ad` 🔽 | Te sacás a vos mismo el admin de WhatsApp. |
 
@@ -346,7 +345,9 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.juegos` 🎮 | Prende o apaga todos los juegos (on u off); con el nombre de uno, solo ese: .juegos mines off. |
 | `.juego mines off` ⛔ | Apaga un solo juego en el grupo (o lo prende con on); sin nada, cómo está cada uno. |
 | `.casino` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
-| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos, las temáticas (#quejadelunes y sus listas) y .tts. |
+| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos y las temáticas (#quejadelunes y sus listas). |
+| `.convertidores` 🔄 | Los stickers y los convertidores: .s, .ttp, .emojimix, .img, .tts, .vn, .tomp3, .qr y los demás, y los efectos de audio. |
+| `.respuestastickers` 🃏 | Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |
 | `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
 | `.charla` 💬 | Charla automática de Claudia cuando la nombran. |
 | `.iniciativa on\|off` 🙋 | Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene. |
@@ -452,7 +453,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - .perfil · .rango · .reglas · .plantilla
 
 🛡️ **Admins**
-- .modo compraventa — apaga juegos, diversión, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, diversión, economía, charla, saludos, ascensos y recap)
+- .modo compraventa — apaga juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos y recap)
 - .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
 - Los moderadores corrigen la publicación de cualquiera (.precio 12 $ 3.500 · .editar 12 &lt;texto&gt;), y le aviso a quien la publicó
 - .baja 12 &lt;motivo&gt;, de un moderador sobre una ajena — la saco del catálogo y le aviso a quien la publicó, con el motivo. Solo un moderador la devuelve (.sigue 12), y ese mismo aviso no vuelve a entrar por 30 días

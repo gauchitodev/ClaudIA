@@ -10,6 +10,7 @@ const MAX_LADO = 2048;
 
 const plugin = {};
 plugin.cmd = ["res"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 // .res 500 (height, keeping the aspect ratio) or .res 300x600, replying to an image

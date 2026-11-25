@@ -5,6 +5,7 @@ import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["toimg", "img", "jpg"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client }) => {

@@ -7,6 +7,7 @@ export const _dep = { stickerDeTexto };
 
 const plugin = {};
 plugin.cmd = ["ttp"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

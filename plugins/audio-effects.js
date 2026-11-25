@@ -9,6 +9,7 @@ const execAsync = promisify(exec);
 
 const plugin = {};
 plugin.cmd = ["bass", "blown", "deep", "earrape", "fast", "fat", "nightcore", "reverse", "robot", "slow", "smooth", "tupai"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, isAdmin, isOwner }) => {

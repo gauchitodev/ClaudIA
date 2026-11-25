@@ -4,6 +4,7 @@ import { mandarStickerAlAzar, mandarSticker, buscarSticker, cuantosStickers } fr
 // description has any of them (lib/stickers-grupo.js).
 const plugin = {};
 plugin.cmd = ["stickerazar", "stickerrandom"];
+plugin.convertidores = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, text = "" }) => {

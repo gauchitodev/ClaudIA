@@ -1261,10 +1261,10 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
 // on; the weekly hashtags aren't taken either. In private they run, whatever that chat's row says. .besar, .siono and
 // .cartas went with the games instead: in a group with the games off, .cartas pointed to a private chat for a poker
 // nobody could play there.
-test("con la diversión apagada no andan .orsi, .tts, .pareja ni las temáticas, y por privado sí; .besar, .siono y .cartas van con los juegos", async (t) => {
+test("con la diversión apagada no andan .orsi, .pareja ni las temáticas, y por privado sí; .besar, .siono y .cartas van con los juegos", async (t) => {
   const { DIVERSION_APAGADA } = await import("../lib/modo.js");
   const { FRASES } = await import("../plugins/fun-orsi.js");
-  const archivos = ["fun-orsi.js", "convert-text-to-ptt.js", "pareja-elegir.js", "queja-del-lunes.js", "_hashtags.js", "fun-besar.js", "fun-si-o-no.js", "coins-poker-cartas.js"];
+  const archivos = ["fun-orsi.js", "pareja-elegir.js", "queja-del-lunes.js", "_hashtags.js", "fun-besar.js", "fun-si-o-no.js", "coins-poker-cartas.js"];
   cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
   const client = cliente();
   F.initDataDB({ chat: ANA, sender: ANA, senderJid: "", pushName: "Ana" }); // Ana's private chat, with its row
@@ -1287,7 +1287,7 @@ test("con la diversión apagada no andan .orsi, .tts, .pareja ni las temáticas,
   };
 
   F.updateChat(GRUPO, { diversion: 0 });
-  for (const texto of [".orsi", ".tts hola", ".pareja", ".quejas"]) assert.equal(await mandar(ANA, texto), DIVERSION_APAGADA, texto);
+  for (const texto of [".orsi", ".pareja", ".quejas"]) assert.equal(await mandar(ANA, texto), DIVERSION_APAGADA, texto);
   assert.equal(await mandar(BETO, "#recomendado una campera de cuero, 1500"), "", "la temática no se anota ni se contesta");
   F.updateChat(ANA, { diversion: 0 });
   assert.ok(FRASES.includes(await porPrivado(".orsi")), "por privado no hay interruptores");
@@ -1301,6 +1301,44 @@ test("con la diversión apagada no andan .orsi, .tts, .pareja ni las temáticas,
   F.updateChat(GRUPO, { games: 1 });
   assert.equal(await mandar(ANA, ".cartas"), "Las cartas te las digo por privado: escribime .cartas a mí, no acá.");
   assert.match(await porPrivado(".cartas"), /^No estás sentado en ninguna mesa de póker/, "por privado el póker sigue: ahí los juegos no se apagan");
+});
+
+// .convertidores off (.modo compraventa turns it off too): the stickers, the converters, .tts and the audio effects
+// don't run in the group, and say who turns them back on; the admins' tools that were listed with them do. In private
+// they run.
+test("con los convertidores apagados no andan .s, .tts, .qr, .morse ni los efectos de audio, y por privado sí", async (t) => {
+  const { CONVERTIDORES_APAGADOS } = await import("../lib/modo.js");
+  const { aMorse } = await import("../plugins/tools-morse.js");
+  const archivos = ["sticker.js", "convert-text-to-ptt.js", "tools-qr.js", "tools-morse.js", "audio-effects.js", "recuperar-vista-unica.js"];
+  cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  const client = cliente();
+  F.initDataDB({ chat: ANA, sender: ANA, senderJid: "", pushName: "Ana" });
+  t.after(() => {
+    F.updateChat(GRUPO, { convertidores: 1 });
+    F.updateChat(ANA, { convertidores: 1 });
+  });
+  const dicho = () => globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
+  const mandar = async (texto) => {
+    globalThis.enviados = [];
+    await llega(client, ANA, texto).hecho;
+    return dicho();
+  };
+  const porPrivado = async (texto) => {
+    globalThis.enviados = [];
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: ANA, fromMe: false, id }, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Ana", _upsertType: "notify", _llegada: Date.now() });
+    return dicho();
+  };
+  const hola = aMorse("hola").morse;
+
+  F.updateChat(GRUPO, { convertidores: 0 });
+  for (const texto of [".s", ".tts hola", ".qr hola", ".morse hola", ".bass", ".robot"]) assert.equal(await mandar(texto), CONVERTIDORES_APAGADOS, texto);
+  assert.equal(await mandar(".r"), txt.recoveryOnceNull, ".r no es un convertidor: corre, y pide a qué responder");
+  F.updateChat(ANA, { convertidores: 0 });
+  assert.ok((await porPrivado(".morse hola")).includes(hola), "por privado no hay interruptores");
+
+  F.updateChat(GRUPO, { convertidores: 1 });
+  assert.ok((await mandar(".morse hola")).includes(hola));
 });
 
 // ---------- what a command is (lib/comandos.js) ----------

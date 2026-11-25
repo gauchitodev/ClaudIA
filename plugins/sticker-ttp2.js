@@ -12,6 +12,7 @@ export const _dep = { cuadrosArcoiris };
 
 const plugin = {};
 plugin.cmd = ["ttp2", "attp2"];
+plugin.convertidores = true;
 plugin.botAdmin = true;
 
 // Animated sticker: the text in 16 rainbow colours, one frame every 100 ms, assembled with ffmpeg.
