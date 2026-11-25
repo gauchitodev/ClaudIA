@@ -37,6 +37,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.deepEqual(db.prepare(`SELECT catalogoAuto, catalogoMostrado, catalogoMensaje FROM chats WHERE remoteJid = ?`).get(G), { catalogoAuto: 1, catalogoMostrado: 0, catalogoMensaje: "" }, "el catálogo automático, prendido y sin mostrar al migrar");
   assert.equal(db.prepare(`SELECT antiLiveLocation FROM chats WHERE remoteJid = ?`).get(G).antiLiveLocation, 0, "la ubicación en tiempo real, sin borrar al migrar");
   assert.equal(db.prepare(`SELECT antiFlood FROM chats WHERE remoteJid = ?`).get(G).antiFlood, 0, "el anti-flood, apagado al migrar");
+  assert.equal(db.prepare(`SELECT diversion FROM chats WHERE remoteJid = ?`).get(G).diversion, 1, "la diversión, prendida al migrar en un grupo que no es de compraventa");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT juegosApagados FROM chats WHERE remoteJid = ?`).get(G).juegosApagados, "[]", "ningún juego apagado de a uno al migrar");
@@ -53,6 +54,48 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.match(plan, /idx_users_jid/, "buscar a alguien por número no recorre la tabla entera");
   globalThis.db = F.loadDatabase(); // idempotente
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// .diversion came after .modo compraventa: a group already in that mode (the games and the coins off, esGrupoDeVentas
+// in lib/modo.js) gets it off, so .orsi and .pareja stop there without running the mode again. Only then: a group
+// that turns it back on afterwards keeps it on. And the column with the groups, or neither: a start cut short in
+// between would leave the column, and those groups with the fun on for good.
+test("migra los grupos sin el interruptor de la diversión: apagada en los de compraventa, de una vez y una sola vez", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-diversion-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const VENTAS = "ventas@g.us";
+  const AMIGOS = "amigos@g.us";
+  const SIN_JUEGOS = "sinjuegos@g.us";
+  const SIN_MONEDAS = "sinmonedas@g.us";
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE chats (remoteJid TEXT PRIMARY KEY, games BOOLEAN DEFAULT 1, monedas BOOLEAN DEFAULT 1)`);
+  for (const [chat, games, monedas] of [[VENTAS, 0, 0], [AMIGOS, 1, 1], [SIN_JUEGOS, 0, 1], [SIN_MONEDAS, 1, 0]]) vieja.prepare(`INSERT INTO chats (remoteJid, games, monedas) VALUES (?, ?, ?)`).run(chat, games, monedas);
+  // Whatever writes to the groups fails, as a start cut short at that point would leave it.
+  vieja.exec(`CREATE TRIGGER sin_escribir BEFORE UPDATE ON chats BEGIN SELECT RAISE(ABORT, 'corte'); END`);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  assert.throws(() => F.loadDatabase(), /corte/);
+  const cruda = new Database("./database/database.db");
+  assert.ok(!cruda.prepare(`PRAGMA table_info(chats)`).all().some((c) => c.name === "diversion"), "sin los grupos, tampoco la columna");
+  cruda.exec(`DROP TRIGGER sin_escribir`);
+  cruda.close();
+
+  const dichos = [];
+  t.mock.method(console, "log", (...a) => dichos.push(a.join(" ")));
+  globalThis.db = F.loadDatabase();
+  const diversion = (chat) => db.prepare(`SELECT diversion FROM chats WHERE remoteJid = ?`).get(chat).diversion;
+  assert.deepEqual([VENTAS, AMIGOS, SIN_JUEGOS, SIN_MONEDAS].map(diversion), [0, 1, 1, 1]);
+  assert.ok(dichos.includes("🟢 Migración: columna 'diversion' agregada a la tabla chats, apagada en 1 grupo(s) de compraventa"), dichos.join("\n"));
+  // Turned back on, it stays on: the next start doesn't put the groups' switches back.
+  F.updateChat(VENTAS, { diversion: 1 });
+  globalThis.db = F.loadDatabase();
+  assert.equal(diversion(VENTAS), 1);
+  // A group the bot comes into afterwards has it on.
+  F.initDataDB({ chat: "nuevo@g.us", sender: "111@lid", senderJid: "", pushName: "Ana" });
+  assert.equal(F.getChat("nuevo@g.us").diversion, 1);
 });
 
 // The markets on a match the bot follows (lib/partidos.js) need three columns the markets table didn't have, the groups

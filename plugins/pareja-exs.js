@@ -9,6 +9,7 @@ import txt from "../lib/strings.js";
 // number (lib/menciones.js).
 const plugin = {};
 plugin.cmd = ["ex", "miex", "exs"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

@@ -7,6 +7,7 @@ import { emanciparse, desheredar } from "../lib/familia.js";
 // family surname, they drop it.
 const plugin = {};
 plugin.cmd = ["emancipar", "emanciparse", "emanciparme", "desheredar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

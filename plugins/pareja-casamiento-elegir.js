@@ -4,6 +4,7 @@ import txt from "../lib/strings.js";
 // .casarse: proposes marriage to your partner. A week of relationship is required.
 const plugin = {};
 plugin.cmd = ["casarse", "casarme", "boda", "matrimonio", "casar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

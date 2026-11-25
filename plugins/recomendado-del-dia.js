@@ -3,6 +3,7 @@ import { semanaDe } from "../lib/hashtags.js";
 
 const plugin = {};
 plugin.cmd = ["recomendados", "recomendado"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client }) => {

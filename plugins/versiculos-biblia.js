@@ -6,6 +6,7 @@ import { responderBiblia } from "../lib/biblia.js";
 // exist when Deno Deploy Classic shut down in July 2026.
 const plugin = {};
 plugin.cmd = ["versiculo", "biblia", "salmo", "salmos"];
+plugin.diversion = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = "." }) => {

@@ -6,6 +6,7 @@ import txt from "../lib/strings.js";
 // .mipareja: who you're with, since when, and whether you're married. An unanswered request is voided on lookup.
 const plugin = {};
 plugin.cmd = ["mipareja"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

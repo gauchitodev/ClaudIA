@@ -6,6 +6,7 @@ import txt from "../lib/strings.js";
 // .aceptar @x: accepts x's couple request.
 const plugin = {};
 plugin.cmd = ["aceptar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

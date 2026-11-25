@@ -5,6 +5,7 @@ import txt from "../lib/strings.js";
 // .setmarry @a @b [| 3 días]: the owner marries a couple, with however long they've been married.
 const plugin = {};
 plugin.cmd = ["setmarry"];
+plugin.diversion = true;
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, participants }) => {

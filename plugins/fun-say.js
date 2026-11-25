@@ -4,6 +4,7 @@ import txt from "../lib/strings.js";
 // otherwise anyone can make it talk and no trace is left of who wrote it.
 const plugin = {};
 plugin.cmd = ["say", "decir"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;

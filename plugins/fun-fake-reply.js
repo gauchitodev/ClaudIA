@@ -4,6 +4,7 @@ import { destinatarioActual, esOwnerDe } from "../lib/identidad.js";
 // like a real one: it puts words in someone else's mouth. So it's for moderators, like .say, and not for anyone.
 const plugin = {};
 plugin.cmd = ["fakereply", "fr"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyMod = true;

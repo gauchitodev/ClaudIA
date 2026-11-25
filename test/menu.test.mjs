@@ -136,21 +136,31 @@ test("menú: cada plugin de la economía y del casino tiene una línea", () => {
   assert.deepEqual(plugins.filter(([, p]) => !p.cmd.some((c) => nombrados.has(c))).map(([archivo]) => archivo), []);
 });
 
-// .modo compraventa turns off the games and the economy; .casino, the casino alone. The index offered their topics
-// anyway.
+// .modo compraventa turns off the games, the economy and the fun; .casino, the casino alone. The index offered their
+// topics anyway.
 test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo piden dice cómo se prende", () => {
   const temas = (opciones) => menu(opciones).split("📂")[1].split("📜")[0];
-  const COMPRAVENTA = { ...ABIERTO, games: 0, monedas: 0 };
+  const COMPRAVENTA = { ...ABIERTO, games: 0, monedas: 0, diversion: 0 };
   assert.match(temas({}), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
   const enVentas = temas({ datosChat: COMPRAVENTA });
-  for (const fuera of ["coins", "casino", "canvas"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
-  assert.match(enVentas, /🎮 juegos/, ".besar y .siono andan con los juegos apagados");
+  // The games' topic went too, now that .besar and .siono are games: they were the two that kept it there.
+  for (const fuera of ["coins", "casino", "canvas", "juegos", "pareja", "familia", "biblia"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
+  for (const queda of ["temáticas", "descargas", "extras"]) assert.match(enVentas, new RegExp(queda), queda);
   assert.doesNotMatch(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /UruCoins\*|Casino y apuestas|\.ruleta|\.laburos/);
   assert.match(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🗳️ \*Temáticas y ranking\*/);
   assert.match(menu({ pedido: "admins", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.evento /, "el tema tiene otros comandos que andan");
   assert.equal(menu({ pedido: "casino", datosChat: COMPRAVENTA }), "🎰 Ese tema está apagado en este grupo: un admin lo prende con .juegos on y .monedas on.");
   assert.equal(menu({ pedido: "monedas", datosChat: COMPRAVENTA }), "🪙 Ese tema está apagado en este grupo: un admin lo prende con .monedas on.");
   assert.equal(menu({ pedido: "canvas", datosChat: COMPRAVENTA }), "🖼️ Ese tema está apagado en este grupo: un admin lo prende con .juegos on.");
+  assert.equal(menu({ pedido: "juegos", datosChat: COMPRAVENTA }), "🎮 Ese tema está apagado en este grupo: un admin lo prende con .juegos on.");
+  assert.equal(menu({ pedido: "pareja", datosChat: COMPRAVENTA }), "💞 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
+  assert.equal(menu({ pedido: "familia", datosChat: COMPRAVENTA }), "👨‍👩‍👧 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
+  assert.equal(menu({ pedido: "biblia", datosChat: COMPRAVENTA }), "🙏 Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
+  // The fun alone off, in a group of friends: its topics go, the games stay.
+  const SIN_DIVERSION = { ...ABIERTO, diversion: 0 };
+  assert.match(temas({ datosChat: SIN_DIVERSION }), /🎮 juegos/);
+  for (const fuera of ["pareja", "familia", "biblia"]) assert.doesNotMatch(temas({ datosChat: SIN_DIVERSION }), new RegExp(fuera), fuera);
+  assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN_DIVERSION }), /💞 pareja/, "en privado no hay interruptores");
   assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🗳️ temáticas · 🎧 descargas/);
 
   // With only the casino off, the economy stays.
@@ -167,6 +177,29 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.equal(temas({ isBotAdmin: false, datosChat: COMPRAVENTA }), enVentas);
   assert.equal(temas({ isBotAdmin: false }), temas({}));
   assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null }), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
+});
+
+// A switch stops only what's marked for it, so whatever is marked nothing runs in a buy-and-sell group: .orsi, .tts,
+// .cartas and the couples did, until .diversion. Every plugin of the fun-, pareja- and familia- files carries one now,
+// but for two that run everywhere on purpose.
+test("diversión: los comandos para divertirse llevan un interruptor, y los temas de pareja, familia y biblia son todos suyos", () => {
+  const plugins = Object.entries(cargados.plugins).filter(([, p]) => Array.isArray(p?.cmd));
+  const sinInterruptor = plugins.filter(([archivo, p]) => /^(fun|pareja|familia)-/.test(archivo) && !(p.juego || p.casino || p.economia || p.diversion)).map(([archivo]) => archivo);
+  // .delttt clears a tic-tac-toe room already open; .noaura and .siaura are about oneself (plugins/fun-noaura.js).
+  assert.deepEqual(sinInterruptor.sort(), ["fun-noaura", "fun-ttt-del"]);
+  const deDiversion = new Set(plugins.filter(([, p]) => p.diversion).map(([archivo]) => archivo));
+  for (const archivo of ["fun-orsi", "fun-say", "fun-fake-reply", "fun-ruleta-del-ban", "fun-suicidarse", "faggi", "horoscopo", "versiculos-biblia", "queja-del-lunes", "historias-random", "recomendado-del-dia", "recomendar-cine", "convert-text-to-ptt", "lista-parejas"]) {
+    assert.ok(deDiversion.has(archivo), archivo);
+  }
+  for (const archivo of ["fun-besar", "fun-si-o-no", "coins-poker-cartas"]) assert.equal(cargados.plugins[archivo].juego, true, `${archivo} va con los juegos`);
+  assert.deepEqual(plugins.filter(([, p]) => p.diversion && (p.juego || p.casino || p.economia)).map(([archivo]) => archivo), [], "nada es dos cosas a la vez");
+  // The menu's topics that are fun through and through: each command in them, by every plugin that answers to it.
+  const enTemas = M.entradasDelMenu(".").filter((e) => ["pareja", "familia", "biblia"].includes(e.seccion.clave));
+  assert.ok(enTemas.length >= 14, `pocas líneas (${enTemas.length})`);
+  for (const e of enTemas) {
+    const duenos = plugins.filter(([, p]) => p.cmd.includes(e.cmd));
+    assert.ok(duenos.length && duenos.every(([, p]) => p.diversion), `.${e.cmd} (${e.seccion.clave})`);
+  }
 });
 
 test("menú: el 🔒 va en todas las respuestas, y lo bloqueado no entra en lo más usado", () => {
@@ -310,7 +343,7 @@ test("menú: la línea de .info dice lo que cuenta .info", () => {
 test("consistencia: puedeCorrerAca mira los mismos interruptores que handle-message", () => {
   // The ranking leaves out what wouldn't run here. If handle-message checks change, lib/menu.js has to follow.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "juegoApagadoPara(chat, command, args)", "plugin.economia && m.isGroup && chat.monedas === 0"]) {
+  for (const condicion of ["plugin.onlyGroup && !m.isGroup", "plugin.botAdmin && !isBotAdmin", "plugin.juego && !chat.games", "plugin.casino && m.isGroup && chat.casino === 0", "juegoApagadoPara(chat, command, args)", "plugin.economia && m.isGroup && chat.monedas === 0", "plugin.diversion && m.isGroup && chat.diversion === 0"]) {
     assert.ok(fuente.includes(condicion), `handle-message ya no chequea «${condicion}»: revisá puedeCorrerAca en lib/menu.js`);
   }
 });

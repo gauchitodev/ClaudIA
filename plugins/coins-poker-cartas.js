@@ -7,6 +7,9 @@ import { nombreDeGrupo } from "../lib/cache-grupos.js";
 // shown to the table. The player is found by any id they come under, LID or number, across every open table.
 const plugin = {};
 plugin.cmd = [...CMD.cartas];
+// Poker's, as its moves are (plugins/coins-poker-mesa.js): with the games off a group gets that, and not a pointer to a
+// private chat for a game that isn't played there. In private it always runs: a private chat's games can't be turned off.
+plugin.juego = true;
 
 plugin.run = async (m, { client }) => {
   try {

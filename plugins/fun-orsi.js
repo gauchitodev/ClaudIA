@@ -7,6 +7,7 @@ export const FRASES = ["No se", "Estamos analizando", "Es un caso aislado", "AcÃ
 
 const plugin = {};
 plugin.cmd = ["orsi"];
+plugin.diversion = true;
 
 // .orsi â†’ one of the quotes, at random
 plugin.run = async (m, { client }) => {

@@ -43,6 +43,7 @@ const IMAGEN = "https://telegra.ph/file/cd132232c09831825aed2.jpg";
 
 const plugin = {};
 plugin.cmd = ["horoscopo"];
+plugin.diversion = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

@@ -6,6 +6,7 @@ import { textoParentesco } from "../lib/familia.js";
 // exes (lib/familia.js, parentescoEntre). Replying to someone's message works like mentioning them.
 const plugin = {};
 plugin.cmd = ["parentesco", "pariente"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

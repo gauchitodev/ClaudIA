@@ -1257,6 +1257,52 @@ test("un juego apagado con .juego no se empieza, pero sus jugadas y salidas sigu
   assert.match(await mandar(ANA, ".4enlinea"), /espera rival/);
 });
 
+// .diversion off (.modo compraventa turns it off): the fun commands don't run in the group, and say who turns them back
+// on; the weekly hashtags aren't taken either. In private they run, whatever that chat's row says. .besar, .siono and
+// .cartas went with the games instead: in a group with the games off, .cartas pointed to a private chat for a poker
+// nobody could play there.
+test("con la diversión apagada no andan .orsi, .tts, .pareja ni las temáticas, y por privado sí; .besar, .siono y .cartas van con los juegos", async (t) => {
+  const { DIVERSION_APAGADA } = await import("../lib/modo.js");
+  const { FRASES } = await import("../plugins/fun-orsi.js");
+  const archivos = ["fun-orsi.js", "convert-text-to-ptt.js", "pareja-elegir.js", "queja-del-lunes.js", "_hashtags.js", "fun-besar.js", "fun-si-o-no.js", "coins-poker-cartas.js"];
+  cargados.plugins = Object.fromEntries(archivos.map((archivo) => [archivo, carpeta[archivo]]));
+  const client = cliente();
+  F.initDataDB({ chat: ANA, sender: ANA, senderJid: "", pushName: "Ana" }); // Ana's private chat, with its row
+  t.after(() => {
+    F.updateChat(GRUPO, { diversion: 1, games: 1 });
+    F.updateChat(ANA, { diversion: 1 });
+  });
+  const dicho = () => globalThis.enviados.map((e) => e.msg?.react?.text ?? e.msg?.text).join("\n");
+  const mandar = async (quien, texto) => {
+    globalThis.enviados = [];
+    await llega(client, quien, texto).hecho;
+    return dicho();
+  };
+  // A private chat is the person's own: its key has no participant.
+  const porPrivado = async (texto) => {
+    globalThis.enviados = [];
+    const id = `ABCDEF${String(++numero).padStart(6, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: ANA, fromMe: false, id }, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: "Ana", _upsertType: "notify", _llegada: Date.now() });
+    return dicho();
+  };
+
+  F.updateChat(GRUPO, { diversion: 0 });
+  for (const texto of [".orsi", ".tts hola", ".pareja", ".quejas"]) assert.equal(await mandar(ANA, texto), DIVERSION_APAGADA, texto);
+  assert.equal(await mandar(BETO, "#recomendado una campera de cuero, 1500"), "", "la temática no se anota ni se contesta");
+  F.updateChat(ANA, { diversion: 0 });
+  assert.ok(FRASES.includes(await porPrivado(".orsi")), "por privado no hay interruptores");
+
+  F.updateChat(GRUPO, { diversion: 1 });
+  assert.ok(FRASES.includes(await mandar(ANA, ".orsi")));
+  assert.match(await mandar(BETO, "#recomendado una campera de cuero, 1500"), /^⭐ \*Recomendación #\d+\* registrada\./);
+
+  F.updateChat(GRUPO, { games: 0 });
+  for (const texto of [".besar", ".kiss", ".siono ¿llueve?", ".cartas"]) assert.equal(await mandar(ANA, texto), txt.disabledGames, texto);
+  F.updateChat(GRUPO, { games: 1 });
+  assert.equal(await mandar(ANA, ".cartas"), "Las cartas te las digo por privado: escribime .cartas a mí, no acá.");
+  assert.match(await porPrivado(".cartas"), /^No estás sentado en ninguna mesa de póker/, "por privado el póker sigue: ahí los juegos no se apagan");
+});
+
 // ---------- what a command is (lib/comandos.js) ----------
 // The prefix with the name against it, or after a space for a command that exists: "...pero bueno" was the command
 // "..pero", and the bot answered that it doesn't exist, and so did ". hola", ".5 kilos" and a mention of someone.

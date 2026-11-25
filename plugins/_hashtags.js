@@ -5,10 +5,14 @@ import { esComando } from "../lib/comandos.js";
 
 const plugin = (m) => m;
 
-plugin.before = async (m, { client }) => {
+plugin.before = async (m, { client, chat }) => {
   try {
     // A command with a hashtag in it isn't an entry (lib/comandos.js).
     if (!m.isGroup || !m.text || esComando(m.text)) return;
+    // With the fun off (.diversion off, .modo compraventa), the weekly hashtags go with their lists (.quejas, .historias,
+    // .recomendados): otherwise a sale written with "#recomendado" in a buy-and-sell group gets "⭐ Recomendación #3
+    // registrada".
+    if (chat?.diversion === 0) return;
     if (m.fromMe || m.isBaileys) return;
     if (m.moderado) return; // deleted by the moderation: it isn't an entry
 

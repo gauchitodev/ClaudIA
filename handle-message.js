@@ -4,6 +4,7 @@ import { initDataDB, getUser, getChat, getBotSettings, updateUser, syncUserInfo,
 import { juegosAbiertos, mensajeJuegosCerrados, correspondeAvisar } from "./lib/horario-juegos.js";
 import { juegoApagadoPara, correspondeAvisarApagado, textoJuegoApagado } from "./lib/juegos-apagados.js";
 import { CASINO_APAGADO } from "./lib/casino.js";
+import { DIVERSION_APAGADA } from "./lib/modo.js";
 import { parsearComando, pareceComando, esComando } from "./lib/comandos.js";
 import { permisosDe } from "./lib/roles.js";
 import { metadataDe } from "./lib/cache-grupos.js";
@@ -312,6 +313,13 @@ export async function handleMessage(nMsg) {
       // Economy (plugin.economia): with .monedas off (marketplace mode) the UruCoins commands don't run.
       if (plugin.economia && m.isGroup && chat.monedas === 0) {
         rechazar(() => this.sendText(m.chat, txt.disabledEconomy, m));
+        continue;
+      }
+
+      // Fun (plugin.diversion): couples and families, quotes and jokes, the horoscope, the verses, the weekly hashtags'
+      // lists, .tts… With .diversion off (.modo compraventa turns it off) they don't run in the group; in private they do.
+      if (plugin.diversion && m.isGroup && chat.diversion === 0) {
+        rechazar(() => this.sendText(m.chat, DIVERSION_APAGADA, m));
         continue;
       }
 

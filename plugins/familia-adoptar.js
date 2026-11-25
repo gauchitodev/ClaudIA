@@ -7,6 +7,7 @@ import { generoDe, concordar } from "../lib/genero.js";
 // .adoptar @x: a married couple adopts someone. It stays pending until x answers with .si or .no.
 const plugin = {};
 plugin.cmd = ["adoptar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

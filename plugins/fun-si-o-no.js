@@ -3,6 +3,7 @@ import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["siono"];
+plugin.juego = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, text }) => {

@@ -10,6 +10,8 @@ const leer = async (texto, lang, defaultLang) => (lang === defaultLang && (await
 
 const plugin = {};
 plugin.cmd = ["tts"];
+// Fun, not a converter: it has Claudia say whatever is typed, out loud, as .say does in writing (handle-message.js).
+plugin.diversion = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, args }) => {

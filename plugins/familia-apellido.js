@@ -5,6 +5,7 @@ import { elegirApellido, apellidoDe, FAMILIA } from "../lib/familia.js";
 // With nothing, it shows yours.
 const plugin = {};
 plugin.cmd = ["apellido"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

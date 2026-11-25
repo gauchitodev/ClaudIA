@@ -8,6 +8,7 @@ import txt from "../lib/strings.js";
 // .pareja @x: asks x to be your partner. It stays pending until x answers with .aceptar or .rechazar.
 const plugin = {};
 plugin.cmd = ["pareja"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

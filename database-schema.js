@@ -108,6 +108,7 @@ export function ponerAlDia(db) {
       monedas BOOLEAN DEFAULT 1,
       casino BOOLEAN DEFAULT 1,
       ascensos BOOLEAN DEFAULT 1,
+      diversion BOOLEAN DEFAULT 1, -- whether the fun commands run in the group (plugin.diversion; .diversion, .modo compraventa turns it off)
       reglas TEXT DEFAULT "",
       plantilla TEXT DEFAULT "",
       horarioGrupo TEXT DEFAULT "",
@@ -143,6 +144,17 @@ export function ponerAlDia(db) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
     }
+  }
+  // The fun commands' switch (.diversion), off from the start where the group is a buy-and-sell one already (the games
+  // and the coins off: esGrupoDeVentas, lib/modo.js), which .modo compraventa turns it off for: those groups don't have
+  // to run it again for .orsi or .pareja to stop. The column and the groups at once: a start cut short in between left
+  // the column there and those groups with it on, for good.
+  if (!columnasChats.includes("diversion")) {
+    db.transaction(() => {
+      db.exec(`ALTER TABLE chats ADD COLUMN diversion BOOLEAN DEFAULT 1`);
+      const apagada = db.prepare(`UPDATE chats SET diversion = 0 WHERE games = 0 AND monedas = 0`).run().changes;
+      console.log(`🟢 Migración: columna 'diversion' agregada a la tabla chats${apagada ? `, apagada en ${apagada} grupo(s) de compraventa` : ""}`);
+    })();
   }
 
   // Create the per-chat blocked commands table (blacklist mode)

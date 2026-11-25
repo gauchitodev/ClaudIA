@@ -4,6 +4,7 @@ import txt from "../lib/strings.js";
 // .setpareja @a @b [| 3 días]: the owner forms a couple outright, with however long they've been together.
 const plugin = {};
 plugin.cmd = ["setpareja"];
+plugin.diversion = true;
 plugin.onlyOwner = true;
 
 plugin.run = async (m, { client, text, participants }) => {

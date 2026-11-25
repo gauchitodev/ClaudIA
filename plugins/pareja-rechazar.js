@@ -6,6 +6,7 @@ import txt from "../lib/strings.js";
 // .rechazar @x: turns down x's couple request.
 const plugin = {};
 plugin.cmd = ["rechazar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

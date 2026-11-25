@@ -11,6 +11,7 @@ import txt from "../lib/strings.js";
 // down.
 const plugin = {};
 plugin.cmd = ["kiss", "beso", "besar"];
+plugin.juego = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

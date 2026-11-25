@@ -5,6 +5,7 @@ import txt from "../lib/strings.js";
 // .terminar: ends the relationship; each of them lands on the other's list of exes.
 const plugin = {};
 plugin.cmd = ["terminar"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

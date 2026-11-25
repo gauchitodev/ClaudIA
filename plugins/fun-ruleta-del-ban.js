@@ -7,6 +7,7 @@ import txt from "../lib/strings.js";
 
 const plugin = {};
 plugin.cmd = ["ruletadelban", "ruletaban", "banruleta"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 plugin.onlyAdmin = true;

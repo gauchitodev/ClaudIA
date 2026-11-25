@@ -27,15 +27,15 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   const aca = { ...msg, chat };
   F.initDataDB({ ...persona(111), chat });
   let c = F.getChat(chat);
-  assert.deepEqual([c.charla, c.saludos, c.monedas, c.ascensos], [1, 1, 1, 1]);
+  assert.deepEqual([c.charla, c.saludos, c.monedas, c.ascensos, c.diversion], [1, 1, 1, 1, 1]);
   assert.equal(M.modoActual(c), "amigos");
   await Modo.run(aca, { client: conexion.client, text: "" });
-  assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ charla de Claudia/);
+  assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ diversión · ✅ charla de Claudia/);
   F.updateChat(chat, { iniciativa: 1 }); // opt-in, like the daily question: compraventa turns it off too
   await Modo.run(aca, { client: conexion.client, text: "compraventa" });
-  assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino/);
+  assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino, sin diversión \(parejas, familias, frases como \.orsi, horóscopo, versículos, temáticas, \.tts…\), sin charla/);
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa], [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual([c.games, c.diversion, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(aca, { client: conexion.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
@@ -46,7 +46,7 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(F.getChat(chat)), "mixto");
   await Modo.run(aca, { client: conexion.client, text: "amigos" });
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1]);
+  assert.deepEqual([c.games, c.diversion, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1, 1]);
 });
 
 test("modo: con la economía apagada nada reparte coins, pero lo social sigue", () => {
@@ -185,6 +185,45 @@ test(".antiflood: apagada por defecto, la prende y la apaga un admin, y .config 
   await config(["cualquiera"]);
   assert.equal(ultimo(), "Usá .antiflood on o .antiflood off (sin nada, lo invierte).");
   assert.equal(F.getChat(chat).antiFlood, 0);
+});
+
+// .diversion: the fun commands (plugin.diversion), on unless the group turns them off, an admin's to turn and not a
+// moderator's, as .juegos is; .config and .modo say how it is, and alone it leaves the group "mixto".
+test(".diversion: prendida por defecto, la apaga y la prende un admin, y .config y .modo la muestran", async () => {
+  const chat = "diversion@g.us";
+  F.initDataDB({ chat, sender: "111@lid", senderJid: "111@s.whatsapp.net" });
+  assert.equal(F.getChat(chat).diversion, 1);
+  assert.ok(Config.cmd.includes("diversion"));
+  // What a fun command answers in a group with it off (handle-message.js): who turns it back on, and with what.
+  assert.equal(M.DIVERSION_APAGADA, "🎈 La diversión está apagada en este grupo. Un admin la prende con .diversion on");
+  const config = (args, quien = { isAdmin: true }) => Config.run({ ...msg, chat }, { client: conexion.client, command: "diversion", args, isOwner: false, isAdmin: false, ...quien, chat: F.getChat(chat), botSettings: {} });
+  const VerConfig = (await import("../plugins/grupo-config.js")).default;
+  const panel = async () => {
+    await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+    return ultimo();
+  };
+  // Right under the casino, the other switch of what's played and laughed at.
+  assert.match(await panel(), /\n✅ Casino y apuestas \(\.casino\)\n✅ Diversión: parejas, familias, frases, horóscopo, temáticas, \.tts \(\.diversion\)\n🎮 Juegos apagados de a uno/);
+
+  await config(["off"]);
+  assert.match(ultimo(), /Opción: `diversion`\n• Estado: Desactivado$/);
+  assert.equal(F.getChat(chat).diversion, 0);
+  assert.match(await panel(), /\n❌ Diversión: parejas, familias, frases, horóscopo, temáticas, \.tts \(\.diversion\)\n/);
+  await Modo.run({ ...msg, chat }, { client: conexion.client, text: "" });
+  assert.match(ultimo(), /Modo actual: \*mixto\*\n✅ juegos · ❌ diversión · ✅ charla de Claudia/);
+  assert.match(ultimo(), /\nCada cosa suelta: \.juegos, \.diversion, \.charla, \.saludos, \.monedas, \.ascensos y \.recapsemanal\.$/);
+
+  await config(["on"], { isAdmin: false, isMod: true });
+  assert.equal(ultimo(), txt.onlyAdmin, "un moderador no");
+  assert.equal(F.getChat(chat).diversion, 0);
+  await config(["on"]);
+  assert.match(ultimo(), /Estado: Activado$/);
+  assert.equal(M.modoActual(F.getChat(chat)), "amigos");
+  await config([]);
+  assert.equal(F.getChat(chat).diversion, 0, "sin nada la invierte");
+  await config(["cualquiera"]);
+  assert.equal(ultimo(), "Usá .diversion on o .diversion off (sin nada, lo invierte).");
+  assert.equal(F.getChat(chat).diversion, 0);
 });
 
 // .anticall and .audios saved an option nothing ever read: they're gone, and so are their columns (database-schema.js).

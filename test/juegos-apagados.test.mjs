@@ -49,6 +49,7 @@ const NO_EMPIEZAN = {
   "coins-mercado": ["apuestas", "mercados", "mercado", "partidos"],
   "coins-mercado-admin": ["resolver"],
   "coins-poker-mesa": ["pcheck", "pcall", "praise", "allin", "pfold", "levantarme", "pleave", "mesa", "delpoker"],
+  "coins-poker-cartas": ["cartas"],
   "fun-4enlinea-del": ["del4enlinea"],
   "fun-rendirse": ["rendirse", "rendirme"],
 };
@@ -109,6 +110,9 @@ test("juegoDe: la clave, cualquiera de sus comandos o un alias, escritos como se
     ["pelea", "duelos"],
     ["evento", "mercados"],
     ["sortear3", "sorteos"],
+    ["kiss", "besar"],
+    ["Besos", "besar"],
+    ["siono", "siono"],
     ["", null],
     ["xyz", null],
     ["juegos", null],
@@ -163,7 +167,7 @@ test("juegoApagadoPara: solo lo que empieza el juego apagado; las respuestas y s
 test("los textos: el estado, el rechazo, y el aviso que sale una vez cada 10 minutos por grupo y juego", () => {
   assert.equal(
     J.textoEstado({ juegosApagados: '["tops","mines"]', games: 1, casino: 1 }),
-    "🎮 *Juegos de este grupo*\nJuegos: ✅ trivia · ✅ ahorcado · ✅ acertijos · ✅ banderas · ✅ ordenar · ✅ ttt · ✅ 4enlinea · ✅ aura · ✅ culpade · ✅ formarpareja · ⛔ tops · ✅ canvas · ✅ porcentajes · ✅ sorteos\nCasino: ✅ ruleta · ✅ tragamonedas · ✅ blackjack · ⛔ mines · ✅ carrera · ✅ duelos · ✅ poker · ✅ loteria · ✅ mercados\n\n.juego mines off apaga uno y .juego mines on lo prende. Para todos de una: .juegos y .casino.",
+    "🎮 *Juegos de este grupo*\nJuegos: ✅ trivia · ✅ ahorcado · ✅ acertijos · ✅ banderas · ✅ ordenar · ✅ ttt · ✅ 4enlinea · ✅ aura · ✅ culpade · ✅ formarpareja · ⛔ tops · ✅ canvas · ✅ porcentajes · ✅ besar · ✅ siono · ✅ sorteos\nCasino: ✅ ruleta · ✅ tragamonedas · ✅ blackjack · ⛔ mines · ✅ carrera · ✅ duelos · ✅ poker · ✅ loteria · ✅ mercados\n\n.juego mines off apaga uno y .juego mines on lo prende. Para todos de una: .juegos y .casino.",
   );
   assert.match(J.textoEstado({ juegosApagados: "[]", games: 0, casino: 1 }), /\nOjo: acá los juegos están apagados del todo \(\.juegos off\); esto aplica cuando los prendan\.$/);
   assert.match(J.textoEstado({ juegosApagados: "[]", games: 1, casino: 0 }, "/"), /\nOjo: acá el casino está apagado del todo \(\/casino off\); esto aplica cuando lo prendan\.$/);
@@ -208,7 +212,7 @@ test(".juego: lista, apaga y prende por nombre o alias, invierte sin palabra, y 
 
   // what it doesn't understand
   await juego(["xyz", "on"]);
-  assert.equal(ultimo(), "🤔 No conozco ese juego: *xyz*. Los que se apagan de a uno: trivia, ahorcado, acertijos, banderas, ordenar, ttt, 4enlinea, aura, culpade, formarpareja, tops, canvas, porcentajes, sorteos, ruleta, tragamonedas, blackjack, mines, carrera, duelos, poker, loteria, mercados.");
+  assert.equal(ultimo(), "🤔 No conozco ese juego: *xyz*. Los que se apagan de a uno: trivia, ahorcado, acertijos, banderas, ordenar, ttt, 4enlinea, aura, culpade, formarpareja, tops, canvas, porcentajes, besar, siono, sorteos, ruleta, tragamonedas, blackjack, mines, carrera, duelos, poker, loteria, mercados.");
   await juego(["mines", "quizás"]);
   assert.equal(ultimo(), "Usá .juego mines on o .juego mines off (sin nada, lo invierte).");
   await juego(["todos", "off"]);

@@ -5,6 +5,7 @@ import { estaEnGrupo } from "../lib/identidad.js";
 // only for the owner: anyone writing to her used to get the couples of every group.
 const plugin = {};
 plugin.cmd = ["listaparejas", "listadeparejas"];
+plugin.diversion = true;
 plugin.botAdmin = true;
 
 plugin.run = async (m, { client, participants, isOwner }) => {

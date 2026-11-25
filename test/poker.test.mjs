@@ -439,7 +439,9 @@ test(".cartas: en el grupo no, por privado sí: las tuyas, por tu LID o por tu n
 test("los plugins llevan las marcas que corresponden: la entrada es casino, las jugadas y las cartas no", () => {
   assert.deepEqual([Poker.casino, Poker.economia, Poker.juego, Poker.onlyGroup], [true, true, true, true]);
   assert.deepEqual([Mesa.casino, Mesa.economia, Mesa.juego, Mesa.onlyGroup], [undefined, undefined, true, true]);
-  assert.deepEqual([Cartas.casino, Cartas.juego, Cartas.onlyGroup], [undefined, undefined, undefined]);
+  // .cartas is a game, as the moves are: a group with the games off says so instead of pointing to a private chat for a
+  // poker nobody plays there. And it's for anywhere: in private, where it's used, the games can't be turned off.
+  assert.deepEqual([Cartas.casino, Cartas.juego, Cartas.onlyGroup], [undefined, true, undefined]);
   assert.deepEqual(Poker.cmd, ["poker"]); // .póker reaches it too: the parser takes the accent out
   // the moves by poker's words with a p; the Spanish ones are gone (lib/poker.js, CMD)
   assert.deepEqual(Mesa.cmd, ["pcheck", "pcall", "praise", "allin", "pfold", "levantarme", "pleave", "mesa", "delpoker"]);

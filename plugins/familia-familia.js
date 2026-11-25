@@ -7,6 +7,7 @@ import { modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 // "nombres" or "numeros" at the end, everyone by their WhatsApp name or by their number (lib/menciones.js).
 const plugin = {};
 plugin.cmd = ["familia", "mifamilia", "familias"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

@@ -8,6 +8,7 @@ import txt from "../lib/strings.js";
 // .si: accepts your partner's marriage proposal, or the adoption you were offered.
 const plugin = {};
 plugin.cmd = ["si"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 

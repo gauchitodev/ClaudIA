@@ -2,6 +2,7 @@ import { configuracion } from "../lib/configuracion.js";
 
 const plugin = {};
 plugin.cmd = ["faggi"];
+plugin.diversion = true;
 
 // Answers with the text configured in config.toml (textofaggi).
 plugin.run = async (m, { client }) => {

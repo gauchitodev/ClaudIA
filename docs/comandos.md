@@ -346,6 +346,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.juegos` 🎮 | Prende o apaga todos los juegos (on u off); con el nombre de uno, solo ese: .juegos mines off. |
 | `.juego mines off` ⛔ | Apaga un solo juego en el grupo (o lo prende con on); sin nada, cómo está cada uno. |
 | `.casino` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
+| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos, las temáticas (#quejadelunes y sus listas) y .tts. |
 | `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
 | `.charla` 💬 | Charla automática de Claudia cuando la nombran. |
 | `.iniciativa on\|off` 🙋 | Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene. |
@@ -451,7 +452,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - .perfil · .rango · .reglas · .plantilla
 
 🛡️ **Admins**
-- .modo compraventa — apaga juegos, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, economía, charla, saludos, ascensos y recap)
+- .modo compraventa — apaga juegos, diversión, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago e iniciativa (.modo amigos vuelve a prender juegos, diversión, economía, charla, saludos, ascensos y recap)
 - .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
 - Los moderadores corrigen la publicación de cualquiera (.precio 12 $ 3.500 · .editar 12 &lt;texto&gt;), y le aviso a quien la publicó
 - .baja 12 &lt;motivo&gt;, de un moderador sobre una ajena — la saco del catálogo y le aviso a quien la publicó, con el motivo. Solo un moderador la devuelve (.sigue 12), y ese mismo aviso no vuelve a entrar por 30 días

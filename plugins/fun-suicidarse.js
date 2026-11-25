@@ -4,6 +4,7 @@ import { expulsar, idDelAutor } from "../lib/identidad.js";
 const plugin = {};
 // Careful: it used to answer to ".salir" too, so anyone writing it (to quit a game, say) removed themselves.
 plugin.cmd = ["suicidarse", "matarse", "suicidio", "suicidarme", "matarme"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 plugin.botAdmin = true;
 
