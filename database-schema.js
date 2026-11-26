@@ -706,6 +706,45 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The status the shop sells (lib/tienda.js); the rest of it (the signature reaction, the grand entrance, the lawyer,
+  // the bodyguard, the house, the car and the pet) lives in inventario. tienda_avisos: the paid notices and gossip for
+  // the town's Sunday paper, 'pendiente' until the edition that prints them ('publicado'), or 'vetado' by an admin.
+  // tienda_estatuas: who put up the statue in the plaza, for how much, and when it was knocked down (derribada, 0 while
+  // it stands). tienda_pistas: the informant's tip each person got for an envelope of the secret missions.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_avisos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      precio INTEGER NOT NULL DEFAULT 0,
+      fecha INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      edicion INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_tienda_avisos_chat ON tienda_avisos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_estatuas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      derribada INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_pistas (
+      mision INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      pista TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (mision, usuario)
+    )
+  `);
+
   // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (

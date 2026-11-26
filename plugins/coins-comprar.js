@@ -7,7 +7,7 @@ plugin.economia = true;
 plugin.onlyGroup = true;
 
 plugin.run = async (m, { client, args }) => {
-  // .comprar escudo  /  .comprar voto doble  /  .comprar apodo Tito
+  // .comprar escudo  /  .comprar voto doble  /  .comprar apodo Tito  /  .comprar firma 🦄  /  .comprar mascota carpincho Ramón
   let clave = buscarItem(args[0]);
   let resto = args.slice(1);
 
@@ -31,7 +31,7 @@ plugin.run = async (m, { client, args }) => {
   }
 
   const resultado = comprar(m.chat, m.sender, clave, resto.join(" "));
-  await client.sendText(m.chat, resultado.ok ? resultado.mensaje : `❌ ${resultado.error}`, m);
+  await client.sendText(m.chat, resultado.ok ? resultado.mensaje : `❌ ${resultado.error}`, m, resultado.mentions?.length ? { mentions: resultado.mentions } : {});
 };
 
 export default plugin;
