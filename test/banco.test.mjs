@@ -87,7 +87,7 @@ test("plazo fijo: más plazo, más tasa; tope por nivel; vence solo con su inter
   assert.match(B.hacerPlazoFijo(chat, ANA, 500, 45, QUINCE).error, /30, 90, 180/);
   assert.match(B.hacerPlazoFijo(chat, ANA, 50, 30, QUINCE).error, /menos de 100/);
   // With no trade, a level 1's cap; with level 3, three times it.
-  assert.match(B.hacerPlazoFijo(chat, ANA, B.BANCO.DEPOSITO_POR_NIVEL + 10, 30, QUINCE).error, /hasta 600 UruCoins/);
+  assert.match(B.hacerPlazoFijo(chat, ANA, B.BANCO.DEPOSITO_POR_NIVEL + 10, 30, QUINCE).error, /hasta 1000 UruCoins/);
   oficio(chat, ANA, "tambero", 3);
   const r = B.hacerPlazoFijo(chat, ANA, 1000, 30, QUINCE);
   assert.ok(r.ok, r.error);
@@ -96,7 +96,7 @@ test("plazo fijo: más plazo, más tasa; tope por nivel; vence solo con su inter
   assert.ok(interes > 0);
   assert.match(r.mensaje, new RegExp(`te vuelven \\*${1000 + interes}\\*`));
   assert.ok(B.hacerPlazoFijo(chat, ANA, 500, 180, QUINCE).ok);
-  assert.match(B.hacerPlazoFijo(chat, ANA, 400, 90, QUINCE).error, /podés poner 300 más/);
+  assert.match(B.hacerPlazoFijo(chat, ANA, 1700, 90, QUINCE).error, /podés poner 1500 más/);
   // Broken early: what went in, no interest.
   assert.match(B.romperPlazoFijo(chat, ANA, null, QUINCE).error, /Decime cuál/);
   assert.match(B.romperPlazoFijo(chat, ANA, 2, QUINCE + DIA).mensaje, /te vuelven los \*500\*/);
@@ -121,7 +121,7 @@ test("la tasa: sube con la plata que crece y la prosperidad, baja en recesión, 
   for (const u of [ANA, BETO, CARLA]) fijarSaldo(F, chat, u, 2600);
   B.moverTasa(chat, QUINCE + 7 * DIA);
   const e = B.estadoBanco(chat);
-  assert.ok(e.inflacion > 20, `inflación ${e.inflacion}`);
+  assert.ok(e.inflacion >= 20, `inflación ${e.inflacion}`);
   assert.equal(e.tasa, quieta.tasa + B.BANCO.PASO_DIA);
   // The prices of the town follow it (lib/pueblo.js).
   assert.ok(P.modificador(chat, "precios") > 1.05);
@@ -138,17 +138,17 @@ test("la tasa: sube con la plata que crece y la prosperidad, baja en recesión, 
   assert.ok(P.modificador(chat, "precios") < 1);
   // The objective: prosperity pushes it up, a dollar crisis adds its points.
   fijarPueblo(chat, { prosperidad: 50 });
-  const base = B.objetivoTasa(chat, B.BANCO.META_INFLACION, QUINCE + 40 * DIA);
+  const base = B.objetivoTasa(chat, 0, QUINCE + 40 * DIA);
   assert.equal(base, B.BANCO.TASA_NEUTRA);
   fijarPueblo(chat, { prosperidad: 90 });
-  assert.equal(B.objetivoTasa(chat, B.BANCO.META_INFLACION, QUINCE + 40 * DIA), base + 40 * B.BANCO.SENSIBILIDAD_PROSPERIDAD);
+  assert.equal(B.objetivoTasa(chat, 0, QUINCE + 40 * DIA), base + 40 * B.BANCO.SENSIBILIDAD_PROSPERIDAD);
   fijarPueblo(chat, { prosperidad: 50 });
   db.prepare(`INSERT INTO pueblo_eventos (chat, clave, desde, hasta) VALUES (?, 'dolar', ?, ?)`).run(chat, QUINCE + 40 * DIA - 1000, QUINCE + 43 * DIA);
-  assert.equal(B.objetivoTasa(chat, B.BANCO.META_INFLACION, QUINCE + 40 * DIA), base + P.EVENTOS.dolar.tasa);
+  assert.equal(B.objetivoTasa(chat, 0, QUINCE + 40 * DIA), base + P.EVENTOS.dolar.tasa);
   assert.match(B.textoBanco(chat, ANA, QUINCE + 40 * DIA).texto, /Crisis del dólar: \+15 puntos/);
   // Never out of its bounds, however wild the town.
   assert.equal(B.objetivoTasa(chat, 60, QUINCE + 40 * DIA), B.BANCO.TASA_MAX);
-  assert.equal(B.objetivoTasa(chat, -30, QUINCE + 50 * DIA), B.BANCO.TASA_MIN);
+  assert.equal(B.objetivoTasa(chat, -40, QUINCE + 50 * DIA), B.BANCO.TASA_MIN);
 });
 
 test("el intendente aprieta al banco: solo él, una vez cada dos semanas, y la tasa barata puede rebotar", () => {

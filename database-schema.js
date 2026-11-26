@@ -754,7 +754,8 @@ export function ponerAlDia(db) {
   `);
 
   // The Banco Central of each town (lib/banco.js). banco: the reference rate (tasa, a yearly %), the last one told to
-  // the group, the week's inflation as last measured (NULL until there are days enough), the day the rate last moved,
+  // the group, the week's inflation as last measured (NULL until there are days enough) and the one the town is used
+  // to (esperada, NULL until there are weeks enough), the day the rate last moved,
   // the intendente's pressure (presion, signed points, until presion_hasta; ultima_presion, when it was last asked
   // for), the market's backlash (until rebote_hasta), and what the bank has lent, collected, paid in deposit interest
   // and written off since it opened. banco_historia: the money in the street each day, which inflation is measured
@@ -776,6 +777,7 @@ export function ponerAlDia(db) {
       tasa REAL NOT NULL,
       tasa_anunciada REAL NOT NULL,
       inflacion REAL,
+      esperada REAL,
       dia TEXT DEFAULT '',
       presion INTEGER DEFAULT 0,
       presion_hasta INTEGER DEFAULT 0,
