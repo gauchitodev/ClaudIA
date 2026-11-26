@@ -24,6 +24,7 @@ import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
 import { famaParaPrompt } from "../lib/escenas.js";
+import { bienesParaPrompt } from "../lib/tienda.js";
 import { puebloParaPrompt, hablaDelPueblo } from "../lib/pueblo.js";
 import { diarioParaPrompt as ecoParaPrompt } from "../lib/pueblo-diario.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
@@ -382,11 +383,17 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
 
   // The group's town (lib/pueblo.js) and its Sunday paper's last headlines (lib/pueblo-diario.js), when the talk is
   // about it: told with every message, she'd drag the town in where it had nothing to do.
-  if (m.isGroup && hablaDelPueblo(m.text, m.quoted?.text, ...antes.map((e) => e.m.text))) {
+  const delPueblo = m.isGroup && hablaDelPueblo(m.text, m.quoted?.text, ...antes.map((e) => e.m.text));
+  if (delPueblo) {
     const pueblo = puebloParaPrompt(m.chat, ahora);
     if (pueblo) partes.push(pueblo);
     const eco = pueblo ? ecoParaPrompt(m.chat) : "";
     if (eco) partes.push(eco);
+  }
+  // The house, the car and the pet they bought in the shop (lib/tienda.js), when the talk is about money or the town.
+  if (m.isGroup && (deLaburo || delPueblo)) {
+    const bienes = bienesParaPrompt(m.chat, m.sender, nombre);
+    if (bienes) partes.push(bienes);
   }
 
   // nickname bought in the shop: Claudia addresses them that way

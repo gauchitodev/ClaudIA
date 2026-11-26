@@ -5,7 +5,7 @@ import { conexion } from "../lib/conexion.js";
 
 // The shop's status (lib/tienda.js): the signature reaction, the grand entrance, the notices in the Sunday paper, the
 // statue, the informant, the lawyer, the bodyguard and the goods, and what each does in the town and the other modules.
-let F, T, P, D, PF;
+let F, T, P, D, ES, EN, EM, SP, L, PF;
 const ANA = "300000000000071@lid";
 const BETO = "300000000000072@lid";
 const CARLA = "300000000000073@lid";
@@ -19,6 +19,11 @@ before(async () => {
   T = await import("../lib/tienda.js");
   P = await import("../lib/pueblo.js");
   D = await import("../lib/pueblo-diario.js");
+  ES = await import("../lib/escenas.js");
+  EN = await import("../lib/encargos.js");
+  EM = await import("../lib/empresas.js");
+  SP = await import("../lib/espias.js");
+  L = await import("../lib/laburos.js");
   PF = await import("../lib/perfil.js");
 });
 beforeEach(() => {
@@ -228,6 +233,73 @@ test("informante: una pista sobre el sobre abierto, nunca el nombre, una por sob
   assert.ok([...pistas].some((p) => /más UruCoins que vos/.test(p)), "tiene más plata que el que pregunta");
 });
 
+test("abogado: te saca de la multa de una escena de control, de una denuncia falsa y de un sabotaje descubierto", () => {
+  const chat = "abogado@g.us";
+  grupo(chat, { conPueblo: false });
+  assert.match(comprar(chat, ANA, "abogado").mensaje, /Contrataste al Dr\./);
+  assert.match(comprar(chat, ANA, "abogado").error, /Ya tenés un abogado/);
+  // The scene: coimear at the caminera goes badly (×0.3); with the lawyer, the plain wage.
+  oficio(chat, ANA, "camionero", 5);
+  const abrir = () => db.prepare(`INSERT OR REPLACE INTO laburos_escenas (chat, usuario, escena, jornal, mensaje_id, vence) VALUES (?, ?, 'camionero/caminera', 100, '', ?)`).run(chat, ANA, Date.now() + 600000);
+  ES._dep.azar = () => 99;
+  abrir();
+  let r = ES.elegirEnEscena(chat, ANA, 1);
+  assert.equal(r.salioBien, false);
+  assert.equal(r.cobrado, 100);
+  assert.match(r.texto, /⚖️ Pero tu abogado .+ te sacó de la multa/);
+  abrir();
+  assert.equal(ES.elegirEnEscena(chat, ANA, 1).cobrado, 30, "el abogado era para una sola vez");
+  // A false report.
+  db.prepare(`INSERT INTO espias_misiones (chat, agente, emoji, objetivo, tipo, palabra, premio, publicada, vence, estado, abierta) VALUES (?, ?, '🦊', ?, 'palabra', 'chorizo', 150, ?, ?, 'abierta', 1)`).run(chat, DANI, CARLA, Date.now(), Date.now() + 3600000);
+  comprar(chat, BETO, "abogado");
+  const plata = saldo(chat, BETO);
+  r = SP.denunciar(chat, BETO, CARLA);
+  assert.equal(r.acerto, false);
+  assert.match(r.texto, /el abogado de @300000000000072 .+ y no paga nada/);
+  assert.equal(saldo(chat, BETO), plata);
+  // A saboteur caught.
+  comprar(chat, CARLA, "abogado");
+  const clave = EN.todasLasClaves()[0];
+  const id = Number(db.prepare(`INSERT INTO encargos (chat, usuario, clave, camino, creada, vence) VALUES (?, ?, ?, 1, ?, ?)`).run(chat, DANI, clave, Date.now() - 3600000, Date.now() - 1).lastInsertRowid);
+  db.prepare(`INSERT INTO encargos_aportes (encargo, usuario, tipo, cantidad) VALUES (?, ?, 'sabotaje', 20)`).run(id, CARLA);
+  EN._dep.azar = () => 0; // it goes well, and she's caught
+  const antes = saldo(chat, CARLA);
+  r = EN.vencerEncargo(id);
+  assert.deepEqual(r.pescados, [CARLA]);
+  assert.match(r.texto, /Se descubrió, pero su abogado .+ y no paga multa/);
+  assert.equal(saldo(chat, CARLA), antes);
+});
+
+test("guardaespaldas: no te sabotean, no te roban el premio ni la caja de la empresa", () => {
+  const chat = "guardaespaldas@g.us";
+  grupo(chat);
+  assert.match(comprar(chat, ANA, "guardaespaldas").mensaje, /Contratado/);
+  assert.match(comprar(chat, ANA, "guardaespaldas").error, /Ya tenés guardaespaldas/);
+  assert.ok(T.tieneGuardaespaldas(chat, ANA));
+  assert.equal(T.tieneGuardaespaldas(chat, ANA, Date.now() + 4 * DIA), false, "a los tres días se va");
+  comprar(chat, ANA, "guardaespaldas");
+  const clave = EN.todasLasClaves()[0];
+  const id = Number(db.prepare(`INSERT INTO encargos (chat, usuario, clave, camino, creada, vence) VALUES (?, ?, ?, 1, ?, ?)`).run(chat, ANA, clave, Date.now(), Date.now() + 3600000).lastInsertRowid);
+  const r = EN.aportar(chat, BETO, "sabotaje", 30);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /anda con guardaespaldas/);
+  assert.equal(EN.aportar(chat, BETO, "ayuda", 30).ok, true, "ayudar, sí");
+  // The prize isn't stolen on the way back, with safety on the floor.
+  db.prepare(`UPDATE encargos SET vence = ? WHERE id = ?`).run(Date.now() - 1, id);
+  fijar(chat, { seguridad: 0 });
+  EN._dep.azar = () => 0;
+  const v = EN.vencerEncargo(id);
+  assert.equal(v.salioBien, true);
+  assert.equal(v.robado, 0);
+  // Nor the company's cash box.
+  oficio(chat, ANA, "camionero", L.cobrosParaNivel(10));
+  assert.equal(EM.fundar(chat, ANA, "Fletes Ana").ok, true);
+  db.prepare(`UPDATE empresas SET caja = 1000 WHERE patron = ? AND chat = ?`).run(ANA, chat);
+  EM._dep.azar = (n) => n - 1;
+  const j = EM.jornadaDelPatron(chat, ANA);
+  assert.doesNotMatch(j.mensaje, /entraron a robar/);
+});
+
 test("bienes: casa y auto de a un escalón, mascota con nombre; se ven en .perfil y son noticia", () => {
   const chat = "bienes@g.us";
   grupo(chat);
@@ -257,6 +329,20 @@ test("bienes: casa y auto de a un escalón, mascota con nombre; se ven en .perfi
   // Prices follow the town's prosperity.
   fijar(chat, { prosperidad: 100 });
   assert.equal(T.precioBien(chat, 1000), 1150);
+});
+
+test("los bienes en los cuentos: la escena, el encargo y el diario dicen en qué llega", () => {
+  const chat = "cuentos@g.us";
+  grupo(chat);
+  comprar(chat, ANA, "auto");
+  comprar(chat, ANA, "mascota", "perro Firulais");
+  oficio(chat, ANA, "camionero", 5);
+  ES._dep.azar = () => 0;
+  const escena = ES.cobrarConEscena(chat, ANA);
+  assert.equal(escena.escena, true);
+  assert.match(escena.mensaje, /_\(llegaste en tu fusca, con el perro Firulais\)_/);
+  const diario = D.armarDiario(chat);
+  assert.ok(diario.titulares.some((t) => /Ana llegó en su fusca, con el perro Firulais\./.test(t.bajada)));
 });
 
 test("robo de auto: con la seguridad baja te lo roban (el seguro paga un poco); con guardaespaldas, no", () => {
