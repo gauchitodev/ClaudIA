@@ -39,10 +39,10 @@ test("bienvenida: al nacer el pueblo, tres mensajes cortos; una sola vez por gru
   const [uno, dos, tres, ...mas] = textos();
   const p = P.estadoDe(chat);
   assert.equal(mas.length, 0);
-  assert.match(uno, new RegExp(`^🌎 \\*¡Bienvenidos a ${M.MUNDO.NOMBRE}!\\* Acaba de nacer \\*${p.nombre}\\*, fundado allá por ${p.anio}`));
+  assert.match(uno, new RegExp(`^🌎 \\*¡Bienvenidos a ${M.MUNDO.NOMBRE}!\\* Acaba de nacer \\*${p.nombre}\\*, fundado allá por ${p.anio}, según `));
   assert.match(uno, new RegExp(p.lugar.plaza));
   assert.match(dos, /^🧭 \*Cómo se juega\*/);
-  for (const cosa of [/oficio/, /nivel/, /empresa/, new RegExp(M.MUNDO.BANCO), /tasa/, /presta/, /Encargos urgentes, 🕵️ misiones secretas y 🧰 changas \(un admin las prende: \.encargos on · \.espias on · \.changas on\)/, /misiones secretas/, new RegExp(`El Eco de ${p.nombre}`)]) assert.match(dos, cosa);
+  for (const cosa of [/oficio/, /nivel/, /empresa/, new RegExp(M.MUNDO.BANCO), /tasa/, /presta/, /Encargos urgentes, 🕵️ misiones secretas y 🧰 changas \(un admin los prende: \.encargos on · \.espias on · \.changas on\)/, /misiones secretas/, new RegExp(`El Eco de ${p.nombre}`)]) assert.match(dos, cosa);
   for (const cmd of [".laburo", ".pueblo", ".banco", ".menu juegos"]) assert.ok(tres.includes(cmd), cmd);
   assert.match(tres, new RegExp(`¡Bienvenidos a ${p.nombre}!`));
   for (const t of [uno, dos, tres]) assert.ok(t.length < 600, `corto: ${t.length}`);
@@ -69,7 +69,7 @@ test("bienvenida: lo prendido se dice prendido, y el nombre del mundo sale de la
     M.MUNDO.NOMBRE = antes;
   }
   assert.match(textos()[0], /Bienvenidos a Mundo Tranquera!/);
-  assert.match(textos()[1], /\(un admin las prende: \.espias on · \.changas on\)/);
+  assert.match(textos()[1], /\(un admin los prende: \.espias on · \.changas on\)/);
 });
 
 test("novedades: un pueblo que ya existía las recibe una vez, de día y con el grupo charlando", async () => {

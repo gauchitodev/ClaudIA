@@ -410,3 +410,35 @@ test("el manual de Claudia dice los números del banco como están, y se lo cuen
   assert.ok(MANUAL.includes(`entre −${-P.PUEBLO.PRECIOS_INFLACION_MIN} y +${P.PUEBLO.PRECIOS_INFLACION_MAX} %`), "los precios");
   for (const pregunta of ["¿cómo pido un préstamo?", "che claudia qué es el clearing", "cómo hago un plazo fijo"]) assert.match(conocimientoPara(pregunta) || "", /EL BANCO CENTRAL DEL PUEBLO/, pregunta);
 });
+
+// What a review found (lib/banco.js): a stain whose days were up didn't come back worse; a backlog after a gap was
+// charged as misses in a few rounds; and an overdue contract was taken from twice a day.
+test("la mancha vencida no vuelve agravada, un atraso de días no se cobra de golpe, y lo vencido se cobra una vez por día", () => {
+  const chat = "revision@g.us";
+  grupo(chat, { plata: 0 });
+  // An old moroso whose stain is up, who misses one instalment now: atrasado, not moroso.
+  db.prepare(`INSERT INTO banco_clientes (chat, usuario, estado, hasta) VALUES (?, ?, 'moroso', ?)`).run(chat, ANA, QUINCE - DIA);
+  oficio(chat, ANA, "tambero", 4);
+  assert.ok(B.pedirPrestamo(chat, ANA, 300, 4, "bolsillo", QUINCE).ok);
+  fijarSaldo(F, chat, ANA, 0);
+  ronda(chat, QUINCE + 7 * DIA + 1000);
+  assert.equal(B.calificacionDe(chat, ANA, QUINCE + 7 * DIA + 2000), "atrasado");
+  // The bot was off three weeks: the dates gone by count as one miss, not as a seizure in two rounds.
+  const antes = prestamo(chat, ANA);
+  ronda(chat, QUINCE + 30 * DIA);
+  ronda(chat, QUINCE + 30 * DIA + 5 * 60 * 1000);
+  const despues = prestamo(chat, ANA);
+  assert.equal(despues.fallas, antes.fallas + 1);
+  assert.ok(despues.proxima > QUINCE + 30 * DIA);
+  // A contract overdue: half of the pocket a day, not twice.
+  fijarSaldo(F, chat, BETO, 500);
+  assert.ok(B.ofrecerPrestamo(chat, BETO, CARLA, 400, 0, 1, QUINCE).ok);
+  assert.ok(B.firmarPrestamo(chat, CARLA, BETO, QUINCE).ok);
+  fijarSaldo(F, chat, CARLA, 0);
+  ronda(chat, QUINCE + DIA + 1000); // due: nothing there, overdue
+  fijarSaldo(F, chat, CARLA, 400);
+  const dia2 = new Date(QUINCE + 2 * DIA);
+  ronda(chat, dia2.setHours(10, 0, 0, 0)); // the day's first round
+  ronda(chat, QUINCE + 2 * DIA + 2000); // the contract's hour
+  assert.equal(saldo(chat, CARLA), 200);
+});
