@@ -359,6 +359,11 @@ test("la variante difícil: que el objetivo ofrezca vender algo, leído por el c
   assert.equal(E.misionAbierta(G).tipo, "palabra");
 });
 
+test("los ejemplos que se le dan al espía de la difícil son frases que el clasificador de verdad lee así", () => {
+  I._dep.probabilidades = I.probabilidades;
+  for (const [tipo, frase] of Object.entries(E.EJEMPLO)) assert.equal(I.intencionDe(frase), tipo, frase);
+});
+
 test(".denunciar: acertar le saca la misión al espía, le cobra la multa y paga al denunciante", async () => {
   await conSobre();
   fijarSaldo(F, G, ANA, 100);

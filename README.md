@@ -30,7 +30,7 @@ La lista completa de comandos, con lo que hace cada uno, está en [docs/comandos
 
 **Economía (UruCoins)**
 
-- Monedas por reaccionar, participar y poner música (`.play`, hasta 5 temas por día), laburos con sueldo diario y niveles, donde algunos cobros vienen con una escena a resolver que da fama y apodos, empresas para quien llega a nivel 10 de su oficio (`.fundar`: caja propia, bienes que se gastan, empleados del grupo o de Claudia), changas grupales que necesitan equipo (`.changa`, `.anotarme`; Claudia publica las suyas donde un admin puso `.changas on`), rangos por antigüedad y mensajes, racha diaria, pregunta del día y una tienda (escudo, racha doble, voto doble, apodo). `.mitimba` y `.timba` cuentan cómo le fue a cada uno en el casino.
+- Monedas por reaccionar, participar y poner música (`.play`, hasta 5 temas por día), laburos con sueldo diario y niveles, donde algunos cobros vienen con una escena a resolver que da fama y apodos, empresas para quien llega a nivel 10 de su oficio (`.fundar`: caja propia, bienes que se gastan, empleados del grupo o de Claudia), changas grupales que necesitan equipo (`.changa`, `.anotarme`; Claudia publica las suyas donde un admin puso `.changas on`), la misión secreta de los espías (`.espias on`: quien se anota por privado con `.espia` recibe un emoji secreto, y cuando llega un sobre para ese emoji pide la misión con `.sobre`: lograr que alguien del grupo diga una palabra sin decírsela; los demás pueden `.denunciar`), rangos por antigüedad y mensajes, racha diaria, pregunta del día y una tienda (escudo, racha doble, voto doble, apodo). `.mitimba` y `.timba` cuentan cómo le fue a cada uno en el casino.
 
 **Grupo y moderación**
 
