@@ -373,3 +373,40 @@ test("el tablero, el del pueblo y lo que se le cuenta a Claudia", async () => {
   assert.match(await comando(chat, ANA, "clearing"), /limpito/);
   assert.match(await comando(chat, ANA, "remate"), /No hay remates abiertos/);
 });
+
+// Claudia's manual says the bank's numbers as they are (lib/manual-claudia.js is written by hand), and she's told it
+// when someone asks how the bank works.
+test("el manual de Claudia dice los números del banco como están, y se lo cuento cuando preguntan", async () => {
+  const { MANUAL, conocimientoPara } = await import("../lib/manual-claudia.js");
+  const { MUNDO } = await import("../lib/mundo.js");
+  const K = B.BANCO;
+  const dichos = [
+    MUNDO.BANCO,
+    `bienvenida a ${MUNDO.NOMBRE}`,
+    `entre ${K.TASA_MIN} y ${K.TASA_MAX} %`,
+    `descansa en ${K.TASA_NEUTRA}`,
+    `de a ${K.PASO_DIA} puntos por día`,
+    `${K.META_INFLACION} % por semana`,
+    `crisis del dólar +${P.EVENTOS.dolar.tasa}`,
+    `${K.PRESION_PUNTOS} puntos menos por ${K.PRESION_DIAS} días`,
+    `hay ${K.PRESION_RIESGO} % de que la plaza se asuste y la tasa rebote ${K.REBOTE_PUNTOS} puntos`,
+    `una vez cada ${K.PRESION_CADA_DIAS} días`,
+    `pagan ${Object.values(K.PLAZOS).map((x) => Math.round(x * 100)).join(", ").replace(/, (\d+)$/, " y $1")} % de la tasa`,
+    `Mínimo ${K.DEPOSITO_MIN}, hasta ${K.DEPOSITO_POR_NIVEL} por cada nivel`,
+    `${K.DEPOSITOS_ABIERTOS} abiertos`,
+    `desde el nivel ${K.NIVEL_MIN} del oficio: ${K.LIMITE_POR_NIVEL} por nivel más el ${Math.round(K.PATRIMONIO_PARTE * 100)} %`,
+    `${Math.round(K.HISTORIAL_BONUS * 100)} % más por cada préstamo pagado sin atrasos (hasta ${K.HISTORIAL_MAX})`,
+    `hasta ${K.LIMITE_MAX}; uno a la vez`,
+    `Cuesta ${String(K.PRESTAMO_FACTOR).replace(".", ",")} veces la tasa (más ${K.ATRASADO_PUNTOS} puntos`,
+    `(de 1 a ${K.SEMANAS_MAX})`,
+    `${Math.round(K.RECARGO * 100)} % de recargo`,
+    `(${K.ATRASADO_DIAS} atrasado, ${K.MOROSO_DIAS} moroso)`,
+    `(de 0 a ${K.P2P_INTERES_MAX})`,
+    `(de 1 a ${K.P2P_DIAS_MAX})`,
+    `dentro de ${K.P2P_OFERTA_HORAS} horas`,
+    `Hasta ${K.P2P_ABIERTOS} contratos`,
+  ];
+  for (const d of dichos) assert.ok(MANUAL.includes(d), `el manual no dice «${d}»`);
+  assert.ok(MANUAL.includes(`entre −${-P.PUEBLO.PRECIOS_INFLACION_MIN} y +${P.PUEBLO.PRECIOS_INFLACION_MAX} %`), "los precios");
+  for (const pregunta of ["¿cómo pido un préstamo?", "che claudia qué es el clearing", "cómo hago un plazo fijo"]) assert.match(conocimientoPara(pregunta) || "", /EL BANCO CENTRAL DEL PUEBLO/, pregunta);
+});
