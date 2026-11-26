@@ -11,6 +11,8 @@ before(async () => {
   L = await import("../lib/laburos.js");
   E = await import("../lib/empresas.js");
   E._dep.azar = () => 0; // the first text of each list, and a good with its service overdue always breaks
+  // No payday comes as a scene here (lib/escenas.js): these tests read what a plain .cobrar answers.
+  (await import("../lib/escenas.js")).ESCENA.CHANCE = 0;
   // The two the texts name; the rest are "alguien".
   for (const [quien, nombre] of [["ana@lid", "Ana"], ["beto@lid", "Beto"]]) F.initDataDB({ chat: "nombres@g.us", sender: quien, senderJid: "", pushName: nombre });
 });

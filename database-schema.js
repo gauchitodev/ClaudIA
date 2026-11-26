@@ -431,6 +431,33 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The payday scenes (lib/escenas.js). laburos_fama is each one's fame in a group, moved by what they choose in the
+  // scenes: picaro (+ pícaro, − honesto) and valiente (+ valiente, − cagón); ultima is the last scene they got, so it
+  // isn't dealt twice in a row. laburos_escenas is the scene someone has open: jornal is the day's wage at stake,
+  // before the option's multiplier, and vence when it resolves on its own.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS laburos_fama (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      picaro INTEGER DEFAULT 0,
+      valiente INTEGER DEFAULT 0,
+      escenas INTEGER DEFAULT 0,
+      ultima TEXT DEFAULT '',
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS laburos_escenas (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      escena TEXT NOT NULL,
+      jornal REAL NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      vence INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
   // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (
