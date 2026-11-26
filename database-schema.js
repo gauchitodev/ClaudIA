@@ -104,6 +104,7 @@ export function ponerAlDia(db) {
       changas BOOLEAN DEFAULT 0,
       espias BOOLEAN DEFAULT 0,
       encargos BOOLEAN DEFAULT 0,
+      pueblo BOOLEAN DEFAULT 0,
       recapSemanal BOOLEAN DEFAULT 1,
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
@@ -143,9 +144,10 @@ export function ponerAlDia(db) {
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
   // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
   // diary of the group (.diario), whether she posts group changas on her own (.changas), whether the secret missions are
-  // played there (.espias) and whether she hands out urgent errands (.encargos), on databases that already exist.
+  // played there (.espias), whether she hands out urgent errands (.encargos) and whether the group is a town (.pueblo), on
+  // databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"], ["pueblo", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -576,6 +578,89 @@ export function ponerAlDia(db) {
       clave TEXT PRIMARY KEY,
       veces INTEGER NOT NULL DEFAULT 0,
       ultima INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // The town of each group (lib/pueblo.js, lib/pueblo-diario.js). pueblos: one per group that switched it on, with
+  // its name, the made-up year it was founded (anio) and when it was born in the group (fundado), its numbers from 0 to
+  // 100 (prosperidad, seguridad, humor), the municipal tax (impuesto, % of what the companies bill) and when it was
+  // last set, the coffers the tax fills (arcas), the intendente when a person is one (their id; '' while the town's
+  // own is), the names its characters drew (npcs) and its places (lugares), both JSON, and the last day it lived
+  // (dia, "2026-11-26"). pueblo_hechos: what the modules registered that's news, for the Sunday paper, with how much
+  // (peso). pueblo_eventos: the events, running ('activo') or over, with the betting market of a championship.
+  // pueblo_memoria: what the characters remember of each person (the comisario, his regulars). pueblo_diarios: each
+  // Sunday's paper, its headlines in JSON, which Claudia can quote. pueblo_ilustraciones: the paper's illustrations
+  // asked of Gemini each month, against the cap in config.toml.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblos (
+      chat TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      anio INTEGER NOT NULL,
+      fundado INTEGER NOT NULL,
+      prosperidad REAL NOT NULL DEFAULT 50,
+      seguridad REAL NOT NULL DEFAULT 60,
+      humor REAL NOT NULL DEFAULT 50,
+      impuesto INTEGER NOT NULL DEFAULT 10,
+      impuesto_fijado INTEGER DEFAULT 0,
+      arcas INTEGER NOT NULL DEFAULT 0,
+      intendente TEXT DEFAULT '',
+      intendente_desde INTEGER DEFAULT 0,
+      npcs TEXT DEFAULT '{}',
+      lugares TEXT DEFAULT '{}',
+      dia TEXT DEFAULT ''
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_hechos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      usuario TEXT DEFAULT '',
+      datos TEXT DEFAULT '{}',
+      peso INTEGER DEFAULT 0,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pueblo_hechos ON pueblo_hechos (chat, fecha)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_eventos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      clave TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      hasta INTEGER NOT NULL,
+      mercado INTEGER DEFAULT 0,
+      estado TEXT DEFAULT 'activo'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pueblo_eventos ON pueblo_eventos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_memoria (
+      chat TEXT NOT NULL,
+      npc TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      motivo TEXT DEFAULT '',
+      veces INTEGER NOT NULL DEFAULT 0,
+      ultima INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, npc, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_diarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      semana TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      titulares TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      ilustrada INTEGER DEFAULT 0,
+      UNIQUE (chat, semana)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_ilustraciones (
+      mes TEXT PRIMARY KEY,
+      usadas INTEGER NOT NULL DEFAULT 0
     )
   `);
 
