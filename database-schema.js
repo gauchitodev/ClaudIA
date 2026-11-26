@@ -354,6 +354,40 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The companies of "modo patrón" (lib/empresas.js): whoever reaches the top level of a trade founds one. Each has its
+  // own cash box (caja), apart from its owner's pocket, what it has billed since it was founded (facturado, which
+  // sets its category) and the news its owner hasn't read yet (novedades). visto is when the owner last showed up.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      patron TEXT NOT NULL,
+      tipo TEXT NOT NULL, -- the trade it comes from: a key of EMPRESAS in lib/empresas.js
+      nombre TEXT NOT NULL,
+      caja INTEGER DEFAULT 0,
+      facturado INTEGER DEFAULT 0,
+      fundada INTEGER NOT NULL,
+      visto INTEGER NOT NULL,
+      ultima_jornada TEXT DEFAULT '', -- the day its owner last worked in it
+      novedades TEXT DEFAULT '',
+      UNIQUE (chat, patron)
+    )
+  `);
+  // What a company owns: estado goes from 100 down with each use, and a service brings it back; usado is the last
+  // day it was worked with (one shift a day each).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_bienes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      bien TEXT NOT NULL,
+      estado INTEGER DEFAULT 100,
+      roto INTEGER DEFAULT 0,
+      usado TEXT DEFAULT '',
+      comprado INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_bienes ON empresas_bienes (empresa)`);
+
   // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (

@@ -45,7 +45,7 @@ _Para todos. Se abre con `.menu temáticas`, `.menu ranking`, `.menu grupo`._
 <a id="coins"></a>
 ## 🪙 UruCoins
 
-_Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.menu economia`, `.menu saldo`, `.menu tienda`, `.menu laburos`, `.menu laburo`._
+_Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.menu economia`, `.menu saldo`, `.menu tienda`, `.menu laburos`, `.menu laburo`, `.menu empresas`, `.menu patron`._
 
 > _Se ganan reaccionando (+1) y cuando te reaccionan (+2), ganando juegos (+10; hasta 20 premios por día en cada uno y 5 en el ahorcado), con las temáticas (+5, hasta 3 entradas por semana en cada una; la más votada de cada una, +25), ganando el ranking del mes (+50) y poniendo música con .play (+10, hasta 5 temas por día)._
 > _También con la racha (+3 a +10), el sueldo de .cobrar, al subir de rango y, donde las prendieron, con la pregunta del día (+3) y la trivia relámpago (+15), y al volver a escribir después de un aviso de .inactivos (+10, una vez cada 30 días)._
@@ -56,6 +56,7 @@ _Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.men
 | `.regalar @mención 20` 🎁 | Le pasás coins a alguien. |
 | `.tienda` 🛒 | Escudo, racha doble, voto doble y apodo: se compran con .comprar escudo, y .inventario [@mención] muestra lo tuyo o lo de otra persona. .playya y .videoya saltan la espera de la música por 15, que se devuelven si la descarga falla. |
 | `.laburos` 💼 | Los oficios y cuánto paga hoy cada uno: .laburo &lt;oficio&gt; agarra uno, .cobrar cobra el sueldo del día y .renunciar lo deja. |
+| `.empresa [@mención]` 🏭 | El tablero de tu empresa, o el de otra persona: con nivel 10 de camionero, tambero o DJ se funda con .fundar &lt;nombre&gt;. .bienes muestra qué comprar (.comprar semi), .service arregla lo gastado, .caja depositar 100 y .caja retirar 100 mueven la plata, y .empresas lista las del grupo. |
 | `.racha [@mención]` 🔥 | Tu racha diaria: 3 mensajes de dos palabras o más por día, y el premio sube con los días seguidos. |
 | `.mitimba [@mención]` 🎲 | Cuánto apostaste en cada juego y cómo te fue; .timba, los que más apuestan en el grupo. |
 

@@ -1,4 +1,5 @@
 import { buscarItem, comprar } from "../lib/tienda.js";
+import { empresaDe, buscarBien, comprarBien } from "../lib/empresas.js";
 
 const plugin = {};
 plugin.cmd = ["comprar", "buy"];
@@ -14,6 +15,15 @@ plugin.run = async (m, { client, args }) => {
   if (!clave && args.length >= 2) {
     clave = buscarItem(args[0] + args[1]);
     resto = args.slice(2);
+  }
+
+  // Not in the shop: what a company owner buys for the company (lib/empresas.js), paid from its cash box.
+  if (!clave && args.length) {
+    const empresa = empresaDe(m.chat, m.sender);
+    if (empresa && buscarBien(empresa.tipo, args.join(" "))) {
+      const r = comprarBien(m.chat, m.sender, args.join(" "));
+      return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
+    }
   }
 
   if (!clave) {

@@ -1,4 +1,5 @@
 import { textoLaburos, buscarOficio, tomarLaburo, cobrar, renunciar } from "../lib/laburos.js";
+import { jornadaDelPatron } from "../lib/empresas.js";
 
 const plugin = {};
 plugin.cmd = ["laburos", "laburo", "trabajo", "trabajos", "cobrar", "renunciar"];
@@ -10,6 +11,9 @@ plugin.run = async (m, { client, command, args }) => {
 
   if (cmd === "cobrar") {
     const r = cobrar(m.chat, m.sender);
+    // A company owner (lib/empresas.js) also works their day's shift for it, with or without a wage of their own.
+    const jornada = jornadaDelPatron(m.chat, m.sender);
+    if (jornada?.ok) return client.sendText(m.chat, `${r.ok ? `${r.mensaje}\n\n` : ""}${jornada.mensaje}`, m);
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }
 
