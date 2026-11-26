@@ -1526,7 +1526,7 @@ export function anotarAvisoOwner(clave, momento) {
 }
 
 // groups with an activity switch on (known columns only, so no SQL is built from free text)
-const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa", "changas"]);
+const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa", "changas", "espias"]);
 export function chatsConOpcion(columna) {
   if (!OPCIONES_ACTIVIDAD.has(columna)) return [];
   return db.prepare(`SELECT remoteJid FROM chats WHERE ${columna} = 1`).all().map((r) => r.remoteJid);

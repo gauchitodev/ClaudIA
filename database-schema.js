@@ -102,6 +102,7 @@ export function ponerAlDia(db) {
       preguntaDia BOOLEAN DEFAULT 0,
       triviaRelampago BOOLEAN DEFAULT 0,
       changas BOOLEAN DEFAULT 0,
+      espias BOOLEAN DEFAULT 0,
       recapSemanal BOOLEAN DEFAULT 1,
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
@@ -140,10 +141,10 @@ export function ponerAlDia(db) {
   // whether a flood gets a notice and then a warning (.antiflood), the catalogue a buy-and-sell group gets unasked
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
   // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
-  // diary of the group (.diario) and whether she posts group changas on her own (.changas), on databases that already
-  // exist.
+  // diary of the group (.diario), whether she posts group changas on her own (.changas) and whether the secret missions are
+  // played there (.espias), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -484,6 +485,52 @@ export function ponerAlDia(db) {
       changa INTEGER NOT NULL,
       usuario TEXT NOT NULL,
       PRIMARY KEY (changa, usuario)
+    )
+  `);
+
+  // The secret missions (lib/espias.js). espias_agentes: who signed up in each group, in private, and the secret emoji
+  // they go by there (one of each per group); usuario is the id the group knows them by, their LID when there is one,
+  // and jid their number, when known. espias_misiones: each envelope posted to a group: whose it is (agente, and the
+  // emoji it was posted under, which changes once it's revealed), the kind ('palabra', or 'vender'/'comprar' for the
+  // hard one), the word, the target by both ids, when it was posted, when its owner opened it (0 until then), its
+  // deadline, and estado 'abierta', 'cumplida', 'vencida', 'denunciada' or 'anulada'. espias_denuncias: who has
+  // already reported someone for an envelope, one go each.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_agentes (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      jid TEXT DEFAULT '',
+      emoji TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario),
+      UNIQUE (chat, emoji)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_misiones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      agente TEXT NOT NULL,
+      agente_jid TEXT DEFAULT '',
+      emoji TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      palabra TEXT DEFAULT '',
+      objetivo TEXT NOT NULL,
+      objetivo_jid TEXT DEFAULT '',
+      premio INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      publicada INTEGER NOT NULL,
+      abierta INTEGER DEFAULT 0,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_espias_misiones_chat ON espias_misiones (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_denuncias (
+      mision INTEGER NOT NULL,
+      denunciante TEXT NOT NULL,
+      PRIMARY KEY (mision, denunciante)
     )
   `);
 
