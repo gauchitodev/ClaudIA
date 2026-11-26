@@ -1,6 +1,8 @@
 // Closes periods automatically on the group's first message after the change:
 // - New month: announces the previous month's ranking winners and pays them UruCoins.
 // - New week: rewards the most-voted entry of each of the previous week's hashtags, and draws its lottery.
+// The ranking and the hashtags are the fun's (.diversion): with it off (.modo compraventa) their periods are closed with
+// no announcement and no prize, and the lottery, the casino's, is drawn as ever.
 // Each closing is marked in the database so it isn't repeated after a restart.
 //
 // A closing waits for a message from the group, and only the previous period used to be closed: a week without a single
@@ -31,9 +33,10 @@ function porCerrar(chat, tipo, anteriores) {
 
 const plugin = (m) => m;
 
-plugin.before = async (m, { client }) => {
+plugin.before = async (m, { client, chat }) => {
   try {
     if (!m.isGroup) return;
+    const sinDiversion = chat?.diversion === 0;
 
     const ahora = Date.now();
     const mesActual = mesDe(ahora);
@@ -46,6 +49,7 @@ plugin.before = async (m, { client }) => {
     const meses = mesesAnteriores(ahora, ATRASO_MAX.meses);
     for (const mes of porCerrar(m.chat, "mes", meses)) {
       marcarPeriodoCerrado(m.chat, "mes", mes);
+      if (sinDiversion) continue;
       const { masVotado, masActivo } = obtenerRankingMensual(m.chat, mes);
       const ganadores = [];
       // "Más votada", "Más activa" in the winner's gender when set (.genero, lib/genero.js).
@@ -68,6 +72,7 @@ plugin.before = async (m, { client }) => {
     const semanas = semanasAnteriores(ahora, ATRASO_MAX.semanas);
     for (const semana of porCerrar(m.chat, "semana", semanas)) {
       marcarPeriodoCerrado(m.chat, "semana", semana);
+      if (sinDiversion) continue;
       const lineas = [];
       const mentions = [];
       for (const [tag, config] of Object.entries(HASHTAGS_CONFIG)) {

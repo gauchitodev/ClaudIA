@@ -31,12 +31,13 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(c), "amigos");
   await Modo.run(aca, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ diversión · ✅ stickers y convertidores · ✅ charla de Claudia/);
-  F.updateChat(chat, { iniciativa: 1, reactions: 1 }); // opt-in, like the daily question: compraventa turns them off too
+  F.updateChat(chat, { iniciativa: 1, reactions: 1, diarioDesde: Date.now() }); // opt-in, like the daily question: compraventa turns them off too
   await Modo.run(aca, { client: conexion.client, text: "compraventa" });
-  assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino, sin diversión \(parejas, familias, frases como \.orsi, horóscopo, versículos, temáticas…\), sin stickers ni convertidores \(\.s, \.tts, \.qr, efectos de audio…\), sin charla/);
-  assert.match(ultimo(), /y sin recap, pregunta del día, trivia, iniciativa ni reacciones\. Quedan /);
+  assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino, sin diversión \(parejas, familias, frases como \.orsi, horóscopo, versículos, temáticas, el ranking del mes…\), sin stickers ni convertidores \(\.s, \.tts, \.qr, efectos de audio…\), sin charla/);
+  assert.match(ultimo(), /sin saludos automáticos \(tampoco el de cumpleaños\), sin economía/);
+  assert.match(ultimo(), /y sin recap, pregunta del día, trivia, iniciativa, reacciones ni diario\. Quedan /);
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions, c.diarioDesde], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(aca, { client: conexion.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
@@ -49,7 +50,7 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   c = F.getChat(chat);
   assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1, 1, 1]);
   // What comes off unless a group asks for it stays off: those are turned on one by one.
-  assert.deepEqual([c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions], [0, 0, 0, 0]);
+  assert.deepEqual([c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions, c.diarioDesde], [0, 0, 0, 0, 0]);
 });
 
 test("modo: con la economía apagada nada reparte coins, pero lo social sigue", () => {
@@ -206,12 +207,14 @@ test(".diversion: prendida por defecto, la apaga y la prende un admin, y .config
     return ultimo();
   };
   // Right under the casino, the other switch of what's played and laughed at.
-  assert.match(await panel(), /\n✅ Casino y apuestas \(\.casino\)\n✅ Diversión: parejas, familias, frases, horóscopo, temáticas \(\.diversion\)\n✅ Stickers y convertidores: \.s, \.ttp, \.tts, \.qr, efectos de audio \(\.convertidores\)\n🎮 Juegos apagados de a uno/);
+  assert.match(await panel(), /\n✅ Casino y apuestas \(\.casino\)\n✅ Diversión: parejas, familias, frases, horóscopo, temáticas, ranking \(\.diversion\)\n✅ Stickers y convertidores: \.s, \.ttp, \.tts, \.qr, efectos de audio \(\.convertidores\)\n🎮 Juegos apagados de a uno/);
 
   await config(["off"]);
   assert.match(ultimo(), /Opción: `diversion`\n• Estado: Desactivado$/);
   assert.equal(F.getChat(chat).diversion, 0);
-  assert.match(await panel(), /\n❌ Diversión: parejas, familias, frases, horóscopo, temáticas \(\.diversion\)\n✅ Stickers y convertidores/);
+  assert.match(await panel(), /\n❌ Diversión: parejas, familias, frases, horóscopo, temáticas, ranking \(\.diversion\)\n✅ Stickers y convertidores/);
+  // The birthdays' greeting goes with the automatic ones (lib/cumpleanos.js), and .config says so.
+  assert.match(await panel(), /\n✅ Saludo automático y de cumpleaños \(\.saludos\)\n/);
   await Modo.run({ ...msg, chat }, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*mixto\*\n✅ juegos · ❌ diversión · ✅ stickers y convertidores · ✅ charla de Claudia/);
   assert.match(ultimo(), /\nCada cosa suelta: \.juegos, \.diversion, \.convertidores, \.charla, \.saludos, \.monedas, \.ascensos y \.recapsemanal\.$/);
@@ -246,7 +249,7 @@ test(".convertidores: prendidos por defecto, los apaga y los prende un admin, y 
   await config(["off"]);
   assert.match(ultimo(), /Opción: `convertidores`\n• Estado: Desactivado$/);
   assert.equal(F.getChat(chat).convertidores, 0);
-  assert.match(await panel(), /\n✅ Diversión: parejas, familias, frases, horóscopo, temáticas \(\.diversion\)\n❌ Stickers y convertidores: \.s, \.ttp, \.tts, \.qr, efectos de audio \(\.convertidores\)\n🎮 Juegos apagados de a uno/);
+  assert.match(await panel(), /\n✅ Diversión: parejas, familias, frases, horóscopo, temáticas, ranking \(\.diversion\)\n❌ Stickers y convertidores: \.s, \.ttp, \.tts, \.qr, efectos de audio \(\.convertidores\)\n🎮 Juegos apagados de a uno/);
   await Modo.run({ ...msg, chat }, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*mixto\*\n✅ juegos · ✅ diversión · ❌ stickers y convertidores · ✅ charla de Claudia/);
 

@@ -234,3 +234,57 @@ test(".podar saca el detalle viejo y deja el reciente", async () => {
   await Podar.run({ chat: P, isGroup: true }, { client: conexion.client });
   assert.match(ultimoEnviado().msg.text, /No había actividad por hora, envíos del bot ni usos de comandos de más de 90 días/);
 });
+
+// The streak's 🔥 (plugins/_actividad.js), only where the economy is on: with it off (.monedas, .modo compraventa) the
+// streak is counted all the same, it pays nothing and nothing goes out.
+const saldoEn = (chat) => F.getSaldoCoins(chat, "r@lid");
+test("la racha se festeja con 🔥 solo con la economía prendida, y apagada se sigue contando", async () => {
+  const Actividad = (await import("../plugins/_actividad.js")).default;
+  const [CON, SIN] = ["racha-con@g.us", "racha-sin@g.us"];
+  for (const chat of [CON, SIN]) F.initDataDB({ chat, sender: "r@lid", senderJid: "", pushName: "R" });
+  F.updateChat(SIN, { monedas: 0 });
+  const reacciones = [];
+  const escribe = (chat, texto) => Actividad.before({ chat, sender: "r@lid", isGroup: true, message: { conversation: texto }, text: texto, react: async (emoji) => reacciones.push([chat, emoji]) }, { client: conexion.client });
+  for (const texto of ["buen día gente", "cómo andan todos", "hoy llueve fuerte"]) {
+    await escribe(CON, texto);
+    await escribe(SIN, texto);
+  }
+  assert.deepEqual(reacciones, [[CON, "🔥"]]);
+  assert.equal(saldoEn(CON), 3);
+  assert.match(A.textoRacha(SIN, "r@lid"), /Racha diaria: 1 día/, "sin festejo, pero contada");
+  assert.equal(saldoEn(SIN), 0);
+});
+
+// The month's ranking and the week's hashtags are the fun's (.diversion): with it off (.modo compraventa) their periods
+// close with no announcement and no prize, marked as closed so turning it back on doesn't announce them late. The
+// lottery isn't theirs.
+test("el cierre del mes y de la semana: con la diversión apagada se cierran sin anunciar ni pagar; prendida, se anuncian", async () => {
+  const Cierres = (await import("../plugins/_cierres-periodicos.js")).default;
+  const { mesesAnteriores, semanasAnteriores } = await import("../lib/hashtags.js");
+  const [SIN, CON] = ["cierre-sin@g.us", "cierre-con@g.us"];
+  const [mes] = mesesAnteriores(Date.now(), 1);
+  const [semana] = semanasAnteriores(Date.now(), 1);
+  for (const chat of [SIN, CON]) {
+    F.initDataDB({ chat, sender: "a@lid", senderJid: "", pushName: "A" });
+    db.prepare(`INSERT INTO interacciones_mensuales (mes, chat, usuario, recibidas, emitidas) VALUES (?, ?, ?, 5, 2)`).run(mes, chat, "a@lid");
+    F.agregarEntradaHashtag({ chat, hashtag: "quejadelunes", usuario: "a@lid", contenido: "#quejadelunes el lunes", messageId: `Q-${chat}`, semana });
+    F.sumarReaccionEntradaHashtag(chat, `Q-${chat}`, 3);
+  }
+  F.updateChat(SIN, { diversion: 0 });
+  F.agregarBoletosLoteria(SIN, semana, "a@lid", 2);
+  const cierra = async (chat) => {
+    globalThis.enviados = [];
+    await Cierres.before({ chat, isGroup: true }, { client: conexion.client, chat: F.getChat(chat) });
+    return globalThis.enviados.map((e) => e.msg?.text);
+  };
+  const enSin = await cierra(SIN);
+  assert.equal(enSin.length, 1, JSON.stringify(enSin));
+  assert.match(enSin[0], /^🎟️ \*LOTERÍA DE /, "solo la lotería, que es del casino: ni el ranking ni lo más votado");
+  assert.ok(F.periodoCerrado(SIN, "mes", mes) && F.periodoCerrado(SIN, "semana", semana), "pero quedan cerrados");
+  const premios = (chat) => db.prepare(`SELECT motivo FROM urucoins_log WHERE chat = ? AND (motivo = 'ganador_mes' OR motivo LIKE 'top_semana_%')`).all(chat).map((f) => f.motivo);
+  assert.deepEqual(premios(SIN), [], "ni sus premios");
+  const anuncios = await cierra(CON);
+  assert.ok(anuncios.some((t) => /^🏆 \*CERRÓ EL RANKING DE /.test(t)), JSON.stringify(anuncios));
+  assert.ok(anuncios.some((t) => /^📣 \*LO MÁS VOTADO DE /.test(t)), JSON.stringify(anuncios));
+  assert.deepEqual(premios(CON).sort(), ["ganador_mes", "ganador_mes", "top_semana_quejadelunes"], "el más votado y el más activo, y lo más votado de la semana");
+});

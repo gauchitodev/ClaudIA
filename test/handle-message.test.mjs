@@ -213,6 +213,10 @@ test("el saludo y los chistes no le contestan a lo que borra la moderación", as
     assert.deepEqual(await manda("120363000000000011@g.us", ANA, "Hola! sumate a mi grupo de ofertas https://chat.whatsapp.com/AbCdEfGh1234"), { borrado: true, saludo: false, chiste: false }, "al spam no lo saluda");
     assert.deepEqual(await manda("120363000000000012@g.us", ANA, "hola gente"), { borrado: false, saludo: true, chiste: false }, "a un saludo común, sí");
     assert.deepEqual(await manda("120363000000000013@g.us", ANA, "dame admin"), { borrado: false, saludo: false, chiste: true }, "y el chiste, también");
+    // The jokes are the fun's (.diversion, .modo compraventa turns it off).
+    F.initDataDB({ chat: "120363000000000016@g.us", sender: ANA, senderJid: "", pushName: "Ana" });
+    F.updateChat("120363000000000016@g.us", { diversion: 0 });
+    assert.deepEqual(await manda("120363000000000016@g.us", ANA, "dame admin"), { borrado: false, saludo: false, chiste: false }, "con la diversión apagada, ni el chiste");
     F.addToBlacklist("59899000034@s.whatsapp.net", "estafa", "owner", "*", BETO);
     assert.deepEqual(await manda("120363000000000014@g.us", BETO, "holaa, ¿qué tal?"), { borrado: true, saludo: false, chiste: false }, "a quien saca la lista negra, ni el saludo");
     assert.deepEqual(await manda("120363000000000015@g.us", BETO, "dame admin"), { borrado: true, saludo: false, chiste: false }, "ni el chiste");

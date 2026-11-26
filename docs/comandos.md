@@ -345,7 +345,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.juegos` 🎮 | Prende o apaga todos los juegos (on u off); con el nombre de uno, solo ese: .juegos mines off. |
 | `.juego mines off` ⛔ | Apaga un solo juego en el grupo (o lo prende con on); sin nada, cómo está cada uno. |
 | `.casino` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
-| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos y las temáticas (#quejadelunes y sus listas). |
+| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos, las temáticas (#quejadelunes y sus listas) y el ranking del mes (.ranking y su anuncio). |
 | `.convertidores` 🔄 | Los stickers y los convertidores: .s, .ttp, .emojimix, .img, .tts, .vn, .tomp3, .qr y los demás, y los efectos de audio. |
 | `.respuestastickers` 🃏 | Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |
 | `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
@@ -354,7 +354,7 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.diario on\|off` 📔 | Claudia lleva un diario del grupo: pocas líneas por día de qué se habló, sin nombrar a nadie, guardadas 14 días. Sin nada, lo muestra (a cualquiera); con "borrar", lo borra entero. |
 | `.voz on\|aveces\|siempre\|off` 🎙️ | Claudia contesta con nota de voz: on, cuando le hablan por nota de voz; aveces, eso y alguna respuesta corta de vez en cuando; siempre, todo lo que dice (las respuestas largas van por texto). Sin nada, muestra cómo viene. |
 | `.vistazo [prueba]` 👀 | Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada. |
-| `.saludos` 👋 | Saludo automático cuando alguien dice hola. |
+| `.saludos` 👋 | Saludo automático cuando alguien dice hola, y el de cumpleaños a quien lo anotó con .cumple. |
 | `.monedas` 🪙 | Economía de UruCoins del grupo. |
 | `.ascensos` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
@@ -453,7 +453,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - .perfil · .rango · .reglas · .plantilla
 
 🛡️ **Admins**
-- .modo compraventa — apaga juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago, iniciativa y reacciones (.modo amigos vuelve a prender juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos y recap)
+- .modo compraventa — apaga juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago, iniciativa, reacciones y diario (.modo amigos vuelve a prender juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos y recap)
 - .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
 - Los moderadores corrigen la publicación de cualquiera (.precio 12 $ 3.500 · .editar 12 &lt;texto&gt;), y le aviso a quien la publicó
 - .baja 12 &lt;motivo&gt;, de un moderador sobre una ajena — la saco del catálogo y le aviso a quien la publicó, con el motivo. Solo un moderador la devuelve (.sigue 12), y ese mismo aviso no vuelve a entrar por 30 días

@@ -4,8 +4,10 @@ import { elegirAlAzar } from "../lib/azar.js";
 // the blacklist, and whoever it was about to remove got their answer first; out here, like any hook after the
 // moderation, they leave alone what it deleted (handle-message.js).
 const plugin = (m) => m;
-plugin.before = async (m, { client, isOwner }) => {
+plugin.before = async (m, { client, isOwner, chat }) => {
   if (!m.isGroup) return;
+  // They're the fun's (.diversion): with it off (.modo compraventa), "dame admin" gets nothing back.
+  if (chat?.diversion === 0) return;
 
   if (/^(dame admin|denme admin|quiero admin|haganme admin|quiero ser admin|háganme admin|haceme admin|ponganme de admin|merezco ser admin|me das admin|admin quiero)$/i.test(m.text)) {
     const teks = elegirAlAzar([`No.`, `Jajaja no.`, `Acá no se reparte admin, dejá.`, `Pedir admin no suma puntos, eh.`, `No va a pasar, pero me gusta el entusiasmo.`, `Seguí participando 😌`]);

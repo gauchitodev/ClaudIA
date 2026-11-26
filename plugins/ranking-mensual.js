@@ -6,6 +6,7 @@ const reacciones = (n) => `${n} ${n === 1 ? "reacción" : "reacciones"}`;
 
 const plugin = {};
 plugin.cmd = ["ranking", "rankingmensual"];
+plugin.diversion = true;
 plugin.onlyGroup = true;
 
 // With "nombres" or "numeros", everyone by their WhatsApp name or by their number (lib/menciones.js).

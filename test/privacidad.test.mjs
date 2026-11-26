@@ -657,3 +657,33 @@ test("consistencia: los logs de la charla no llevan lo que contestó la IA", () 
   assert.ok(logs.some((l) => l.includes("no devolvió JSON válido")));
   for (const l of logs) assert.doesNotMatch(l, /resultado\.texto|datos\b/, l.trim());
 });
+
+// The birthdays' greeting is an automatic one (.saludos, which .modo compraventa turns off), and a chat told to keep
+// quiet (.banchat) gets none either: it had no switch at all. Neither is marked as greeted, so a group that turns its
+// greetings back on during the day still gets it. In groups of their own.
+test("el saludo de cumpleaños no sale con .saludos apagado ni en un chat con .banchat, y sale al prenderlos", async () => {
+  const [SIN_SALUDOS, CALLADO] = ["cumple-sinsaludos@g.us", "cumple-callado@g.us"];
+  Cumple.CUMPLE.HORA_SALUDO = 0;
+  const hoy = new Date();
+  hoy.setHours(10, 0, 0, 0);
+  respuestaIA = "@MENCION ¡Feliz cumple!";
+  for (const chat of [SIN_SALUDOS, CALLADO]) {
+    F.initDataDB({ chat, sender: ANA, senderJid: "", pushName: "Ana" });
+    F.setCumple(chat, ANA, hoy.getDate(), hoy.getMonth() + 1);
+  }
+  F.updateChat(SIN_SALUDOS, { saludos: 0 });
+  F.updateChat(CALLADO, { isBanned: 1 });
+  try {
+    globalThis.enviados = [];
+    const pedidos = prompts.length;
+    await Cumple.chequearCumpleanos(hoy);
+    assert.deepEqual(globalThis.enviados.filter((e) => [SIN_SALUDOS, CALLADO].includes(e.chat)), []);
+    assert.equal(prompts.length, pedidos, "ni le pide el saludo a la IA");
+    F.updateChat(SIN_SALUDOS, { saludos: 1 });
+    F.updateChat(CALLADO, { isBanned: 0 });
+    await Cumple.chequearCumpleanos(hoy);
+    assert.deepEqual(globalThis.enviados.filter((e) => [SIN_SALUDOS, CALLADO].includes(e.chat)).map((e) => e.chat).sort(), [CALLADO, SIN_SALUDOS].sort(), "prendidos, el mismo día");
+  } finally {
+    for (const chat of [SIN_SALUDOS, CALLADO]) F.borrarCumple(chat, ANA);
+  }
+});

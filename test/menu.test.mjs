@@ -144,10 +144,12 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.match(temas({}), /🗳️ temáticas · 🪙 coins · 🎰 casino/);
   const enVentas = temas({ datosChat: COMPRAVENTA });
   // The games' topic went too, now that .besar and .siono are games: they were the two that kept it there.
-  for (const fuera of ["coins", "casino", "canvas", "juegos", "pareja", "familia", "biblia", "convertidores", "audio"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
-  for (const queda of ["temáticas", "descargas", "extras"]) assert.match(enVentas, new RegExp(queda), queda);
+  // And the hashtags' and ranking's topic, all of it the fun's now that .ranking is.
+  for (const fuera of ["coins", "casino", "canvas", "juegos", "pareja", "familia", "biblia", "convertidores", "audio", "temáticas"]) assert.doesNotMatch(enVentas, new RegExp(fuera), fuera);
+  for (const queda of ["descargas", "ia", "extras"]) assert.match(enVentas, new RegExp(queda), queda);
   assert.doesNotMatch(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /UruCoins\*|Casino y apuestas|\.ruleta|\.laburos/);
-  assert.match(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🗳️ \*Temáticas y ranking\*/);
+  assert.doesNotMatch(menu({ pedido: "todo", datosChat: COMPRAVENTA }), /🗳️ \*Temáticas y ranking\*/);
+  assert.equal(menu({ pedido: "temáticas", datosChat: COMPRAVENTA }), "🗳️ Ese tema está apagado en este grupo: un admin lo prende con .diversion on.");
   assert.match(menu({ pedido: "admins", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.evento /, "el tema tiene otros comandos que andan");
   assert.equal(menu({ pedido: "casino", datosChat: COMPRAVENTA }), "🎰 Ese tema está apagado en este grupo: un admin lo prende con .juegos on y .monedas on.");
   assert.equal(menu({ pedido: "monedas", datosChat: COMPRAVENTA }), "🪙 Ese tema está apagado en este grupo: un admin lo prende con .monedas on.");
@@ -173,7 +175,7 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.match(temas({ datosChat: SIN_CONVERTIDORES }), /💞 pareja/);
   for (const fuera of ["convertidores", "audio"]) assert.doesNotMatch(temas({ datosChat: SIN_CONVERTIDORES }), new RegExp(fuera), fuera);
   assert.match(temas({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: SIN_CONVERTIDORES }), /🔄 convertidores/, "en privado tampoco");
-  assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🗳️ temáticas · 🎧 descargas/);
+  assert.match(menu({ pedido: "xyz", datosChat: COMPRAVENTA }), /Los temas son:\n🎧 descargas · 🤖 ia/);
 
   // With only the casino off, the economy stays.
   const SIN_CASINO = { ...ABIERTO, casino: 0 };
@@ -200,7 +202,7 @@ test("diversión: los comandos para divertirse llevan un interruptor, y los tema
   // .delttt clears a tic-tac-toe room already open; .noaura and .siaura are about oneself (plugins/fun-noaura.js).
   assert.deepEqual(sinInterruptor.sort(), ["fun-noaura", "fun-ttt-del"]);
   const deDiversion = new Set(plugins.filter(([, p]) => p.diversion).map(([archivo]) => archivo));
-  for (const archivo of ["fun-orsi", "fun-say", "fun-fake-reply", "fun-ruleta-del-ban", "fun-suicidarse", "faggi", "horoscopo", "versiculos-biblia", "queja-del-lunes", "historias-random", "recomendado-del-dia", "recomendar-cine", "lista-parejas"]) {
+  for (const archivo of ["fun-orsi", "fun-say", "fun-fake-reply", "fun-ruleta-del-ban", "fun-suicidarse", "faggi", "horoscopo", "versiculos-biblia", "queja-del-lunes", "historias-random", "recomendado-del-dia", "recomendar-cine", "lista-parejas", "ranking-mensual"]) {
     assert.ok(deDiversion.has(archivo), archivo);
   }
   for (const archivo of ["fun-besar", "fun-si-o-no", "coins-poker-cartas"]) assert.equal(cargados.plugins[archivo].juego, true, `${archivo} va con los juegos`);
@@ -211,7 +213,7 @@ test("diversión: los comandos para divertirse llevan un interruptor, y los tema
   const interruptores = (p) => ["juego", "casino", "economia", "diversion", "convertidores"].filter((marca) => p[marca]);
   assert.deepEqual(plugins.filter(([, p]) => (p.diversion || p.convertidores) && interruptores(p).length > 1).map(([archivo]) => archivo), [], "nada es dos cosas a la vez");
   // The menu's topics that are fun through and through: each command in them, by every plugin that answers to it.
-  for (const [marca, claves, minimo] of [["diversion", ["pareja", "familia", "biblia"], 14], ["convertidores", ["convertidores", "audio"], 15]]) {
+  for (const [marca, claves, minimo] of [["diversion", ["pareja", "familia", "biblia", "temáticas"], 18], ["convertidores", ["convertidores", "audio"], 15]]) {
     const enTemas = M.entradasDelMenu(".").filter((e) => claves.includes(e.seccion.clave));
     assert.ok(enTemas.length >= minimo, `pocas líneas de ${marca} (${enTemas.length})`);
     for (const e of enTemas) {
