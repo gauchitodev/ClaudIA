@@ -103,6 +103,7 @@ export function ponerAlDia(db) {
       triviaRelampago BOOLEAN DEFAULT 0,
       changas BOOLEAN DEFAULT 0,
       espias BOOLEAN DEFAULT 0,
+      encargos BOOLEAN DEFAULT 0,
       recapSemanal BOOLEAN DEFAULT 1,
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
@@ -141,10 +142,10 @@ export function ponerAlDia(db) {
   // whether a flood gets a notice and then a warning (.antiflood), the catalogue a buy-and-sell group gets unasked
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
   // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
-  // diary of the group (.diario), whether she posts group changas on her own (.changas) and whether the secret missions are
-  // played there (.espias), on databases that already exist.
+  // diary of the group (.diario), whether she posts group changas on her own (.changas), whether the secret missions are
+  // played there (.espias) and whether she hands out urgent errands (.encargos), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -531,6 +532,50 @@ export function ponerAlDia(db) {
       mision INTEGER NOT NULL,
       denunciante TEXT NOT NULL,
       PRIMARY KEY (mision, denunciante)
+    )
+  `);
+
+  // The urgent errands (lib/encargos.js). encargos: each errand handed to someone in a group: whose it is (usuario is
+  // the id the group knows them by, their LID when there is one, and usuario_jid their number, when known), which one
+  // of the bank (clave, "camionero/sobre-a-rivera"), the way they chose (camino, 1-based; 0 until they choose), the
+  // betting market that goes with it (mercado, a row of mercados; 0 with the casino off), the message it went out as,
+  // its deadline, and estado 'abierto', 'cumplido', 'fallido' or 'anulado'; chance and premio are what it was rolled
+  // at and what it paid, once it's over. encargos_aportes: who put coins in to help or to sabotage, one side each.
+  // encargos_usos: how many times each errand of the bank has gone out, in any group, for the owner's monthly
+  // reminder to renew the worn ones.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      usuario_jid TEXT DEFAULT '',
+      clave TEXT NOT NULL,
+      camino INTEGER DEFAULT 0,
+      mercado INTEGER DEFAULT 0,
+      mensaje_id TEXT DEFAULT '',
+      creada INTEGER NOT NULL,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierto',
+      chance INTEGER DEFAULT 0,
+      premio INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_encargos_chat ON encargos (chat, estado)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_encargos_usuario ON encargos (usuario)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos_aportes (
+      encargo INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      cantidad INTEGER NOT NULL,
+      PRIMARY KEY (encargo, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos_usos (
+      clave TEXT PRIMARY KEY,
+      veces INTEGER NOT NULL DEFAULT 0,
+      ultima INTEGER NOT NULL DEFAULT 0
     )
   `);
 
