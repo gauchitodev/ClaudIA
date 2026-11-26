@@ -377,7 +377,7 @@ test("al vencer, si sale bien: cobra el premio, los que ayudaron recuperan con p
       `Fue por el camino 2: *${camino.nombre}*.`,
       `🎲 Chance de que saliera bien: *${chance} %* (${camino.chance} del camino, +4 de ayuda, −3 de sabotaje).`,
       "",
-      `✅ ${camino.bien}`,
+      `✅ @300000000000041: ${camino.bien}`,
       "",
       `🪙 @300000000000041 cobra *${camino.premio} UruCoins*.`,
       "🤝 Ayudó @300000000000042 (40): recupera lo suyo y un 25 % más.",
@@ -427,7 +427,7 @@ test("al vencer sin camino elegido va por el peor y con el premio más chico; si
   const r2 = E.vencerEncargo(e2.id, e2.vence + 1);
   assert.deepEqual([r2.salioBien, r2.chance, r2.premio, r2.pescados], [false, c.chance, 0, []]);
   assert.deepEqual([saldo(G2, ANA), saldo(G2, BETO), saldo(G2, CARLA), saldo(G2, DANI)], [300, 270, 270, 300], "nadie cobra; el que apostó solo recupera lo suyo");
-  assert.ok(r2.texto.includes(`\n❌ ${c.mal}\n\n🪙 @300000000000041 no cobra nada.\n🤝 Ayudó @300000000000042 (30): lo que puso se fue con el encargo.\n🐀 Saboteó @300000000000043 (30). No hubo cómo probarle nada a nadie.`), r2.texto);
+  assert.ok(r2.texto.includes(`\n❌ @300000000000041: ${c.mal}\n\n🪙 @300000000000041 no cobra nada.\n🤝 Ayudó @300000000000042 (30): lo que puso se fue con el encargo.\n🐀 Saboteó @300000000000043 (30). No hubo cómo probarle nada a nadie.`), r2.texto);
   assert.match(r2.texto, /🎲 Chance de que saliera bien: \*\d+ %\* \(\d+ del camino, \+3 de ayuda, −3 de sabotaje\)\./);
   assert.equal(db.prepare(`SELECT estado FROM encargos WHERE id = ?`).get(e2.id).estado, "fallido");
 });
@@ -463,7 +463,7 @@ test("la multa es lo que tenga, si es menos; y la chance no pasa de 95 ni baja d
   await comando(G, BETO, "saboteo 30");
   dados(99, 0);
   const r = E.vencerEncargo(e.id, e.vence + 1);
-  assert.match(r.texto, /Se descubrió a @300000000000042: @300000000000042 paga 5 de multa, y va para @300000000000041\./);
+  assert.match(r.texto, /🐀 Saboteó @300000000000042 \(30\)\. Se descubrió: paga 5 de multa, y va para @300000000000041\./);
   assert.deepEqual([saldo(G, BETO), saldo(G, ANA)], [0, 5]);
 
   const G2 = "topes2@g.us";
