@@ -77,11 +77,15 @@ test("pueblo: .pueblo on lo hace nacer con nombre, personajes y lugares; solo un
   grupo(chat);
   assert.match(await comando(chat, BETO, "pueblo on"), /solo para admins/);
   assert.equal(fila(chat), undefined);
-  const texto = await comando(chat, ANA, "pueblo on", { isAdmin: true });
+  const antes = enviados().length;
+  await comando(chat, ANA, "pueblo on", { isAdmin: true });
   const p = fila(chat);
   assert.ok(p, "nació");
-  assert.match(texto, new RegExp(`NACIÓ ${p.nombre.toUpperCase()}`));
-  assert.match(texto, /comisario/);
+  // It's born with the welcome to the world (lib/novedades.js, test/novedades.test.mjs): three messages.
+  const bienvenida = enviados().slice(antes).map(textoDe);
+  assert.equal(bienvenida.length, 3);
+  assert.match(bienvenida[0], new RegExp(`Acaba de nacer \\*${p.nombre}\\*`));
+  assert.match(bienvenida[0], /comisario/);
   assert.ok(P.NOMBRES_PUEBLO.includes(p.nombre));
   assert.ok(p.anio >= 1830 && p.anio < 1926);
   assert.equal(P.puebloActivo(chat), true);

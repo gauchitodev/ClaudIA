@@ -1,4 +1,5 @@
 import { textoPueblo, nacer, ponerNombre, fijarImpuesto, textoNacimiento, dormirPueblo, nombreDelPueblo } from "../lib/pueblo.js";
+import { darBienvenida } from "../lib/novedades.js";
 import { updateChat, getChat } from "../database-functions.js";
 import { leerInterruptor, leerEntero } from "../lib/comandos.js";
 import txt from "../lib/strings.js";
@@ -55,6 +56,9 @@ plugin.run = async (m, { client, command, args = [], isAdmin, isOwner }) => {
       nacer(m.chat);
       updateChat(m.chat, { pueblo: 1 });
       if (yaEstaba) return mandar(client, m, `🏘️ El pueblo ya estaba prendido. .pueblo muestra cómo está.`);
+      // The first time: the welcome to the world, in three messages (lib/novedades.js). Woken up, a line; the news it
+      // missed comes on its own.
+      if (await darBienvenida(client, m.chat)) return;
       return mandar(client, m, textoNacimiento(m.chat, { nuevo }));
     }
     updateChat(m.chat, { pueblo: 0 });
