@@ -354,7 +354,8 @@ _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `
 | `.diario on\|off` 📔 | Claudia lleva un diario del grupo: pocas líneas por día de qué se habló, sin nombrar a nadie, guardadas 14 días. Sin nada, lo muestra (a cualquiera); con "borrar", lo borra entero. |
 | `.voz on\|aveces\|siempre\|off` 🎙️ | Claudia contesta con nota de voz: on, cuando le hablan por nota de voz; aveces, eso y alguna respuesta corta de vez en cuando; siempre, todo lo que dice (las respuestas largas van por texto). Sin nada, muestra cómo viene. |
 | `.vistazo [prueba]` 👀 | Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada. |
-| `.saludos` 👋 | Saludo automático cuando alguien dice hola, y el de cumpleaños a quien lo anotó con .cumple. |
+| `.saludos` 👋 | Saludo automático cuando alguien dice hola. |
+| `.saludocumple` 🎂 | Claudia saluda el día de su cumpleaños a quien lo anotó con .cumple. |
 | `.monedas` 🪙 | Economía de UruCoins del grupo. |
 | `.ascensos` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
@@ -453,7 +454,7 @@ _Para todos. Es el menú de `.menuventas`, para los grupos de compra y venta (`.
 - .perfil · .rango · .reglas · .plantilla
 
 🛡️ **Admins**
-- .modo compraventa — apaga juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos, recap, pregunta del día, trivia relámpago, iniciativa, reacciones y diario (.modo amigos vuelve a prender juegos, diversión, stickers y convertidores, economía, charla, saludos, ascensos y recap)
+- .modo compraventa — apaga juegos, diversión, stickers y convertidores, economía, charla, saludos, saludo de cumpleaños, ascensos, recap, pregunta del día, trivia relámpago, iniciativa, reacciones y diario (.modo amigos vuelve a prender juegos, diversión, stickers y convertidores, economía, charla, saludos, saludo de cumpleaños, ascensos y recap)
 - .catalogoauto off — dejo de mostrar el catálogo por mi cuenta (on lo vuelve a prender)
 - Los moderadores corrigen la publicación de cualquiera (.precio 12 $ 3.500 · .editar 12 &lt;texto&gt;), y le aviso a quien la publicó
 - .baja 12 &lt;motivo&gt;, de un moderador sobre una ajena — la saco del catálogo y le aviso a quien la publicó, con el motivo. Solo un moderador la devuelve (.sigue 12), y ese mismo aviso no vuelve a entrar por 30 días

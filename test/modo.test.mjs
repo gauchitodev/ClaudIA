@@ -27,17 +27,17 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   const aca = { ...msg, chat };
   F.initDataDB({ ...persona(111), chat });
   let c = F.getChat(chat);
-  assert.deepEqual([c.charla, c.saludos, c.monedas, c.ascensos, c.diversion, c.convertidores], [1, 1, 1, 1, 1, 1]);
+  assert.deepEqual([c.charla, c.saludos, c.saludoCumple, c.monedas, c.ascensos, c.diversion, c.convertidores], [1, 1, 1, 1, 1, 1, 1]);
   assert.equal(M.modoActual(c), "amigos");
   await Modo.run(aca, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ diversión · ✅ stickers y convertidores · ✅ charla de Claudia/);
   F.updateChat(chat, { iniciativa: 1, reactions: 1, diarioDesde: Date.now() }); // opt-in, like the daily question: compraventa turns them off too
   await Modo.run(aca, { client: conexion.client, text: "compraventa" });
   assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino, sin diversión \(parejas, familias, frases como \.orsi, horóscopo, versículos, temáticas, el ranking del mes…\), sin stickers ni convertidores \(\.s, \.tts, \.qr, efectos de audio…\), sin charla/);
-  assert.match(ultimo(), /sin saludos automáticos \(tampoco el de cumpleaños\), sin economía/);
+  assert.match(ultimo(), /sin saludo automático ni de cumpleaños, sin economía/);
   assert.match(ultimo(), /y sin recap, pregunta del día, trivia, iniciativa, reacciones ni diario\. Quedan /);
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions, c.diarioDesde], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.saludoCumple, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions, c.diarioDesde], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(aca, { client: conexion.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
@@ -48,7 +48,7 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(F.getChat(chat)), "mixto");
   await Modo.run(aca, { client: conexion.client, text: "amigos" });
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1, 1, 1]);
+  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.saludoCumple, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1, 1, 1, 1]);
   // What comes off unless a group asks for it stays off: those are turned on one by one.
   assert.deepEqual([c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions, c.diarioDesde], [0, 0, 0, 0, 0]);
 });
@@ -214,10 +214,10 @@ test(".diversion: prendida por defecto, la apaga y la prende un admin, y .config
   assert.equal(F.getChat(chat).diversion, 0);
   assert.match(await panel(), /\n❌ Diversión: parejas, familias, frases, horóscopo, temáticas, ranking \(\.diversion\)\n✅ Stickers y convertidores/);
   // The birthdays' greeting goes with the automatic ones (lib/cumpleanos.js), and .config says so.
-  assert.match(await panel(), /\n✅ Saludo automático y de cumpleaños \(\.saludos\)\n/);
+  assert.match(await panel(), /\n✅ Saludo automático \(\.saludos\)\n✅ Saludo de cumpleaños \(\.saludocumple\)\n/);
   await Modo.run({ ...msg, chat }, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*mixto\*\n✅ juegos · ❌ diversión · ✅ stickers y convertidores · ✅ charla de Claudia/);
-  assert.match(ultimo(), /\nCada cosa suelta: \.juegos, \.diversion, \.convertidores, \.charla, \.saludos, \.monedas, \.ascensos y \.recapsemanal\.$/);
+  assert.match(ultimo(), /\nCada cosa suelta: \.juegos, \.diversion, \.convertidores, \.charla, \.saludos, \.saludocumple, \.monedas, \.ascensos y \.recapsemanal\.$/);
 
   await config(["on"], { isAdmin: false, isMod: true });
   assert.equal(ultimo(), txt.onlyAdmin, "un moderador no");
@@ -262,6 +262,41 @@ test(".convertidores: prendidos por defecto, los apaga y los prende un admin, y 
   await config(["cualquiera"]);
   assert.equal(ultimo(), "Usá .convertidores on o .convertidores off (sin nada, lo invierte).");
   assert.equal(F.getChat(chat).convertidores, 1);
+});
+
+// .saludocumple: the birthdays' greeting (lib/cumpleanos.js), a switch apart from .saludos, the answer to a "hola". On
+// unless the group turns it off, an admin's to turn, and .config and .modo say how it is.
+test(".saludocumple: prendido por defecto, lo apaga y lo prende un admin, aparte de .saludos, y .config y .modo lo muestran", async () => {
+  const chat = "saludocumple@g.us";
+  F.initDataDB({ chat, sender: "111@lid", senderJid: "111@s.whatsapp.net" });
+  assert.equal(F.getChat(chat).saludoCumple, 1);
+  assert.ok(Config.cmd.includes("saludocumple"));
+  const config = (command, args, quien = { isAdmin: true }) => Config.run({ ...msg, chat }, { client: conexion.client, command, args, isOwner: false, isAdmin: false, ...quien, chat: F.getChat(chat), botSettings: {} });
+  const VerConfig = (await import("../plugins/grupo-config.js")).default;
+  const panel = async () => {
+    await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+    return ultimo();
+  };
+
+  // The "hola" off, the birthdays on: a buy-and-sell group's choice.
+  await config("saludos", ["off"]);
+  assert.deepEqual([F.getChat(chat).saludos, F.getChat(chat).saludoCumple], [0, 1]);
+  assert.match(await panel(), /\n❌ Saludo automático \(\.saludos\)\n✅ Saludo de cumpleaños \(\.saludocumple\)\n/);
+  await config("saludocumple", ["off"]);
+  assert.match(ultimo(), /Opción: `saludocumple`\n• Estado: Desactivado$/);
+  assert.deepEqual([F.getChat(chat).saludos, F.getChat(chat).saludoCumple], [0, 0]);
+  assert.match(await panel(), /\n❌ Saludo automático \(\.saludos\)\n❌ Saludo de cumpleaños \(\.saludocumple\)\n/);
+  await Modo.run({ ...msg, chat }, { client: conexion.client, text: "" });
+  assert.match(ultimo(), / · ❌ saludo automático · ❌ saludo de cumpleaños · /);
+
+  await config("saludocumple", ["on"], { isAdmin: false, isMod: true });
+  assert.equal(ultimo(), txt.onlyAdmin, "un moderador no");
+  assert.equal(F.getChat(chat).saludoCumple, 0);
+  await config("saludocumple", ["on"]);
+  assert.match(ultimo(), /Estado: Activado$/);
+  assert.deepEqual([F.getChat(chat).saludos, F.getChat(chat).saludoCumple], [0, 1], "y .saludos sigue como estaba");
+  await config("saludocumple", ["cualquiera"]);
+  assert.equal(ultimo(), "Usá .saludocumple on o .saludocumple off (sin nada, lo invierte).");
 });
 
 // .anticall and .audios saved an option nothing ever read: they're gone, and so are their columns (database-schema.js).

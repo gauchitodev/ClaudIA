@@ -39,6 +39,7 @@ test("migra una base con el esquema viejo (sin apodo, sin interruptores, lista n
   assert.equal(db.prepare(`SELECT antiFlood FROM chats WHERE remoteJid = ?`).get(G).antiFlood, 0, "el anti-flood, apagado al migrar");
   assert.equal(db.prepare(`SELECT diversion FROM chats WHERE remoteJid = ?`).get(G).diversion, 1, "la diversión, prendida al migrar en un grupo que no es de compraventa");
   assert.equal(db.prepare(`SELECT convertidores FROM chats WHERE remoteJid = ?`).get(G).convertidores, 1, "y los convertidores");
+  assert.equal(db.prepare(`SELECT saludoCumple FROM chats WHERE remoteJid = ?`).get(G).saludoCumple, 1, "y el saludo de cumpleaños, como sus saludos");
   assert.equal(db.prepare(`SELECT monedas FROM chats WHERE remoteJid = ?`).get(G).monedas, 1, "economía prendida al migrar");
   assert.equal(db.prepare(`SELECT horarioJuegos FROM chats WHERE remoteJid = ?`).get(G).horarioJuegos, "", "sin horario de juegos al migrar");
   assert.equal(db.prepare(`SELECT juegosApagados FROM chats WHERE remoteJid = ?`).get(G).juegosApagados, "[]", "ningún juego apagado de a uno al migrar");
@@ -133,6 +134,39 @@ test("migra los grupos sin el interruptor de los convertidores: apagados en los 
   F.updateChat(VENTAS, { convertidores: 1 });
   globalThis.db = F.loadDatabase();
   assert.equal(fila(VENTAS).convertidores, 1, "prendidos después, siguen prendidos");
+});
+
+// .saludocumple came after the birthdays' greeting went with .saludos: each group starts with what its .saludos says,
+// so none greets a birthday or stops greeting one from one day to the next. Once, and the column with the groups.
+test("migra los grupos sin el interruptor del saludo de cumpleaños: cada uno como sus .saludos, de una vez y una sola vez", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-test-saludocumple-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  process.chdir(dir);
+  fs.mkdirSync("database");
+  const CON = "conhola@g.us";
+  const SIN = "sinhola@g.us";
+  const vieja = new Database("./database/database.db");
+  vieja.exec(`CREATE TABLE chats (remoteJid TEXT PRIMARY KEY, games BOOLEAN DEFAULT 1, monedas BOOLEAN DEFAULT 1, saludos BOOLEAN DEFAULT 1, diversion BOOLEAN DEFAULT 1, convertidores BOOLEAN DEFAULT 1)`);
+  for (const [chat, saludos] of [[CON, 1], [SIN, 0]]) vieja.prepare(`INSERT INTO chats (remoteJid, saludos) VALUES (?, ?)`).run(chat, saludos);
+  vieja.exec(`CREATE TRIGGER sin_escribir BEFORE UPDATE ON chats BEGIN SELECT RAISE(ABORT, 'corte'); END`);
+  vieja.close();
+
+  const F = await import("../database-functions.js");
+  assert.throws(() => F.loadDatabase(), /corte/);
+  const cruda = new Database("./database/database.db");
+  assert.ok(!cruda.prepare(`PRAGMA table_info(chats)`).all().some((c) => c.name === "saludoCumple"), "sin los grupos, tampoco la columna");
+  cruda.exec(`DROP TRIGGER sin_escribir`);
+  cruda.close();
+
+  const dichos = [];
+  t.mock.method(console, "log", (...a) => dichos.push(a.join(" ")));
+  globalThis.db = F.loadDatabase();
+  const fila = (chat) => db.prepare(`SELECT saludos, saludoCumple FROM chats WHERE remoteJid = ?`).get(chat);
+  assert.deepEqual([CON, SIN].map(fila), [{ saludos: 1, saludoCumple: 1 }, { saludos: 0, saludoCumple: 0 }]);
+  assert.ok(dichos.includes("🟢 Migración: columna 'saludoCumple' agregada a la tabla chats, apagada en 1 grupo(s) con .saludos off"), dichos.join("\n"));
+  F.updateChat(SIN, { saludoCumple: 1 });
+  globalThis.db = F.loadDatabase();
+  assert.deepEqual(fila(SIN), { saludos: 0, saludoCumple: 1 }, "prendido después, sigue prendido aunque .saludos siga apagado");
 });
 
 // The markets on a match the bot follows (lib/partidos.js) need three columns the markets table didn't have, the groups

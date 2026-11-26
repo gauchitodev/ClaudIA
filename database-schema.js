@@ -105,6 +105,7 @@ export function ponerAlDia(db) {
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
       saludos BOOLEAN DEFAULT 1,
+      saludoCumple BOOLEAN DEFAULT 1, -- whether Claudia greets whoever noted their birthday (.saludocumple, lib/cumpleanos.js)
       monedas BOOLEAN DEFAULT 1,
       casino BOOLEAN DEFAULT 1,
       ascensos BOOLEAN DEFAULT 1,
@@ -164,6 +165,15 @@ export function ponerAlDia(db) {
       db.exec(`ALTER TABLE chats ADD COLUMN convertidores BOOLEAN DEFAULT 1`);
       const apagados = db.prepare(`UPDATE chats SET convertidores = 0 WHERE games = 0 AND monedas = 0`).run().changes;
       console.log(`🟢 Migración: columna 'convertidores' agregada a la tabla chats${apagados ? `, apagada en ${apagados} grupo(s) de compraventa` : ""}`);
+    })();
+  }
+  // The birthdays' greeting, a switch of its own (.saludocumple): it went with .saludos, so each group starts with what
+  // its .saludos says, and none greets or stops greeting from one day to the next. The same way as the two above.
+  if (!columnasChats.includes("saludoCumple")) {
+    db.transaction(() => {
+      db.exec(`ALTER TABLE chats ADD COLUMN saludoCumple BOOLEAN DEFAULT 1`);
+      const apagado = db.prepare(`UPDATE chats SET saludoCumple = 0 WHERE saludos = 0`).run().changes;
+      console.log(`🟢 Migración: columna 'saludoCumple' agregada a la tabla chats${apagado ? `, apagada en ${apagado} grupo(s) con .saludos off` : ""}`);
     })();
   }
 
