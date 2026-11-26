@@ -24,6 +24,8 @@ import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
 import { famaParaPrompt } from "../lib/escenas.js";
+import { puebloParaPrompt, hablaDelPueblo } from "../lib/pueblo.js";
+import { diarioParaPrompt as ecoParaPrompt } from "../lib/pueblo-diario.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { diarioParaPrompt } from "../lib/diario.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
@@ -376,6 +378,15 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     // And the nickname the payday scenes earned them (lib/escenas.js), to tease them with as she does with the trade.
     const fama = famaParaPrompt(m.chat, m.sender, nombre);
     if (fama) partes.push(fama);
+  }
+
+  // The group's town (lib/pueblo.js) and its Sunday paper's last headlines (lib/pueblo-diario.js), when the talk is
+  // about it: told with every message, she'd drag the town in where it had nothing to do.
+  if (m.isGroup && hablaDelPueblo(m.text, m.quoted?.text, ...antes.map((e) => e.m.text))) {
+    const pueblo = puebloParaPrompt(m.chat, ahora);
+    if (pueblo) partes.push(pueblo);
+    const eco = pueblo ? ecoParaPrompt(m.chat) : "";
+    if (eco) partes.push(eco);
   }
 
   // nickname bought in the shop: Claudia addresses them that way
