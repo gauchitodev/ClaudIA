@@ -388,6 +388,49 @@ export function ponerAlDia(db) {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_bienes ON empresas_bienes (empresa)`);
 
+  // A company's staff: people of the group (usuario) or Claudia's own (usuario '' and a made-up nombre). cobros is
+  // the shifts worked in this company, for the severance pay, and ultimo_cobro the last day worked (for Claudia's
+  // own, the last day settled).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_empleados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      usuario TEXT DEFAULT '',
+      nombre TEXT DEFAULT '',
+      puesto TEXT NOT NULL,
+      sueldo INTEGER NOT NULL,
+      desde INTEGER NOT NULL,
+      ultimo_cobro TEXT DEFAULT '',
+      cobros INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_empleados ON empresas_empleados (empresa)`);
+  // A job offer on the table: turno says whose move it is, 'empleado' (the owner offered) or 'patron' (the other
+  // one asked for more).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_ofertas (
+      empresa INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      puesto TEXT NOT NULL,
+      sueldo INTEGER NOT NULL,
+      turno TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (empresa, usuario)
+    )
+  `);
+  // What someone has worked in each post, in a group: their level in it, which they keep when they leave a company.
+  // ultimo_cobro is the last day they were paid as an employee.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_experiencia (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      puesto TEXT NOT NULL,
+      cobros INTEGER DEFAULT 0,
+      ultimo_cobro TEXT DEFAULT '',
+      PRIMARY KEY (chat, usuario, puesto)
+    )
+  `);
+
   // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (

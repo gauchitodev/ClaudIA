@@ -1,5 +1,5 @@
 import { textoLaburos, buscarOficio, tomarLaburo, cobrar, renunciar } from "../lib/laburos.js";
-import { jornadaDelPatron } from "../lib/empresas.js";
+import { jornadaDelPatron, cobrarComoEmpleado, yaCobroComoEmpleado, renunciarAlPuesto } from "../lib/empresas.js";
 
 const plugin = {};
 plugin.cmd = ["laburos", "laburo", "trabajo", "trabajos", "cobrar", "renunciar"];
@@ -10,6 +10,16 @@ plugin.run = async (m, { client, command, args }) => {
   const cmd = command.toLowerCase();
 
   if (cmd === "cobrar") {
+    // Whoever works in a company (lib/empresas.js) is paid by it, from its cash box, and their shift bills for it.
+    // With no money there for the wage, they collect their trade's wage as always, after the notice to the owner.
+    const empleado = cobrarComoEmpleado(m.chat, m.sender);
+    if (empleado && !empleado.sinCaja) return client.sendText(m.chat, empleado.ok ? empleado.mensaje : `❌ ${empleado.error}`, m, empleado.mentions ? { mentions: empleado.mentions } : {});
+    // One pay a day: paid as an employee and then out of the company (they quit, or were fired), the trade's waits.
+    if (!empleado && yaCobroComoEmpleado(m.chat, m.sender)) return client.sendText(m.chat, "❌ Ya cobraste hoy. El sueldo es una vez por día.", m);
+    if (empleado) {
+      const propio = cobrar(m.chat, m.sender);
+      return client.sendText(m.chat, `${empleado.aviso}\n\n${propio.ok ? propio.mensaje : `❌ ${propio.error}`}`, m, { mentions: empleado.mentions });
+    }
     const r = cobrar(m.chat, m.sender);
     // A company owner (lib/empresas.js) also works their day's shift for it, with or without a wage of their own.
     const jornada = jornadaDelPatron(m.chat, m.sender);
@@ -18,6 +28,9 @@ plugin.run = async (m, { client, command, args }) => {
   }
 
   if (cmd === "renunciar") {
+    // With a post in a company, that's what they leave: the trade stays, and a second .renunciar leaves it.
+    const puesto = renunciarAlPuesto(m.chat, m.sender);
+    if (puesto) return client.sendText(m.chat, puesto.mensaje, m, { mentions: puesto.mentions });
     const r = renunciar(m.chat, m.sender);
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }

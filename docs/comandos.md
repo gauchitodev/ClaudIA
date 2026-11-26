@@ -56,7 +56,8 @@ _Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.men
 | `.regalar @mención 20` 🎁 | Le pasás coins a alguien. |
 | `.tienda` 🛒 | Escudo, racha doble, voto doble y apodo: se compran con .comprar escudo, y .inventario [@mención] muestra lo tuyo o lo de otra persona. .playya y .videoya saltan la espera de la música por 15, que se devuelven si la descarga falla. |
 | `.laburos` 💼 | Los oficios y cuánto paga hoy cada uno: .laburo &lt;oficio&gt; agarra uno, .cobrar cobra el sueldo del día y .renunciar lo deja. |
-| `.empresa [@mención]` 🏭 | El tablero de tu empresa, o el de otra persona: con nivel 10 de camionero, tambero o DJ se funda con .fundar &lt;nombre&gt;. .bienes muestra qué comprar (.comprar semi), .service arregla lo gastado, .caja depositar 100 y .caja retirar 100 mueven la plata, y .empresas lista las del grupo. |
+| `.empresa [@mención]` 🏭 | El tablero de tu empresa, o el de otra persona: con nivel 10 de camionero, tambero o DJ se funda con .fundar &lt;nombre&gt;. .bienes muestra qué comprar (.comprar semi), .service arregla lo gastado, .caja depositar 100 y .caja retirar 100 mueven la plata, .puestos explica a quién contratar y .empresas lista las del grupo. |
+| `.contratar @mención chofer 40` 🤝 | El patrón ofrece un puesto y un sueldo por día: la otra persona firma con .firmar, regatea con .contraoferta 50 o la baja con .rechazaroferta (.ofertas muestra las que hay). Su .cobrar pasa a pagarlo la caja de la empresa, y su jornada le factura. .contratar claudia chofer trae un empleado mío, más caro y que rinde menos; .despedir @mención paga indemnización, y .renunciar deja el puesto. |
 | `.racha [@mención]` 🔥 | Tu racha diaria: 3 mensajes de dos palabras o más por día, y el premio sube con los días seguidos. |
 | `.mitimba [@mención]` 🎲 | Cuánto apostaste en cada juego y cómo te fue; .timba, los que más apuestan en el grupo. |
 
