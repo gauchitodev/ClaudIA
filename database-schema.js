@@ -101,6 +101,7 @@ export function ponerAlDia(db) {
       blacklistMode BOOLEAN DEFAULT 0,
       preguntaDia BOOLEAN DEFAULT 0,
       triviaRelampago BOOLEAN DEFAULT 0,
+      changas BOOLEAN DEFAULT 0,
       recapSemanal BOOLEAN DEFAULT 1,
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
@@ -138,10 +139,11 @@ export function ponerAlDia(db) {
   // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and a view-once too (.antivistaunica),
   // whether a flood gets a notice and then a warning (.antiflood), the catalogue a buy-and-sell group gets unasked
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
-  // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados) and since when she keeps a
-  // diary of the group (.diario), on databases that already exist.
+  // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
+  // diary of the group (.diario) and whether she posts group changas on her own (.changas), on databases that already
+  // exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -455,6 +457,33 @@ export function ponerAlDia(db) {
       mensaje_id TEXT DEFAULT '',
       vence INTEGER NOT NULL,
       PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // The group changas (lib/changas.js): a job that needs a team, posted by Claudia (creador '') or by someone who pays
+  // for it. clave is the one of her bank it is ('' for a person's), paga what each member gets, mensaje_id the message
+  // it went out as (reacting to it is joining) and estado 'abierta', 'hecha' or 'vencida'.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS changas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      creador TEXT DEFAULT '',
+      clave TEXT DEFAULT '',
+      titulo TEXT NOT NULL,
+      cupos INTEGER NOT NULL,
+      paga INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta',
+      creada INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_changas_chat ON changas (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS changas_anotados (
+      changa INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      PRIMARY KEY (changa, usuario)
     )
   `);
 
