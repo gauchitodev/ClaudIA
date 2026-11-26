@@ -432,6 +432,29 @@ test("al vencer sin camino elegido va por el peor y con el premio más chico; si
   assert.equal(db.prepare(`SELECT estado FROM encargos WHERE id = ?`).get(e2.id).estado, "fallido");
 });
 
+test("por el trabajo pendiente: a la hora agendada sale, y al cumplirse el plazo se resuelve y se le cuenta al grupo", async () => {
+  const P = await import("../lib/pendientes.js");
+  const G = "pendiente@g.us";
+  grupo(G);
+  oficio(G, ANA, "camionero");
+  F.crearPendiente(G, "bot", "encargo_urgente", {}, Date.now() - 1000);
+  dados();
+  await P.procesarPendientes(client);
+  const e = E.encargoAbierto(G);
+  assert.ok(e, "salió");
+  assert.match(ultimo().msg.text, /^🚨 \*ENCARGO URGENTE\* para @300000000000041 \(camionero\)/);
+
+  db.prepare(`UPDATE encargos SET vence = ? WHERE id = ?`).run(Date.now() - 1000, e.id);
+  db.prepare(`UPDATE pendientes SET ejecutar_en = ? WHERE chat = ? AND tipo = 'encargo_vence'`).run(Date.now() - 1000, G);
+  dados(0);
+  await P.procesarPendientes(client);
+  assert.equal(ultimo().chat, G);
+  assert.match(ultimo().msg.text, /^⏰ \*Se cumplió el plazo del encargo de @300000000000041\* — 🚛 /);
+  assert.deepEqual(ultimo().msg.mentions, [ANA]);
+  assert.equal(E.encargoAbierto(G), null);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM pendientes WHERE chat = ? AND estado = 'pendiente'`).get(G).n, 0);
+});
+
 test("la multa es lo que tenga, si es menos; y la chance no pasa de 95 ni baja de 5", async () => {
   const G = "topes@g.us";
   const e = await abierto(G);
