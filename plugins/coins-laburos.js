@@ -29,13 +29,18 @@ plugin.run = async (m, { client, command, args }) => {
     const r = cobrarConEscena(m.chat, m.sender);
     const propio = r.ok ? r.mensaje : `❌ ${r.error}`;
     let texto = propio;
+    let mentions = empleado?.mentions || [];
     if (empleado) texto = `${empleado.aviso}\n\n${propio}`;
     else {
       // A company owner (lib/empresas.js) also works their day's shift for it, with or without a wage of their own.
+      // A good that breaks down comes with the town's mechanics to pick from (lib/servicios.js): they're tagged.
       const jornada = jornadaDelPatron(m.chat, m.sender);
-      if (jornada?.ok) texto = `${r.ok ? `${r.mensaje}\n\n` : ""}${jornada.mensaje}`;
+      if (jornada?.ok) {
+        texto = `${r.ok ? `${r.mensaje}\n\n` : ""}${jornada.mensaje}`;
+        mentions = jornada.mentions || [];
+      }
     }
-    const enviado = await client.sendText(m.chat, texto, m, empleado ? { mentions: empleado.mentions } : {});
+    const enviado = await client.sendText(m.chat, texto, m, mentions.length ? { mentions } : {});
     // The message a scene went out as is noted: a number quoting it answers it, whatever else is being played.
     if (r.escena) {
       anotarMensajeDeEscena(m.chat, m.sender, enviado?.key?.id);

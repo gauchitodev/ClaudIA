@@ -664,6 +664,48 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // Services between players (lib/servicios.js). servicios: each deal, with who needs it (cliente), the kind of need
+  // (tipo, "bien" or "herido") and what it's about (ref, JSON: the company and the good), the options offered
+  // (opciones, JSON), who was picked (proveedor; '' for the town's own) and their price, estado 'opciones', 'esperando'
+  // (a price), 'precio' (one given), 'hecho', 'vencido' or 'anulado', whether it went well (resultado) and when.
+  // servicios_resenas: the stars each job got. pueblo_heridos: who got hurt in an errand and isn't seen to yet.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS servicios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      cliente TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      ref TEXT DEFAULT '{}',
+      opciones TEXT DEFAULT '[]',
+      estado TEXT DEFAULT 'opciones',
+      proveedor TEXT DEFAULT '',
+      precio INTEGER DEFAULT 0,
+      resultado INTEGER DEFAULT 0,
+      vence INTEGER NOT NULL,
+      creado INTEGER NOT NULL,
+      hecho INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_servicios_chat ON servicios (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS servicios_resenas (
+      servicio INTEGER PRIMARY KEY,
+      chat TEXT NOT NULL,
+      proveedor TEXT NOT NULL,
+      cliente TEXT NOT NULL,
+      estrellas INTEGER NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_heridos (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
   // Pending work: things the bot has to do later (for now, retrying failed downloads)
   db.exec(`
     CREATE TABLE IF NOT EXISTS pendientes (
