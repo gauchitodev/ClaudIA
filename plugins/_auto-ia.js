@@ -26,6 +26,7 @@ import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js
 import { famaParaPrompt } from "../lib/escenas.js";
 import { bienesParaPrompt } from "../lib/tienda.js";
 import { puebloParaPrompt, hablaDelPueblo } from "../lib/pueblo.js";
+import { bancoParaPrompt } from "../lib/banco.js";
 import { diarioParaPrompt as ecoParaPrompt } from "../lib/pueblo-diario.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { diarioParaPrompt } from "../lib/diario.js";
@@ -389,6 +390,12 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
     if (pueblo) partes.push(pueblo);
     const eco = pueblo ? ecoParaPrompt(m.chat) : "";
     if (eco) partes.push(eco);
+  }
+  // Its Banco Central (lib/banco.js): the rate, the inflation and, if they owe, their standing, when the talk is about
+  // money or the town.
+  if (m.isGroup && (deLaburo || delPueblo)) {
+    const banco = bancoParaPrompt(m.chat, m.sender, ahora);
+    if (banco) partes.push(banco);
   }
   // The house, the car and the pet they bought in the shop (lib/tienda.js), when the talk is about money or the town.
   if (m.isGroup && (deLaburo || delPueblo)) {
