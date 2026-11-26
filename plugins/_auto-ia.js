@@ -23,6 +23,7 @@ import { sinPermisoEn } from "../lib/menu.js";
 import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
+import { famaParaPrompt } from "../lib/escenas.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { diarioParaPrompt } from "../lib/diario.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
@@ -372,6 +373,9 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const laburo = deLaburo ? laburoDe(m.chat, m.sender) : null;
   if (laburo) {
     partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
+    // And the nickname the payday scenes earned them (lib/escenas.js), to tease them with as she does with the trade.
+    const fama = famaParaPrompt(m.chat, m.sender, nombre);
+    if (fama) partes.push(fama);
   }
 
   // nickname bought in the shop: Claudia addresses them that way

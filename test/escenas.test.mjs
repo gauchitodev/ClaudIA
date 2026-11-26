@@ -153,9 +153,8 @@ test("sin respuesta en el plazo se resuelve sola con la opción de no hacer nada
 
   // With the economy switched off meanwhile, the wage is paid without a word.
   const callada = conEscena(G, "caro@lid").abierta;
+  F.initDataDB({ chat: G, sender: "caro@lid", senderJid: "", pushName: "Caro" }); // the chat's row, for the switch
   F.updateChat(G, { monedas: 0 });
-  // The chat's row has to exist for the switch to count.
-  if (!F.getChat(G)) db.prepare(`INSERT INTO chats (remoteJid, monedas) VALUES (?, 0)`).run(G);
   assert.equal(E.vencerEscena(G, "caro@lid", callada.vence), null);
   assert.equal(saldo(G, "caro@lid"), Math.round(callada.jornal * 0.7));
 });
@@ -294,6 +293,7 @@ test("los comandos: .cobrar abre la escena, un número suelto o citándola la co
     await Hook.before(mensaje, { client, chat: F.getChat(G) });
     return { mensaje, dicho: globalThis.enviados.length > antes ? ultimoEnviado().msg.text : null };
   };
+  F.initDataDB({ chat: G, sender: "ana@lid", senderJid: "", pushName: "Ana" }); // the chat's row, for its switches
   for (const quien of ["ana@lid", "beto@lid", "caro@lid"]) assert.ok(L.tomarLaburo(G, quien, "camionero").ok);
 
   assert.match((await correr("ana@lid", ".elegir 2")).text, /No tenés ninguna escena para resolver/);
@@ -330,8 +330,32 @@ test("los comandos: .cobrar abre la escena, un número suelto o citándola la co
   await correr("caro@lid", ".cobrar");
   assert.match((await correr("caro@lid", ".elegir 9")).text, /❌ Las opciones van del 1 al 3/);
   F.updateChat(G, { monedas: 0 });
-  if (F.getChat(G)) assert.equal((await suelto("caro@lid", "1")).dicho, null);
+  assert.equal((await suelto("caro@lid", "1")).dicho, null);
   F.updateChat(G, { monedas: 1 });
   dados(0);
   assert.match((await correr("caro@lid", ".elegir 1")).text, /\*Coimear\.\*/);
+});
+
+test("la fama se ve: el apodo en .perfil y al lado del oficio en .baltop", async () => {
+  const G = "sevé@g.us";
+  const Pf = await import("../lib/perfil.js");
+  const Top = (await import("../plugins/coins-baltop.js")).default;
+  const client = clienteFalso();
+  for (const [quien, nombre] of [["ana@lid", "Ana"], ["beto@lid", "Beto"]]) F.initDataDB({ chat: G, sender: quien, senderJid: "", pushName: nombre });
+  for (const quien of ["ana@lid", "beto@lid"]) {
+    assert.ok(L.tomarLaburo(G, quien, "dj").ok);
+    F.moverCoins(G, quien, quien === "ana@lid" ? 200 : 100, "test_carga");
+  }
+  assert.doesNotMatch(Pf.textoPerfil(G, "ana@lid", F.getUser("ana@lid"), true).texto, /Fama/);
+  fama(G, "ana@lid", 0, -5);
+  fama(G, "beto@lid", 2, 0);
+  assert.match(Pf.textoPerfil(G, "ana@lid", F.getUser("ana@lid"), true).texto, /\n💼 🎧 DJ, nivel 1; faltan 3 cobros para el nivel 2\n🎭 Fama: \*el Patovica Arrepentido\* · cagón 5 \(de 10\)\n/);
+  assert.match(Pf.textoPerfil(G, "beto@lid", F.getUser("beto@lid")).texto, /\n🎭 Fama: pícaro 2 \(de 10\)\n/);
+  // With the economy off the record shows no job, and no fame either.
+  F.updateChat(G, { monedas: 0 });
+  assert.doesNotMatch(Pf.textoPerfil(G, "ana@lid", F.getUser("ana@lid"), true).texto, /Fama/);
+  F.updateChat(G, { monedas: 1 });
+
+  await Top.run({ chat: G, sender: "ana@lid", isGroup: true }, { client, text: "" });
+  assert.match(ultimoEnviado().msg.text, /1\. Ana \(🎧 DJ, «el Patovica Arrepentido»\) — \*200\*\n2\. Beto \(🎧 DJ\) — \*100\*/);
 });
