@@ -31,11 +31,12 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   assert.equal(M.modoActual(c), "amigos");
   await Modo.run(aca, { client: conexion.client, text: "" });
   assert.match(ultimo(), /Modo actual: \*amigos\*\n✅ juegos · ✅ diversión · ✅ stickers y convertidores · ✅ charla de Claudia/);
-  F.updateChat(chat, { iniciativa: 1 }); // opt-in, like the daily question: compraventa turns it off too
+  F.updateChat(chat, { iniciativa: 1, reactions: 1 }); // opt-in, like the daily question: compraventa turns them off too
   await Modo.run(aca, { client: conexion.client, text: "compraventa" });
   assert.match(ultimo(), /quedó en modo \*compraventa\*: sin juegos ni casino, sin diversión \(parejas, familias, frases como \.orsi, horóscopo, versículos, temáticas…\), sin stickers ni convertidores \(\.s, \.tts, \.qr, efectos de audio…\), sin charla/);
+  assert.match(ultimo(), /y sin recap, pregunta del día, trivia, iniciativa ni reacciones\. Quedan /);
   c = F.getChat(chat);
-  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal, c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.equal(M.modoActual(c), "compraventa");
   await Modo.run(aca, { client: conexion.client, text: "cualquiera" });
   assert.match(ultimo(), /Modos disponibles/);
@@ -47,6 +48,8 @@ test("modo: interruptores nuevos prendidos por defecto, .modo compraventa y .mod
   await Modo.run(aca, { client: conexion.client, text: "amigos" });
   c = F.getChat(chat);
   assert.deepEqual([c.games, c.diversion, c.convertidores, c.charla, c.saludos, c.monedas, c.ascensos, c.recapSemanal], [1, 1, 1, 1, 1, 1, 1, 1]);
+  // What comes off unless a group asks for it stays off: those are turned on one by one.
+  assert.deepEqual([c.preguntaDia, c.triviaRelampago, c.iniciativa, c.reactions], [0, 0, 0, 0]);
 });
 
 test("modo: con la economía apagada nada reparte coins, pero lo social sigue", () => {
