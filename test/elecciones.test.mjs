@@ -166,6 +166,7 @@ test("elecciones: se presentan los políticos de nivel 3, con frase filtrada, y 
   assert.deepEqual(r.mentions, [BETO]);
   assert.match((await enGrupo(chat, CARLA, "candidato")).texto, /lista 2/);
   assert.match((await enGrupo(chat, BETO, "candidato Bajamos el impuesto")).texto, /cambié tu frase/);
+  assert.match((await enGrupo(chat, CARLA, "candidato baja el impuesto ya")).texto, /cambié tu frase: .*«baja el impuesto ya»/, "una frase que empieza con baja es una frase");
   assert.match((await enGrupo(chat, CARLA, "candidato baja")).texto, /se bajó de la lista 2/);
   assert.deepEqual(E.candidatosDe(eleccion(chat).id).map((c) => c.usuario), [BETO]);
   assert.match((await enGrupo(chat, CARLA, "candidato")).texto, /Volviste a la lista/);
@@ -472,4 +473,40 @@ test("elecciones: el tablero del pueblo y .elecciones dicen cómo viene", async 
   assert.match(tablero, /🗳️ Vos podés votar: escribime \.votar por privado/);
   const avisoPrivados = (await enGrupo(chat, ANA, "elecciones", { botSettings: { antiPrivate: 1 } })).texto;
   assert.match(avisoPrivados, /los privados están cerrados/);
+});
+
+test("el manual de Claudia cuenta las elecciones con los números de ELECCION, y lo trae cuando le preguntan", async () => {
+  const { MANUAL, CAMBIOS, conocimientoPara } = await import("../lib/manual-claudia.js");
+  const e = E.ELECCION;
+  for (const dicho of [
+    ".candidato",
+    ".candidato baja",
+    ".votar 2",
+    ".prometer @persona 50",
+    ".denunciarcoima",
+    ".juiciopolitico",
+    ".elecciones",
+    `hasta el ${e.INICIO_HASTA_DIA}`,
+    `de ${e.DESDE_HORA} a ${e.HASTA_HORA} si no tiene`,
+    `Campaña, ${e.CAMPANA_DIAS} días`,
+    `políticos de nivel ${e.CANDIDATO_NIVEL} o más`,
+    `hasta ${e.FRASE_MAX} letras`,
+    `dura ${e.VOTACION_DIAS} días`,
+    "una sola vez seguida",
+    `nunca más de ${e.GESTION_TOPE}`,
+    `de ${e.PROMESA_MIN} a ${e.PROMESA_MAX}, hasta ${e.PROMESAS_MAX} por elección`,
+    `(${e.COIMA_RIESGO} %, o ${e.COIMA_RIESGO + e.COIMA_JUNADO} %`,
+    `paga ${e.COIMA_MULTA} de multa`,
+    `(al menos ${e.JUICIO_FIRMAS_MIN}) en ${e.JUICIO_DIAS} días`,
+    `primeros ${e.JUICIO_GRACIA_DIAS} días`,
+    `esperar ${e.JUICIO_ESPERA_DIAS} días`,
+  ])
+    assert.ok(MANUAL.includes(dicho), `el manual no dice «${dicho}»`);
+  assert.equal(e.GESTION_PESO, 0.25, "el manual dice «hasta un cuarto de los votos emitidos»");
+  assert.equal(e.JUICIO_PARTE, 0.34, "el manual dice «un tercio de los que juegan»");
+  assert.equal(e.VOTO_COBROS_MIN, 1, "el manual dice «por lo menos un cobro»");
+  assert.equal(e.MANDATOS_SEGUIDOS, 2, "el manual dice «una sola vez seguida»");
+  assert.doesNotMatch(MANUAL, /político del grupo de más nivel, desde el nivel/, "el intendente ya no es automático");
+  assert.equal(CAMBIOS[0].titulo, "Elecciones en el pueblo");
+  for (const pregunta of ["cómo voto en las elecciones?", "quién puede ser candidato a intendente", "qué es el juicio político"]) assert.match(conocimientoPara(pregunta), /LAS ELECCIONES/, pregunta);
 });
