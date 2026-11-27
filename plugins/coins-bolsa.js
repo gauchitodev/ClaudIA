@@ -25,7 +25,7 @@ plugin.run = async (m, { client, command, args = [], text, participants }) => {
 
   if (cmd === "ofrecerchanga") {
     if (!args.length) return client.sendText(m.chat, textoChangasDelDia(m.chat), m);
-    const r = ofrecerChanga(m.chat, m.sender, args);
+    const r = ofrecerChanga(m.chat, m.sender, args, Date.now(), participants);
     if (!r.ok) return client.sendText(m.chat, `❌ ${r.error}`, m);
     const enviado = await client.sendText(m.chat, r.texto, m, { mentions: r.mentions });
     return anotarMensaje(r.id, enviado?.key?.id);

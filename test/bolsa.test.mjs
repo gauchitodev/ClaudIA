@@ -148,6 +148,14 @@ test(".ofrecerchanga: de un patrón, con la paga entre topes, de la caja o del b
   assert.match(r.texto, /^🧰 \*CHANGA DE UN DÍA\* — de \*Fletes Ana\* \(🚛 paga la caja\)\n«Descargar el camión de soja»\n\nPaga \*80 UruCoins\* al primero que la agarre: \.agarrar/);
   assert.match(r.texto, /🔎 Para los que buscan laburo: @300000000000082$/);
   assert.deepEqual(r.mentions, [ANA, BETO]);
+  // Whoever left the group isn't tagged.
+  db.prepare(`UPDATE bolsa_changas SET estado = 'vencida' WHERE id = ?`).run(r.id);
+  const sinBeto = B.ofrecerChanga(G, ANA, ["10", "Probar", "el", "aviso"], Date.now(), [{ id: ANA }]);
+  assert.deepEqual(sinBeto.mentions, [ANA]);
+  assert.doesNotMatch(sinBeto.texto, /Para los que buscan/);
+  db.prepare(`DELETE FROM bolsa_changas WHERE id = ?`).run(sinBeto.id);
+  db.prepare(`UPDATE empresas SET caja = caja + 10 WHERE id = ?`).run(e.id);
+  db.prepare(`UPDATE bolsa_changas SET estado = 'abierta' WHERE id = ?`).run(r.id);
   assert.match(B.ofrecerChanga(G, ANA, ["20", "Otra", "cosa"]).error, /Ya tenés una changa esperando a alguien \(«Descargar el camión de soja»\): de a una/);
 
   // Taken, the next one; from the pocket when asked, or when the caja doesn't cover it it says so.
