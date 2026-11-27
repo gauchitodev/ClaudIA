@@ -25,20 +25,30 @@ const fetchFalso = async (url) => {
   if (libro === "19" || libro === "20") return json(versos(3)); // any other psalm or proverb, for the ones at random
   return json([]); // bolls answers [] for a chapter that isn't there
 };
-let plugin, B, fetchReal;
+let plugin, B, fetchReal, Pausas, esperarReal;
+// The waits before asking bolls.life again (lib/pausas.js): noted, and passed at once.
+let pausas = [];
 before(async () => {
   fetchReal = globalThis.fetch;
   globalThis.fetch = fetchFalso;
   B = await import("../lib/biblia.js");
   ({ default: plugin } = await import("../plugins/versiculos-biblia.js"));
+  Pausas = await import("../lib/pausas.js");
+  esperarReal = Pausas._dep.esperar;
+  Pausas._dep.esperar = (ms) => {
+    pausas.push(ms);
+    return new Promise((r) => setImmediate(r));
+  };
 });
 beforeEach(() => {
   globalThis.fetch = fetchFalso;
   B.olvidarCapitulos();
   pedidas = [];
+  pausas = [];
 });
 after(() => {
   globalThis.fetch = fetchReal;
+  Pausas._dep.esperar = esperarReal;
 });
 const correr = async (command, texto = "", usedPrefix = ".") => {
   const client = clienteFalso();
@@ -151,4 +161,64 @@ test(".versiculo Levítico 18:22 trae ese; un tramo, un capítulo o un libro al 
   assert.equal(await correr("versiculo", "18:22", "!"), "❌ Decime libro, capítulo y versículo: !versiculo Levítico 18:22. También un tramo (!versiculo Juan 3:16-17), un capítulo (!versiculo Salmos 23) o un libro (!versiculo Proverbios, uno al azar).");
   // .salmo with a book written out reads as written
   assert.match(await correr("salmo", "Juan 3:16"), /^\*📖 LIBRO DE:\* Juan\n\n\*✍️Capítulo:\* 3\n\n\*Versículo: #16\*/);
+});
+
+// bolls.life is asked again once, after a pause, when no answer came (the network, or the time ran out, on the way or
+// while the body came) or the server couldn't give one (5xx) or asked to wait (429): with one try, a slip of the network
+// was "probá más tarde". Any other answer, or a body that isn't JSON, would come the same: no second try.
+test("biblia: un reintento, tras una pausa, si no hubo respuesta o el servidor no pudo; ninguno por otra respuesta", async () => {
+  // Each call takes the next failure off the list; with none left, bolls answers.
+  const conFallas = (...fallas) => {
+    B.olvidarCapitulos();
+    pedidas = [];
+    pausas = [];
+    globalThis.fetch = async (url, { signal } = {}) => {
+      if (signal?.aborted) throw signal.reason; // as the real one, with its time already out
+      const falla = fallas.shift();
+      if (falla === undefined) return fetchFalso(url);
+      pedidas.push(new URL(url).pathname);
+      // Waiting for the signal's time to run out, holding the event loop as a real request's socket does: the timer of
+      // AbortSignal.timeout doesn't, and under Node 22 the loop ran dry with the test still waiting.
+      const hastaElCorte = () =>
+        new Promise((_, rechazar) => {
+          const abierto = setInterval(() => {}, 5);
+          signal.addEventListener("abort", () => (clearInterval(abierto), rechazar(signal.reason)), { once: true });
+        });
+      if (falla === "red") throw new TypeError("fetch failed");
+      if (falla === "tiempo") return hastaElCorte();
+      if (falla === "cuerpo") return { ok: true, status: 200, json: hastaElCorte };
+      if (falla === "html") return { ok: true, status: 200, json: async () => JSON.parse("<html>") };
+      return { ok: false, status: falla, json: async () => ({}) };
+    };
+  };
+  const JUAN = /Porque de tal manera amó Dios al mundo/;
+  const NO_PUDE = "No pude traer el versículo ahora, probá más tarde.";
+  const tiempoReal = B.BIBLIA.TIMEOUT_MS;
+  const errorReal = console.error;
+  console.error = () => {};
+  try {
+    B.BIBLIA.TIMEOUT_MS = 20; // each try has its own time
+    for (const falla of ["red", "tiempo", "cuerpo", 503, 500, 429]) {
+      conFallas(falla);
+      assert.match(await correr("versiculo", "Juan 3:16"), JUAN, String(falla));
+      assert.deepEqual([pedidas.length, pausas], [2, [B.BIBLIA.REINTENTO_MS]], `${falla}: una falla, una pausa y el segundo trajo el versículo`);
+    }
+    for (const falla of [404, 400, "html"]) {
+      conFallas(falla);
+      assert.equal(await correr("versiculo", "Juan 3:16"), NO_PUDE, String(falla));
+      assert.deepEqual([pedidas.length, pausas], [1, []], `${falla}: sin segundo intento`);
+    }
+    conFallas("red", 503, "red");
+    assert.equal(await correr("versiculo"), NO_PUDE, "dos intentos como mucho");
+    assert.deepEqual([pedidas.length, pausas], [2, [B.BIBLIA.REINTENTO_MS]]);
+  } finally {
+    B.BIBLIA.TIMEOUT_MS = tiempoReal;
+    console.error = errorReal;
+  }
+  assert.ok(B.BIBLIA.TIMEOUT_MS * B.BIBLIA.INTENTOS + B.BIBLIA.REINTENTO_MS < 20000, "lo más que se espera, antes de «probá más tarde»");
+});
+
+// It only sends text: botAdmin, from the template, left it out of the groups where Claudia isn't admin.
+test(".versiculo anda donde Claudia no es admin, y se apaga con la diversión como siempre", () => {
+  assert.deepEqual([plugin.botAdmin, plugin.diversion], [undefined, true]);
 });
