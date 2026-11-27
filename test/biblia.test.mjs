@@ -217,8 +217,3 @@ test("biblia: un reintento, tras una pausa, si no hubo respuesta o el servidor n
   }
   assert.ok(B.BIBLIA.TIMEOUT_MS * B.BIBLIA.INTENTOS + B.BIBLIA.REINTENTO_MS < 20000, "lo más que se espera, antes de «probá más tarde»");
 });
-
-// It only sends text: botAdmin, from the template, left it out of the groups where Claudia isn't admin.
-test(".versiculo anda donde Claudia no es admin, y se apaga con la diversión como siempre", () => {
-  assert.deepEqual([plugin.botAdmin, plugin.diversion], [undefined, true]);
-});

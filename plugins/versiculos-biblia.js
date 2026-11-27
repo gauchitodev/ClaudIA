@@ -6,8 +6,8 @@ import { responderBiblia } from "../lib/biblia.js";
 // exist when Deno Deploy Classic shut down in July 2026.
 const plugin = {};
 plugin.cmd = ["versiculo", "biblia", "salmo", "salmos"];
-// It runs where Claudia isn't admin too: it only sends text, and the template's botAdmin left it out of those groups.
 plugin.diversion = true;
+plugin.botAdmin = true;
 
 plugin.run = async (m, { client, command, args = [], usedPrefix = "." }) => {
   let pedido = args.join(" ").trim();
