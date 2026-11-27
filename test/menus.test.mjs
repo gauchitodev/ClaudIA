@@ -63,6 +63,21 @@ test("todo comando nombrado en un menú existe en algún plugin", () => {
   assert.deepEqual(faltan, [], `el menú nombra comandos que no existen:\n${faltan.join("\n")}`);
 });
 
+// The other way around: a plugin none of whose commands a menu names is found only by whoever is told about it. One
+// stays out on purpose: .faggi answers with a text each install sets in config.toml (textofaggi), and where nobody set
+// it says it's missing. Read off what the menus show, not their source, whose comments name commands too. And a plugin
+// with a line can still keep a command of its own out of sight among a hundred aliases: .removepp, .delpoker,
+// .cancelar, the .sortear of several winners, .intendente and the other tops were in no menu.
+test("todo plugin con comandos tiene alguno nombrado en un menú, y los que hacen algo propio también", async () => {
+  const M = await import("../lib/menu.js");
+  const { textoMenuVentas } = await import("../lib/menu-ventas.js");
+  const textos = [...M.seccionesDelMenu(".").flatMap((s) => [s.lineas, s.nota]), textoMenuVentas(true), textoMenuVentas(false)];
+  const nombrados = new Set(textos.flatMap((t) => [...t.matchAll(FORMAS[1])].map(([, cmd]) => limpiarNombre(cmd))));
+  const fuera = [...comandosDe].filter(([, cmds]) => cmds.length && !cmds.some((c) => nombrados.has(c))).map(([archivo]) => archivo);
+  assert.deepEqual(fuera, ["faggi.js"]);
+  for (const cmd of ["removepp", "delpoker", "cancelar", "sortear3", "intendente", "toplindos", "topparejas"]) assert.ok(nombrados.has(cmd), `.${cmd} no está en ningún menú`);
+});
+
 // Claudia's manual is hand-written too, and what it says is what she tells people to type. The changelog (CAMBIOS)
 // stays out: it may name commands that were removed since, like .apostar.
 test("todo comando que nombra el manual de Claudia existe en algún plugin", async () => {

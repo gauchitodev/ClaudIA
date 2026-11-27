@@ -64,7 +64,7 @@ _Para todos. Se abre con `.menu coins`, `.menu urucoins`, `.menu monedas`, `.men
 | `.changa` 🧰 | La changa abierta del grupo: un laburo que necesita equipo. Se anotan con .anotarme o reaccionando al mensaje; si se junta la gente en 30 minutos cobran todos, y si no, nadie. .changa 3 50 Mudanza de la abuela publica una pagándola de tu bolsillo (3 personas, 50 a cada una), y un admin prende las que publico yo cada tanto con .changas on. |
 | `.espias` 🕵️ | La misión secreta: el que quiera jugar me escribe por privado .espia y le doy un emoji secreto. Cada tanto aviso en el grupo que llegó un sobre para un emoji: su dueño me pide la misión por privado con .sobre, y es lograr que alguien del grupo diga una palabra antes de cierta hora, sin decírsela. Si sospechan quién es, .denunciar @mención: acertar paga y errar cuesta. Un admin la prende con .espias on. |
 | `.encargos` 🚨 | El encargo urgente: cada tanto etiqueto a alguien que esté charlando y le tiro un encargo de su oficio, con una hora de plazo y 2 o 3 caminos, cada uno con su chance y su premio; elige con el número o con .ruta 2, y si no elige va por el peor. Mientras corre, los demás pueden apostar a que llega o no (.apuesto si 50, .apuesto no 50), darle una mano (.ayudo 30 le sube la chance) o complicársela (.saboteo 30 se la baja, y si se descubre toca multa). Un admin los prende con .encargos on. |
-| `.pueblo` 🏘️ | El pueblo del grupo: un mundo común donde los oficios, las empresas, las changas, los encargos, los espías y la timba se afectan entre sí. Tiene prosperidad, seguridad, humor, clima, intendente (lo elige el grupo una vez por mes, .elecciones; fija el impuesto con .impuesto 12) y personajes que se acuerdan de todo; cada tanto pasa algo grande (temporal, fiesta, paro…), y los domingos sale El Eco del pueblo con tapa (.eco). Un admin lo prende con .pueblo on y le pone nombre con .pueblo nombre &lt;nombre&gt;. |
+| `.pueblo` 🏘️ | El pueblo del grupo: un mundo común donde los oficios, las empresas, las changas, los encargos, los espías y la timba se afectan entre sí. Tiene prosperidad, seguridad, humor, clima, intendente (lo elige el grupo una vez por mes, .elecciones; .intendente dice quién es, y él fija el impuesto con .impuesto 12) y personajes que se acuerdan de todo; cada tanto pasa algo grande (temporal, fiesta, paro…), y los domingos sale El Eco del pueblo con tapa (.eco). Un admin lo prende con .pueblo on y le pone nombre con .pueblo nombre &lt;nombre&gt;. |
 | `.elecciones` 🗳️ | Las elecciones del pueblo: una vez por mes eligen intendente. Arranca el 1 con la campaña (3 días): los políticos de nivel 3 o más se anotan con .candidato y una frase (.candidato baja para bajarse). Después se vota 2 días, secreto, por privado: me escribís .votar y te paso la boleta (votan los que tienen oficio y cobraron alguna vez). El escrutinio sale en el grupo y en El Eco; si nadie se presenta, sigue el del pueblo. Reelección una sola vez seguida, y la gestión del que va por la reelección le suma o le resta unos votos. Coimas: .prometer @mención 50 (si te las prometen, .denunciarcoima). Y .juiciopolitico junta firmas para voltear al intendente antes de tiempo. |
 | `.eco` 📰 | El Eco, el diario del pueblo: los domingos sale con la recap, con tapa dibujada y los titulares de la semana (quién fundó empresa, quién se fundió en la timba, espías descubiertos, encargos épicos, apodos nuevos, eventos, el intendente). .eco muestra cómo viene la tapa de esta semana y los titulares del último número. |
 | `.servicio` 🔧 | Los servicios entre vecinos, en los grupos con pueblo: si se te rompe algo de la empresa o volvés lastimado de un encargo, te ofrezco a la gente del grupo con el oficio (mecánico, enfermero…), con su nivel, apodo y reseñas, y al del pueblo. Elegís con .servicio 2, el elegido pide precio con .cobro 80 (o .cobro no), y vos .trato (trato hecho) o .regateo 60; después, .reseña 1 a 5. |
@@ -86,7 +86,7 @@ _Para todos. Se abre con `.menu casino`, `.menu apuestas`, `.menu apostar`, `.me
 | `.tragamonedas 20` 🍒 | Tres rodillos y cinco líneas de pago. |
 | `.blackjack 20` 🃏 | Contra la banca: .pedir, .plantarse, .doblar, .dividir, .seguro o .rendirse. |
 | `.mines 20 3` 💣 | Grilla con minas: .destapar B3 sube el multiplicador y .retirar cobra; con una mina perdés. |
-| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .pcheck, .pcall, .praise 20, .allin y .pfold; .levantarme o .pleave te retira con tus fichas; .poker ayuda, cómo se juega y qué jugada gana. |
+| `.poker 100` 🃏 | Texas Hold'em entre los del grupo, de 2 a 6, con las cartas por privado (.cartas): el que abre la mesa la arranca con .poker empezar; en la mesa, .pcheck, .pcall, .praise 20, .allin y .pfold; .levantarme o .pleave te retira con tus fichas, y un admin cierra la mesa con .delpoker (cada uno recupera lo suyo); .poker ayuda, cómo se juega y qué jugada gana. |
 | `.duelo @mención 20` ⚔️ | Uno contra uno, a dado, carta o pelea (.pelea @mención 20, con .golpe, .patada, .cubrirse y .curar); el otro responde .acepto o .rechazo. |
 | `.carrera 20 3` 🏇 | La primera apuesta abre la carrera: cinco caballos, con cuotas que cambian en cada una. |
 | `.loteria` 🎟️ | El pozo de la semana; .loteria 2 compra boletos (10 cada uno, hasta 5 por semana). Se sortea al empezar la semana. |
@@ -169,7 +169,7 @@ _Para todos. Se abre con `.menu juegos`, `.menu juego`._
 | `.aura @mención` ✨ | Batalla de aura: si acepta (.aura si), el grupo vota con 🔵 o 🔴 y el que gana suma 1.000 de aura del mes. .aura sola muestra el ranking (con nombres o numeros al final, por nombre de WhatsApp o por número); .noaura te saca de las batallas y .siaura te vuelve a poner. |
 | `.besar @mención` 💋 | Un beso para alguien del grupo. |
 | `.siono <pregunta>` | ✅ o ❌. |
-| `.topgays` 🌈 | Un top al azar del grupo. |
+| `.topgays` 🌈 | Un top al azar del grupo. También .toplindos, .topotakus, .topsucios, .topparejas y otros. |
 | `.love @mención` 💘 | Porcentajes en joda (.love, .gay2, .puto, .infiel y otros), de alguien mencionado o tuyos. |
 
 <a id="pareja"></a>
@@ -256,7 +256,7 @@ _Para todos. Se abre con `.menu extras`, `.menu varios`, `.menu herramientas`._
 | `.antecedentes` 📋 | Tus advertencias en este grupo, con fecha, hora, motivo y quién te la dio. Con nombres o numeros al final, por nombre de WhatsApp o por número. |
 | `.ig @usuario` 🤳 | Compartí tu Instagram con el grupo, con el link; con @mención, el de esa persona si lo cargó con .misredes, y solo, el tuyo. |
 | `.x @usuario` 🐦 | Lo mismo con X; y .threads, .bluesky, .mastodon, .facebook, .youtube, .twitch, .spotify, .github, .steam, .linkedin y .telegram, cada uno con su red. |
-| `.sortear <premio>` 🏆 | Sortea el premio entre los del grupo. |
+| `.sortear <premio>` 🏆 | Sortea el premio entre los del grupo; .sortear3 &lt;premio&gt; saca 3 ganadores (hasta .sortear10, y alguien puede salir dos veces). |
 | `.orsi` 🎙️ | Una respuesta al estilo Orsi. |
 | `.reglas` 📋 | Reglas del grupo; .plantilla, el formato para publicar. |
 | `.reportar` 🛑 | Respondé al mensaje que querés reportar a los admins. |
@@ -294,12 +294,12 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.listaadv` 📋 | Quiénes tienen advertencias en el grupo y cuántas lleva cada uno, sin arrobar, por nombre de WhatsApp; con alias o numero al final, por apodo o por número. |
 | `.antecedentes @mención` 📋 | Las últimas 30 advertencias de alguien acá: fecha y hora, motivo, quién la dio y cuáles siguen vigentes. Con nombres o numeros al final, por nombre de WhatsApp o por número. |
 | `.clearantecedentes @mención` 🧹 | Solo admins: borra los antecedentes de alguien y sus advertencias vigentes. |
-| `.setpp` 📸 | Cambia la foto del grupo. |
+| `.setpp` 📸 | Cambia la foto del grupo; .removepp la saca. |
 | `.setname <nombre>` ✏️ | Cambia el nombre del grupo. |
 | `.getpp` 📸 | Obtiene la foto de perfil actual del grupo. |
 | `.gpu` 📸 | Obtiene la foto de perfil de un participante. |
 | `.id @mención` 🆔 | Número, nombre y LID de alguien del grupo, y el id del chat. |
-| `.llamar @mención` 🤚 | Menciona 10 veces a un usuario |
+| `.llamar @mención` 🤚 | Menciona 10 veces a un usuario; .cancelar lo corta. |
 | `.rl` ♻️ | Restaurar enlace del grupo. |
 | `.ap` ☑️ | Aprueba los pedidos pendientes para entrar, de a uno; .ap 5 aprueba solo los primeros 5, y .pendientes los lista. |
 | `.ruletadelban` ☠️ | Elimina un participante al azar. |
