@@ -93,7 +93,8 @@ plugin.run = async (m, { client, command, args = [], text, participants, isBotAd
     }
 
     if (cmd === "candidato") {
-      if (String(args[0] || "").toLowerCase() === "baja") return responder(client, m, bajarCandidato(m.chat, m.sender));
+      // ".candidato baja" alone stands down; "baja" opening a slogan is a slogan.
+      if (args.length === 1 && args[0].toLowerCase() === "baja") return responder(client, m, bajarCandidato(m.chat, m.sender));
       return responder(client, m, anotarCandidato(m.chat, m.sender, args.join(" ")));
     }
 
