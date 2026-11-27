@@ -257,3 +257,20 @@ test("los comandos: .gente, .disponible, .ofrecerchanga, .agarrar contestando, y
   assert.match(tomada.text, /^🤝 @300000000000082 agarró la changa de \*Fletes Ana\*: «Cebar mate en la oficina»/);
   assert.match((await correr(Bolsa, BETO, ".nodisponible")).text, /te saqué de la bolsa/);
 });
+
+test("el manual de Claudia cuenta la bolsa de trabajo con los números de BOLSA, y lo trae cuando le preguntan", async () => {
+  const { MANUAL, conocimientoPara } = await import("../lib/manual-claudia.js");
+  const b = B.BOLSA;
+  for (const dicho of [
+    `como que busca laburo por ${b.DISPONIBLE_DIAS} días`,
+    `hasta ${b.NOTA_MAX} letras`,
+    `Pagan de ${b.PAGA_MIN} a ${b.PAGA_MAX}`,
+    `en ${b.HORAS} horas`,
+    `Cada patrón publica ${b.POR_DIA} por día`,
+    `el mismo patrón y la misma persona dos veces por semana`,
+  ])
+    assert.ok(MANUAL.includes(dicho), `el manual no dice «${dicho}»`);
+  assert.equal(b.TOMAR_POR_DIA, 1, "el manual dice «una por día»");
+  assert.equal(b.MISMO_PAR_MAX, 2, "el manual dice «dos veces por semana»");
+  for (const pregunta of ["claudia cómo es eso de la bolsa de trabajo?", "para qué sirve .ofrecerchanga", "cómo hago para agarrar la changa"]) assert.ok(conocimientoPara(pregunta).includes(MANUAL), pregunta);
+});
