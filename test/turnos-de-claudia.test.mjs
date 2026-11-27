@@ -23,10 +23,10 @@ beforeEach(() => {
 });
 
 test("una llamada sola es su nombre o su mención, con un saludo a lo sumo", () => {
-  for (const t of ["Claudia", "claudia!!", "¿Claudia?", "hola Claudia", "Buenas tardes, bot", "CLAUDIA 😂", "claudia claudia", "che tabbot"]) assert.equal(T.esLlamadaSola(t), true, t);
+  for (const t of ["Claudia", "claudia!!", "¿Claudia?", "hola Claudia", "Buenas tardes, bot", "CLAUDIA 😂", "claudia claudia", "che tabbot", "Clau", "clau!!", "hola Clau", "¿Clau?"]) assert.equal(T.esLlamadaSola(t), true, t);
   assert.equal(T.esLlamadaSola("@200000000000001", ["200000000000001"]), true, "su mención");
   assert.equal(T.esLlamadaSola("hola @200000000000001 ", ["200000000000001"]), true);
-  for (const t of ["Claudia, ¿qué hora es?", "claudia te presento a mi perro", "bot de cuarta", "jaja"]) assert.equal(T.esLlamadaSola(t), false, t);
+  for (const t of ["Claudia, ¿qué hora es?", "claudia te presento a mi perro", "bot de cuarta", "jaja", "clau, ¿qué hora es?", "hola Claudio"]) assert.equal(T.esLlamadaSola(t), false, t);
   assert.equal(T.esLlamadaSola("@200000000000001 ¿qué opinás?", ["200000000000001"]), false);
   assert.equal(T.esLlamadaSola("claudia @111", ["200000000000001"]), false, "la mención de otro dice algo");
 });

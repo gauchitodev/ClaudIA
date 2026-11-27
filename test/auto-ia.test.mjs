@@ -476,6 +476,15 @@ test("pedido a Claudia: mencionarla con @ es hablarle, al principio o en el medi
   assert.equal((await hablarle({ text: ".menu claudia" })).consultas, 0, "un comando sigue siendo un comando");
 });
 
+test("pedido a Claudia: «Clau» también la nombra; «Claudio» o «cláusula», no", async () => {
+  clasificacion = { comando: "ninguno", respuesta: "Acá estoy" };
+  for (const texto of ["Clau, ¿qué opinás de lo que dijo Juan?", "che clau vos qué opinás?", "¿y vos qué decís, CLAU?"]) {
+    const r = await hablarle({ text: texto });
+    assert.deepEqual([r.consultas, r.textos], [1, ["Acá estoy"]], texto);
+  }
+  for (const texto of ["Claudio, ¿qué opinás?", "leé la cláusula del contrato", "clausuraron el boliche"]) assert.equal((await hablarle({ text: texto })).consultas, 0, texto);
+});
+
 // .banchat, .modoadmin, .charla off and a person banned from the bot were looked at only before asking the AI.
 test("pedido a Claudia: si mientras piensa le ponen .banchat, .modoadmin o .charla off, o banean a quien le habló, no dice ni hace nada", async () => {
   const P = "puertas@g.us";
@@ -744,6 +753,24 @@ test("turnos: «Claudia» y la pregunta en el mensaje siguiente: contesta la pre
     );
     assert.match(prompts[0], /\n\nMensaje de Ana: "¿me pasás el link del grupo\?"\n\n/);
     assert.doesNotMatch(prompts[0], /Antes de ese mensaje/, "el «Claudia» solo no se nombra");
+    await avanzar(t0 + 30 * SEG);
+    assert.equal(prompts.length, 1, "la espera de la pregunta ya no contesta nada");
+  });
+});
+
+test("turnos: «Clau» sola también es una llamada: espera la pregunta y contesta esa", async () => {
+  await conTurnos("turnos-clau@g.us", async ({ hablar, avanzar, reloj, prompts, enviados }) => {
+    const t0 = reloj.ahora;
+    clasificacion = { comando: "ninguno", respuesta: "Pedíselo a un admin." };
+    await hablar("111@lid", "Ana", "Clau");
+    assert.equal(enviados().length, 0, "espera la pregunta");
+    reloj.ahora = t0 + 3 * SEG;
+    await hablar("111@lid", "Ana", "¿me pasás el link del grupo?");
+    assert.deepEqual(
+      enviados().map((e) => e.msg.text),
+      ["Pedíselo a un admin."],
+    );
+    assert.match(prompts[0], /\n\nMensaje de Ana: "¿me pasás el link del grupo\?"\n\n/);
     await avanzar(t0 + 30 * SEG);
     assert.equal(prompts.length, 1, "la espera de la pregunta ya no contesta nada");
   });

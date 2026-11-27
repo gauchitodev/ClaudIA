@@ -63,7 +63,7 @@ test("una respuesta sin el punto se lee como la escribieron en un grupo de verda
   assert.equal(pedidos("Baja #30. Sin stock por el momento"), "baja 30");
   assert.equal(pedidos("Di respuesta si \nReitero \nSigue 20"), "sigue 20");
   // The same, said the ways people say it.
-  for (const texto of ["Sigue 20, gracias", "Sigue 20 gracias!", "sigue 20 👍", "*sigue 20*", "Hola, sigue 20", "hola sigue 20", "Sí, sigue 20", "Sigue la 20", "Sigue en pie la 20", "sigue nro 20", "Sigue n° 20", "Sigue 20.", "sigue 20 todavía", "@59899123456 sigue 20", "SIGUE 20"]) {
+  for (const texto of ["Sigue 20, gracias", "Sigue 20 gracias!", "sigue 20 👍", "*sigue 20*", "Hola, sigue 20", "hola sigue 20", "Sí, sigue 20", "Sigue la 20", "Sigue en pie la 20", "sigue nro 20", "Sigue n° 20", "Sigue 20.", "sigue 20 todavía", "@59899123456 sigue 20", "SIGUE 20", "Claudia, sigue 20", "clau sigue 20"]) {
     assert.equal(pedidos(texto), "sigue 20", texto);
   }
   assert.equal(pedidos("Vendida la publicación 17"), "vendido 17");

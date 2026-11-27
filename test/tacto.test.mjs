@@ -146,4 +146,6 @@ test("tacto: escribir tiene sus reglas; reaccionar, sus topes", () => {
 test("tacto: la nombran", () => {
   const nombra = (t) => I.NOMBRA_A_CLAUDIA.test(I.normalizar(t));
   assert.ok(nombra("Claudia, ¿qué opinás?") && nombra("jaja el bot") && !nombra("claudiana"));
+  assert.ok(nombra("Clau, ¿qué opinás?") && nombra("jaja clau") && nombra("CLAU!!"), "su nombre corto");
+  for (const t of ["vino Claudio", "leé la cláusula", "clausuraron el boliche", "un claustro"]) assert.equal(nombra(t), false, t);
 });
