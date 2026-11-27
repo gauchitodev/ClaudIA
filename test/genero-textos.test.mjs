@@ -30,7 +30,7 @@ before(async () => {
   // (node --test --test-randomize). Married just now: days without a kiss would make the partner turn the kiss down.
   Pj.fijarPareja(L(801), L(802), Date.now() - 60e3);
   Pj.fijarCasamiento(L(801), L(802), Date.now() - 30e3);
-  for (const [hijo, dia] of [[803, 1], [804, 2]]) {
+  for (const [hijo, dia] of [[803, 1], [804, 3]]) {
     fijarSaldo(F, G, L(801), 100);
     assert.equal(Fa.pedirAdopcion(G, L(801), L(hijo), Date.now() + dia * DIA).ok, true);
     assert.equal(Fa.responderAdopcion(L(hijo), true, Date.now() + dia * DIA).ok, true);
