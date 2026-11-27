@@ -147,14 +147,6 @@ npm start
 
 La sesión queda guardada en `botSession/sesion.db` y no hay que volver a vincular. Si se cierra la sesión desde el teléfono, el bot borra esa carpeta y en el próximo arranque pide vincular de nuevo. **`botSession/` da acceso completo a la cuenta de WhatsApp: no la compartas ni la subas.** Por eso no va en los backups de la base. Para llevar el bot a otro lado se copia la carpeta entera, con el bot apagado: sus claves cambian con cada mensaje, y una copia de hace días ya no es la sesión que conoce WhatsApp.
 
-Las versiones anteriores guardaban la sesión en miles de archivos sueltos dentro de esa carpeta. El primer arranque con esta los pasa a `sesion.db`, tal cual, y los deja una semana en `botSession/archivos-viejos/`; después los borra. Para volver a una versión anterior en esa semana, con el bot apagado:
-
-```sh
-cp -r botSession/archivos-viejos/. botSession/
-```
-
-Si después se vuelve a actualizar, el bot toma de nuevo esos archivos, que son los que usó la versión anterior, y reemplaza con ellos lo que tenía `sesion.db`.
-
 La base de datos se crea sola en `database/database.db`.
 
 ### 5. Cookies de YouTube (opcional, pero recomendado)

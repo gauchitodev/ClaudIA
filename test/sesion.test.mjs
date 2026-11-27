@@ -87,10 +87,19 @@ async function leerTodo(keys, ids) {
   return todo;
 }
 
+// What pairing leaves in the credentials (configureSuccessfulPairing): who the bot is, as a device of its own, and its
+// account, here with made-up signatures. The account is what tells a paired session from one that never got that far:
+// "registered" only turns true with a pairing code (messages-recv.js), and a QR leaves it false.
+const vinculacion = (dispositivo = 3, { porQr = false } = {}) => ({
+  me: { id: `59899000000:${dispositivo}@s.whatsapp.net`, lid: `200000000000000:${dispositivo}@lid`, name: "Claudia" },
+  registered: !porQr,
+  account: { details: Buffer.from(`dispositivo ${dispositivo}`), accountSignatureKey: Buffer.alloc(32, 1), accountSignature: Buffer.alloc(64, 2), deviceSignature: Buffer.alloc(64, dispositivo) },
+});
+
 // A session as a version from before left it in a folder: paired, with its keys, each in its file.
-async function enArchivos(dir, datos = muestra()) {
+async function enArchivos(dir, datos = muestra(), creds = vinculacion()) {
   const vieja = await useMultiFileAuthState(dir);
-  Object.assign(vieja.state.creds, { me: { id: "59899000000:3@s.whatsapp.net", lid: "200000000000000:3@lid", name: "Claudia" }, registered: true });
+  Object.assign(vieja.state.creds, creds);
   await vieja.saveCreds();
   await vieja.state.keys.set(datos);
   return { datos, ids: idsDe(datos), antes: archivos(dir) };
@@ -297,7 +306,7 @@ test("el primer arranque pasa a la base la sesión que estaba en archivos, cada 
 
   const { state, dicho } = abrir(dir);
   assert.equal(dicho.length, 1);
-  assert.match(dicho[0], new RegExp(`Migración: la sesión de WhatsApp pasó .* \\(${Object.keys(antes).length} claves\\)\\. Los archivos quedan 7 días en .*archivos-viejos/`));
+  assert.match(dicho[0], new RegExp(`Migración: la sesión de WhatsApp pasó .* \\(${Object.keys(antes).length} claves\\)\\. Los archivos quedan 7 días en .*archivos-viejos/, pero no sirven para volver a una versión anterior\\.$`));
   assert.equal(fs.statSync(path.join(dir, `${SESION.ARCHIVO}-wal`)).size, 0, "y el registro por el que pasó todo junto queda vacío, no del tamaño de la sesión");
   assert.deepEqual(filas(dir), Object.fromEntries(Object.entries(antes).map(([archivo, texto]) => [archivo.slice(0, -5), texto])), "cada archivo es una fila, con su nombre y su texto");
   assert.deepEqual(state.creds, credsDeArchivos);
@@ -317,32 +326,145 @@ test("el primer arranque pasa a la base la sesión que estaba en archivos, cada 
   assert.deepEqual(archivos(path.join(dir, SESION.VIEJOS)), antes);
 });
 
-test("si una versión de antes volvió a andar sobre los archivos, valen ellos y reemplazan lo que tenía la base", async () => {
+// After the first start, files turning up again in the folder: a version from before ran there in between, or a copy of
+// them was put back. Only a pairing of their own takes the database's place.
+test("una versión de antes que arrancó sin sus archivos y no se terminó de vincular no le saca la sesión a la base: sus archivos se borran, y lo apartado sigue", async () => {
   const dir = carpeta();
-  const { ids } = await enArchivos(dir);
+  // Paired with a QR: "registered" is false in it too, and it's a session all the same.
+  const { ids, antes } = await enArchivos(dir, muestra(), vinculacion(3, { porQr: true }));
   const primero = abrir(dir);
   await primero.state.keys.set({ session: { "59899000005.0": Buffer.from("solo la base lo tiene") } });
+  const leido = await leerTodo(primero.state.keys, ids);
   cerrarSesion(dir);
+  const enLaBase = filas(dir);
 
-  // Going back, as the README says: the files out of archivos-viejos/, and the version from before at work on them.
+  // With numberBot set, it asked for a pairing code (socket.js: pairingCode and me, then creds.update) on a session of
+  // its own, and nobody typed the code in.
+  const vieja = await useMultiFileAuthState(dir);
+  Object.assign(vieja.state.creds, { pairingCode: "ABCD1234", me: { id: "59899000000@s.whatsapp.net", name: "~" } });
+  await vieja.saveCreds();
+  assert.deepEqual(Object.keys(archivos(dir)), ["creds.json"]);
+
+  const { state, dicho } = abrir(dir);
+  assert.deepEqual(dicho, [`🟠 En ${dir}/ había 1 archivo(s) sueltos de una sesión sin vincular: no reemplazaron a la sesión de la base, y los borré.`]);
+  assert.ok(state.creds.account, "sigue vinculada: no hay que volver a vincular");
+  assert.equal(state.creds.me.id, "59899000000:3@s.whatsapp.net");
+  assert.deepEqual(filas(dir), enLaBase, "la base, como estaba");
+  assert.deepEqual(await leerTodo(state.keys, ids), leido);
+  assert.deepEqual(archivos(dir), {}, "los sueltos se fueron");
+  assert.deepEqual(archivos(path.join(dir, SESION.VIEJOS)), antes, "y lo apartado sigue siendo lo de la migración");
+  cerrarSesion(dir);
+  assert.deepEqual(abrir(dir).dicho, [], "el arranque siguiente no encuentra nada");
+});
+
+test("una copia de esta misma sesión no le saca el lugar a la base, aunque una versión de antes haya andado sobre ella: se borra, y lo apartado sigue", async () => {
+  const dir = carpeta();
+  const { ids, antes } = await enArchivos(dir);
+  const primero = abrir(dir);
+  await primero.state.keys.set({ session: { "59899000005.0": Buffer.from("solo la base lo tiene") } });
+  const leido = await leerTodo(primero.state.keys, ids);
+  cerrarSesion(dir);
+  const enLaBase = filas(dir);
+
+  // The files out of archivos-viejos/, as the README used to say for going back, and the version from before at work on
+  // them.
   const viejos = path.join(dir, SESION.VIEJOS);
   fs.cpSync(viejos, dir, { recursive: true });
   const vieja = await useMultiFileAuthState(dir);
   await vieja.state.keys.set({ session: { "59899000006.0": Buffer.from("lo guardó la versión de antes") }, "pre-key": { 1: null } });
   vieja.state.creds.me.name = "Claudia, de vuelta";
   await vieja.saveCreds();
-  const enLaCarpeta = archivos(dir);
+  const sueltos = Object.keys(archivos(dir));
+  assert.ok(sueltos.length > 1 && sueltos.includes("creds.json"));
+
+  const { state, dicho } = abrir(dir);
+  assert.deepEqual(dicho, [`🟠 En ${dir}/ había ${sueltos.length} archivo(s) sueltos de una copia vieja de esta misma sesión: no reemplazaron a la sesión de la base, y los borré.`]);
+  assert.equal(state.creds.me.name, "Claudia");
+  assert.deepEqual(filas(dir), enLaBase, "la base, como estaba");
+  assert.deepEqual(await leerTodo(state.keys, ids), leido);
+  assert.deepEqual(await state.keys.get("session", ["59899000005.0", "59899000006.0"]), { "59899000005.0": Buffer.from("solo la base lo tiene"), "59899000006.0": null });
+  assert.deepEqual(archivos(dir), {}, "los sueltos se fueron, todos");
+  assert.deepEqual(archivos(viejos), antes, "y lo apartado sigue siendo lo de la migración");
+});
+
+test("un arranque cortado mientras borraba una copia: creds.json es lo último que se va, y el siguiente termina", async () => {
+  const dir = carpeta();
+  const { antes } = await enArchivos(dir);
+  abrir(dir);
+  cerrarSesion(dir);
+  const enLaBase = filas(dir);
+  fs.cpSync(path.join(dir, SESION.VIEJOS), dir, { recursive: true });
+
+  // Cut off at the last of the others, with the folder listed in an order where creds.json isn't last (the disk gives
+  // them in any): it goes after them all the same. Without it, what's left would be files on their way out, and they'd
+  // go in with what was put away.
+  const elQueCorta = Object.keys(antes).sort().at(-1);
+  assert.notEqual(elQueCorta, "creds.json");
+  const [borrarReal, listarReal] = [fs.rmSync, fs.readdirSync];
+  fs.readdirSync = (...args) => listarReal(...args).sort();
+  fs.rmSync = (ruta, ...resto) => {
+    if (ruta === path.join(dir, elQueCorta)) throw new Error("se cortó la luz");
+    return borrarReal(ruta, ...resto);
+  };
+  try {
+    assert.throws(() => abrir(dir), /se cortó la luz/);
+  } finally {
+    [fs.rmSync, fs.readdirSync] = [borrarReal, listarReal];
+  }
+  assert.deepEqual(Object.keys(archivos(dir)).sort(), ["creds.json", elQueCorta].sort(), "creds.json sigue, con el que no se llegó a borrar");
+  assert.deepEqual(filas(dir), enLaBase);
+
+  const { state, dicho } = abrir(dir);
+  assert.deepEqual(dicho, [`🟠 En ${dir}/ había 2 archivo(s) sueltos de una copia vieja de esta misma sesión: no reemplazaron a la sesión de la base, y los borré.`]);
+  assert.ok(state.creds.account);
+  assert.deepEqual(filas(dir), enLaBase);
+  assert.deepEqual(archivos(dir), {});
+  assert.deepEqual(archivos(path.join(dir, SESION.VIEJOS)), antes, "y lo apartado, sin mezclar");
+});
+
+test("una versión de antes que se volvió a vincular sí reemplaza la sesión de la base, y lo apartado pasa a ser lo suyo", async () => {
+  const dir = carpeta();
+  await enArchivos(dir);
+  abrir(dir);
+  cerrarSesion(dir);
+  const viejos = path.join(dir, SESION.VIEJOS);
+
+  // Started on the folder without its files, it made a session of its own (initAuthCreds) and got paired, as another
+  // device.
+  const vieja = await useMultiFileAuthState(dir);
+  Object.assign(vieja.state.creds, vinculacion(4));
+  await vieja.saveCreds();
+  await vieja.state.keys.set({ session: { [SESION_DE_ANA]: Buffer.from("con la vinculación nueva") } });
+  const nuevos = archivos(dir);
+  const credsNuevas = (await deArchivos(dir)).creds;
 
   const { state, dicho } = abrir(dir);
   assert.equal(dicho.length, 1);
-  assert.match(dicho[0], /Reemplazó a la que había en la base \(\d+ claves\)/);
-  assert.equal(state.creds.me.name, "Claudia, de vuelta");
-  assert.deepEqual(await state.keys.get("session", ["59899000006.0", "59899000005.0"]), { "59899000006.0": Buffer.from("lo guardó la versión de antes"), "59899000005.0": null });
-  assert.deepEqual(await leerTodo(state.keys, ids), await leerTodo((await deArchivos(viejos)).keys, ids), "todo como lo dejó esa versión");
-  assert.deepEqual(filas(dir), Object.fromEntries(Object.entries(enLaCarpeta).map(([archivo, texto]) => [archivo.slice(0, -5), texto])));
-  // And the files put away are these ones: the pre-key that version used up isn't among them any more.
-  assert.deepEqual(archivos(viejos), enLaCarpeta);
-  assert.equal(fs.existsSync(path.join(viejos, "pre-key-1.json")), false);
+  assert.match(dicho[0], /\(2 claves\)\. Reemplazó a la que había en la base \(\d+ claves\): los archivos traían otra vinculación\. Los archivos quedan/);
+  assert.deepEqual(state.creds, credsNuevas);
+  assert.equal(state.creds.me.id, "59899000000:4@s.whatsapp.net");
+  assert.deepEqual(await state.keys.get("session", [SESION_DE_ANA]), { [SESION_DE_ANA]: Buffer.from("con la vinculación nueva") });
+  assert.deepEqual(filas(dir), Object.fromEntries(Object.entries(nuevos).map(([archivo, texto]) => [archivo.slice(0, -5), texto])), "en la base, solo la vinculación nueva");
+  assert.deepEqual(archivos(viejos), nuevos);
+  assert.deepEqual(archivos(dir), {});
+});
+
+test("una sesión sin vincular en la base no se defiende: los archivos de una vinculada la reemplazan", async () => {
+  const dir = carpeta();
+  // This version started first, and nobody paired it; then the files of before were put in the folder.
+  const sola = abrir(dir);
+  await sola.saveCreds();
+  cerrarSesion(dir);
+  assert.deepEqual(Object.keys(filas(dir)), ["creds"]);
+  const { ids, antes } = await enArchivos(dir);
+  const leidoDeArchivos = await leerTodo((await deArchivos(dir)).keys, ids);
+
+  const { state, dicho } = abrir(dir);
+  assert.equal(dicho.length, 1);
+  assert.match(dicho[0], /Reemplazó a la que había en la base \(1 claves\), que no estaba vinculada\. Los archivos quedan/);
+  assert.ok(state.creds.account);
+  assert.deepEqual(await leerTodo(state.keys, ids), leidoDeArchivos);
+  assert.deepEqual(archivos(path.join(dir, SESION.VIEJOS)), antes);
   assert.deepEqual(archivos(dir), {});
 });
 
@@ -445,19 +567,21 @@ test("un archivo cortado no era una clave y no pasa; con creds.json cortado no p
   assert.deepEqual(filas(sinCredenciales), {}, "y las claves de esa sesión no quedan mezcladas con la nueva");
   assert.deepEqual(archivos(sinCredenciales), {});
 
-  // The same files turning up where the database already has a session: it keeps it.
+  // The same files turning up where the database already has a session: it keeps it, and they go, without touching
+  // what was put away.
   const conSesion = carpeta();
-  await enArchivos(conSesion);
+  const { antes } = await enArchivos(conSesion);
   abrir(conSesion);
   cerrarSesion(conSesion);
   const enLaBase = filas(conSesion);
   fs.cpSync(path.join(conSesion, SESION.VIEJOS), conSesion, { recursive: true });
   fs.writeFileSync(path.join(conSesion, "creds.json"), "");
   const sigue = abrir(conSesion);
-  assert.match(sigue.dicho[0], /creds\.json no se pudo leer/);
+  assert.deepEqual(sigue.dicho, [`🟠 En ${conSesion}/ había ${Object.keys(antes).length} archivo(s) sueltos de una sesión con un creds.json que no se pudo leer: no reemplazaron a la sesión de la base, y los borré.`]);
   assert.equal(sigue.state.creds.registered, true);
   assert.deepEqual(filas(conSesion), enLaBase);
   assert.deepEqual(archivos(conSesion), {});
+  assert.deepEqual(archivos(path.join(conSesion, SESION.VIEJOS)), antes);
 });
 
 test("los archivos apartados se borran solos a la semana, no antes, y la sesión sigue", async () => {
@@ -470,11 +594,11 @@ test("los archivos apartados se borran solos a la semana, no antes, y la sesión
 
   const casi = abrir(dir, apartados + SESION.DIAS_DE_LOS_VIEJOS * DIA - 1);
   assert.deepEqual(casi.dicho, []);
-  assert.deepEqual(archivos(viejos), antes, "a los 6 días y pico siguen ahí, por si hay que volver atrás");
+  assert.deepEqual(archivos(viejos), antes, "a los 6 días y pico siguen ahí");
   cerrarSesion(dir);
 
   const yaEsta = abrir(dir, apartados + SESION.DIAS_DE_LOS_VIEJOS * DIA);
-  assert.deepEqual(yaEsta.dicho, [`🧹 Borré ${dir}/archivos-viejos/: los archivos de la sesión de antes ya no sirven para volver atrás.`]);
+  assert.deepEqual(yaEsta.dicho, [`🧹 Borré ${dir}/archivos-viejos/: pasó una semana desde que la sesión de antes pasó a la base.`]);
   assert.equal(fs.existsSync(viejos), false);
   assert.equal(yaEsta.state.creds.registered, true);
   assert.deepEqual(await leerTodo(yaEsta.state.keys, ids), leido);
@@ -608,6 +732,24 @@ test("cifrando de verdad: una charla empezada con la sesión en archivos sigue d
   const otroArranque = abrir(dir);
   assert.deepEqual(otroArranque.dicho, []);
   await sigueLaCharla(parte(otroArranque.state), ana);
+});
+
+test("cifrando de verdad: con la copia de los archivos de antes devuelta a la carpeta, la charla sigue con la sesión de la base", async () => {
+  const dir = carpeta();
+  const ana = parte({ creds: initAuthCreds(), keys: enMemoria() });
+  const vieja = await useMultiFileAuthState(dir);
+  Object.assign(vieja.state.creds, vinculacion());
+  await empiezaLaCharla(parte(vieja.state), ana, vieja.saveCreds);
+  const pasada = abrir(dir);
+  await sigueLaCharla(parte(pasada.state), ana);
+  cerrarSesion(dir);
+
+  // Its keys are the ones from before the talk went on with the database, and Ana's went on with it: with them, what
+  // the bot sends couldn't be read.
+  fs.cpSync(path.join(dir, SESION.VIEJOS), dir, { recursive: true });
+  const sesion = abrir(dir);
+  await sigueLaCharla(parte(sesion.state), ana);
+  assert.match(sesion.dicho[0], /de una copia vieja de esta misma sesión: no reemplazaron a la sesión de la base/);
 });
 
 // --- Where it's plugged in ---
