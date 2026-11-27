@@ -11,6 +11,7 @@ before(async () => {
   L = await import("../lib/laburos.js");
   E = await import("../lib/escenas.js");
   B = await import("../lib/escenas-banco.js");
+  E._dep.pueblo = () => true; // the scenes come only in a town; these tests play in one
 });
 
 // The dice, loaded: each call takes the next number, and 0 once they run out.
@@ -358,4 +359,20 @@ test("la fama se ve: el apodo en .perfil y al lado del oficio en .baltop", async
 
   await Top.run({ chat: G, sender: "ana@lid", isGroup: true }, { client, text: "" });
   assert.match(ultimoEnviado().msg.text, /1\. Ana \(🎧 DJ, «el Patovica Arrepentido»\) — \*200\*\n2\. Beto \(🎧 DJ\) — \*100\*/);
+});
+
+test("sin pueblo prendido no hay escenas: .cobrar queda como siempre", () => {
+  const chat = "sinpueblo@g.us";
+  const quien = "nadie@s.whatsapp.net";
+  assert.ok(L.tomarLaburo(chat, quien, "camionero").ok);
+  const antes = E._dep.pueblo;
+  E._dep.pueblo = () => false;
+  try {
+    dados(SALE_ESCENA, 0);
+    const r = E.cobrarConEscena(chat, quien);
+    assert.ok(r.ok && !r.escena, "cobra el sueldo de siempre");
+    assert.equal(E.escenaAbierta(chat, quien), null);
+  } finally {
+    E._dep.pueblo = antes;
+  }
 });
