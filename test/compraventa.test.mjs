@@ -91,7 +91,7 @@ test("compraventa: publicar por hashtag, catálogo, búsqueda, detalle y alertas
   await en("111@lid", "compro");
   assert.match(ultimo(), /🔎 \*SE BUSCA\* \(1\)\n\*#2\* heladera chica que ande — 222/);
   await en("111@lid", "catalogo");
-  assert.match(ultimo(), /EN VENTA[\s\S]*SE BUSCA/);
+  assert.match(ultimo(), /SE BUSCA[\s\S]*EN VENTA/, "lo que se busca va primero");
   await en("111@lid", "buscar", "Bici");
   assert.match(ultimo(), /Resultados para "Bici"\* \(1\)\n🏷️ \*#1\* bici/);
   await en("111@lid", "buscar", "lavarropas");
@@ -394,7 +394,7 @@ test("compraventa: .catalogo lista todo y muestra el detalle de una", async () =
   C.publicar(chat, "111@lid", "vendo", "bici rodado 26 $ 4.000 Pocitos");
   C.publicar(chat, "222@lid", "compro", "heladera chica que ande");
   await en();
-  assert.match(ultimo(), /EN VENTA[\s\S]*SE BUSCA/);
+  assert.match(ultimo(), /SE BUSCA[\s\S]*EN VENTA/);
   assert.match(ultimo(), /Detalle: \.catalogo N/, "el pie ya no nombra .publicacion");
   await en("1");
   assert.match(ultimo(), /\*Vendo #1\*/);
@@ -430,14 +430,14 @@ test("compraventa: .catalogo numero lleva el teléfono de quien publicó, el que
   await en("numero");
   assert.deepEqual(ultimoEnviado().msg, {
     text: [
+      `${C.TIPOS.compro.emoji} *SE BUSCA* (1)`,
+      "*#3* heladera chica que ande — 333 (sin número)",
+      "",
       `${C.TIPOS.vendo.emoji} *EN VENTA* (4)`,
       "*#5* lámpara de pie $ 900 — +59899000777 (777)",
       "*#4* silla de escritorio $ 1.500 — 444 (sin número)",
       "*#2* mesa de luz $ 800 — +59899000222 (222)",
       "*#1* bici rodado 26 $ 4.000 Pocitos — +59899000111 (111)",
-      "",
-      `${C.TIPOS.compro.emoji} *SE BUSCA* (1)`,
-      "*#3* heladera chica que ande — 333 (sin número)",
       "",
       "Detalle: .catalogo N numero · buscar: .buscar <palabra> · avisos: .avisame <palabra>",
     ].join("\n"),
