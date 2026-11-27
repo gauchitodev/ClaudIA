@@ -1,4 +1,4 @@
-import { test, before, beforeEach } from "node:test";
+import { test, before, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import { prepararBase, clienteFalso, fijarSaldo } from "./helpers.mjs";
 
@@ -32,6 +32,11 @@ before(async () => {
 const dados = (...tiros) => {
   E._dep.azar = (n) => (tiros.shift() ?? 0) % n;
 };
+// The clock is frozen at 15:05 today: the missions run in the afternoon, and the plugins read the real time, so the
+// tests used to fail when run at night, after the envelope of "15:00 today" had expired.
+const AHORA_FIJA = new Date();
+AHORA_FIJA.setHours(15, 5, 0, 0);
+mock.timers.enable({ apis: ["Date"], now: AHORA_FIJA.getTime() });
 const aLas = (hora, minutos = 0) => {
   const d = new Date();
   d.setHours(hora, minutos, 0, 0);
