@@ -29,7 +29,7 @@ import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
 import { esPreguntaDelDia } from "../lib/pregunta-dia.js";
 import { puedeRecuperarCitado } from "../lib/vista-unica.js";
 // The words that make the bot consider itself addressed (lowercase), shared with the initiative's feedback.
-import { PALABRAS_CLAVE, EMOJIS_INICIATIVA, emojiPropio, normalizar } from "../lib/iniciativa.js";
+import { NOMBRA_A_CLAUDIA, EMOJIS_INICIATIVA, emojiPropio, normalizar } from "../lib/iniciativa.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { anotar, tomarTanda, soltarTurno, cuandoContesta, sigueLaLlamada, esLlamadaSola, anotarSilencio, insiste, olvidarSilencio, TURNOS } from "../lib/turnos-de-claudia.js";
 import { configuracion } from "../lib/configuracion.js";
@@ -231,8 +231,6 @@ plugin.before = async (m, permisos) => {
     // apart. The raw prefix check used to drop both.
     if (esComando(m.text)) return;
 
-    const textoLower = m.text.toLowerCase();
-
     // is the message a reply to one of the bot's own messages?
     const esRespuestaAlBot = m.quoted && m.quoted.fromMe;
     // A reply to a game's message (a trivia question, a riddle, the hangman's board, today's question) is an answer to
@@ -245,11 +243,9 @@ plugin.before = async (m, permisos) => {
     // And for an answer about a post ("Sigue 20" replying to the "¿sigue en pie?"), which plugins/_compraventa.js took.
     if (m.respuestaDeVenta) return;
 
-    // does the message mention any of the keywords?
-    const mencionaPalabra = PALABRAS_CLAVE.some((palabra) => {
-      const regex = new RegExp(`\\b${palabra}\\b`, "i");
-      return regex.test(textoLower);
-    });
+    // Does the message name her (lib/iniciativa.js)? On the text without accents, as everywhere else: \b only knows
+    // ASCII letters, so "botón" or "botín" used to name her, and "Cláudia" didn't.
+    const mencionaPalabra = NOMBRA_A_CLAUDIA.test(normalizar(m.text));
 
     // Mentioned with "@", anywhere in the message. "@Claudia ..." at the start used to be a command of .ia, which
     // answered without the group's context; in the middle of the message it didn't count at all.

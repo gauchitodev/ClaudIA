@@ -476,13 +476,17 @@ test("pedido a Claudia: mencionarla con @ es hablarle, al principio o en el medi
   assert.equal((await hablarle({ text: ".menu claudia" })).consultas, 0, "un comando sigue siendo un comando");
 });
 
-test("pedido a Claudia: «Clau» también la nombra; «Claudio» o «cláusula», no", async () => {
+// Her name, short or stretched, as people call her. The check ran on the text with its accents, where \b takes an
+// accented letter for a word's end: "apretá el botón" named her, and "Cláudia" didn't.
+test("pedido a Claudia: «Clau», «Clauuu» o «Claudiaaa» también la nombran; «Claudio», «cláusula» o «botón», no", async () => {
   clasificacion = { comando: "ninguno", respuesta: "Acá estoy" };
-  for (const texto of ["Clau, ¿qué opinás de lo que dijo Juan?", "che clau vos qué opinás?", "¿y vos qué decís, CLAU?"]) {
+  for (const texto of ["Clau, ¿qué opinás de lo que dijo Juan?", "che clau vos qué opinás?", "¿y vos qué decís, CLAU?", "Clauuu, ¿qué opinás?", "Claudiaaa vos qué decís?", "Cláudia, ¿qué opinás?"]) {
     const r = await hablarle({ text: texto });
     assert.deepEqual([r.consultas, r.textos], [1, ["Acá estoy"]], texto);
   }
-  for (const texto of ["Claudio, ¿qué opinás?", "leé la cláusula del contrato", "clausuraron el boliche"]) assert.equal((await hablarle({ text: texto })).consultas, 0, texto);
+  for (const texto of ["Claudio, ¿qué opinás?", "leé la cláusula del contrato", "clausuraron el boliche", "apretá el botón de arriba", "se llevaron el botín"]) {
+    assert.equal((await hablarle({ text: texto })).consultas, 0, texto);
+  }
 });
 
 // .banchat, .modoadmin, .charla off and a person banned from the bot were looked at only before asking the AI.
