@@ -1,4 +1,4 @@
-import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUser } from "../database-functions.js";
+import { addToBlacklist, removeFromBlacklist, getBlacklist, isBlacklisted, getUser, cambiarMotivoEnListaNegra } from "../database-functions.js";
 import { impedimentoParaModerar } from "../lib/roles.js";
 import { identidadesDe, buscarEnGrupo, expulsar, lidSegunWhatsApp, esElBot, esOwnerDe, lidEnElGrupo, numeroTipeado } from "../lib/identidad.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
@@ -14,8 +14,8 @@ plugin.cmd = ["ln", "ln2", "vln", "listanegra"];
 plugin.onlyAdmin = true;
 
 // The last list .vln showed in each group, number → entry, so ".ln2 <number>" takes off the one that was on screen even
-// after another came off (the numbers move up). In memory, for a while, through a reload of this file
-// (lib/estado-de-plugins.js).
+// after another came off (the numbers move up), and ".ln <number> <motivo>" changes their reason. In memory, for a
+// while, through a reload of this file (lib/estado-de-plugins.js).
 const listaNegraMostrada = estadoDe("grupo-lista-negra", () => new Map());
 const MOSTRADA_MS = 30 * 60 * 1000;
 
@@ -62,8 +62,8 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
       .join("\n");
 
     if (m.isGroup) {
-      listaNegraMostrada.set(m.chat, { fecha: Date.now(), porNumero: new Map(entries.map((e, i) => [entries.length - i, { jid: e.jid, chat: e.chat }])) });
-      return client.sendMessage(m.chat, { text: `${msg}\nPara sacar a alguien: ${usedPrefix}ln2 <su número en esta lista>` }, { quoted: m });
+      listaNegraMostrada.set(m.chat, { fecha: Date.now(), porNumero: new Map(entries.map((e, i) => [entries.length - i, { jid: e.jid, lid: e.lid || null, chat: e.chat }])) });
+      return client.sendMessage(m.chat, { text: `${msg}\nPara sacar a alguien: ${usedPrefix}ln2 <su número en esta lista>\nPara cambiarle el motivo: ${usedPrefix}ln <su número> <motivo nuevo>` }, { quoted: m });
     }
     const jids = entries.map((e) => e.lid || e.jid);
     return client.sendMessage(m.chat, { text: msg, mentions: jids }, { quoted: m });
@@ -74,19 +74,46 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
   const deLaLista = command === "ln2" && m.isGroup ? (text || "").trim().match(/^#?(\d{1,3})$/) : null;
   if (deLaLista) {
     const numero = Number(deLaLista[1]);
-    const entradas = getBlacklist(m.chat);
-    // The one with that number in the last .vln, and only a recent one: the numbers move up when someone comes off the
-    // list, and going by the list as it stood then took off someone other than the one on the screen.
-    const mostrada = listaNegraMostrada.get(m.chat);
-    const vigente = mostrada && Date.now() - mostrada.fecha < MOSTRADA_MS ? mostrada : null;
-    if (!vigente) return client.sendText(m.chat, `Mirá la lista negra con ${usedPrefix}vln y después usá ${usedPrefix}ln2 con el número que aparece ahí: los números cambian cuando alguien sale de la lista.`, m);
-    const vista = vigente.porNumero.get(numero);
-    const entrada = vista && entradas.find((e) => e.jid === vista.jid && e.chat === vista.chat);
-    if (!entrada) return client.sendText(m.chat, `No hay ningún ${numero} en la lista negra de este grupo${vista ? ": ya lo sacaron" : ""}. Mirala con ${usedPrefix}vln.`, m);
+    const { vieja, vista, entrada } = enLaListaMostrada(m.chat, numero);
+    if (vieja) return client.sendText(m.chat, `Mirá la lista negra con ${usedPrefix}vln y después usá ${usedPrefix}ln2 con el número que aparece ahí: los números cambian cuando alguien sale de la lista.`, m);
+    if (!entrada) return client.sendText(m.chat, noEstaEnLaLista(numero, vista, usedPrefix), m);
     if (entrada.chat === "*") return client.sendText(m.chat, "Está en la lista negra de todos los grupos: solo la puede sacar el dueño del bot, desde el privado.", m);
     removeFromBlacklist(entrada.jid, m.chat);
     // By name, so whoever asked sees it was the right one.
     return client.sendText(m.chat, `☑️ Saqué de la lista negra a ${nombreDe(entrada.lid || entrada.jid)}.`, m);
+  }
+
+  // Replying to a message of someone other than whoever asks and the bot: whoever wrote it may be the one meant.
+  const deOtro = Boolean(m.quoted?.sender) && ![m.sender, m.senderJid].includes(m.quoted.sender) && !esElBot(m.quoted.sender, client);
+
+  // ".ln 3 <motivo nuevo>" in a group changes the reason of the third one on .vln's list, as ".ln2 3" takes them off. The
+  // only way was ".ln" again, naming them, and nobody on the list can be named there: they're out of the group, so they
+  // can't be mentioned, and .vln there shows no numbers. ".ln 3 …" answered that it knew of no such user. Not when what
+  // follows the number starts with a digit: "99 123 456" is a phone number typed without its "+" (with its 0, "099 123
+  // 456", it isn't taken for a number on the list at all). Replying to someone else's message, ".ln 3 estafa" lists and
+  // removes whoever wrote it, with "3 estafa" as the reason, as it always did, unless there's a 3 on the list on the
+  // screen: then it asks which of the two is meant, rather than remove the wrong one.
+  const escrito = (text || "").trim();
+  const aLaLista = command === "ln" && m.isGroup ? escrito.match(/^#?([1-9]\d{0,2})(?=$|[\s,.:;–—-])[\s,.:;–—-]*/) : null;
+  if (aLaLista) {
+    const numero = Number(aLaLista[1]);
+    const motivoNuevo = escrito.slice(aLaLista[0].length);
+    const { vieja, vista, entrada } = enLaListaMostrada(m.chat, numero);
+    const enPantalla = !vieja && Boolean(vista);
+    if (deOtro) {
+      if (enPantalla) return client.sendText(m.chat, `No sé si querés cambiarle el motivo al ${numero} de la lista negra o anotar a quien escribió el mensaje que respondiste. Si es el ${numero}, mandá ${usedPrefix}ln ${numero} <motivo nuevo> sin responder ningún mensaje; si es quien escribió, poné el motivo sin un número adelante.`, m);
+    } else if (/^\d/.test(motivoNuevo)) {
+      if (enPantalla) return client.sendText(m.chat, `No sé si es el ${numero} de la lista negra o un teléfono. Si es el ${numero}, escribí el motivo nuevo sin un número adelante; si es un teléfono, ponelo con el + (${usedPrefix}ln +59899999999 motivo).`, m);
+    } else {
+      if (vieja) return client.sendText(m.chat, `Mirá la lista negra con ${usedPrefix}vln y después usá ${usedPrefix}ln con el número que aparece ahí y el motivo nuevo: los números cambian cuando alguien sale de la lista.`, m);
+      if (!entrada) return client.sendText(m.chat, noEstaEnLaLista(numero, vista, usedPrefix), m);
+      if (entrada.chat === "*") return client.sendText(m.chat, "Está en la lista negra de todos los grupos: solo el dueño del bot le puede cambiar el motivo, desde el privado.", m);
+      // As the other reasons name any mention: the whole group reads it (.vln).
+      const motivo = conNombres(motivoNuevo, m.mentionedJid).trim();
+      if (!motivo) return client.sendText(m.chat, `Poné el motivo nuevo después del número: ${usedPrefix}ln ${numero} <motivo nuevo>.`, m);
+      cambiarMotivoEnListaNegra(entrada.chat, entrada.jid, motivo);
+      return client.sendText(m.chat, `✏️ Cambié el motivo de ${nombreDe(entrada.lid || entrada.jid)} en la lista negra.`, m);
+    }
   }
 
   // work out the target user and the reason for being blacklisted
@@ -130,7 +157,6 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
     // Someone named further on, and nobody right after the command. Replying to someone else's message, whoever wrote
     // it may be who was meant, or the one named: it asks, rather than guess and remove the wrong one.
     const accion = command === "ln" ? "anotar" : "sacar";
-    const deOtro = m.quoted?.sender && ![m.sender, m.senderJid].includes(m.quoted.sender) && !esElBot(m.quoted.sender, client);
     if (deOtro) return client.sendText(m.chat, `No sé a quién ${accion}: si a quien escribió el mensaje que respondiste o a quien nombrás en el texto. Poné primero a quién (${forma}), o respondé el mensaje sin nombrar a nadie más.`, m);
     return client.sendText(m.chat, `Poné a quién ${accion} justo después de ${usedPrefix}${command}: ${forma}.`, m);
   } else {
@@ -246,6 +272,21 @@ plugin.run = async (m, { client, text, usedPrefix, command, participants, isBotA
 };
 
 export default plugin;
+
+// The entry with that number in the last .vln of this group (".ln2 3", ".ln 3 <motivo>"), and only a recent one: the
+// numbers move up when someone comes off the list, and going by the list as it stood then took off someone other than
+// the one on the screen. The one on the screen is looked for by their LID when their entry had one, which stays with the
+// person while the entry's key changes: by the key alone, once someone else was listed with the number they had
+// (addToBlacklist moves the entry under the LID), ".ln2 3" took that other one off.
+function enLaListaMostrada(chat, numero) {
+  const mostrada = listaNegraMostrada.get(chat);
+  if (!mostrada || Date.now() - mostrada.fecha >= MOSTRADA_MS) return { vieja: true };
+  const vista = mostrada.porNumero.get(numero);
+  const entrada = vista && getBlacklist(chat).find((e) => e.chat === vista.chat && (vista.lid ? e.lid === vista.lid : e.jid === vista.jid));
+  return { vista, entrada };
+}
+
+const noEstaEnLaLista = (numero, vista, usedPrefix) => `No hay ningún ${numero} en la lista negra de este grupo${vista ? ": ya lo sacaron" : ""}. Mirala con ${usedPrefix}vln.`;
 
 // A reason as the group reads it (.vln there): without the listed person's own number or LID, which one from before the
 // reasons left them out still has ("@59899555555 estafa"), with the LIDs the bot knows as names, and anyone else as

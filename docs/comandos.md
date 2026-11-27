@@ -322,7 +322,7 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 | `.economia [días]` 🪙 | Panel de UruCoins: circulación, entradas y salidas por rubro. |
 | `.evento <título> \| <opciones> \| <cierre>` 📊 | Solo admins: abre un mercado de apuestas. Ej: .evento Peñarol vs Nacional \| Peñarol \| Empate \| Nacional \| 20:30. Para un partido de .partidos: .evento partido 12 (el resultado a los 90 minutos) o .evento partido 12 pasa (quién pasa de fase), y el resultado lo cargo yo. |
 | `.resolver 7 Nacional` 📊 | Solo admins: carga el resultado de un mercado en el que no apostaste; con "anulado", devuelve todo. |
-| `.ln @mención <motivo>` 🚫 | Lista negra del grupo: no puede entrar acá (a admins no). |
+| `.ln @mención <motivo>` 🚫 | Lista negra del grupo: no puede entrar acá (a admins no). .ln 3 &lt;motivo&gt; le cambia el motivo al 3 de .vln. |
 | `.ln2 @mención` ☑️ | Sacar de la lista negra del grupo (o .ln2 y su número en .vln). |
 | `.vln` 📋 | Ver la lista negra del grupo. |
 | `.admins <mensaje>` 🪧 | Llama a los admins con un mensaje. |

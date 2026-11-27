@@ -521,6 +521,12 @@ export function recordarLidEnListaNegra(chat, jid, lid) {
   return db.prepare(`UPDATE lista_negra SET lid = ? WHERE chat = ? AND jid = ? AND (lid IS NULL OR lid = '')`).run(lid, chat, jid).changes > 0;
 }
 
+// change the reason of an entry (".ln 3 <motivo nuevo>"): only the reason, the date and who listed them stay. true if
+// the entry was there. It never adds one, as addToBlacklist would.
+export function cambiarMotivoEnListaNegra(chat, jid, reason) {
+  return db.prepare(`UPDATE lista_negra SET reason = ? WHERE chat = ? AND jid = ?`).run(reason, chat, jid).changes > 0;
+}
+
 // remove from a group's blacklist; true if they were on it. Takes a number or a LID.
 export function removeFromBlacklist(id, chat = "*") {
   if (!id) return false;

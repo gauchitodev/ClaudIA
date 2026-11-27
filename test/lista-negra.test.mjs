@@ -243,7 +243,7 @@ test(".vln en un grupo nombra sin números ni menciones, y .ln2 saca por el núm
   assert.doesNotMatch(lista.text, /5989\d|@\d/, "ni números ni LID");
   assert.equal(lista.mentions, undefined, "y no arroba a nadie");
   assert.match(lista.text, /\d\. Beto\n📝 Razón: estafa\n👤 Añadido por: Ana\n/);
-  assert.match(lista.text, /Para sacar a alguien: \.ln2 <su número en esta lista>$/);
+  assert.match(lista.text, /\nPara sacar a alguien: \.ln2 <su número en esta lista>\nPara cambiarle el motivo: \.ln <su número> <motivo nuevo>$/);
 
   const numeroDe = (patron) => lista.text.match(new RegExp(`(\\d+)\\. ${patron}`))[1];
   const [deBeto, delOtro, delGlobal] = [numeroDe("Beto"), numeroDe("alguien\\n📝 Razón: spam"), numeroDe("alguien 🌐")];
@@ -281,6 +281,139 @@ test(".ln2 con un número, sin una .vln de la última media hora, pide mirar la 
   await correr("ln2", "1");
   assert.match(ultimo(), /^Mirá la lista negra con \.vln/);
   assert.ok(F.isBlacklisted("59899000601@s.whatsapp.net", G));
+});
+
+// Someone on the list is out of the group: they can't be mentioned, and .vln there shows no numbers. ".ln" again changed
+// the reason of whoever was on the list already, but naming them, with the mention or the number, which an admin who
+// didn't list them seldom had, and one listed by LID had none. ".ln 3 …" answered that it knew of no such user.
+test(".ln con el número de .vln le cambia el motivo a ese, y deja quién lo anotó y cuándo", async () => {
+  F.initDataDB({ chat: G, sender: "701@lid", senderJid: "59899000701@s.whatsapp.net", pushName: "Rita" });
+  F.initDataDB({ chat: G, sender: "300000000000702@lid", senderJid: "", pushName: "Tito" });
+  F.initDataDB({ chat: G, sender: "300000000000703@lid", senderJid: "", pushName: "Dani" });
+  F.addToBlacklist("59899000701@s.whatsapp.net", "spam", "59899100100@s.whatsapp.net", G, "701@lid");
+  F.addToBlacklist("300000000000702@lid", "molesta", "59899100100@s.whatsapp.net", G, "300000000000702@lid"); // by LID: no number known
+  F.addToBlacklist("59899000701@s.whatsapp.net", "spam en otro", "59899100100@s.whatsapp.net", "otro@g.us", "701@lid");
+  await correr("vln", "");
+  const lista = ultimoEnviado().msg.text;
+  const numeroDe = (nombre) => lista.match(new RegExp(`(\\d+)\\. ${nombre}\\n`))[1];
+  const comoEstaba = (e) => [e.chat, e.jid, e.lid, e.dateAdded, e.addedBy];
+  const antes = F.getBlacklist(G).map(comoEstaba);
+
+  await correr("ln", `${numeroDe("Rita")} se fue con la plata de @300000000000703`, { mentionedJid: ["300000000000703@lid"] });
+  assert.equal(ultimo(), "✏️ Cambié el motivo de Rita en la lista negra.");
+  await correr("ln", `#${numeroDe("Tito")}: insulta a todos`);
+  assert.equal(ultimo(), "✏️ Cambié el motivo de Tito en la lista negra.");
+
+  assert.deepEqual(F.getBlacklist(G).map((e) => e.reason), ["se fue con la plata de @Dani", "insulta a todos"], "la mención, por su nombre, como en los otros motivos");
+  assert.deepEqual(F.getBlacklist(G).map(comoEstaba), antes, "la fecha, quién lo anotó y su LID quedan");
+  assert.deepEqual(F.getBlacklist("otro@g.us").map((e) => e.reason), ["spam en otro"], "su entrada en otro grupo queda como estaba");
+  assert.equal(expulsiones.length, 0, "no echa a nadie");
+});
+
+test(".ln con un número de la lista: sin una .vln reciente, uno que no está, uno de todos los grupos o sin motivo, no cambia nada", async () => {
+  F.initDataDB({ chat: G, sender: "711@lid", senderJid: "59899000711@s.whatsapp.net", pushName: "Lola" });
+  F.addToBlacklist("59899000711@s.whatsapp.net", "spam", "", G, "711@lid");
+  F.addToBlacklist("59899000712@s.whatsapp.net", "de todos", "owner", "*");
+  listaNegraMostrada.delete(G);
+  await correr("ln", "1 estafa");
+  assert.equal(ultimo(), "Mirá la lista negra con .vln y después usá .ln con el número que aparece ahí y el motivo nuevo: los números cambian cuando alguien sale de la lista.");
+
+  await correr("vln", "");
+  const lista = ultimoEnviado().msg.text;
+  const [deLola, delGlobal] = [lista.match(/(\d+)\. Lola\n/)[1], lista.match(/(\d+)\. alguien 🌐/)[1]];
+  await correr("ln", `${delGlobal} otra cosa`);
+  assert.equal(ultimo(), "Está en la lista negra de todos los grupos: solo el dueño del bot le puede cambiar el motivo, desde el privado.");
+  await correr("ln", deLola);
+  assert.equal(ultimo(), `Poné el motivo nuevo después del número: .ln ${deLola} <motivo nuevo>.`);
+  await correr("ln", "9 estafa");
+  assert.equal(ultimo(), "No hay ningún 9 en la lista negra de este grupo. Mirala con .vln.");
+  F.removeFromBlacklist("59899000711@s.whatsapp.net", G);
+  await correr("ln", `${deLola} estafa`);
+  assert.equal(ultimo(), `No hay ningún ${deLola} en la lista negra de este grupo: ya lo sacaron. Mirala con .vln.`);
+  F.addToBlacklist("59899000711@s.whatsapp.net", "spam", "", G, "711@lid");
+  listaNegraMostrada.get(G).fecha -= 31 * 60 * 1000; // half an hour went by
+  await correr("ln", `${deLola} estafa`);
+  assert.match(ultimo(), /^Mirá la lista negra con \.vln/);
+  // In private there's no list on the screen: the owner names them by the number .vln shows there, as always.
+  await P.run(mensaje({ chat: PRIVADO_VLN, isGroup: false }), { client: conexion.client, text: "1 estafa", command: "ln", usedPrefix: ".", participants: [], isBotAdmin: true, isOwner: true, isWaAdmin: false });
+  assert.match(ultimo(), /^\*\[❕\]\* No hay registro del usuario mencionado/);
+
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.chat, e.reason]), [["*", "de todos"], [G, "spam"]], "no cambió ni agregó nada");
+  assert.equal(expulsiones.length, 0);
+});
+
+// Replying to someone's message, ".ln <motivo>" lists whoever wrote it, and the reason may start with a number: with that
+// number on the list on the screen, it asks, rather than remove whoever wrote it or change a reason nobody meant.
+test(".ln con un número respondiendo un mensaje: con ese número en la pantalla pregunta, y si no, anota a quien lo escribió", async () => {
+  F.initDataDB({ chat: G, sender: "721@lid", senderJid: "59899000721@s.whatsapp.net", pushName: "Mora" });
+  F.addToBlacklist("59899000721@s.whatsapp.net", "spam", "", G, "721@lid");
+  await correr("vln", ""); // Mora is the 1
+
+  await correr("ln", "1 estafa", { quoted: { sender: "222@lid" } });
+  assert.equal(ultimo(), "No sé si querés cambiarle el motivo al 1 de la lista negra o anotar a quien escribió el mensaje que respondiste. Si es el 1, mandá .ln 1 <motivo nuevo> sin responder ningún mensaje; si es quien escribió, poné el motivo sin un número adelante.");
+  assert.equal(F.isBlacklisted("222@lid", G), null, "no anotó a quien escribió");
+  assert.equal(F.isBlacklisted("59899000721@s.whatsapp.net", G).reason, "spam", "ni le cambió el motivo al 1");
+
+  // Answering the list, the bot's own message, it's the one on the list; and so answering a message of one's own.
+  await correr("ln", "1 estafa", { quoted: { sender: "999000@lid" } });
+  assert.equal(ultimo(), "✏️ Cambié el motivo de Mora en la lista negra.");
+  assert.equal(F.isBlacklisted("59899000721@s.whatsapp.net", G).reason, "estafa");
+  await correr("ln", "1 estafa con transferencias", { quoted: { sender: "100@lid" } });
+  assert.equal(F.isBlacklisted("59899000721@s.whatsapp.net", G).reason, "estafa con transferencias");
+  assert.equal(expulsiones.length, 0);
+
+  // A number glued to letters isn't one on the list ("1ra", "2da"); and with no 2 on the screen, "2 …" is the reason.
+  // Both as they always were.
+  await correr("ln", "1ra vez que lo agarramos estafando", { quoted: { sender: "111@lid" } });
+  assert.equal(F.isBlacklisted("111@lid", G)?.reason, "1ra vez que lo agarramos estafando");
+  await correr("ln", "2 veces me estafó", { quoted: { sender: "222@lid" } });
+  assert.equal(F.isBlacklisted("222@lid", G)?.reason, "2 veces me estafó");
+  assert.deepEqual(expulsiones, [
+    { chat: G, ids: ["111@lid"], accion: "remove" },
+    { chat: G, ids: ["222@lid"], accion: "remove" },
+  ]);
+});
+
+// A phone number typed without its "+" isn't a number on the list: with its 0 ("099 123 456") never, and without it
+// ("99 123 456") what follows starts with a digit, so with a 99 on the screen it asks.
+test(".ln con un teléfono sin el +: no lo toma por un número de la lista", async () => {
+  for (let i = 0; i < 98; i++) F.addToBlacklist(`5989810${String(i).padStart(4, "0")}@s.whatsapp.net`, "relleno", "", G);
+  F.initDataDB({ chat: G, sender: "731@lid", senderJid: "59899000731@s.whatsapp.net", pushName: "Nico" });
+  F.addToBlacklist("59899000731@s.whatsapp.net", "spam", "", G, "731@lid");
+  const sinRegistro = /^\*\[❕\]\* No hay registro del usuario mencionado/;
+  listaNegraMostrada.delete(G);
+  await correr("ln", "99 123 456 estafa");
+  assert.match(ultimo(), sinRegistro, "sin la lista en la pantalla, como siempre");
+
+  await correr("vln", "");
+  assert.match(ultimoEnviado().msg.text, /^99\. Nico\n/, "Nico es el 99");
+  await correr("ln", "099 123 456 estafa");
+  assert.match(ultimo(), sinRegistro, "con su 0, como siempre");
+  await correr("ln", "99 123 456 estafa");
+  assert.equal(ultimo(), "No sé si es el 99 de la lista negra o un teléfono. Si es el 99, escribí el motivo nuevo sin un número adelante; si es un teléfono, ponelo con el + (.ln +59899999999 motivo).");
+  assert.equal(F.isBlacklisted("59899000731@s.whatsapp.net", G).reason, "spam");
+  assert.equal(expulsiones.length, 0);
+});
+
+// The entry follows the person: once someone else is listed with the number they had, theirs goes under their LID
+// (addToBlacklist). Going by the key the list had, ".ln2 1" took off the other one, who wasn't on the screen.
+test("con el número de la lista, .ln2 y .ln van a quien estaba en la pantalla, aunque después anoten a otro con su número de antes", async () => {
+  F.initDataDB({ chat: G, sender: "741@lid", senderJid: "59899000741@s.whatsapp.net", pushName: "Vero" });
+  const armar = async () => {
+    db.exec("DELETE FROM lista_negra");
+    F.addToBlacklist("59899000741@s.whatsapp.net", "spam", "", G, "741@lid");
+    await correr("vln", ""); // Vero is the 1
+    F.addToBlacklist("59899000741@s.whatsapp.net", "otra cosa", "", G, "742@lid");
+  };
+  await armar();
+  await correr("ln2", "1");
+  assert.equal(ultimo(), "☑️ Saqué de la lista negra a Vero.");
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.lid, e.reason]), [["742@lid", "otra cosa"]], "el otro sigue anotado");
+
+  await armar();
+  await correr("ln", "1 estafa");
+  assert.equal(ultimo(), "✏️ Cambié el motivo de Vero en la lista negra.");
+  assert.deepEqual(F.getBlacklist(G).map((e) => [e.lid, e.reason]), [["741@lid", "estafa"], ["742@lid", "otra cosa"]]);
 });
 
 // In a group listed by number the mention comes by number, and the reason kept "@59899… estafa": the whole group reads
