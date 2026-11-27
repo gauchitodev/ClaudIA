@@ -510,6 +510,38 @@ export function ponerAlDia(db) {
     )
   `);
 
+  // The job board (lib/bolsa.js). bolsa_disponibles: who put themselves down as looking for work in a group (.disponible),
+  // with a line of their own (nota), since when (it lapses after some days unless renewed). bolsa_changas: the one-day
+  // jobs a boss posts (.ofrecerchanga): what it is, what it pays, whether it comes from the company's caja (empresa, its
+  // id) or from the boss's pocket (empresa 0), the message it went out as (answering it is taking it), until when it
+  // stands, and estado 'abierta', 'tomada' (by tomador, at tomada) or 'vencida' (the money went back).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bolsa_disponibles (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      nota TEXT DEFAULT '',
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bolsa_changas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      patron TEXT NOT NULL,
+      empresa INTEGER DEFAULT 0,
+      titulo TEXT NOT NULL,
+      paga INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      creada INTEGER NOT NULL,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta',
+      tomador TEXT DEFAULT '',
+      tomada INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bolsa_changas ON bolsa_changas (chat, estado)`);
+
   // The secret missions (lib/espias.js). espias_agentes: who signed up in each group, in private, and the secret emoji
   // they go by there (one of each per group); usuario is the id the group knows them by, their LID when there is one,
   // and jid their number, when known. espias_misiones: each envelope posted to a group: whose it is (agente, and the
