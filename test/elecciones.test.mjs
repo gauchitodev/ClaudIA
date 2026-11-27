@@ -510,3 +510,33 @@ test("el manual de Claudia cuenta las elecciones con los números de ELECCION, y
   assert.equal(CAMBIOS[0].titulo, "Elecciones en el pueblo");
   for (const pregunta of ["cómo voto en las elecciones?", "quién puede ser candidato a intendente", "qué es el juicio político"]) assert.match(conocimientoPara(pregunta), /LAS ELECCIONES/, pregunta);
 });
+
+test("elecciones: el que se fue del grupo no gana: su lista queda afuera, y el intendente que se va deja el sillón", async () => {
+  const chat = "seva@g.us";
+  await enCampana(chat);
+  E.anotarCandidato(chat, BETO, "");
+  E.anotarCandidato(chat, CARLA, "");
+  irA(T0 + E.ELECCION.CAMPANA_DIAS * DIA);
+  await ronda(chat);
+  assert.equal(E.votar(chat, ANA, 1).ok, true);
+  assert.equal(E.votar(chat, DANI, 1).ok, true);
+  assert.equal(E.votar(chat, EMI, 2).ok, true);
+  // Beto, ahead, leaves the group before the count.
+  irA(eleccion(chat).cierra_votacion + HORA);
+  Cache.guardar(client, chat, { subject: "Pueblo seva", participants: [...participantes(GENTE.filter((x) => x !== BETO)), { id: "bot@lid" }] });
+  assert.equal(await ronda(chat), true);
+  const texto = textoDe(ultimo());
+  assert.match(texto, /Lista 1, Beto: se fue del grupo, sus votos no cuentan/);
+  assert.match(texto, /@300000000000093 \*es el nuevo intendente\*/);
+  assert.equal(fila(chat).intendente, CARLA);
+  // Then Carla leaves too: the town's own takes over, and it's news.
+  Cache.guardar(client, chat, { subject: "Pueblo seva", participants: [...participantes([ANA, DANI, EMI]), { id: "bot@lid" }] });
+  irA(Date.now() + HORA);
+  assert.equal(await ronda(chat), true);
+  assert.match(textoDe(ultimo()), /Carla se fue del grupo y dejó el sillón vacío/);
+  assert.equal(fila(chat).intendente, "");
+  assert.equal(P.estadoDe(chat).intendente.persona, false);
+  assert.ok(P.hechosDesde(chat, 0).some((h) => h.tipo === "intendente_se_fue"));
+  // With no list of participants at hand, nobody is taken out.
+  assert.deepEqual(E.sacarAusentes(eleccion(chat), null), []);
+});
