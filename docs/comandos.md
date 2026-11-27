@@ -2,7 +2,7 @@
 
 _Generado desde `lib/menu.js` y `lib/menu-ventas.js` con `npm run comandos`: no se edita a mano, y un test (`test/guia-comandos.test.mjs`) avisa si quedó viejo._
 
-Los comandos van con un punto adelante (`.menu`), pegado o con un espacio (`. menu`), y con o sin tildes (`.menú`); también andan `/` y `@`. En un grupo, `.menu` muestra lo más usado ahí y los temas; `.menu <tema>` abre uno y `.menu todo` los trae todos. No se ofrece lo que el grupo tiene apagado (`.juegos`, `.casino`, `.monedas`, o un juego solo con `.juego`), lo que necesita que Claudia sea admin cuando no lo es, ni lo que el rol de quien pregunta no puede usar. En la charla, Claudia también explica sus comandos si se le pregunta.
+Los comandos van con un punto adelante (`.menu`), pegado o con un espacio (`. menu`), y con o sin tildes (`.menú`); también andan `/` y `@`. En un grupo, `.menu` muestra lo más usado ahí y los temas; `.menu <tema>` abre uno y `.menu todo` los trae todos. Con una palabra que no es un tema, `.menu` busca los comandos parecidos, como `.buscarcomando <palabra>`: por el nombre, aunque esté mal escrito, o por lo que hacen; y a un comando que no existe, Claudia le contesta con los más parecidos. No se ofrece lo que el grupo tiene apagado (`.juegos`, `.casino`, `.monedas`, o un juego solo con `.juego`), lo que necesita que Claudia sea admin cuando no lo es, ni lo que el rol de quien pregunta no puede usar. En la charla, Claudia también explica sus comandos si se le pregunta.
 
 ## Temas
 
@@ -421,6 +421,7 @@ _Para todos. Se abre con `.menu menus`, `.menu menu`, `.menu otros`, `.menu comp
 | `.menuventas` 🛒 | Compraventa: publicar, buscar, alertas y calificaciones. |
 | `.menuaero` ✈️ | Meteorología aeronáutica y reloj Zulu. |
 | `.info` 💻 | Sobre el bot: su código es abierto, y dónde está. |
+| `.buscarcomando <palabra>` 🔎 | Los 5 comandos más parecidos, con para qué sirven: por el nombre, aunque no lo escribas bien, o por lo que hacen. .menu &lt;palabra&gt; también busca, si no es un tema. |
 
 <a id="compraventa"></a>
 ## 🏷️ Modo compraventa

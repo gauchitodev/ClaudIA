@@ -17,6 +17,7 @@ import { guardarAtrasado, aplicarAMemoria } from "./lib/memoria-corta.js";
 import txt from "./lib/strings.js";
 import { cargados } from "./lib/plugins-cargados.js";
 import { piezaDe } from "./lib/antiflood.js";
+import { comandosParecidos, bloqueadosEn, MENU } from "./lib/menu.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -214,8 +215,18 @@ export async function handleMessage(nMsg) {
     // Group blacklist mode (.blon + .bladd): blocked commands run for nobody except the owner.
     if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
-    // A name that looks like a command, after "." or "/", that no plugin declares.
-    if (matchPlugins.length === 0) return this.sendText(m.chat, txt.noCommandMatch(command), m);
+    // A name that looks like a command, after "." or "/", that no plugin declares: with the commands most like it that
+    // whoever wrote can use there (lib/menu.js). A search that fails takes only itself down: the answer goes as before.
+    if (matchPlugins.length === 0) {
+      let parecidos = [];
+      try {
+        const bloqueados = bloqueadosEn(m.chat, { isGroup: m.isGroup, datosChat: chat });
+        parecidos = comandosParecidos(command, { usedPrefix, isGroup: m.isGroup, datosChat: chat, isBotAdmin, isOwner, isAdmin, isMod, bloqueados, cuantos: MENU.PARECIDOS_SI_NO_EXISTE });
+      } catch (e) {
+        console.error("[comandos parecidos] ERROR:", e);
+      }
+      return this.sendText(m.chat, txt.noCommandMatch(command, parecidos), m);
+    }
 
     // Run every matching plugin.
     // A missing permission stops ONLY the plugin that asks for it, not the others sharing the command: hence the

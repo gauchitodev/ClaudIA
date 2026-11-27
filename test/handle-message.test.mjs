@@ -1376,6 +1376,37 @@ test("el despachador: a lo que no es un comando no le contesta, y a lo que parec
   assert.deepEqual(corrieron, []);
 });
 
+// A command that doesn't exist gets the menu lines most like it that whoever wrote can use there (comandosParecidos,
+// lib/menu.js): Ana is a member, so not .kick, which is the admins'.
+test("el despachador: a un comando que no existe le sugiere los parecidos que se pueden usar ahí", async () => {
+  cargados.plugins = { "sticker.js": { cmd: ["s", "sticker", "stiker"], run: async () => {} }, "kick.js": { cmd: ["kick"], onlyAdmin: true, botAdmin: true, run: async () => {} } };
+  const client = cliente();
+  const mandar = async (texto) => {
+    globalThis.enviados = [];
+    await llega(client, ANA, texto).hecho;
+    return globalThis.enviados.map((e) => e.msg?.text ?? e.msg?.react?.text);
+  };
+  const { entradasDelMenu } = await import("../lib/menu.js");
+  const deS = entradasDelMenu(".").find((e) => e.cmd === "s").linea;
+  assert.deepEqual(await mandar(".stikcer"), [txt.noCommandMatch("stikcer", [deS])]);
+  assert.equal(txt.noCommandMatch("stikcer", [deS]), `*[❌]* El comando "stikcer" no existe. Lo más parecido:\n${deS}\n\nPuede ver el menú con .menu`);
+  assert.deepEqual(await mandar(".kik"), [txt.noCommandMatch("kik")], "a un miembro no le sugiere lo de los admins");
+  // Nor what's blocked in the group (blacklist mode, .bladd).
+  F.updateChat(GRUPO, { blacklistMode: 1 });
+  F.addToChatBlacklist(GRUPO, "s");
+  try {
+    assert.deepEqual(await mandar(".stikcer"), [txt.noCommandMatch("stikcer")]);
+  } finally {
+    F.removeFromChatBlacklist(GRUPO, "s");
+    F.updateChat(GRUPO, { blacklistMode: 0 });
+  }
+  // With the real plugins of the stickers, flags and all, three at most. Only those: with every plugin, the hooks run too.
+  const deStickers = ["s", "stickerazar", "ttp", "ttp2", "img", "wm", "emojimix"];
+  cargados.plugins = Object.fromEntries(Object.entries(carpeta).filter(([, p]) => !p.before && p.cmd?.some((c) => deStickers.includes(c))));
+  const [respuesta] = await mandar(".sticke");
+  assert.equal(respuesta.split("\n").filter((l) => l.startsWith("▸")).length, 3, respuesta);
+});
+
 // Before admin mode and the banned notice: a banned person who wrote "..." or mentioned someone got "ESTÁS BANEADO".
 test("el despachador: a un baneado que escribe «...» o menciona a alguien no le llega el aviso de baneado", async () => {
   cargados.plugins = { "probar.js": { cmd: ["probar"], run: async () => {} } };

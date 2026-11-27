@@ -69,7 +69,7 @@ test("menú: cada uno ve los temas que puede usar", () => {
   // In private: no group rank, and the menus that only work in groups aren't offered.
   const privado = menu({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null });
   assert.doesNotMatch(privado, /admins/);
-  assert.match(privado, /🗂️ \*Otros menús:\* \.menuaero · \.info$/);
+  assert.match(privado, /🗂️ \*Otros menús:\* \.menuaero · \.info · \.buscarcomando$/);
 });
 
 test("menú: los temas se encuentran por alias, sin importar acentos, + ni mayúsculas", () => {
