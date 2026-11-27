@@ -362,7 +362,9 @@ export function ponerAlDia(db) {
 
   // The companies of "modo patrón" (lib/empresas.js): whoever reaches the top level of a trade founds one. Each has its
   // own cash box (caja), apart from its owner's pocket, what it has billed since it was founded (facturado, which
-  // sets its category) and the news its owner hasn't read yet (novedades). visto is when the owner last showed up.
+  // with what the company is worth sets its category) and the news its owner hasn't read yet (novedades). visto is
+  // when the owner last showed up. categoria is the category its owner was last told of (-1: not known yet, for a
+  // company older than the column) and categoria_max the highest it ever had, so the paper hears of each one once.
   db.exec(`
     CREATE TABLE IF NOT EXISTS empresas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -376,9 +378,26 @@ export function ponerAlDia(db) {
       visto INTEGER NOT NULL,
       ultima_jornada TEXT DEFAULT '', -- the day its owner last worked in it
       novedades TEXT DEFAULT '',
+      categoria INTEGER DEFAULT -1,
+      categoria_max INTEGER DEFAULT -1,
       UNIQUE (chat, patron)
     )
   `);
+  const columnasEmpresas = db.prepare(`PRAGMA table_info(empresas)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["categoria", "INTEGER DEFAULT -1"], ["categoria_max", "INTEGER DEFAULT -1"]]) {
+    if (!columnasEmpresas.includes(columna)) db.exec(`ALTER TABLE empresas ADD COLUMN ${columna} ${definicion}`);
+  }
+  // What was put into a company's caja from a pocket, and when: it counts for what the company is worth only some days
+  // later (EMPRESA.DEPOSITO_DIAS), so a category isn't bought with money that comes in and goes right back out.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_depositos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_depositos ON empresas_depositos (empresa, fecha)`);
   // What a company owns: estado goes from 100 down with each use, and a service brings it back; usado is the last
   // day it was worked with (one shift a day each).
   db.exec(`

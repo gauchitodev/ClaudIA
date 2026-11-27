@@ -177,7 +177,7 @@ test("comprar bienes: de la caja, por categoría, con tope, y las mejoras rinden
   assert.ok(E.depositar(G, "ana@lid", 20000).ok);
   assert.match(E.comprarBien(G, "nadie@lid", "camion").error, /No tenés empresa/);
   assert.match(E.comprarBien(G, "ana@lid", "vacas").error, /no lo vende nadie para tu rubro/);
-  assert.match(E.comprarBien(G, "ana@lid", "semi").error, /Semirremolque es para una PyME y \*Fletes Ana\* todavía es Changarín: le falta facturar 2000\./);
+  assert.match(E.comprarBien(G, "ana@lid", "semi").error, /Semirremolque es para una PyME y \*Fletes Ana\* todavía es Changarín: le falta facturar 2000 o valer 5000 \(hoy vale 900\)\./, "lo depositado recién no cuenta para el valor");
 
   // Changarín: 2 posts, so up to 3 goods.
   assert.match(E.comprarBien(G, "ana@lid", "Camión chico").mensaje, /\*Fletes Ana\* compró: Camión chico\..*\nRinde 60 por jornada, si tiene quién lo trabaje\. Quedan 19100 en la caja\./);
@@ -197,7 +197,7 @@ test("comprar bienes: de la caja, por categoría, con tope, y las mejoras rinden
   assert.match(E.comprarBien(G, "ana@lid", "camion").error, /Camión chico sale 900 y en la caja de \*Fletes Ana\* hay 10\. .*\.caja depositar 890/);
 
   // The owner works with the best one, and with the shed it wears 3 instead of 4. The shift takes it past 2000 again.
-  db.prepare(`UPDATE empresas SET facturado = 1900 WHERE id = ?`).run(e.id);
+  db.prepare(`UPDATE empresas SET facturado = 1900, categoria = 0 WHERE id = ?`).run(e.id);
   const r = E.jornadaDelPatron(G, "ana@lid");
   assert.equal(r.monto, 160, "110 del semirremolque por el +45 %");
   assert.equal(E.bienesDe(E.empresaDe(G, "ana@lid")).find((b) => b.bien === "semi").estado, 97);
@@ -206,7 +206,7 @@ test("comprar bienes: de la caja, por categoría, con tope, y las mejoras rinden
   const texto = E.textoBienes(E.empresaDe(G, "ana@lid"));
   assert.match(texto, /🚚 \*Bitren\* — 4500 · rinde 190 por jornada 🔒 desde Empresa · \.comprar bitren/);
   assert.match(texto, /🏚️ \*Galpón\* — 1500 · mejora: todo se gasta menos · \.comprar galpon/);
-  assert.match(texto, /Changarín \(desde 0 facturados: 2 puestos, 3 bienes\) → PyME \(desde 2000/);
+  assert.match(texto, /Changarín \(de entrada: 2 puestos, 3 bienes\) → PyME \(desde 2000 facturados o 5000 de valor: 4 puestos, 5 bienes\)/);
 
   // A tambo's cold tank adds 10 % to what it bills.
   const t = patron(G, "tita@lid", "tambero", "Tambo Tita", 2000);
@@ -225,13 +225,13 @@ test("el tablero y la lista de empresas del grupo", () => {
   assert.equal(E.textoEmpresas(G), "🏭 *Empresas del grupo*\n1. 🐄 *Tambo Beto* — Beto · PyME · facturó 2500\n2. 🪩 *Boliche El Aguante* — Ana · Changarín · facturó 100\nPara laburar en una, que su patrón te haga una oferta (.contratar): las tuyas están en .ofertas");
 
   const ajeno = E.textoEmpresa(E.empresaDe(G, "ana@lid"));
-  assert.equal(ajeno, "🪩 *Boliche El Aguante* — boliche de Ana\n🏷️ Changarín · facturó 100 (faltan 1900 para PyME)\n💰 Caja: 0 UruCoins\n\n🔩 *Bienes* (1 de 3)\n1. 🔊 Equipo de sonido — 100 % · rinde 65\n\n👥 *Personal* (0 de 2 puestos)\nNadie todavía: el patrón solo, como en los comienzos.");
+  assert.equal(ajeno, "🪩 *Boliche El Aguante* — boliche de Ana\n🏷️ Changarín · facturó 100 · vale 1000 (para PyME: facturar 2000 o valer 5000)\n💰 Caja: 0 UruCoins\n\n🔩 *Bienes* (1 de 3)\n1. 🔊 Equipo de sonido — 100 % · rinde 65\n\n👥 *Personal* (0 de 2 puestos)\nNadie todavía: el patrón solo, como en los comienzos.");
   assert.equal(fila(a).novedades, "algo pasó", "las novedades son para su patrón");
   const propio = E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true });
   assert.match(propio, /📋 \*Novedades\*\nalgo pasó\n\n_\.bienes: qué comprar/);
   assert.equal(fila(a).novedades, "", "leídas, no se repiten");
   db.prepare(`UPDATE empresas SET facturado = 40000 WHERE id = ?`).run(b.id);
-  assert.match(E.textoEmpresa(E.empresaDe(G, "beto@lid")), /🏷️ Grupo empresarial · facturó 40000, lo más alto que hay/);
+  assert.match(E.textoEmpresa(E.empresaDe(G, "beto@lid")), /🏷️ Grupo empresarial · facturó 40000 · vale 840, lo más alto que hay/);
 });
 
 test("los comandos: .fundar, .empresa, .caja, .comprar un bien y la jornada con .cobrar", async () => {
@@ -684,4 +684,62 @@ test("los comandos del personal: .contratar, .firmar, .contraoferta, .despedir, 
   assert.match(despido.text, /^📦 .*, estás despedido: ya no sos chofer de \*Fletes Ana\*\. Te llevás 40 UruCoins/);
   assert.deepEqual(despido.mentions, [BETO]);
   assert.match((await correr(Empleados, BETO, ".rechazaroferta")).text, /^❌ No hay ninguna oferta/);
+});
+
+test("categoría por valor: la plata depositada cuenta a los días, las deudas se restan y se pierde si el valor baja", () => {
+  const G = "valor@g.us";
+  const DIA = 24 * 3600e3;
+  assert.deepEqual([0, 4999, 5000, 14999, 15000, 50000].map(E.categoriaPorValor), [0, 0, 1, 1, 2, 3]);
+  assert.ok(E.CATEGORIAS.every((c, i) => !i || (c.valor > E.CATEGORIAS[i - 1].valor && c.valor >= c.desde)), "el valor pide más que lo facturado");
+  const e = patron(G, "ana@lid", "camionero", "Fletes Ana", 30000);
+
+  // Put in today: it doesn't count, not even turned into a truck right away.
+  assert.match(E.depositar(G, "ana@lid", 15000).mensaje, /cuenta en 3 días/);
+  assert.equal(E.categoriaEmpresa(E.empresaDe(G, "ana@lid")), 0);
+  assert.ok(E.comprarBien(G, "ana@lid", "camion").ok);
+  assert.equal(E.valorDeEmpresa(E.empresaDe(G, "ana@lid")).total, 14100 + 1800 - 15000, "la caja y dos camiones, menos lo depositado entero");
+  assert.match(E.comprarBien(G, "ana@lid", "semi").error, /le falta facturar 2000 o valer 5000 \(hoy vale 900\)/);
+  const propio = E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true });
+  assert.match(propio, /🏷️ Changarín · facturó 0 · vale 900 \(para PyME: facturar 2000 o valer 5000\)\n⏳ 15000 que pusiste en la caja cuentan para el valor desde el \w+ \d+ a las \d\d:\d\d/);
+  assert.doesNotMatch(E.textoEmpresa(E.empresaDe(G, "ana@lid")), /⏳/, "eso lo ve su patrón nomás");
+
+  // Three days later it counts: an Empresa by what it's worth, said once, and news for the paper once.
+  db.prepare(`UPDATE empresas_depositos SET fecha = fecha - ? WHERE empresa = ?`).run(3 * DIA + 1000, e.id);
+  const ahora = E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true });
+  assert.match(ahora, /🏷️ Empresa \(por lo que vale\) · facturó 0 · vale 15900 \(para Grupo empresarial: facturar 40000 o valer 50000\)/);
+  assert.match(ahora, /🏆 \*Fletes Ana\* subió de categoría por lo que vale: ahora es \*Empresa\* \(7 puestos/);
+  assert.deepEqual([fila(e).categoria, fila(e).categoria_max], [2, 2], "la más alta que tuvo: para el diario del pueblo, una vez");
+  assert.doesNotMatch(E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true }), /🏆/, "se dice una vez");
+  assert.ok(E.comprarBien(G, "ana@lid", "bitren").ok, "con la categoría, los bienes grandes");
+
+  // A loan isn't worth: what the owner owes comes off.
+  db.prepare(`INSERT INTO banco_prestamos (chat, deudor, monto, total, saldo, cuota, cuotas, creado) VALUES (?, 'ana@lid', 6000, 6500, 6500, 900, 8, ?)`).run(G, Date.now());
+  assert.equal(E.valorDeEmpresa(E.empresaDe(G, "ana@lid")).total, 15900 - 6500);
+  assert.match(E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true }), /🏦 Al valor se le descuentan 6500 que debe Ana[^]*📉 \*Fletes Ana\* bajó a \*PyME\*/);
+  db.prepare(`DELETE FROM banco_prestamos WHERE chat = ?`).run(G);
+  assert.match(E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true }), /🏆 \*Fletes Ana\* subió de categoría por lo que vale: ahora es \*Empresa\*/, "paga y vuelve");
+
+  // Taking the money out takes the category down; what it has stays, and nothing new of the bigger ones comes in.
+  for (let i = 0; i < 3; i++) assert.ok(E.contratarNPC(G, "ana@lid", "chofer").ok);
+  const retiro = E.retirar(G, "ana@lid", 9000);
+  assert.match(retiro.mensaje, /📉 \*Fletes Ana\* bajó a \*PyME\*: lo que vale ya no le da para Empresa, y lo facturado tampoco\. Los bienes y la gente que ya tiene se quedan/);
+  assert.equal(E.empleadosDe(E.empresaDe(G, "ana@lid")).length, 3);
+  assert.match(E.comprarBien(G, "ana@lid", "bitren").error, /es para una Empresa y \*Fletes Ana\* todavía es PyME/);
+  // Back up to where it was: told again (the paper already had it: it hears of the highest one it never had).
+  assert.ok(E.depositar(G, "ana@lid", 9000, Date.now() - 4 * DIA).ok);
+  assert.deepEqual([fila(e).categoria, fila(e).categoria_max], [1, 2]);
+  assert.match(E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true }), /🏆 \*Fletes Ana\* subió de categoría por lo que vale: ahora es \*Empresa\*/);
+
+  // A company from before the column is noted the first time, with nothing to say.
+  db.prepare(`UPDATE empresas SET categoria = -1, categoria_max = -1 WHERE id = ?`).run(e.id);
+  assert.doesNotMatch(E.textoEmpresa(E.empresaDe(G, "ana@lid"), { propio: true }), /🏆|📉/);
+  assert.deepEqual([fila(e).categoria, fila(e).categoria_max], [2, 2]);
+});
+
+test("el manual de Claudia dice las categorías con los números de CATEGORIAS", async () => {
+  const { MANUAL } = await import("../lib/manual-claudia.js");
+  const [, pyme, empresa, grupo] = E.CATEGORIAS;
+  assert.ok(MANUAL.includes(`${pyme.nombre} (${pyme.desde} facturados o ${pyme.valor} de valor, ${pyme.puestos} puestos)`));
+  for (const c of [empresa, grupo]) assert.ok(MANUAL.includes(`${c.nombre} (${c.desde} facturados o ${c.valor} de valor, ${c.puestos})`), c.nombre);
+  assert.ok(MANUAL.includes(`cuenta para el valor recién a los ${E.EMPRESA.DEPOSITO_DIAS} días`));
 });

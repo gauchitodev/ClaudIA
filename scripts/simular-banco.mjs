@@ -2,15 +2,21 @@
 // [semanas] [escenario]. It runs on a database of its own, in a temp folder, with a group of players of different
 // kinds: a worker who saves, a saver who locks all he can for 180 days, a boss who borrows to buy a semi for his
 // company, a gambler who loses in the timba and borrows from a neighbour, a lender, a deadbeat who borrows and spends
-// it all, the political intendente who leans the rate down whenever he can, and someone who barely plays. Each day they
+// it all, the political intendente who leans the rate down whenever he can, and someone who barely plays. With
+// heredero, an heir too, who comes in with a fortune and founds a company with it: the money he puts in its caja waits
+// its days before it counts for the category (lib/empresas.js), and the category it gave him goes when he takes it
+// out. Each day they
 // earn what the game pays (a wage by their trade's level and the town, and what the chat, the games and the streak
 // give), spend in the shop and the timba, and use the bank as their kind does; the town lives its days and the bank its
 // rounds. Every week it prints the money of the town, the inflation, the rate, the deposits and the debts, and at the
 // end what the bank minted and destroyed, and checks the economy's limits: nobody under zero, the rate in its bounds,
-// no money printed out of nothing beyond the deposits' interest, nobody broke for good.
+// no money printed out of nothing beyond the deposits' interest, nobody broke for good, and the heir's category by what
+// his company is worth neither early nor kept once the worth is gone.
 // Escenarios: "normal" (the default), "boom" (everyone earns three times as much: the rate has to climb) and
 // "recesion" (they earn a third and gamble more: it has to come down). The test (test/banco-simulacion.test.mjs) runs
-// the three, shorter, and checks the same limits.
+// the three, shorter, and checks the same limits; and the three again with the heir, apart, so the runs the bank was
+// tuned with stay as they were (his money moves the town, and with it everyone's dice). From the command line, a third
+// word "heredero" runs them with him: node scripts/simular-banco.mjs 10 normal heredero
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -49,6 +55,11 @@ const PERFILES = [
   { nombre: "politico", oficio: "politico", nivel: 5, charla: 50, tienda: 0.04, timba: 10 },
   { nombre: "casual", oficio: "mozo", nivel: 1, charla: 10, tienda: 0.02, timba: 0 },
 ];
+// The heir: a camionero of level 10 with a fortune, who puts most of it into his company's caja the first day, buys
+// the big trucks once the category lets him, works them with two of Claudia's drivers, and on diaRetiro takes out all
+// but dejar of the caja. He plays nothing else and rolls no dice of his own.
+const HEREDERO = { nombre: "heredero", oficio: "camionero", nivel: 10, herencia: 20000, deposito: 17000, diaRetiro: 10, dejar: 1000 };
+
 const ESCENARIOS = {
   normal: { ingresos: 1, timba: 1 },
   boom: { ingresos: 3, timba: 1 },
@@ -56,8 +67,8 @@ const ESCENARIOS = {
 };
 
 // Runs the weeks on the database already open (database-functions.js's), in its own group. Returns { semanas
-// (one report a week), final, problemas }.
-export async function simular({ semanas = 8, escenario = "normal", semilla = 7, chat = `sim-${escenario}@g.us`, log = () => {} } = {}) {
+// (one report a week), final, problemas }. With heredero, the heir plays too.
+export async function simular({ semanas = 8, escenario = "normal", semilla = 7, heredero: conHeredero = false, chat = `sim-${escenario}${conHeredero ? "-heredero" : ""}@g.us`, log = () => {} } = {}) {
   const azar = dado(semilla);
   const entero = (n) => Math.floor(azar() * n);
   B._dep.azar = entero;
@@ -80,10 +91,22 @@ export async function simular({ semanas = 8, escenario = "normal", semilla = 7, 
   const empresaId = db.prepare(`SELECT id FROM empresas WHERE chat = ? AND patron = ?`).get(chat, patron.id).id;
   db.prepare(`INSERT INTO empresas_bienes (empresa, bien, comprado) VALUES (?, 'camion', ?)`).run(empresaId, INICIO);
 
+  // The heir and his company, founded and filled the first day.
+  const heredero = conHeredero ? { ...HEREDERO, id: "300000000000999@lid" } : null;
+  let herencia = null;
+  if (heredero) {
+    initDataDB({ chat, sender: heredero.id, senderJid: "", pushName: heredero.nombre });
+    moverCoins(chat, heredero.id, heredero.herencia, "test_carga");
+    db.prepare(`INSERT OR REPLACE INTO laburos (chat, usuario, laburo, desde, ultimo_cobro, cobros) VALUES (?, ?, ?, ?, '', ?)`).run(chat, heredero.id, heredero.oficio, INICIO - 90 * DIA, L.cobrosParaNivel(heredero.nivel));
+    db.prepare(`INSERT INTO empresas (chat, patron, tipo, nombre, caja, fundada, visto, categoria, categoria_max) VALUES (?, ?, 'camionero', 'Fletes Herencia', 0, ?, ?, 0, 0)`).run(chat, heredero.id, INICIO, Date.now());
+    herencia = db.prepare(`SELECT id FROM empresas WHERE chat = ? AND patron = ?`).get(chat, heredero.id).id;
+    db.prepare(`INSERT INTO empresas_bienes (empresa, bien, comprado) VALUES (?, 'camion', ?)`).run(herencia, INICIO);
+  }
   const saldo = (g) => getSaldoCoins(chat, g.id);
   const de = (nombre) => gente.find((g) => g.nombre === nombre);
-  const cuenta = { ingresos: 0, timba: 0, tienda: 0, facturado: 0, impuesto: 0, remates: 0, embargos: 0, presiones: 0, rebotes: 0, p2p: 0, prestamos: 0 };
+  const cuenta = { ingresos: 0, timba: 0, tienda: 0, facturado: 0, impuesto: 0, remates: 0, embargos: 0, presiones: 0, rebotes: 0, p2p: 0, prestamos: 0, herencia: 0, herederoSubio: null, herederoBajo: null };
   const problemas = [];
+  if (heredero && !E.depositar(chat, heredero.id, heredero.deposito, INICIO).ok) problemas.push("el heredero no pudo depositar");
   const reportes = [];
   let masaInicial = null;
   let minimo = Infinity;
@@ -130,6 +153,49 @@ export async function simular({ semanas = 8, escenario = "normal", semilla = 7, 
     P.registrarHecho(chat, "facturacion", { monto: factura }, ahora);
     cuenta.facturado += factura;
     cuenta.impuesto += impuesto;
+
+    // The heir's company: never a step for money that hasn't waited its days, never one kept once the worth is gone.
+    // Once the category lets him he buys the big trucks; it bills what they yield (his own shift, and two of Claudia's
+    // drivers at their share and wage), and on diaRetiro he takes money out, paying the DGI.
+    if (heredero) {
+      const h = E.empresaDe(chat, heredero.id);
+      const categoria = E.categoriaEmpresa(h, ahora);
+      const porFacturado = E.categoriaDe(h.facturado);
+      const valor = E.valorDeEmpresa(h, ahora).total;
+      if (d < E.EMPRESA.DEPOSITO_DIAS && categoria > porFacturado) problemas.push(`día ${d}: la plata depositada del heredero contó antes de tiempo (${E.CATEGORIAS[categoria].nombre})`);
+      if (categoria > porFacturado && cuenta.herederoSubio === null) cuenta.herederoSubio = d;
+      const tiene = new Set(E.bienesDe(h).map((b) => b.bien));
+      for (const clave of ["bitren", "semi"]) {
+        const def = E.EMPRESAS.camionero.bienes[clave];
+        const precio = Math.round(def.precio * P.modificador(chat, "precios", ahora));
+        if (!tiene.has(clave) && def.categoria <= categoria && h.caja >= precio) {
+          db.prepare(`UPDATE empresas SET caja = caja - ? WHERE id = ?`).run(precio, herencia);
+          db.prepare(`INSERT INTO empresas_bienes (empresa, bien, comprado) VALUES (?, ?, ?)`).run(herencia, clave, ahora);
+          h.caja -= precio;
+          log(`  día ${d}: el heredero compró ${def.nombre} (${E.CATEGORIAS[categoria].nombre}, vale ${valor})`);
+        }
+      }
+      const rindes = E.bienesDe(h).filter((b) => b.def.rinde).map((b) => b.def.rinde).sort((a, b) => b - a);
+      const choferes = rindes.slice(1, 3);
+      const sueldos = choferes.length * Math.ceil(E.EMPRESAS.camionero.puestos.chofer.sueldo * E.EMPRESA.NPC_SUELDO);
+      const factura = Math.round(((rindes[0] || 0) * 1.45 + choferes.reduce((s, r) => s + r * E.EMPRESA.NPC_RINDE, 0)) * P.modificador(chat, "empresa:camionero", ahora) * esc.ingresos);
+      const impuesto = P.cobrarImpuesto(chat, factura);
+      db.prepare(`UPDATE empresas SET caja = MAX(0, caja + ? - ?), facturado = facturado + ? WHERE id = ?`).run(factura - impuesto, sueldos, factura, herencia);
+      P.registrarHecho(chat, "facturacion", { monto: factura }, ahora);
+      cuenta.herencia += factura;
+      if (d === heredero.diaRetiro) {
+        const antes = E.categoriaEmpresa(E.empresaDe(chat, heredero.id), ahora);
+        const retiro = Math.max(0, E.empresaDe(chat, heredero.id).caja - heredero.dejar);
+        db.prepare(`UPDATE empresas SET caja = caja - ? WHERE id = ?`).run(retiro, herencia);
+        ganarCoins(chat, heredero.id, Math.round(retiro * (1 - E.EMPRESA.IMPUESTO_RETIRO)), "test_retiro");
+        const despues = E.empresaDe(chat, heredero.id);
+        const ahoraEs = E.categoriaEmpresa(despues, ahora);
+        const vale = E.valorDeEmpresa(despues, ahora).total;
+        log(`  día ${d}: el heredero retiró ${retiro}: de ${E.CATEGORIAS[antes].nombre} a ${E.CATEGORIAS[ahoraEs].nombre} (facturó ${despues.facturado}, vale ${vale})`);
+        if (ahoraEs > Math.max(E.categoriaDe(despues.facturado), E.categoriaPorValor(vale))) problemas.push(`día ${d}: el heredero sacó la plata y se quedó con la categoría`);
+        cuenta.herederoBajo = ahoraEs < antes;
+      }
+    }
 
     // What each one does with the bank.
     const yo = (n) => de(n).id;
@@ -228,10 +294,11 @@ export async function simular({ semanas = 8, escenario = "normal", semilla = 7, 
         atrasados: clearing.filter((x) => x.estado === "atrasado").length,
         promedio: Math.round(gente.reduce((s, g) => s + saldo(g), 0) / gente.length),
         eventos: pueblo.eventos.map((x) => x.clave).join(",") || "-",
+        heredero: heredero ? E.CATEGORIAS[E.categoriaEmpresa(E.empresaDe(chat, heredero.id), ahora)].nombre : "-",
       };
       reportes.push(reporte);
       log(
-        `sem ${String(reporte.semana).padStart(2)} | masa ${String(masa).padStart(6)} | infl ${String(reporte.inflacion ?? "-").padStart(5)} % | tasa ${String(tasa).padStart(3)} % | precios x${reporte.precios.toFixed(2)} | prosp ${String(reporte.prosperidad).padStart(3)} | plazos fijos ${String(depositos).padStart(5)} | deuda banco ${String(deuda).padStart(5)} | entre vecinos ${String(p2p).padStart(4)} | intereses pagados ${String(reporte.intereses).padStart(4)} | clearing ${reporte.morosos}M/${reporte.atrasados}A | saldo medio ${String(reporte.promedio).padStart(5)} | ${reporte.eventos}`,
+        `sem ${String(reporte.semana).padStart(2)} | masa ${String(masa).padStart(6)} | infl ${String(reporte.inflacion ?? "-").padStart(5)} % | tasa ${String(tasa).padStart(3)} % | precios x${reporte.precios.toFixed(2)} | prosp ${String(reporte.prosperidad).padStart(3)} | plazos fijos ${String(depositos).padStart(5)} | deuda banco ${String(deuda).padStart(5)} | entre vecinos ${String(p2p).padStart(4)} | intereses pagados ${String(reporte.intereses).padStart(4)} | clearing ${reporte.morosos}M/${reporte.atrasados}A | saldo medio ${String(reporte.promedio).padStart(5)} | heredero ${reporte.heredero} | ${reporte.eventos}`,
       );
     }
   }
@@ -261,13 +328,14 @@ export async function simular({ semanas = 8, escenario = "normal", semilla = 7, 
 // Run as a script: a database of its own in a temp folder.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const semanas = Number(process.argv[2]) || 8;
-  const escenarios = process.argv[3] ? [process.argv[3]] : Object.keys(ESCENARIOS);
+  const escenarios = process.argv[3] && ESCENARIOS[process.argv[3]] ? [process.argv[3]] : Object.keys(ESCENARIOS);
+  const heredero = process.argv.slice(3).includes("heredero");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claudia-sim-banco-"));
   process.chdir(dir);
   loadDatabase();
   for (const escenario of escenarios) {
-    console.log(`\n=== ${escenario.toUpperCase()}: ${semanas} semanas, ${PERFILES.length} jugadores ===`);
-    const r = await simular({ semanas, escenario, log: (l) => console.log(l) });
+    console.log(`\n=== ${escenario.toUpperCase()}: ${semanas} semanas, ${PERFILES.length} jugadores${heredero ? " y el heredero" : ""} ===`);
+    const r = await simular({ semanas, escenario, heredero, log: (l) => console.log(l) });
     console.log("final:", JSON.stringify(r.final));
     console.log(r.problemas.length ? `⚠️ problemas:\n${r.problemas.join("\n")}` : "✅ sin problemas: nadie bajo cero, la tasa en sus límites, ni plata de la nada ni deudas que se disparan");
   }
