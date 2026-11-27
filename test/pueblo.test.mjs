@@ -241,16 +241,19 @@ test("pueblo: el día lleva los números hacia su reposo, una vez por día", asy
   assert.equal(P.diaDelPueblo(chat), false, "una vez por día");
 });
 
-test("pueblo: el político de más nivel es intendente y fija el impuesto, una vez por semana", async () => {
+test("pueblo: el intendente ya no es automático; el electo fija el impuesto, una vez por semana", async () => {
   const chat = "intendente@g.us";
   await pueblo(chat);
   assert.equal(P.estadoDe(chat).intendente.persona, false);
-  oficio(chat, BETO, "politico", 1); // nivel 1: not yet
-  assert.equal(P.evaluarIntendente(chat), null);
+  // The político of the highest level doesn't take over any more: the group elects (lib/elecciones.js).
   oficio(chat, BETO, "politico", 10); // nivel 3
-  assert.deepEqual(P.evaluarIntendente(chat), { antes: "", ahora: BETO });
+  fijar(chat, { dia: "2000-01-01" });
+  P.diaDelPueblo(chat);
+  assert.equal(P.estadoDe(chat).intendente.persona, false, "nadie asume sin elecciones");
+  assert.equal(P.evaluarIntendente, undefined);
+  assert.match(await comando(chat, BETO, "impuesto 15"), /lo elige el grupo una vez por mes: \.elecciones/);
+  fijar(chat, { intendente: BETO, mandatos: 1 });
   assert.equal(P.estadoDe(chat).intendente.usuario, BETO);
-  assert.equal(P.hechosDesde(chat, 0)[0].tipo, "intendente");
   // Only the intendente, within the limits, and once a week.
   assert.match(await comando(chat, ANA, "impuesto 5"), /lo fija @/);
   fijar(chat, { impuesto_fijado: 0 });
@@ -260,9 +263,11 @@ test("pueblo: el político de más nivel es intendente y fija el impuesto, una v
   assert.match(await comando(chat, BETO, "impuesto 5"), /una vez por semana/);
   assert.equal(P.cobrarImpuesto(chat, 200), 30);
   assert.equal(fila(chat).arcas, 30);
-  // Out of the trade, the town's own takes over again.
+  // Out of the trade, still intendente: only a count or a juicio político take it away.
   oficio(chat, BETO, "mozo", 0);
-  assert.deepEqual(P.evaluarIntendente(chat), { antes: BETO, ahora: "" });
+  fijar(chat, { dia: "2000-01-01" });
+  P.diaDelPueblo(chat);
+  assert.equal(P.estadoDe(chat).intendente.usuario, BETO);
 });
 
 test("pueblo: con plata en las arcas, la intendencia hace obra y sube lo que está más bajo", async () => {

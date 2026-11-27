@@ -669,6 +669,15 @@ export function ponerAlDia(db) {
   for (const [columna, definicion] of [["inflacion", "REAL DEFAULT 0"], ["bienvenida", "INTEGER DEFAULT 0"]]) {
     if (!columnasPueblos.includes(columna)) db.exec(`ALTER TABLE pueblos ADD COLUMN ${columna} ${definicion}`);
   }
+  // The elections (lib/elecciones.js): how many terms in a row the intendente has served (mandatos; reelection is
+  // allowed once in a row) and who was removed by a juicio político and can't run in the next one (inhabilitado). An
+  // intendente from before the elections (the político of the highest level, back then) stays until the first one,
+  // and counts as having served one term.
+  if (!columnasPueblos.includes("mandatos")) {
+    db.exec(`ALTER TABLE pueblos ADD COLUMN mandatos INTEGER DEFAULT 0`);
+    db.exec(`UPDATE pueblos SET mandatos = 1 WHERE intendente != ''`);
+  }
+  if (!columnasPueblos.includes("inhabilitado")) db.exec(`ALTER TABLE pueblos ADD COLUMN inhabilitado TEXT DEFAULT ''`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS pueblo_hechos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -720,6 +729,84 @@ export function ponerAlDia(db) {
     CREATE TABLE IF NOT EXISTS pueblo_ilustraciones (
       mes TEXT PRIMARY KEY,
       usadas INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // The town's elections (lib/elecciones.js). elecciones: one a month per town (mes, "2026-12"), with when it was
+  // announced, when signing up closes and when voting does, estado 'campana', 'votacion', 'cerrada' or 'anulada' (the
+  // town went to sleep), and once counted the winner ('' for the town's own) and the count (resultado, JSON).
+  // elecciones_candidatos: who runs, their number on the ballot, their slogan, their votes (a tally: the ballot box
+  // keeps who voted, never for whom) and estado 'activo', 'baja' (stood down) or 'descalificado' (a bribe came out).
+  // elecciones_votos: who voted in each one, without what. elecciones_promesas: the bribes (.prometer), the money held
+  // until the count: 'pendiente', 'pagada', 'devuelta' or 'decomisada'. elecciones_juicios: the juicios políticos
+  // against an intendente, with the signatures they need and until when; elecciones_firmas: who signed.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      mes TEXT NOT NULL,
+      anuncio INTEGER NOT NULL,
+      cierra_inscripcion INTEGER NOT NULL,
+      cierra_votacion INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'campana',
+      ganador TEXT DEFAULT '',
+      resultado TEXT DEFAULT '{}',
+      cerrada INTEGER DEFAULT 0,
+      UNIQUE (chat, mes)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_elecciones_estado ON elecciones (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_candidatos (
+      eleccion INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      frase TEXT DEFAULT '',
+      votos INTEGER NOT NULL DEFAULT 0,
+      estado TEXT NOT NULL DEFAULT 'activo',
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (eleccion, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_votos (
+      eleccion INTEGER NOT NULL,
+      votante TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (eleccion, votante)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_promesas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      eleccion INTEGER NOT NULL,
+      chat TEXT NOT NULL,
+      candidato TEXT NOT NULL,
+      votante TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      UNIQUE (eleccion, candidato, votante)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_juicios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      intendente TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      hasta INTEGER NOT NULL,
+      necesarias INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'abierto'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_elecciones_juicios ON elecciones_juicios (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_firmas (
+      juicio INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (juicio, usuario)
     )
   `);
 

@@ -155,7 +155,7 @@ test("el intendente aprieta al banco: solo él, una vez cada dos semanas, y la t
   const chat = "presion@g.us";
   grupo(chat);
   B.estadoBanco(chat);
-  assert.match(B.presionarTasa(chat, ANA, "baja", QUINCE).error, /Para ser intendente/);
+  assert.match(B.presionarTasa(chat, ANA, "baja", QUINCE).error, /lo elige el grupo/);
   fijarPueblo(chat, { intendente: ANA });
   assert.match(B.presionarTasa(chat, BETO, "baja", QUINCE).error, /ese es @/);
   assert.match(B.presionarTasa(chat, ANA, "costado", QUINCE).error, /¿Para dónde\?/);
