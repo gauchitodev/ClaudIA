@@ -116,6 +116,32 @@ test("config: on y off fijan el interruptor, sin nada lo invierte, y otra palabr
   assert.match(ultimo(), /Usá \.casino on o \.casino off/);
 });
 
+// .config showed each switch's state, but some fifteen without the command that changes it ("❌ Bot reacciona" was
+// .reacciones, "❌ Alertas de grupo" .detect), and nothing said how: each ✅/❌ names its command now, the owner's two
+// say they're his, and the line under the heading says it's with on and off.
+test(".config: cada ✅ o ❌ dice con qué comando se cambia, y arriba, que es con on y off", async () => {
+  const chat = "config-comandos@g.us";
+  F.initDataDB({ ...persona(111), chat });
+  const VerConfig = (await import("../plugins/grupo-config.js")).default;
+  await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
+  const texto = ultimo();
+  assert.match(texto, /\n\*Configuración de grupo:\*\n_Las de ✅ y ❌ se prenden con on y se apagan con off: \.charla on, \.charla off\._\n[✅❌] BanChat /);
+  const lineas = texto.split("\n").filter((l) => /^[✅❌]/.test(l));
+  assert.ok(lineas.length >= 35, `muy pocas líneas con ✅ o ❌ (${lineas.length})`);
+  // The switches: plugins/config-on-off.js's, and those with a plugin of their own.
+  const interruptores = new Set([...Config.cmd, "iniciativa", "changas", "espias", "encargos", "pueblo"]);
+  const comandoDe = (linea) => linea.match(/ \(\.(\w+)(?:, solo el owner)?\)$/)?.[1];
+  assert.deepEqual(
+    lineas.filter((l) => !interruptores.has(comandoDe(l))),
+    [],
+    "cada una termina con el comando que la cambia",
+  );
+  assert.deepEqual(
+    lineas.filter((l) => l.endsWith(", solo el owner)")).map(comandoDe),
+    ["bc", "menciones"],
+  );
+});
+
 // .antiubicacion, with or without the accent, turns the deletion of live locations on and off for the group; it comes
 // off, and .config says how it is.
 test(".antiubicacion: apagada por defecto, se prende y se apaga, y .config la muestra", async () => {
@@ -168,7 +194,7 @@ test(".antiflood: apagada por defecto, la prende y la apaga un admin, y .config 
     await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
     return ultimo();
   };
-  assert.match(await panel(), /\n❌ Anti mensajes de ver una vez \(\.antivistaunica\)\n❌ Anti flood: 8 mensajes en 10 segundos \(\.antiflood\)\n[✅❌] Uso de juegos\n/);
+  assert.match(await panel(), /\n❌ Anti mensajes de ver una vez \(\.antivistaunica\)\n❌ Anti flood: 8 mensajes en 10 segundos \(\.antiflood\)\n[✅❌] Uso de juegos \(\.juegos\)\n/);
 
   await config(["on"]);
   assert.match(ultimo(), /Opción: `antiflood`\n• Estado: Activado$/);

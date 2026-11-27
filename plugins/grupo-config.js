@@ -18,6 +18,8 @@ plugin.run = async (m, { client, groupMetadata, chat }) => {
   const admins = conRol("admin");
   const mods = conRol("mod");
 
+  // Each ✅/❌ names the command that switches it, and the line under the heading says how: some fifteen named none,
+  // so "❌ Bot reacciona" gave no way to know it was .reacciones (test/modo.test.mjs).
   const text = `
 [⚙️] 𝙲𝙾𝙽𝙵𝙸𝙶 𝙳𝙴 𝙶𝚁𝚄𝙿𝙾 [⚙️]
   
@@ -26,19 +28,20 @@ plugin.run = async (m, { client, groupMetadata, chat }) => {
 ${groupMetadata.id}
   
 *Configuración de grupo:*
-${isBanned ? "✅" : "❌"} BanChat
-${adminMode ? "✅" : "❌"} Solo admins
-${adultMode ? "✅" : "❌"} Modo adulto
-${antiGroups ? "✅" : "❌"} AntiLinks grupos WhatsApp
-${antiChannels ? "✅" : "❌"} AntiLinks canales WhatsApp
-${allAntiLinks ? "✅" : "❌"} Anti cualquier link
-${antiInstagram ? "✅" : "❌"} Anti links Instagram
-${antiTiktok ? "✅" : "❌"} Anti links TikTok
-${antiTelegram ? "✅" : "❌"} Anti links Telegram
+_Las de ✅ y ❌ se prenden con on y se apagan con off: .charla on, .charla off._
+${isBanned ? "✅" : "❌"} BanChat (.bc, solo el owner)
+${adminMode ? "✅" : "❌"} Solo admins (.modoadmin)
+${adultMode ? "✅" : "❌"} Modo adulto (.18)
+${antiGroups ? "✅" : "❌"} AntiLinks grupos WhatsApp (.antigrupos)
+${antiChannels ? "✅" : "❌"} AntiLinks canales WhatsApp (.anticanales)
+${allAntiLinks ? "✅" : "❌"} Anti cualquier link (.antilink2)
+${antiInstagram ? "✅" : "❌"} Anti links Instagram (.antiinstagram)
+${antiTiktok ? "✅" : "❌"} Anti links TikTok (.antitiktok)
+${antiTelegram ? "✅" : "❌"} Anti links Telegram (.antitelegram)
 ${antiLiveLocation ? "✅" : "❌"} Anti ubicación en tiempo real (.antiubicacion)
 ${antiViewOnce ? "✅" : "❌"} Anti mensajes de ver una vez (.antivistaunica)
 ${antiFlood ? "✅" : "❌"} Anti flood: ${limiteEnPalabras()} (.antiflood)
-${games ? "✅" : "❌"} Uso de juegos
+${games ? "✅" : "❌"} Uso de juegos (.juegos)
 ${casino ? "✅" : "❌"} Casino y apuestas (.casino)
 ${diversion === 0 ? "❌" : "✅"} Diversión: parejas, familias, frases, horóscopo, temáticas, ranking (.diversion)
 ${convertidores === 0 ? "❌" : "✅"} Stickers y convertidores: .s, .ttp, .tts, .qr, efectos de audio (.convertidores)
@@ -49,11 +52,11 @@ ${stickersAuto ? "✅" : "❌"} Stickers por su cuenta (.respuestastickers)
 🕒 Horario de juegos: ${horarioJuegos ? `${horarioJuegos.replace("-", " a ")}; los mercados, ${mercadosEnHorario ? "también (.horariojuegos mercados off)" : "a cualquier hora (.horariojuegos mercados on)"}` : "sin horario (.horariojuegos)"}
 🌙 Horario del grupo: ${horarioGrupo ? `${horarioGrupo.replace("-", " a ")} (se cierra solo fuera de eso)${horarioGrupoFalla ? " ⚠️ no lo puedo cumplir: ¿sigo siendo admin?" : ""}` : "sin horario (.horariogrupo)"}
 📋 Reglas: ${reglas ? "cargadas (.reglas)" : "sin cargar (.reglas set <texto>)"}
-${welcome ? "✅" : "❌"} Welcome - Bye
-${detect ? "✅" : "❌"} Alertas de grupo
-${mentions ? "✅" : "❌"} Uso de .tagall y ht
-${del ? "✅" : "❌"} Anti Eliminar Mensajes
-${reactions ? "✅" : "❌"} Bot reacciona
+${welcome ? "✅" : "❌"} Welcome - Bye (.welcome)
+${detect ? "✅" : "❌"} Alertas de grupo (.detect)
+${mentions ? "✅" : "❌"} Uso de .tagall y ht (.menciones, solo el owner)
+${del ? "✅" : "❌"} Anti Eliminar Mensajes (.antieliminar)
+${reactions ? "✅" : "❌"} Bot reacciona (.reacciones)
 ${preguntaDia ? "✅" : "❌"} Pregunta del día (.preguntadeldia)
 ${triviaRelampago ? "✅" : "❌"} Trivia relámpago (.triviarelampago)
 ${changas ? "✅" : "❌"} Changas grupales por mi cuenta (.changas)

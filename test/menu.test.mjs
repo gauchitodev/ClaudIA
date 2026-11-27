@@ -65,7 +65,7 @@ test("menú: cada uno ve los temas que puede usar", () => {
   assert.match(temas(OWNER), /🥷 owner/);
   assert.equal(menu({ pedido: "admins" }), "🛡️ Ese tema es para admins y moderadores del grupo.");
   assert.equal(menu({ pedido: "owner", ...MOD }), "🥷 Ese tema es solo del owner del bot.");
-  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._\n▸ \.modoadmin/);
+  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las de on\|off se prenden con on y se apagan con off: [^\n]+\n▸ \.modoadmin on\|off /);
   // In private: no group rank, and the menus that only work in groups aren't offered.
   const privado = menu({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null });
   assert.doesNotMatch(privado, /admins/);
@@ -87,7 +87,7 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
   const miembro = menu({ pedido: "todo" });
   const mod = menu({ pedido: "TODO", ...MOD });
   assert.doesNotMatch(miembro, /Configuración|Admins y moderadores/);
-  assert.match(mod, /⚙️ \*Configuración\*\n_Las opciones de on u off, sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo solos muestran cómo están\._/);
+  assert.match(mod, /⚙️ \*Configuración\*\n_Las de on\|off se prenden con on y se apagan con off: /);
   assert.doesNotMatch(mod, /viceversa/, "el título viejo, de antes de que los interruptores aceptaran on y off");
   assert.doesNotMatch(mod, /▸ \.vendo/, "la compraventa está en .menuventas");
   const principales = (texto) => texto.split("\n").map((l) => M.comandoDeLinea(l)).filter(Boolean);
@@ -98,6 +98,23 @@ test("menú: .menu todo trae todo lo que esa persona puede ver, sin repetir", ()
     ["antecedentes", "reglas", "redes", "enviados"],
     "solo .antecedentes, .reglas y .redes, que están para todos y como .antecedentes @mención, .reglas set y .redes instagram <link> para admins, y .enviados, que está para admins y como .enviados todo para el owner",
   );
+});
+
+// The switches said how they're used on three lines of the config topic: .iniciativa, .diario and .voz had their
+// on|off, so ".charla" read as a command used alone, and the note took on and off as known ("las opciones de on u
+// off, sin nada, se invierten"). Every switch of plugins/config-on-off.js has it right after the command now, in the
+// config topic and in the owner's, and the note says it with an example.
+test("menú: cada interruptor dice cómo se usa, con on|off pegado al comando, y la nota lo explica", () => {
+  const interruptores = new Set(cargados.plugins["config-on-off"].cmd);
+  const lineas = M.entradasDelMenu(".").filter((e) => interruptores.has(e.cmd));
+  assert.ok(lineas.length >= 30, `muy pocas líneas de interruptores (${lineas.length})`);
+  assert.deepEqual(
+    lineas.filter((e) => !/^▸ \.\w+(?: \/ \.\w+)? on\|off /.test(e.linea)).map((e) => e.linea),
+    [],
+  );
+  assert.ok(lineas.some((e) => e.seccion.clave === "owner"), "los del owner también");
+  const { nota } = M.seccionesDelMenu(".").find((s) => s.clave === "config");
+  assert.match(nota, /^_Las de on\|off se prenden con on y se apagan con off: \.charla on, \.charla off\. Sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo, solos, muestran cómo están\. \.config muestra cómo está cada una\._$/);
 });
 
 // The economy and the casino were .menuuru, a menu apart written by hand for one group: .menu todo didn't show them,
@@ -164,7 +181,7 @@ test("menú: no ofrece lo que los interruptores del grupo apagan, y si se lo pid
   assert.equal(menu({ pedido: "audio", datosChat: COMPRAVENTA }), "🎚️ Ese tema está apagado en este grupo: un admin lo prende con .convertidores on.");
   assert.match(menu({ pedido: "extras", datosChat: COMPRAVENTA }), /\n▸ \.r 👁️ /);
   assert.match(menu({ pedido: "admins", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.sacarsticker 🃏 /);
-  assert.match(menu({ pedido: "config", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.respuestastickers 🃏 /);
+  assert.match(menu({ pedido: "config", datosChat: COMPRAVENTA, ...MOD }), /\n▸ \.respuestastickers on\|off 🃏 /);
   // The fun alone off, in a group of friends: its topics go, the games stay.
   const SIN_DIVERSION = { ...ABIERTO, diversion: 0 };
   assert.match(temas({ datosChat: SIN_DIVERSION }), /🎮 juegos/);

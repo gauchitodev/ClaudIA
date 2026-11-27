@@ -337,48 +337,48 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 
 _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `.menu ajustes`._
 
-> _Las opciones de on u off, sin nada, se invierten; .juego, .iniciativa, .diario, .voz, .horariojuegos y .modo solos muestran cómo están._
+> _Las de on|off se prenden con on y se apagan con off: .charla on, .charla off. Sin nada, se invierten; .juego, .iniciativa, .diario, .voz, .horariojuegos y .modo, solos, muestran cómo están. .config muestra cómo está cada una._
 
 | Comando | Qué hace |
 |---|---|
-| `.modoadmin` 🛡️ | Bot únicamente para admins y moderadores, menos .notagall, .sitagall, .noaura y .siaura. |
-| `.antigrupos` 🔗 | Elimina links de grupos de WhatsApp. |
-| `.anticanales` 🔗 | Elimina links de canales de WhatsApp. |
-| `.antilink2` 🔗 | Elimina todos los links que envian al chat. |
-| `.antitiktok` 🔗 | Elimina links de TikTok. |
-| `.antiinstagram` 🔗 | Elimina links de Instagram. |
-| `.antitelegram` 🔗 | Elimina links de Telegram. |
-| `.antiubicacion` 📍 | Borra la ubicación en tiempo real que comparte quien no es admin ni moderador. |
-| `.antivistaunica / .avu` 👁️ | Borra las fotos, los videos y los audios de ver una vez que manda quien no es admin ni moderador. |
-| `.antiflood` 🌊 | A quien manda 8 mensajes en 10 segundos sin ser admin ni moderador le pide que afloje y, si sigue, le pone una advertencia (a la tercera, afuera). No borra nada. |
-| `.antiestados` 📵 | Avisa y expulsa a quien menciona al grupo en un estado (si Claudia es admin; a mods y admins no). |
-| `.welcome` 👋 | Da la bienvenida a nuevos participantes. |
-| `.detect` 👀 | Avisa cuando hay nuevos admins, o se hacen cambios en el grupo. |
-| `.antieliminar` 🗑️ | Reenvía mensajes eliminados en el chat. |
-| `.18` 🔞 | Búsquedas +18 en .imagen. |
-| `.juegos` 🎮 | Prende o apaga todos los juegos (on u off); con el nombre de uno, solo ese: .juegos mines off. |
+| `.modoadmin on\|off` 🛡️ | Bot únicamente para admins y moderadores, menos .notagall, .sitagall, .noaura y .siaura. |
+| `.antigrupos on\|off` 🔗 | Elimina links de grupos de WhatsApp. |
+| `.anticanales on\|off` 🔗 | Elimina links de canales de WhatsApp. |
+| `.antilink2 on\|off` 🔗 | Elimina todos los links que envian al chat. |
+| `.antitiktok on\|off` 🔗 | Elimina links de TikTok. |
+| `.antiinstagram on\|off` 🔗 | Elimina links de Instagram. |
+| `.antitelegram on\|off` 🔗 | Elimina links de Telegram. |
+| `.antiubicacion on\|off` 📍 | Borra la ubicación en tiempo real que comparte quien no es admin ni moderador. |
+| `.antivistaunica / .avu on\|off` 👁️ | Borra las fotos, los videos y los audios de ver una vez que manda quien no es admin ni moderador. |
+| `.antiflood on\|off` 🌊 | A quien manda 8 mensajes en 10 segundos sin ser admin ni moderador le pide que afloje y, si sigue, le pone una advertencia (a la tercera, afuera). No borra nada. |
+| `.antiestados on\|off` 📵 | Avisa y expulsa a quien menciona al grupo en un estado (si Claudia es admin; a mods y admins no). |
+| `.welcome on\|off` 👋 | Da la bienvenida a nuevos participantes. |
+| `.detect on\|off` 👀 | Avisa cuando hay nuevos admins, o se hacen cambios en el grupo. |
+| `.antieliminar on\|off` 🗑️ | Reenvía mensajes eliminados en el chat. |
+| `.18 on\|off` 🔞 | Búsquedas +18 en .imagen. |
+| `.juegos on\|off` 🎮 | Prende o apaga todos los juegos; con el nombre de uno, solo ese: .juegos mines off. |
 | `.juego mines off` ⛔ | Apaga un solo juego en el grupo (o lo prende con on); sin nada, cómo está cada uno. |
-| `.casino` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
-| `.diversion` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos, las temáticas (#quejadelunes y sus listas) y el ranking del mes (.ranking y su anuncio). |
-| `.convertidores` 🔄 | Los stickers y los convertidores: .s, .ttp, .emojimix, .img, .tts, .vn, .tomp3, .qr y los demás, y los efectos de audio. |
-| `.respuestastickers` 🃏 | Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |
+| `.casino on\|off` 🎰 | El casino y las apuestas, aparte del resto de los juegos. |
+| `.diversion on\|off` 🎈 | Los comandos para divertirse: parejas y familias, frases (.orsi, .say), horóscopo, versículos, las temáticas (#quejadelunes y sus listas) y el ranking del mes (.ranking y su anuncio). |
+| `.convertidores on\|off` 🔄 | Los stickers y los convertidores: .s, .ttp, .emojimix, .img, .tts, .vn, .tomp3, .qr y los demás, y los efectos de audio. |
+| `.respuestastickers on\|off` 🃏 | Que Claudia mande stickers sola (al contestar y cuando mira el grupo). |
 | `.horariojuegos 20:00-23:00` 🕒 | El casino, el ta-te-ti y el 4 en línea solo en ese horario (por grupo); los mercados de apuestas, a cualquier hora, salvo con .horariojuegos mercados on. Con "off" se saca. |
-| `.charla` 💬 | Charla automática de Claudia cuando la nombran. |
+| `.charla on\|off` 💬 | Charla automática de Claudia cuando la nombran. |
 | `.iniciativa on\|off` 🙋 | Claudia participa sola de vez en cuando (reacciona o comenta). Sin nada, muestra cómo viene. |
 | `.diario on\|off` 📔 | Claudia lleva un diario del grupo: pocas líneas por día de qué se habló, sin nombrar a nadie, guardadas 14 días. Sin nada, lo muestra (a cualquiera); con "borrar", lo borra entero. |
 | `.voz on\|aveces\|siempre\|off` 🎙️ | Claudia contesta con nota de voz: on, cuando le hablan por nota de voz; aveces, eso y alguna respuesta corta de vez en cuando; siempre, todo lo que dice (las respuestas largas van por texto). Sin nada, muestra cómo viene. |
 | `.vistazo [prueba]` 👀 | Claudia mira el grupo ya y te cuenta por privado qué decidió; con "prueba" no hace nada. |
-| `.saludos` 👋 | Saludo automático cuando alguien dice hola. |
-| `.saludocumple` 🎂 | Claudia saluda el día de su cumpleaños a quien lo anotó con .cumple. |
-| `.monedas` 🪙 | Economía de UruCoins del grupo. |
-| `.ascensos` 🎖️ | Avisos de ascenso de rango. |
+| `.saludos on\|off` 👋 | Saludo automático cuando alguien dice hola. |
+| `.saludocumple on\|off` 🎂 | Claudia saluda el día de su cumpleaños a quien lo anotó con .cumple. |
+| `.monedas on\|off` 🪙 | Economía de UruCoins del grupo. |
+| `.ascensos on\|off` 🎖️ | Avisos de ascenso de rango. |
 | `.modo compraventa\|amigos` ⚙️ | Apaga o prende todo eso de una, según el tipo de grupo. |
-| `.catalogoauto` 🛒 | En modo compraventa, el catálogo con los teléfonos sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
-| `.mercadosauto` ⚽ | Los mercados que abro sola un día antes de cada partido de Peñarol o Nacional. |
-| `.reacciones` 💚 | El bot reacciona a mensajes. |
-| `.preguntadeldia` 💬 | Pregunta del día para arrancar charla. |
-| `.triviarelampago` ⚡ | Trivias sorpresa con premio. |
-| `.recapsemanal` 📅 | Resumen automático los domingos. |
+| `.catalogoauto on\|off` 🛒 | En modo compraventa, el catálogo con los teléfonos sale solo cada 4 horas, de 11 a 21, si el grupo estuvo escribiendo. |
+| `.mercadosauto on\|off` ⚽ | Los mercados que abro sola un día antes de cada partido de Peñarol o Nacional. |
+| `.reacciones on\|off` 💚 | El bot reacciona a mensajes. |
+| `.preguntadeldia on\|off` 💬 | Pregunta del día para arrancar charla. |
+| `.triviarelampago on\|off` ⚡ | Trivias sorpresa con premio. |
+| `.recapsemanal on\|off` 📅 | Resumen automático los domingos. |
 
 <a id="owner"></a>
 ## 🥷 Solo el owner
@@ -399,16 +399,16 @@ _Solo para el owner del bot. Se abre con `.menu owner`, `.menu dueno`._
 | `.setpareja @a @b` 💞 | Los pone de pareja de una; con "\| 3 días", desde hace cuánto. |
 | `.setmarry @a @b` 💍 | Casa a una pareja de una; con "\| 3 días", desde hace cuánto. |
 | `.leave` 👋🏻 | El bot se saldrá del grupo. |
-| `.menciones` 👤 | Que en el grupo anden los arrobazos a todos (.tagall, .tagall2, .ht, .ht2, los de Claudia y los de las encuestas); apagados, solo los hace el owner. |
+| `.menciones on\|off` 👤 | Que en el grupo anden los arrobazos a todos (.tagall, .tagall2, .ht, .ht2, los de Claudia y los de las encuestas); apagados, solo los hace el owner. |
 | `.avisartodos <texto>` 📣 | El mismo aviso a todos los grupos, de a uno y con pausa; .avisartodos cancelar lo corta. |
 | `.join <link>` ➕ | Mete al bot en un grupo por su link de invitación. |
 | `.bloquear @mención` 🚫 | Bloquea a esa persona en WhatsApp (o por su número); .desbloquear lo deshace. |
 | `.addowner <número>` 🥷 | Suma un owner del bot (queda en config.toml); .removeowner lo saca. |
 | `.bladd <comando>` 🔒 | Lista negra de comandos del grupo: .blon la activa y .bloff la apaga, .bladd mines bloquea uno (o una sección entera, .bladd +juegos; .blsecciones las lista), .bldel lo saca y .bllist la muestra. Desde privado, con el número del grupo en .blgrupos. |
 | `.listabanuser` 📋 | Quiénes están baneados del bot. |
-| `.antiprivado` 🚪 | El bot no atiende por privado a nadie más que al owner (ojo: las cartas del póker, .cartas, van por privado). |
-| `.autoread` 👀 | Marca como leído lo que le llega. |
-| `.bc` 🔇 | Banea el chat: el bot deja de atender ahí (a vos no). |
+| `.antiprivado on\|off` 🚪 | El bot no atiende por privado a nadie más que al owner (ojo: las cartas del póker, .cartas, van por privado). |
+| `.autoread on\|off` 👀 | Marca como leído lo que le llega. |
+| `.bc on\|off` 🔇 | Banea el chat: el bot deja de atender ahí (a vos no). |
 | `.aa` 🔼 | Te da admin de WhatsApp en el grupo. |
 
 <a id="menus"></a>

@@ -593,7 +593,7 @@ test("consistencia: el menú, el manual y el README dicen el límite del código
   assert.equal(A.limiteEnPalabras(), "8 mensajes en 10 segundos");
   const M = await import("../lib/menu.js");
   const config = M.seccionesDelMenu(".").find((s) => s.clave === "config").lineas;
-  assert.match(config, /^▸ \.antiflood 🌊 – `A quien manda 8 mensajes en 10 segundos sin ser admin ni moderador le pide que afloje y, si sigue, le pone una advertencia \(a la tercera, afuera\)\. No borra nada\.`$/m);
+  assert.match(config, /^▸ \.antiflood on\|off 🌊 – `A quien manda 8 mensajes en 10 segundos sin ser admin ni moderador le pide que afloje y, si sigue, le pone una advertencia \(a la tercera, afuera\)\. No borra nada\.`$/m);
   const { MANUAL, conocimientoPara } = await import("../lib/manual-claudia.js");
   const minutos = A.ANTIFLOOD.MEMORIA_MS / MIN;
   assert.ok(MANUAL.includes(`o .antiflood, que a quien no es admin ni moderador y manda ${A.limiteEnPalabras()} primero le pide que afloje y, si lo vuelve a hacer en los ${minutos} minutos siguientes, le pone una advertencia como las de .advertir (a la tercera queda afuera); no borra nada, un álbum de fotos cuenta como un solo mensaje, y también viene apagada)`));
