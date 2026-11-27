@@ -1,5 +1,6 @@
 import { topCoins, puestoCoins, getSaldoCoins, totalEnCirculacion } from "../database-functions.js";
 import { etiquetaLaburo } from "../lib/laburos.js";
+import { apodoDe } from "../lib/escenas.js";
 import { nombreDe, modoDeNombre, nombrandoPor } from "../lib/menciones.js";
 
 const TOP_N = 10;
@@ -20,7 +21,9 @@ plugin.run = async (m, { client, text }) => {
   const lineas = nombrandoPor(modo, () =>
     top.map((r, i) => {
       const laburo = etiquetaLaburo(m.chat, r.usuario);
-      return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo})` : ""} — *${r.saldo}*`;
+      // The nickname their trade and their fame earned them in the payday scenes (lib/escenas.js).
+      const apodo = apodoDe(m.chat, r.usuario);
+      return `${i + 1}. ${nombreDe(r.usuario)}${laburo ? ` (${laburo}${apodo ? `, «${apodo}»` : ""})` : ""} — *${r.saldo}*`;
     }),
   );
 

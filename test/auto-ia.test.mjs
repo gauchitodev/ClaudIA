@@ -656,6 +656,11 @@ test("pedido a Claudia: el laburo de quien le habla va solo si se habla de labur
     assert.doesNotMatch(await decirle("claudia, ¿qué hora es?"), LINEA);
     assert.match(await decirle("claudia, ¿cuánto cobro hoy?"), /\n\nEn el juego de roles del grupo, Ana trabaja de camioner[oa] \(Ruta, termo y radio\. Cobra bien, dormís poco\.\)\. Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo\.\n\n/);
     assert.match(await decirle("jaja dale", { fromMe: true, id: "Q1", text: "Te quedan 20 UruCoins, no te las gastes todas" }), LINEA, "lo que cita también cuenta");
+    // The nickname the payday scenes earned them (lib/escenas.js) goes with the trade, and only with it.
+    assert.doesNotMatch(await decirle("claudia, ¿cuánto cobro hoy?"), /se ganó fama de/, "sin fama, nada");
+    globalThis.db.prepare(`INSERT INTO laburos_fama (chat, usuario, picaro, valiente) VALUES (?, ?, 6, 0)`).run(LC, "555@lid");
+    assert.match(await decirle("claudia, ¿cuánto cobro hoy?"), /sin forzarlo\.\n\nPor cómo labura, en ese juego Ana se ganó fama de pícaro y el apodo "el Coimero de la Ruta 5"\. Podés cargarle con eso si viene al caso, sin forzarlo\.\n\n/);
+    assert.doesNotMatch(await decirle("claudia, ¿qué hora es?"), /Coimero/);
   } finally {
     globalThis.fetch = fetchAntes;
   }

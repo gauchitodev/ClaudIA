@@ -23,6 +23,11 @@ import { sinPermisoEn } from "../lib/menu.js";
 import { tipear, grabar } from "../lib/ritmo.js";
 import { hablaCon, hablar, maxLetrasDeVoz } from "../lib/voz.js";
 import { laburoDe, nombreDeOficio, hablaDeLaburoOPlata } from "../lib/laburos.js";
+import { famaParaPrompt } from "../lib/escenas.js";
+import { bienesParaPrompt } from "../lib/tienda.js";
+import { puebloParaPrompt, hablaDelPueblo } from "../lib/pueblo.js";
+import { bancoParaPrompt } from "../lib/banco.js";
+import { diarioParaPrompt as ecoParaPrompt } from "../lib/pueblo-diario.js";
 import { textoParaPrompt as memoriaDelGrupo } from "../lib/memoria-grupo.js";
 import { diarioParaPrompt } from "../lib/diario.js";
 import { esMensajeDeJuego } from "../lib/mensajes-de-juego.js";
@@ -368,6 +373,30 @@ async function contestar(m, { client, participants, isAdmin, isMod, isOwner, use
   const laburo = deLaburo ? laburoDe(m.chat, m.sender) : null;
   if (laburo) {
     partes.push(`En el juego de roles del grupo, ${nombre} trabaja de ${nombreDeOficio(laburo.oficio, generoDe(m.sender)).toLowerCase()} (${laburo.oficio.desc}). Podés usarlo para chicanear o hacer referencia si viene al caso, sin forzarlo.`);
+    // And the nickname the payday scenes earned them (lib/escenas.js), to tease them with as she does with the trade.
+    const fama = famaParaPrompt(m.chat, m.sender, nombre);
+    if (fama) partes.push(fama);
+  }
+
+  // The group's town (lib/pueblo.js) and its Sunday paper's last headlines (lib/pueblo-diario.js), when the talk is
+  // about it: told with every message, she'd drag the town in where it had nothing to do.
+  const delPueblo = m.isGroup && hablaDelPueblo(m.text, m.quoted?.text, ...antes.map((e) => e.m.text));
+  if (delPueblo) {
+    const pueblo = puebloParaPrompt(m.chat, ahora);
+    if (pueblo) partes.push(pueblo);
+    const eco = pueblo ? ecoParaPrompt(m.chat) : "";
+    if (eco) partes.push(eco);
+  }
+  // Its Banco Central (lib/banco.js): the rate, the inflation and, if they owe, their standing, when the talk is about
+  // money or the town.
+  if (m.isGroup && (deLaburo || delPueblo)) {
+    const banco = bancoParaPrompt(m.chat, m.sender, ahora);
+    if (banco) partes.push(banco);
+  }
+  // The house, the car and the pet they bought in the shop (lib/tienda.js), when the talk is about money or the town.
+  if (m.isGroup && (deLaburo || delPueblo)) {
+    const bienes = bienesParaPrompt(m.chat, m.sender, nombre);
+    if (bienes) partes.push(bienes);
   }
 
   // nickname bought in the shop: Claudia addresses them that way

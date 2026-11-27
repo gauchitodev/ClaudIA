@@ -31,6 +31,7 @@ const SIN_NADA = {
   gemini: { modelos: [] },
   textoFaggi: "",
   vozConfig: {},
+  pueblo: {},
   owners: [""],
   canalConfig: { enlace: "", nombre: "" },
   tarjetaGrupo: { titulo: "ClaudIA :)", cuerpo: "Unite al grupo", enlace: "" },

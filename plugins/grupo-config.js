@@ -10,7 +10,7 @@ plugin.botAdmin = true;
 plugin.onlyAdmin = true;
 
 plugin.run = async (m, { client, groupMetadata, chat }) => {
-  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, antiViewOnce, antiFlood, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, recapSemanal, horarioJuegos, casino, diversion, convertidores, charla, saludos, saludoCumple, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto, mercadosEnHorario } = chat;
+  const { isBanned, adminMode, adultMode, antiGroups, antiChannels, allAntiLinks, antiInstagram, antiTiktok, antiTelegram, antiLiveLocation, antiViewOnce, antiFlood, games, welcome, detect, antiDelete: del, reactions, mentions, preguntaDia, triviaRelampago, changas, espias, encargos, pueblo, recapSemanal, horarioJuegos, casino, diversion, convertidores, charla, saludos, saludoCumple, monedas, ascensos, horarioGrupo, horarioGrupoFalla, reglas, iniciativa, antiStatus, stickersAuto, voz, catalogoAuto, mercadosAuto, mercadosEnHorario } = chat;
   // Once per person, as .roles: someone with a role under each of their ids came out twice. And as the group lists
   // them: a role under a number that moved on named whoever had it before.
   const roles = rolesPorPersona(m.chat, groupMetadata?.participants);
@@ -56,6 +56,10 @@ ${del ? "✅" : "❌"} Anti Eliminar Mensajes
 ${reactions ? "✅" : "❌"} Bot reacciona
 ${preguntaDia ? "✅" : "❌"} Pregunta del día (.preguntadeldia)
 ${triviaRelampago ? "✅" : "❌"} Trivia relámpago (.triviarelampago)
+${changas ? "✅" : "❌"} Changas grupales por mi cuenta (.changas)
+${espias ? "✅" : "❌"} Misión secreta (.espias)
+${encargos ? "✅" : "❌"} Encargos urgentes (.encargos)
+${pueblo ? "✅" : "❌"} El pueblo y El Eco de los domingos (.pueblo)
 ${recapSemanal ? "✅" : "❌"} Recap semanal (.recapsemanal)
 ${charla ? "✅" : "❌"} Charla automática de Claudia (.charla)
 ${iniciativa ? "✅" : "❌"} Iniciativa de Claudia (.iniciativa)

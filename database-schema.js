@@ -101,6 +101,10 @@ export function ponerAlDia(db) {
       blacklistMode BOOLEAN DEFAULT 0,
       preguntaDia BOOLEAN DEFAULT 0,
       triviaRelampago BOOLEAN DEFAULT 0,
+      changas BOOLEAN DEFAULT 0,
+      espias BOOLEAN DEFAULT 0,
+      encargos BOOLEAN DEFAULT 0,
+      pueblo BOOLEAN DEFAULT 0,
       recapSemanal BOOLEAN DEFAULT 1,
       horarioJuegos TEXT DEFAULT "",
       charla BOOLEAN DEFAULT 1,
@@ -138,10 +142,12 @@ export function ponerAlDia(db) {
   // (lib/horario-grupo.js), whether a live location is deleted (.antiubicacion) and a view-once too (.antivistaunica),
   // whether a flood gets a notice and then a warning (.antiflood), the catalogue a buy-and-sell group gets unasked
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
-  // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados) and since when she keeps a
-  // diary of the group (.diario), on databases that already exist.
+  // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
+  // diary of the group (.diario), whether she posts group changas on her own (.changas), whether the secret missions are
+  // played there (.espias), whether she hands out urgent errands (.encargos) and whether the group is a town (.pueblo), on
+  // databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"], ["pueblo", "BOOLEAN DEFAULT 0"]]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);
@@ -351,6 +357,672 @@ export function ponerAlDia(db) {
       ultimo_cobro TEXT DEFAULT '',
       cobros INTEGER DEFAULT 0,
       PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // The companies of "modo patrón" (lib/empresas.js): whoever reaches the top level of a trade founds one. Each has its
+  // own cash box (caja), apart from its owner's pocket, what it has billed since it was founded (facturado, which
+  // with what the company is worth sets its category) and the news its owner hasn't read yet (novedades). visto is
+  // when the owner last showed up. categoria is the category its owner was last told of (-1: not known yet, for a
+  // company older than the column) and categoria_max the highest it ever had, so the paper hears of each one once.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      patron TEXT NOT NULL,
+      tipo TEXT NOT NULL, -- the trade it comes from: a key of EMPRESAS in lib/empresas.js
+      nombre TEXT NOT NULL,
+      caja INTEGER DEFAULT 0,
+      facturado INTEGER DEFAULT 0,
+      fundada INTEGER NOT NULL,
+      visto INTEGER NOT NULL,
+      ultima_jornada TEXT DEFAULT '', -- the day its owner last worked in it
+      novedades TEXT DEFAULT '',
+      categoria INTEGER DEFAULT -1,
+      categoria_max INTEGER DEFAULT -1,
+      UNIQUE (chat, patron)
+    )
+  `);
+  const columnasEmpresas = db.prepare(`PRAGMA table_info(empresas)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["categoria", "INTEGER DEFAULT -1"], ["categoria_max", "INTEGER DEFAULT -1"]]) {
+    if (!columnasEmpresas.includes(columna)) db.exec(`ALTER TABLE empresas ADD COLUMN ${columna} ${definicion}`);
+  }
+  // What was put into a company's caja from a pocket, and when: it counts for what the company is worth only some days
+  // later (EMPRESA.DEPOSITO_DIAS), so a category isn't bought with money that comes in and goes right back out.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_depositos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_depositos ON empresas_depositos (empresa, fecha)`);
+  // What a company owns: estado goes from 100 down with each use, and a service brings it back; usado is the last
+  // day it was worked with (one shift a day each).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_bienes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      bien TEXT NOT NULL,
+      estado INTEGER DEFAULT 100,
+      roto INTEGER DEFAULT 0,
+      usado TEXT DEFAULT '',
+      comprado INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_bienes ON empresas_bienes (empresa)`);
+
+  // A company's staff: people of the group (usuario) or Claudia's own (usuario '' and a made-up nombre). cobros is
+  // the shifts worked in this company, for the severance pay, and ultimo_cobro the last day worked (for Claudia's
+  // own, the last day settled).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_empleados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      empresa INTEGER NOT NULL,
+      usuario TEXT DEFAULT '',
+      nombre TEXT DEFAULT '',
+      puesto TEXT NOT NULL,
+      sueldo INTEGER NOT NULL,
+      desde INTEGER NOT NULL,
+      ultimo_cobro TEXT DEFAULT '',
+      cobros INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_empresas_empleados ON empresas_empleados (empresa)`);
+  // A job offer on the table: turno says whose move it is, 'empleado' (the owner offered) or 'patron' (the other
+  // one asked for more).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_ofertas (
+      empresa INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      puesto TEXT NOT NULL,
+      sueldo INTEGER NOT NULL,
+      turno TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (empresa, usuario)
+    )
+  `);
+  // What someone has worked in each post, in a group: their level in it, which they keep when they leave a company.
+  // ultimo_cobro is the last day they were paid as an employee.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS empresas_experiencia (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      puesto TEXT NOT NULL,
+      cobros INTEGER DEFAULT 0,
+      ultimo_cobro TEXT DEFAULT '',
+      PRIMARY KEY (chat, usuario, puesto)
+    )
+  `);
+
+  // The payday scenes (lib/escenas.js). laburos_fama is each one's fame in a group, moved by what they choose in the
+  // scenes: picaro (+ pícaro, − honesto) and valiente (+ valiente, − cagón); ultima is the last scene they got, so it
+  // isn't dealt twice in a row. laburos_escenas is the scene someone has open: jornal is the day's wage at stake,
+  // before the option's multiplier, and vence when it resolves on its own.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS laburos_fama (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      picaro INTEGER DEFAULT 0,
+      valiente INTEGER DEFAULT 0,
+      escenas INTEGER DEFAULT 0,
+      ultima TEXT DEFAULT '',
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS laburos_escenas (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      escena TEXT NOT NULL,
+      jornal REAL NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      vence INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // The group changas (lib/changas.js): a job that needs a team, posted by Claudia (creador '') or by someone who pays
+  // for it. clave is the one of her bank it is ('' for a person's), paga what each member gets, mensaje_id the message
+  // it went out as (reacting to it is joining) and estado 'abierta', 'hecha' or 'vencida'.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS changas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      creador TEXT DEFAULT '',
+      clave TEXT DEFAULT '',
+      titulo TEXT NOT NULL,
+      cupos INTEGER NOT NULL,
+      paga INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta',
+      creada INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_changas_chat ON changas (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS changas_anotados (
+      changa INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      PRIMARY KEY (changa, usuario)
+    )
+  `);
+
+  // The job board (lib/bolsa.js). bolsa_disponibles: who put themselves down as looking for work in a group (.disponible),
+  // with a line of their own (nota), since when (it lapses after some days unless renewed). bolsa_changas: the one-day
+  // jobs a boss posts (.ofrecerchanga): what it is, what it pays, whether it comes from the company's caja (empresa, its
+  // id) or from the boss's pocket (empresa 0), the message it went out as (answering it is taking it), until when it
+  // stands, and estado 'abierta', 'tomada' (by tomador, at tomada) or 'vencida' (the money went back).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bolsa_disponibles (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      nota TEXT DEFAULT '',
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bolsa_changas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      patron TEXT NOT NULL,
+      empresa INTEGER DEFAULT 0,
+      titulo TEXT NOT NULL,
+      paga INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      creada INTEGER NOT NULL,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta',
+      tomador TEXT DEFAULT '',
+      tomada INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bolsa_changas ON bolsa_changas (chat, estado)`);
+
+  // The secret missions (lib/espias.js). espias_agentes: who signed up in each group, in private, and the secret emoji
+  // they go by there (one of each per group); usuario is the id the group knows them by, their LID when there is one,
+  // and jid their number, when known. espias_misiones: each envelope posted to a group: whose it is (agente, and the
+  // emoji it was posted under, which changes once it's revealed), the kind ('palabra', or 'vender'/'comprar' for the
+  // hard one), the word, the target by both ids, when it was posted, when its owner opened it (0 until then), its
+  // deadline, and estado 'abierta', 'cumplida', 'vencida', 'denunciada' or 'anulada'. espias_denuncias: who has
+  // already reported someone for an envelope, one go each.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_agentes (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      jid TEXT DEFAULT '',
+      emoji TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario),
+      UNIQUE (chat, emoji)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_misiones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      agente TEXT NOT NULL,
+      agente_jid TEXT DEFAULT '',
+      emoji TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      palabra TEXT DEFAULT '',
+      objetivo TEXT NOT NULL,
+      objetivo_jid TEXT DEFAULT '',
+      premio INTEGER NOT NULL,
+      mensaje_id TEXT DEFAULT '',
+      publicada INTEGER NOT NULL,
+      abierta INTEGER DEFAULT 0,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierta'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_espias_misiones_chat ON espias_misiones (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS espias_denuncias (
+      mision INTEGER NOT NULL,
+      denunciante TEXT NOT NULL,
+      PRIMARY KEY (mision, denunciante)
+    )
+  `);
+
+  // The urgent errands (lib/encargos.js). encargos: each errand handed to someone in a group: whose it is (usuario is
+  // the id the group knows them by, their LID when there is one, and usuario_jid their number, when known), which one
+  // of the bank (clave, "camionero/sobre-a-rivera"), the way they chose (camino, 1-based; 0 until they choose), the
+  // betting market that goes with it (mercado, a row of mercados; 0 with the casino off), the message it went out as,
+  // its deadline, and estado 'abierto', 'cumplido', 'fallido' or 'anulado'; chance and premio are what it was rolled
+  // at and what it paid, once it's over. encargos_aportes: who put coins in to help or to sabotage, one side each.
+  // encargos_usos: how many times each errand of the bank has gone out, in any group, for the owner's monthly
+  // reminder to renew the worn ones.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      usuario_jid TEXT DEFAULT '',
+      clave TEXT NOT NULL,
+      camino INTEGER DEFAULT 0,
+      mercado INTEGER DEFAULT 0,
+      mensaje_id TEXT DEFAULT '',
+      creada INTEGER NOT NULL,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierto',
+      chance INTEGER DEFAULT 0,
+      premio INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_encargos_chat ON encargos (chat, estado)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_encargos_usuario ON encargos (usuario)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos_aportes (
+      encargo INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      cantidad INTEGER NOT NULL,
+      PRIMARY KEY (encargo, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encargos_usos (
+      clave TEXT PRIMARY KEY,
+      veces INTEGER NOT NULL DEFAULT 0,
+      ultima INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // The town of each group (lib/pueblo.js, lib/pueblo-diario.js). pueblos: one per group that switched it on, with
+  // its name, the made-up year it was founded (anio) and when it was born in the group (fundado), its numbers from 0 to
+  // 100 (prosperidad, seguridad, humor), the municipal tax (impuesto, % of what the companies bill) and when it was
+  // last set, the coffers the tax fills (arcas), the intendente when a person is one (their id; '' while the town's
+  // own is), the names its characters drew (npcs) and its places (lugares), both JSON, and the last day it lived
+  // (dia, "2026-11-26"). pueblo_hechos: what the modules registered that's news, for the Sunday paper, with how much
+  // (peso). pueblo_eventos: the events, running ('activo') or over, with the betting market of a championship.
+  // pueblo_memoria: what the characters remember of each person (the comisario, his regulars). pueblo_diarios: each
+  // Sunday's paper, its headlines in JSON, which Claudia can quote. pueblo_ilustraciones: the paper's illustrations
+  // asked of Gemini each month, against the cap in config.toml.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblos (
+      chat TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      anio INTEGER NOT NULL,
+      fundado INTEGER NOT NULL,
+      prosperidad REAL NOT NULL DEFAULT 50,
+      seguridad REAL NOT NULL DEFAULT 60,
+      humor REAL NOT NULL DEFAULT 50,
+      impuesto INTEGER NOT NULL DEFAULT 10,
+      impuesto_fijado INTEGER DEFAULT 0,
+      arcas INTEGER NOT NULL DEFAULT 0,
+      intendente TEXT DEFAULT '',
+      intendente_desde INTEGER DEFAULT 0,
+      npcs TEXT DEFAULT '{}',
+      lugares TEXT DEFAULT '{}',
+      dia TEXT DEFAULT '',
+      inflacion REAL DEFAULT 0,
+      bienvenida INTEGER DEFAULT 0
+    )
+  `);
+  // What the bank measures of the town (inflacion, the week's, lib/banco.js), which the prices follow, and when the
+  // world was introduced to the group (bienvenida, lib/novedades.js), on databases that already exist.
+  const columnasPueblos = db.prepare(`PRAGMA table_info(pueblos)`).all().map((c) => c.name);
+  for (const [columna, definicion] of [["inflacion", "REAL DEFAULT 0"], ["bienvenida", "INTEGER DEFAULT 0"]]) {
+    if (!columnasPueblos.includes(columna)) db.exec(`ALTER TABLE pueblos ADD COLUMN ${columna} ${definicion}`);
+  }
+  // The elections (lib/elecciones.js): how many terms in a row the intendente has served (mandatos; reelection is
+  // allowed once in a row) and who was removed by a juicio político and can't run in the next one (inhabilitado). An
+  // intendente from before the elections (the político of the highest level, back then) stays until the first one,
+  // and counts as having served one term.
+  if (!columnasPueblos.includes("mandatos")) {
+    db.exec(`ALTER TABLE pueblos ADD COLUMN mandatos INTEGER DEFAULT 0`);
+    db.exec(`UPDATE pueblos SET mandatos = 1 WHERE intendente != ''`);
+  }
+  if (!columnasPueblos.includes("inhabilitado")) db.exec(`ALTER TABLE pueblos ADD COLUMN inhabilitado TEXT DEFAULT ''`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_hechos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      usuario TEXT DEFAULT '',
+      datos TEXT DEFAULT '{}',
+      peso INTEGER DEFAULT 0,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pueblo_hechos ON pueblo_hechos (chat, fecha)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_eventos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      clave TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      hasta INTEGER NOT NULL,
+      mercado INTEGER DEFAULT 0,
+      estado TEXT DEFAULT 'activo'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pueblo_eventos ON pueblo_eventos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_memoria (
+      chat TEXT NOT NULL,
+      npc TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      motivo TEXT DEFAULT '',
+      veces INTEGER NOT NULL DEFAULT 0,
+      ultima INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, npc, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_diarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      semana TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      titulares TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      ilustrada INTEGER DEFAULT 0,
+      UNIQUE (chat, semana)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_ilustraciones (
+      mes TEXT PRIMARY KEY,
+      usadas INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // The town's elections (lib/elecciones.js). elecciones: one a month per town (mes, "2026-12"), with when it was
+  // announced, when signing up closes and when voting does, estado 'campana', 'votacion', 'cerrada' or 'anulada' (the
+  // town went to sleep), and once counted the winner ('' for the town's own) and the count (resultado, JSON).
+  // elecciones_candidatos: who runs, their number on the ballot, their slogan, their votes (a tally: the ballot box
+  // keeps who voted, never for whom) and estado 'activo', 'baja' (stood down) or 'descalificado' (a bribe came out).
+  // elecciones_votos: who voted in each one, without what. elecciones_promesas: the bribes (.prometer), the money held
+  // until the count: 'pendiente', 'pagada', 'devuelta' or 'decomisada'. elecciones_juicios: the juicios políticos
+  // against an intendente, with the signatures they need and until when; elecciones_firmas: who signed.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      mes TEXT NOT NULL,
+      anuncio INTEGER NOT NULL,
+      cierra_inscripcion INTEGER NOT NULL,
+      cierra_votacion INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'campana',
+      ganador TEXT DEFAULT '',
+      resultado TEXT DEFAULT '{}',
+      cerrada INTEGER DEFAULT 0,
+      UNIQUE (chat, mes)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_elecciones_estado ON elecciones (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_candidatos (
+      eleccion INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      frase TEXT DEFAULT '',
+      votos INTEGER NOT NULL DEFAULT 0,
+      estado TEXT NOT NULL DEFAULT 'activo',
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (eleccion, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_votos (
+      eleccion INTEGER NOT NULL,
+      votante TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (eleccion, votante)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_promesas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      eleccion INTEGER NOT NULL,
+      chat TEXT NOT NULL,
+      candidato TEXT NOT NULL,
+      votante TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      UNIQUE (eleccion, candidato, votante)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_juicios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      intendente TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      hasta INTEGER NOT NULL,
+      necesarias INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'abierto'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_elecciones_juicios ON elecciones_juicios (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS elecciones_firmas (
+      juicio INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (juicio, usuario)
+    )
+  `);
+
+  // Services between players (lib/servicios.js). servicios: each deal, with who needs it (cliente), the kind of need
+  // (tipo, "bien" or "herido") and what it's about (ref, JSON: the company and the good), the options offered
+  // (opciones, JSON), who was picked (proveedor; '' for the town's own) and their price, estado 'opciones', 'esperando'
+  // (a price), 'precio' (one given), 'hecho', 'vencido' or 'anulado', whether it went well (resultado) and when.
+  // servicios_resenas: the stars each job got. pueblo_heridos: who got hurt in an errand and isn't seen to yet.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS servicios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      cliente TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      ref TEXT DEFAULT '{}',
+      opciones TEXT DEFAULT '[]',
+      estado TEXT DEFAULT 'opciones',
+      proveedor TEXT DEFAULT '',
+      precio INTEGER DEFAULT 0,
+      resultado INTEGER DEFAULT 0,
+      vence INTEGER NOT NULL,
+      creado INTEGER NOT NULL,
+      hecho INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_servicios_chat ON servicios (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS servicios_resenas (
+      servicio INTEGER PRIMARY KEY,
+      chat TEXT NOT NULL,
+      proveedor TEXT NOT NULL,
+      cliente TEXT NOT NULL,
+      estrellas INTEGER NOT NULL,
+      fecha INTEGER NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pueblo_heridos (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      desde INTEGER NOT NULL,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+
+  // The status the shop sells (lib/tienda.js); the rest of it (the signature reaction, the grand entrance, the lawyer,
+  // the bodyguard, the house, the car and the pet) lives in inventario. tienda_avisos: the paid notices and gossip for
+  // the town's Sunday paper, 'pendiente' until the edition that prints them ('publicado'), or 'vetado' by an admin.
+  // tienda_estatuas: who put up the statue in the plaza, for how much, and when it was knocked down (derribada, 0 while
+  // it stands). tienda_pistas: the informant's tip each person got for an envelope of the secret missions.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_avisos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      precio INTEGER NOT NULL DEFAULT 0,
+      fecha INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      edicion INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_tienda_avisos_chat ON tienda_avisos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_estatuas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      derribada INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tienda_pistas (
+      mision INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      pista TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (mision, usuario)
+    )
+  `);
+
+  // The Banco Central of each town (lib/banco.js). banco: the reference rate (tasa, a yearly %), the last one told to
+  // the group, the week's inflation as last measured (NULL until there are days enough) and the one the town is used
+  // to (esperada, NULL until there are weeks enough), the day the rate last moved,
+  // the intendente's pressure (presion, signed points, until presion_hasta; ultima_presion, when it was last asked
+  // for), the market's backlash (until rebote_hasta), and what the bank has lent, collected, paid in deposit interest
+  // and written off since it opened. banco_historia: the money in the street each day, which inflation is measured
+  // from. banco_depositos: the fixed-term deposits, each with the rate it was taken at and the interest it pays; estado
+  // 'abierto', 'cobrado', 'roto' (taken out early, with no interest) or 'embargado'.
+  // banco_prestamos: every loan, the bank's (acreedor '') and the ones between people: what was lent (monto), what is
+  // paid back in all (total), what's left (saldo) and how much of it is overdue (vencido), the instalment and how many
+  // there are, the misses in a row (fallas), whether it ever missed (manchado), whether a good was seized for it
+  // (embargado), the surcharges it took, where the instalments come from ('bolsillo' or 'caja'), the rate, when the
+  // next payment is due (for an offer, when it lapses), and estado 'oferta', 'activo', 'pagado' or 'incobrable'.
+  // banco_clientes: each one's standing in the clearing ('al_dia', 'atrasado' or 'moroso'), until when the stain lasts
+  // (0 while there's something overdue) and the loans paid with no miss. banco_remates: a seized good up for auction:
+  // whose it was, for which loan, where it comes from (origen 'empresa' or 'tienda'), which good (clave) and its data
+  // (ref, JSON), what it's worth and its floor price, when it closes, and who took it for how much; estado 'abierto',
+  // 'vendido' or 'chatarra'. banco_pujas: each one's best bid in an auction.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco (
+      chat TEXT PRIMARY KEY,
+      tasa REAL NOT NULL,
+      tasa_anunciada REAL NOT NULL,
+      inflacion REAL,
+      esperada REAL,
+      dia TEXT DEFAULT '',
+      presion INTEGER DEFAULT 0,
+      presion_hasta INTEGER DEFAULT 0,
+      ultima_presion INTEGER DEFAULT 0,
+      rebote_hasta INTEGER DEFAULT 0,
+      prestado INTEGER DEFAULT 0,
+      cobrado INTEGER DEFAULT 0,
+      intereses INTEGER DEFAULT 0,
+      incobrable INTEGER DEFAULT 0
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_historia (
+      chat TEXT NOT NULL,
+      dia TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      circulante INTEGER NOT NULL,
+      personas INTEGER NOT NULL,
+      tasa REAL NOT NULL,
+      PRIMARY KEY (chat, dia)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_depositos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      tna REAL NOT NULL,
+      dias INTEGER NOT NULL,
+      interes INTEGER NOT NULL,
+      creado INTEGER NOT NULL,
+      vence INTEGER NOT NULL,
+      estado TEXT DEFAULT 'abierto'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_banco_depositos ON banco_depositos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_prestamos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      deudor TEXT NOT NULL,
+      acreedor TEXT DEFAULT '',
+      monto INTEGER NOT NULL,
+      total INTEGER NOT NULL,
+      saldo INTEGER NOT NULL,
+      vencido INTEGER DEFAULT 0,
+      cuota INTEGER NOT NULL,
+      cuotas INTEGER NOT NULL,
+      fallas INTEGER DEFAULT 0,
+      manchado INTEGER DEFAULT 0,
+      embargado INTEGER DEFAULT 0,
+      recargos INTEGER DEFAULT 0,
+      destino TEXT DEFAULT 'bolsillo',
+      tna REAL DEFAULT 0,
+      dias INTEGER DEFAULT 0,
+      proxima INTEGER DEFAULT 0,
+      creado INTEGER NOT NULL,
+      estado TEXT DEFAULT 'activo'
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_banco_prestamos ON banco_prestamos (chat, estado)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_clientes (
+      chat TEXT NOT NULL,
+      usuario TEXT NOT NULL,
+      estado TEXT DEFAULT 'al_dia',
+      hasta INTEGER DEFAULT 0,
+      limpios INTEGER DEFAULT 0,
+      PRIMARY KEY (chat, usuario)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_remates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat TEXT NOT NULL,
+      prestamo INTEGER NOT NULL,
+      deudor TEXT NOT NULL,
+      origen TEXT NOT NULL,
+      clave TEXT NOT NULL,
+      ref TEXT DEFAULT '{}',
+      nombre TEXT NOT NULL,
+      valor INTEGER NOT NULL,
+      base INTEGER NOT NULL,
+      cierra INTEGER NOT NULL,
+      comprador TEXT DEFAULT '',
+      precio INTEGER DEFAULT 0,
+      estado TEXT DEFAULT 'abierto'
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS banco_pujas (
+      remate INTEGER NOT NULL,
+      usuario TEXT NOT NULL,
+      monto INTEGER NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (remate, usuario)
+    )
+  `);
+
+  // The news a big update brings, told once to each group that is a town (lib/novedades.js): which ones it was told.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS novedades_vistas (
+      chat TEXT NOT NULL,
+      clave TEXT NOT NULL,
+      fecha INTEGER NOT NULL,
+      PRIMARY KEY (chat, clave)
     )
   `);
 
