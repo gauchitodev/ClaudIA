@@ -293,7 +293,7 @@ test("una foto con su nombre en el pie: la mira, contesta y le queda una línea 
   assert.ok(prompt().includes('\n\nMensaje de Ana: "claudia mirá mi perro"\n\nVa adjunta la foto que mandó Ana: esa sí la ves, mirala para contestar.\n\n'), prompt());
   // What to say of it goes after the rest and before how she may answer, and it's the first thing she writes of hers.
   assert.match(prompt(), /\n\n\(También solo para vos: en "resumenFoto" poné en una línea qué muestra la foto adjunta, por ejemplo [^\n]+ No copies ahí datos personales que se lean en ella, como números de documento, direcciones o teléfonos\.\)\n\n\(También solo para vos: en ese mensaje te nombran[^\n]+\)$/);
-  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "resumenFoto", "forma", "emoji", "respuesta", "recordar", "reintentar", "buscar", "fuentes", "resumenAudio"]);
+  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "resumenFoto", "forma", "emoji", "respuesta", "recordar", "cuando", "reintentar", "buscar", "fuentes", "resumenAudio"]);
   assert.deepEqual(esquema().required, ["comando", "resumenFoto", "forma", "respuesta"]);
   assert.equal(guardado(chat, m.key.id), "📷 (foto: un perro durmiendo en un sillón) claudia mirá mi perro");
 
@@ -302,7 +302,7 @@ test("una foto con su nombre en el pie: la mira, contesta y le queda una línea 
   guardar(chat, arrobada, "📷 (foto) @Claudia ¿de qué raza es?");
   respuesta = { comando: "ninguno", resumenFoto: "un perro marrón de orejas largas", respuesta: "Parece un salchicha" };
   await llega(client, arrobada);
-  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "resumenFoto", "respuesta", "recordar", "reintentar", "buscar", "fuentes", "resumenAudio"]);
+  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "resumenFoto", "respuesta", "recordar", "cuando", "reintentar", "buscar", "fuentes", "resumenAudio"]);
   assert.deepEqual(esquema().required, ["comando", "resumenFoto", "respuesta"]);
   assert.match(prompt(), /qué muestra la foto adjunta[^\n]+teléfonos\.\)$/);
   assert.equal(guardado(chat, arrobada.key.id), "📷 (foto: un perro marrón de orejas largas) @Claudia ¿de qué raza es?");

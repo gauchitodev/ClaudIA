@@ -135,7 +135,7 @@ test("qué se le ofrece además de palabras depende de cómo le hablan", async (
 
   // Named by the word alone, they may not be talking to her: anything goes.
   assert.deepEqual(await ofrecido(mensaje(chat, "che, el bot anda lento hoy")), { formas: ["texto", "reaccion", "nada"], escribeAntes: false });
-  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "forma", "emoji", "respuesta", "recordar", "reintentar", "buscar", "fuentes", "resumenAudio"], "la forma va antes que la respuesta: decide cómo antes de escribir qué");
+  assert.deepEqual(Object.keys(esquema().properties), ["comando", "argumento", "forma", "emoji", "respuesta", "recordar", "cuando", "reintentar", "buscar", "fuentes", "resumenAudio"], "la forma va antes que la respuesta: decide cómo antes de escribir qué");
   assert.deepEqual(esquema().properties.emoji.enum, I.EMOJIS_INICIATIVA, "sus emojis de siempre, ninguno de los del sistema");
   assert.deepEqual(esquema().required, ["comando", "forma", "respuesta"]);
   assert.match(prompt(), /\n\n\(También solo para vos: en ese mensaje te nombran, pero fijate en el hilo si te hablan a vos[^\n]*o si dudás, poné "texto" y contestá como siempre\.\)$/);

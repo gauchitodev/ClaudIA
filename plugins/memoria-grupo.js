@@ -1,6 +1,6 @@
 import { recordar, textoMemoria, borrar, limpiar, leible } from "../lib/memoria-grupo.js";
 import { mostrarRecuerdos, olvidarDe, olvidarUno } from "../lib/memoria-persona.js";
-import { haceCuanto } from "../lib/tiempo.js";
+import { haceCuanto, fechaEnPalabras, mediodiaDe } from "../lib/tiempo.js";
 import { conNombres } from "../lib/menciones.js";
 import txt from "../lib/strings.js";
 
@@ -15,13 +15,15 @@ const esDeLaLista = (args) =>
   args.length === 0 || (args.length === 1 && /^(limpiar|yo|m[ií]a|olvidame)$/i.test(args[0])) || (args.length === 2 && /^((borrar|olvidar|olvidame) \d+|olvidame todo)$/i.test(args.join(" ")));
 
 // What .notas yo answers: what she knows of whoever asks, numbered to have her forget one, and with when she learned
-// each (what was kept before the dates has none). The list stays as shown, for .notas olvidame <n> to read the number
-// there (mostrarRecuerdos). As the group's notes are shown (leible): what she noted while chatting may hold the digits
-// of a LID she was told about, which sendText turned into a mention of that person.
+// each (what was kept before the dates has none), and the day of what's to happen on one: the day she understood, the
+// one she'll go by to ask how it went. The list stays as shown, for .notas olvidame <n> to read the number there
+// (mostrarRecuerdos). As the group's notes are shown (leible): what she noted while chatting may hold the digits of a
+// LID she was told about, which sendText turned into a mention of that person.
 function loQueSeDeVos(usuario, chat) {
   const recuerdos = mostrarRecuerdos(usuario, chat);
   if (!recuerdos.length) return "🧠 No tengo nada anotado de vos en este grupo.";
-  const lineas = recuerdos.map((r, i) => `${i + 1}. ${leible(r.dato)}${r.fecha ? ` (${haceCuanto(r.fecha)})` : ""}`);
+  const entre = (r) => [r.fecha ? haceCuanto(r.fecha) : "", r.cuando ? `para el ${fechaEnPalabras(mediodiaDe(r.cuando))}` : ""].filter(Boolean).join(", ");
+  const lineas = recuerdos.map((r, i) => `${i + 1}. ${leible(r.dato)}${entre(r) ? ` (${entre(r)})` : ""}`);
   return `🧠 Lo que sé de vos en este grupo:\n${lineas.join("\n")}\nPara que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame`;
 }
 
