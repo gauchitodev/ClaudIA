@@ -162,8 +162,9 @@ test("updateUser escribe encontrando la fila por número, y avisa si no hay ning
   F.updateUser("111@lid", { pushName: "Fulano" });
 });
 
-test("unwarn: nadie se saca sus propias advertencias, y un moderador no se las saca a otro moderador", async () => {
-  // Taking a warning away undoes a sanction, so it goes only from strictly above, like .adv.
+test("unwarn: un moderador no se saca las suyas, ni se las saca a otro moderador", async () => {
+  // Taking a warning away undoes a sanction, so it goes only from strictly above, like .adv; one's own, only an admin or
+  // an owner (the next tests).
   for (const n of [300, 301]) {
     F.initDataDB({ chat: G, sender: `${n}@lid`, senderJid: "" });
     F.setRolGrupo(G, `${n}@lid`, "mod", "100@lid");
@@ -302,4 +303,113 @@ test(".adv contesta citando el comando: la advertencia, el anuncio de la expulsi
   }
   assert.deepEqual(citados, ["@222 spam", "@222 insultos", "@222 insultos"]);
   assert.match(ultimo(), /^No me dejaron echarlo \(error 403\)/);
+});
+
+// ---------- one's own warnings ----------
+// An admin (of WhatsApp or of the bot) or an owner may warn themselves, and take off theirs: any of them the group's
+// creator and the bot's owner, only the ones they gave themselves any other admin, so a sanction from above stays. A
+// moderator, neither. It didn't exist: the rule of "only from strictly above" stopped them all.
+// The bot's owner by their number, as the one of "no se puede advertir al bot ni a un dueño".
+const DUENO = "777@lid";
+const ADMIN_WA = "701@lid";
+const CREADOR = "702@lid";
+const ADMIN_BOT = "703@lid";
+const MODERADOR = "704@lid";
+const delGrupo = [
+  { id: ADMIN_WA, admin: "admin" },
+  { id: CREADOR, admin: "superadmin" },
+  { id: ADMIN_BOT, admin: null },
+  { id: MODERADOR, admin: null },
+  { id: DUENO, admin: null },
+  { id: "999@lid", admin: "admin" },
+];
+// The permissions the dispatcher works out for each (permisosDe): the bot's owner and WhatsApp's admins are admins too.
+const ROLES = {
+  [DUENO]: { isOwner: true, isAdmin: true },
+  [ADMIN_WA]: { isWaAdmin: true, isAdmin: true },
+  [CREADOR]: { isWaAdmin: true, isAdmin: true },
+  [ADMIN_BOT]: { isAdmin: true },
+  [MODERADOR]: {},
+};
+const asi = async (P, quien, text, mencionado = quien) => {
+  globalThis.enviados = [];
+  const roles = { isOwner: false, isWaAdmin: false, isAdmin: false, ...ROLES[quien] };
+  await P.run({ chat: G, sender: quien, senderJid: "", text, mentionedJid: [mencionado], isGroup: true, react: async (e) => globalThis.enviados.push({ msg: { text: e } }) }, { client: conexion.client, text, command: "adv", usedPrefix: ".", participants: delGrupo, ...roles });
+  return ultimo();
+};
+const sinNada = () => {
+  for (const lid of Object.keys(ROLES)) {
+    F.setAdvertencias(lid, G, 0);
+    db.prepare(`DELETE FROM antecedentes WHERE usuario = ?`).run(lid);
+  }
+};
+// Warnings given straight in the record, standing as many as "vigentes" (the newest open ones).
+const conAdvertencias = (lid, dadas, vigentes = dadas.length) => {
+  for (const dadoPor of dadas) F.anotarAdvertencia(lid, G, { motivo: `de ${dadoPor}`, dadoPor });
+  F.setAdvertencias(lid, G, vigentes);
+};
+const estados = (lid) =>
+  F.antecedentesDe(lid, G)
+    .ultimas.reverse()
+    .map((a) => `${a.dadoPor}:${a.estado}`);
+
+test("advertirse a uno mismo: un admin de WhatsApp, el creador del grupo, un admin del bot y el dueño, sí; un moderador, no", async () => {
+  for (const lid of Object.keys(ROLES)) F.initDataDB({ chat: G, sender: lid, senderJid: lid === DUENO ? `${configuracion.owners[0]}@s.whatsapp.net` : "" });
+  sinNada();
+  for (const lid of [ADMIN_WA, CREADOR, ADMIN_BOT, DUENO]) {
+    assert.match(await asi(Warn, lid, `@${lid.split("@")[0]} llegué tarde`), /1\/3/, lid);
+    assert.equal(F.advertenciasDe(lid, G), 1, lid);
+    assert.deepEqual(estados(lid), [`${lid}:vigente`], `${lid}: en sus antecedentes, dada por él`);
+  }
+  assert.equal(await asi(Warn, MODERADOR, "@704 llegué tarde"), "Advertirse a uno mismo es para los admins y el dueño del bot.");
+  assert.equal(F.advertenciasDe(MODERADOR, G), 0);
+  // To someone else, as always: the owner still can't be warned, nor anyone from below.
+  assert.equal(await asi(Warn, ADMIN_WA, "@777 algo", DUENO), "❌");
+  assert.match(await asi(Warn, ADMIN_BOT, "@701 algo", ADMIN_WA), /^No lo puedo advertir: es admin del grupo/);
+  sinNada();
+});
+
+test("advertirse a uno mismo: a la tercera, afuera, como cualquiera", async () => {
+  sinNada();
+  for (const motivo of ["una", "dos", "tres"]) await asi(Warn, ADMIN_WA, `@701 ${motivo}`);
+  assert.deepEqual(expulsiones, [{ chat: G, ids: [ADMIN_WA], accion: "remove" }]);
+  assert.equal(F.advertenciasDe(ADMIN_WA, G), 0, "salió, y la cuenta vuelve a cero");
+  sinNada();
+});
+
+test("sacarse las propias: un admin, solo las que se puso él y siguen vigentes; las de alguien con más rango quedan", async () => {
+  sinNada();
+  // The owner's first, then one of his own: his own goes, and the owner's stays.
+  conAdvertencias(ADMIN_WA, [DUENO, ADMIN_WA]);
+  assert.match(await asi(Unwarn, ADMIN_WA, "@701"), /Ahora: 1\/3/);
+  assert.deepEqual(estados(ADMIN_WA), [`${DUENO}:vigente`, `${ADMIN_WA}:quitada`]);
+  assert.equal(await asi(Unwarn, ADMIN_WA, "@701"), "Las advertencias que tenés te las puso alguien con más rango: esas no te las podés sacar vos.");
+  assert.equal(F.advertenciasDe(ADMIN_WA, G), 1);
+  sinNada();
+
+  // His own older than the owner's: still his own goes, not the newest.
+  conAdvertencias(ADMIN_BOT, [ADMIN_BOT, ADMIN_WA]);
+  await asi(Unwarn, ADMIN_BOT, "@703");
+  assert.deepEqual(estados(ADMIN_BOT), [`${ADMIN_BOT}:quitada`, `${ADMIN_WA}:vigente`]);
+  assert.equal(F.advertenciasDe(ADMIN_BOT, G), 1);
+  sinNada();
+
+  // One of his own that no longer counts (only the newest is standing) isn't one to take off: the one standing is the
+  // owner's, and the count would lose it.
+  conAdvertencias(ADMIN_WA, [ADMIN_WA, DUENO], 1);
+  assert.match(await asi(Unwarn, ADMIN_WA, "@701"), /alguien con más rango/);
+  assert.equal(F.advertenciasDe(ADMIN_WA, G), 1);
+  assert.equal(await asi(Unwarn, MODERADOR, "@704"), "Tus propias advertencias no te las podés sacar vos: pedíselo a alguien con más rango.");
+  sinNada();
+  assert.equal(await asi(Unwarn, ADMIN_WA, "@701"), "No tenés advertencias en este grupo.");
+});
+
+test("sacarse las propias: el creador del grupo y el dueño del bot, cualquiera de las suyas", async () => {
+  sinNada();
+  conAdvertencias(CREADOR, [DUENO, CREADOR, DUENO]);
+  assert.match(await asi(Unwarn, CREADOR, "@702"), /Ahora: 2\/3/);
+  assert.deepEqual(estados(CREADOR), [`${DUENO}:vigente`, `${CREADOR}:vigente`, `${DUENO}:quitada`], "la más nueva, aunque se la haya puesto el dueño del bot");
+  conAdvertencias(DUENO, [DUENO]);
+  assert.match(await asi(Unwarn, DUENO, "@777"), /Ahora: 0\/3/);
+  sinNada();
 });

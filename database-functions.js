@@ -463,6 +463,20 @@ export function quitarUltimaAdvertencia(usuario, chat, { quitadaPor = "", fecha 
   return true;
 }
 
+// .unwarn of an admin to themselves: the newest of the standing warnings they gave themselves (dadoPor among "suyos"),
+// taken away; false when none of the standing ones is theirs. Standing are the newest open ones, as many as the count
+// says (antecedentesDe): taking away an older open one, which no longer counted, would lower the count by one that does,
+// given by someone else.
+export function quitarAdvertenciaPropia(usuario, chat, suyos, { quitadaPor = "", fecha = Date.now() } = {}) {
+  const vigentes = advertenciasDe(usuario, chat);
+  if (!vigentes) return false;
+  const abiertas = advertenciasAnotadas(filaDelAntecedente(usuario), chat).filter((a) => a.estado === "abierta");
+  const propia = abiertas.slice(-vigentes).findLast((a) => suyos.includes(a.dadoPor));
+  if (!propia) return false;
+  db.prepare(`UPDATE antecedentes SET quitadaPor = ?, quitadaEn = ? WHERE id = ?`).run(quitadaPor, fecha, propia.id);
+  return true;
+}
+
 // Someone's record in a group: the last `limite` warnings, newest first, and the totals. The count is what says how
 // many are standing (vigentes): of the open ones, the newest that many are; any older open one no longer counts (a
 // merge of two rows keeps the higher count, not the sum), and when the count has more, those are from before the
