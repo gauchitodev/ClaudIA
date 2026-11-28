@@ -125,11 +125,11 @@ test(".config: cada ✅ o ❌ dice con qué comando se cambia, y arriba, que es 
   const VerConfig = (await import("../plugins/grupo-config.js")).default;
   await VerConfig.run({ ...msg, chat }, { client: conexion.client, groupMetadata: { id: chat, subject: "Grupo" }, chat: F.getChat(chat) });
   const texto = ultimo();
-  assert.match(texto, /\n\*Configuración de grupo:\*\n_Las de ✅ y ❌ se prenden con on y se apagan con off: \.charla on, \.charla off\._\n[✅❌] BanChat /);
+  assert.match(texto, /\n\*Configuración de grupo:\*\n_Las de ✅ y ❌ se prenden con on y se apagan con off: \.charla on, \.charla off\._\n✅ Claudia prendida en el grupo; con off, un admin la apaga del todo \(\.claudia\)\n[✅❌] BanChat /);
   const lineas = texto.split("\n").filter((l) => /^[✅❌]/.test(l));
   assert.ok(lineas.length >= 35, `muy pocas líneas con ✅ o ❌ (${lineas.length})`);
   // The switches: plugins/config-on-off.js's, and those with a plugin of their own.
-  const interruptores = new Set([...Config.cmd, "iniciativa", "changas", "espias", "encargos", "pueblo"]);
+  const interruptores = new Set([...Config.cmd, "claudia", "iniciativa", "changas", "espias", "encargos", "pueblo"]);
   const comandoDe = (linea) => linea.match(/ \(\.(\w+)(?:, solo el owner)?\)$/)?.[1];
   assert.deepEqual(
     lineas.filter((l) => !interruptores.has(comandoDe(l))),

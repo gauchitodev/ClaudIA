@@ -7,6 +7,7 @@ import { textoEnviados } from "../lib/envios.js";
 const plugin = {};
 plugin.cmd = ["enviados"];
 plugin.onlyAdmin = true;
+plugin.conElBotApagado = true; // handle-message.js lets it through with the bot switched off (.claudia off)
 
 plugin.run = async (m, { client, args, isOwner }) => {
   const general = !m.isGroup || /^(todo|todos|general)$/i.test(args[0] || "");

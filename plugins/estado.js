@@ -17,6 +17,7 @@ import { lineaDeBaileys } from "../lib/parche-baileys.js";
 const plugin = {};
 plugin.cmd = ["estado", "status"];
 plugin.onlyMod = true;
+plugin.conElBotApagado = true; // handle-message.js lets it through with the bot switched off (.claudia off)
 
 plugin.run = async (m, { client }) => {
   // Started first so its wait (up to 8 s without Termux:API) overlaps the groups query below instead of adding to it.

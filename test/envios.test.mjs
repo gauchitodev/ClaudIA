@@ -575,3 +575,30 @@ test("envíos: lo que vuelve a mostrar el anti-borrado no entra en la memoria de
   await client.sendMessage(chat, { text: "otra cosa" });
   assert.deepEqual(CC.contextoChat.get(chat).map((e) => e.texto), ["otra cosa"]);
 });
+
+// With the bot switched off in a group (.claudia off, lib/apagado.js), nothing goes out to it but with the permit the
+// dispatcher runs .claudia, .estado and .enviados with: whatever else would speak there (a scheduled task, a game's
+// timer) is dropped at this last door. A private chat, or a group with the bot on, as always.
+test("envíos: a un grupo con el bot apagado no sale nada, salvo con el permiso de los comandos que andan ahí", async () => {
+  const { client, salidas } = clienteEnvuelto();
+  const [APAGADO, OTRO_APAGADO, PRENDIDO] = ["apagado-envios@g.us", "apagado-otro@g.us", "prendido-envios@g.us"];
+  for (const chat of [APAGADO, OTRO_APAGADO, PRENDIDO]) F.initDataDB({ chat, sender: "300@lid", senderJid: "" });
+  for (const chat of [APAGADO, OTRO_APAGADO]) F.updateChat(chat, { apagadoDesde: Date.now() });
+  const antes = E.enviosAGruposApagados();
+  assert.equal(await client.sendMessage(APAGADO, { text: "no sale" }), undefined);
+  assert.equal(await client.sendMessage(APAGADO, { react: { text: "👍", key: { id: "X" } } }), undefined, "ni una reacción");
+  assert.equal(await client.sendMessage(APAGADO, { delete: { id: "Y" } }), undefined, "ni un borrado");
+  assert.deepEqual([salidas.length, E.enviosAGruposApagados() - antes], [0, 3]);
+  await E.conPermisoDeEnvio(APAGADO, async () => {
+    assert.ok(await client.sendMessage(APAGADO, { text: "con permiso, sale" }));
+    assert.equal(await client.sendMessage(OTRO_APAGADO, { text: "el permiso es de ese grupo" }), undefined);
+  });
+  await client.sendMessage(PRENDIDO, { text: "prendido, sale" });
+  await client.sendMessage("59899000300@s.whatsapp.net", { text: "un privado, sale" });
+  assert.deepEqual(
+    salidas.map((s) => s.contenido.text),
+    ["con permiso, sale", "prendido, sale", "un privado, sale"],
+  );
+  F.updateChat(APAGADO, { apagadoDesde: 0 });
+  assert.ok(await client.sendMessage(APAGADO, { text: "prendido de nuevo, sale" }));
+});

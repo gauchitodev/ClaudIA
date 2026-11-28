@@ -5,6 +5,7 @@ import { sinMenciones } from "../lib/menciones.js";
 import { guardarVarios } from "../lib/cache-grupos.js";
 import { estadoDe } from "../lib/estado-de-plugins.js";
 import { conexion } from "../lib/conexion.js";
+import { estaFuera } from "../lib/apagado.js";
 
 // The same text to every group, spaced out and at an uneven pace: a burst of identical messages to many chats is what
 // WhatsApp's spam filter looks for, and the number was already blocked once for volume. It used to go every 1.5 s, and
@@ -106,7 +107,7 @@ plugin.run = async (m, { client, text: unaLinea, textoCompleto, isOwner }) => {
     // asked. Left to groups.update, which Baileys emits with it, the copies are taken as asked for long before.
     guardarVarios(client, grupos, pedida);
     const todos = Object.keys(grupos);
-    const jids = todos.filter((jid) => !getChat(jid)?.isBanned);
+    const jids = todos.filter((jid) => !estaFuera(getChat(jid)));
     for (const jid of jids) if (grupos[jid]?.subject) aviso.nombres.set(jid, grupos[jid].subject);
     // Cut while the list came, it doesn't go anywhere.
     if (!signal.aborted) {

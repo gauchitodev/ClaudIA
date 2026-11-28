@@ -112,5 +112,6 @@ test(".podar: se lleva los usos de más de 90 días", () => {
 test("consistencia: handle-message cuenta el uso una vez, antes de correr el plugin", () => {
   // Before running: a command that then fails was still used. Once: two plugins sharing a command are one use.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  assert.match(fuente, /if \(!corrioAlguno\) registrarUso\(m\.chat, command\);\s*corrioAlguno = true;\s*await plugin\.run\(/);
+  // Not with the bot switched off in the group (.claudia off): nothing is counted there.
+  assert.match(fuente, /if \(!corrioAlguno && !m\._apagado\) registrarUso\(m\.chat, command\);\s*corrioAlguno = true;\s*await conPermiso\(\(\) => plugin\.run\(/);
 });

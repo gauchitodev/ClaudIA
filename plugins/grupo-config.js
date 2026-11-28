@@ -29,6 +29,7 @@ ${groupMetadata.id}
   
 *Configuración de grupo:*
 _Las de ✅ y ❌ se prenden con on y se apagan con off: .charla on, .charla off._
+✅ Claudia prendida en el grupo; con off, un admin la apaga del todo (.claudia)
 ${isBanned ? "✅" : "❌"} BanChat (.bc, solo el owner)
 ${adminMode ? "✅" : "❌"} Solo admins (.modoadmin)
 ${adultMode ? "✅" : "❌"} Modo adulto (.18)

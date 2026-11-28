@@ -18,6 +18,8 @@ import txt from "./lib/strings.js";
 import { cargados } from "./lib/plugins-cargados.js";
 import { piezaDe } from "./lib/antiflood.js";
 import { comandosParecidos, bloqueadosEn, MENU } from "./lib/menu.js";
+import { fueraDelGrupo } from "./lib/apagado.js";
+import { conPermisoDeEnvio } from "./lib/envios.js";
 
 // Keeps the last time each group was greeted
 const cooldownSaludos = new Map();
@@ -45,6 +47,16 @@ function fueraDelModoAdmin(command) {
   return suyos.length > 0 && suyos.every((plugin) => plugin.fueraDelModoAdmin);
 }
 
+// With the bot switched off in the group (.claudia off), the commands that still work: one live (not from while the
+// bot was offline), that every plugin answering to it lets through (plugin.conElBotApagado: .claudia, .estado and
+// .enviados).
+function andaConElBotApagado(m) {
+  const pedido = parsearComando(m.text);
+  if (!pedido || atrasoDeLlegada(m) > 60 || m._upsertType === "append") return false;
+  const suyos = Object.values(cargados.plugins).filter((plugin) => plugin.cmd && plugin.cmd.includes(pedido.comando));
+  return suyos.length > 0 && suyos.every((plugin) => plugin.conElBotApagado);
+}
+
 // Handles an incoming message from msgQueue in main.js
 export async function handleMessage(nMsg) {
   if (!nMsg) return;
@@ -59,6 +71,16 @@ export async function handleMessage(nMsg) {
 
   try {
     m = smsg(this, m) || m;
+
+    // The bot out of the group (lib/apagado.js), ahead of anything that reads or keeps the message. Switched off by
+    // its admins (.claudia off), only .claudia, .estado and .enviados go on, and as commands alone: no moderation, no
+    // hook, no greeting, nothing counted. Banned by an owner (.banchat), an owner's messages go on as always, and
+    // nobody else's: the moderation and the greeting used to, ahead of the ban's check further down.
+    const fuera = fueraDelGrupo(m.chat);
+    if (fuera === "apagado") {
+      if (!andaConElBotApagado(m)) return;
+      m._apagado = true;
+    } else if (fuera === "baneado" && !(m.fromMe || esOwnerConfirmado([m.senderJid, m.sender]))) return;
 
     // A group closed or opened: .inactivos doesn't count the time it was closed. Ahead of the cut below, with the time
     // it happened: a notice from while the bot was offline arrives late.
@@ -106,7 +128,7 @@ export async function handleMessage(nMsg) {
     // there, since no hook sees their messages.
     // A view-once of theirs goes too, though it comes with no content (lib/vista-unica.js), and whether or not the group
     // has .antivistaunica on.
-    if (user.inGroup[m.chat]?.mute && (m.message || m.key?.isViewOnce)) {
+    if (!m._apagado && user.inGroup[m.chat]?.mute && (m.message || m.key?.isViewOnce)) {
       anotarPresencia(m);
       try {
         aplicarAMemoria(m, { guardar: false });
@@ -147,7 +169,7 @@ export async function handleMessage(nMsg) {
     // Run the 'before' plugins: the moderation first and Claudia's chat last (hooksEnOrden, load-functions.js). A hook
     // that throws takes only itself down: with the moderation first, a deletion that failed there would otherwise leave
     // the message without its count, its place in Claudia's memory and its command.
-    const hooks = hooksEnOrden(cargados.plugins);
+    const hooks = m._apagado ? [] : hooksEnOrden(cargados.plugins);
     const correrHook = async (plugin) => {
       try {
         await plugin.before(m, { client: this, text, args, participants, isRAdmin, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
@@ -166,7 +188,7 @@ export async function handleMessage(nMsg) {
     // The greeting, once the moderation has had its say, and still ahead of the other hooks (Claudia's chat among
     // them). Ahead of the moderation, a spam with a link got a greeting quoting it, with the deleted link in sight, and
     // so did whoever the blacklist was about to remove.
-    if (!m.moderado) saludar(this, m, text, chat);
+    if (!m.moderado && !m._apagado) saludar(this, m, text, chat);
     for (const plugin of hooks.filter((p) => !p.moderacion)) {
       // What the moderation deleted (m.moderado) reaches no other hook: no game takes it as an answer, no counter
       // counts it, nothing reacts to it. Checked here once for all of them, the ones still to come included. Only
@@ -213,7 +235,8 @@ export async function handleMessage(nMsg) {
     }
 
     // Group blacklist mode (.blon + .bladd): blocked commands run for nobody except the owner.
-    if (chat.blacklistMode && !isOwner && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
+    // Not with the bot switched off: .bladd claudia would leave nobody able to switch it back on.
+    if (chat.blacklistMode && !isOwner && !m._apagado && isCommandBlacklisted(m.chat, command)) return m.react("🔒");
 
     // A name that looks like a command, after "." or "/", that no plugin declares: with the commands most like it that
     // whoever wrote can use there (lib/menu.js). A search that fails takes only itself down: the answer goes as before.
@@ -232,6 +255,8 @@ export async function handleMessage(nMsg) {
     // A missing permission stops ONLY the plugin that asks for it, not the others sharing the command: hence the
     // "continue" instead of "return". The first rejection notice is stored and sent once, at the end, and only if
     // no plugin got to run; that way two plugins with the same cmd neither mask each other nor send two messages.
+    // With the bot switched off, what the command and its notices send goes out with the permit (lib/envios.js).
+    const conPermiso = (hacer) => (m._apagado ? conPermisoDeEnvio(m.chat, hacer) : hacer());
     let corrioAlguno = false;
     let avisarRechazo = null;
     const rechazar = (aviso) => {
@@ -343,13 +368,13 @@ export async function handleMessage(nMsg) {
 
       // Run the command plugin if the command matched one. The use is counted here, once (lib/usos.js): before running,
       // because a command that then fails was still used, and two plugins sharing it are a single use.
-      if (!corrioAlguno) registrarUso(m.chat, command);
+      if (!corrioAlguno && !m._apagado) registrarUso(m.chat, command);
       corrioAlguno = true;
-      await plugin.run(m, { client: this, text, textoCompleto, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings });
+      await conPermiso(() => plugin.run(m, { client: this, text, textoCompleto, args, command, usedPrefix, groupMetadata, participants, isWaAdmin, isAdmin, isMod, rolBot, isBotAdmin, isOwner, user, chat, botSettings }));
     }
 
     // If no plugin for the command could run, now we say why.
-    if (!corrioAlguno && avisarRechazo) await avisarRechazo();
+    if (!corrioAlguno && avisarRechazo) await conPermiso(avisarRechazo);
   } catch (e) {
     console.error(e);
   }

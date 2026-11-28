@@ -65,7 +65,7 @@ test("menú: cada uno ve los temas que puede usar", () => {
   assert.match(temas(OWNER), /🥷 owner/);
   assert.equal(menu({ pedido: "admins" }), "🛡️ Ese tema es para admins y moderadores del grupo.");
   assert.equal(menu({ pedido: "owner", ...MOD }), "🥷 Ese tema es solo del owner del bot.");
-  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las de on\|off se prenden con on y se apagan con off: [^\n]+\n▸ \.modoadmin on\|off /);
+  assert.match(menu({ pedido: "config", ...MOD }), /^⚙️ \*Configuración\*\n_Las de on\|off se prenden con on y se apagan con off: [^\n]+\n▸ \.claudia on\|off /);
   // In private: no group rank, and the menus that only work in groups aren't offered.
   const privado = menu({ isGroup: false, chatId: "59899111222@s.whatsapp.net", datosChat: null });
   assert.doesNotMatch(privado, /admins/);
@@ -114,7 +114,7 @@ test("menú: cada interruptor dice cómo se usa, con on|off pegado al comando, y
   );
   assert.ok(lineas.some((e) => e.seccion.clave === "owner"), "los del owner también");
   const { nota } = M.seccionesDelMenu(".").find((s) => s.clave === "config");
-  assert.match(nota, /^_Las de on\|off se prenden con on y se apagan con off: \.charla on, \.charla off\. Sin nada, se invierten; \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo, solos, muestran cómo están\. \.config muestra cómo está cada una\._$/);
+  assert.match(nota, /^_Las de on\|off se prenden con on y se apagan con off: \.charla on, \.charla off\. Sin nada, se invierten; \.claudia, \.juego, \.iniciativa, \.diario, \.voz, \.horariojuegos y \.modo, solos, muestran cómo están\. \.config muestra cómo está cada una\._$/);
 });
 
 // The economy and the casino were .menuuru, a menu apart written by hand for one group: .menu todo didn't show them,

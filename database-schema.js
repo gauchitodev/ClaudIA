@@ -133,7 +133,9 @@ export function ponerAlDia(db) {
       catalogoMensaje TEXT DEFAULT "", -- and its message's id: it's deleted when the next one goes out
       mercadosAuto BOOLEAN DEFAULT 1, -- whether the bot opens the markets of Peñarol's and Nacional's matches (lib/partidos.js)
       mercadosEnHorario BOOLEAN DEFAULT 0, -- whether the betting markets keep to the games' hours too (.horariojuegos mercados)
-      diarioDesde INTEGER DEFAULT 0 -- since when Claudia keeps a diary of the group, in ms; 0 while it's off (.diario, lib/diario.js)
+      diarioDesde INTEGER DEFAULT 0, -- since when Claudia keeps a diary of the group, in ms; 0 while it's off (.diario, lib/diario.js)
+      apagadoDesde INTEGER DEFAULT 0, -- since when the bot is switched off in the group, in ms; 0 while it's on (.claudia, lib/apagado.js)
+      apagadoPor TEXT DEFAULT "" -- who switched it off
     )
   `);
 
@@ -144,10 +146,10 @@ export function ponerAlDia(db) {
   // (its switch, when it last went out and as which message), the markets the bot opens on its own
   // (.mercadosauto), whether the markets keep to the games' hours (.horariojuegos mercados), since when she keeps a
   // diary of the group (.diario), whether she posts group changas on her own (.changas), whether the secret missions are
-  // played there (.espias), whether she hands out urgent errands (.encargos) and whether the group is a town (.pueblo), on
-  // databases that already exist.
+  // played there (.espias), whether she hands out urgent errands (.encargos), whether the group is a town (.pueblo) and
+  // since when and by whom the bot is switched off there (.claudia off), on databases that already exist.
   const columnasChats = db.prepare(`PRAGMA table_info(chats)`).all().map((c) => c.name);
-  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"], ["pueblo", "BOOLEAN DEFAULT 0"]]) {
+  for (const [columna, definicion] of [["preguntaDia", "BOOLEAN DEFAULT 0"], ["triviaRelampago", "BOOLEAN DEFAULT 0"], ["recapSemanal", "BOOLEAN DEFAULT 1"], ["horarioJuegos", 'TEXT DEFAULT ""'], ["charla", "BOOLEAN DEFAULT 1"], ["saludos", "BOOLEAN DEFAULT 1"], ["monedas", "BOOLEAN DEFAULT 1"], ["ascensos", "BOOLEAN DEFAULT 1"], ["reglas", 'TEXT DEFAULT ""'], ["plantilla", 'TEXT DEFAULT ""'], ["horarioGrupo", 'TEXT DEFAULT ""'], ["grupoCerradoPorHorario", "BOOLEAN DEFAULT 0"], ["casino", "BOOLEAN DEFAULT 1"], ["iniciativa", "BOOLEAN DEFAULT 0"], ["horarioGrupoFalla", "INTEGER DEFAULT 0"], ["antiLiveLocation", "BOOLEAN DEFAULT 0"], ["antiViewOnce", "BOOLEAN DEFAULT 0"], ["antiFlood", "BOOLEAN DEFAULT 0"], ["redes", 'TEXT DEFAULT "{}"'], ["voz", 'TEXT DEFAULT ""'], ["stickersAuto", "BOOLEAN DEFAULT 1"], ["juegosApagados", 'TEXT DEFAULT "[]"'], ["catalogoAuto", "BOOLEAN DEFAULT 1"], ["catalogoMostrado", "INTEGER DEFAULT 0"], ["catalogoMensaje", 'TEXT DEFAULT ""'], ["mercadosAuto", "BOOLEAN DEFAULT 1"], ["mercadosEnHorario", "BOOLEAN DEFAULT 0"], ["diarioDesde", "INTEGER DEFAULT 0"], ["changas", "BOOLEAN DEFAULT 0"], ["espias", "BOOLEAN DEFAULT 0"], ["encargos", "BOOLEAN DEFAULT 0"], ["pueblo", "BOOLEAN DEFAULT 0"], ["apagadoDesde", "INTEGER DEFAULT 0"], ["apagadoPor", 'TEXT DEFAULT ""']]) {
     if (!columnasChats.includes(columna)) {
       db.exec(`ALTER TABLE chats ADD COLUMN ${columna} ${definicion}`);
       console.log(`🟢 Migración: columna '${columna}' agregada a la tabla chats`);

@@ -337,10 +337,11 @@ _Para moderadores y admins. Se abre con `.menu admins`, `.menu admin`, `.menu mo
 
 _Para moderadores y admins. Se abre con `.menu config`, `.menu configuracion`, `.menu ajustes`._
 
-> _Las de on|off se prenden con on y se apagan con off: .charla on, .charla off. Sin nada, se invierten; .juego, .iniciativa, .diario, .voz, .horariojuegos y .modo, solos, muestran cómo están. .config muestra cómo está cada una._
+> _Las de on|off se prenden con on y se apagan con off: .charla on, .charla off. Sin nada, se invierten; .claudia, .juego, .iniciativa, .diario, .voz, .horariojuegos y .modo, solos, muestran cómo están. .config muestra cómo está cada una._
 
 | Comando | Qué hace |
 |---|---|
+| `.claudia on\|off` 💤 | Solo los admins del grupo y el dueño: con off apaga el bot del todo en el grupo, sin leer, contestar ni moderar (la lista negra no saca a nadie), hasta .claudia on, que saca a quien haya entrado de la lista negra. Mientras tanto solo andan .claudia, .estado y .enviados. |
 | `.modoadmin on\|off` 🛡️ | Bot únicamente para admins y moderadores, menos .notagall, .sitagall, .noaura y .siaura. |
 | `.antigrupos on\|off` 🔗 | Elimina links de grupos de WhatsApp. |
 | `.anticanales on\|off` 🔗 | Elimina links de canales de WhatsApp. |

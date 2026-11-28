@@ -958,6 +958,63 @@ export function reprogramarPendiente(id, ejecutarEn, { contarIntento = true } = 
   db.prepare(`UPDATE pendientes SET estado = 'pendiente', ejecutar_en = ?, intentos = COALESCE(intentos, 0) + ? WHERE id = ?`).run(ejecutarEn, contarIntento ? 1 : 0, id);
 }
 
+// ===================== A group whose bot was switched off (.claudia off), when it's back =====================
+// What was going on when it went off goes on from where it was, as if the time off hadn't passed (lib/apagado.js): the
+// deadlines still ahead then move on by the time off, and so do the pending ones that end something; the pending ones
+// that were to start something while it was off are dropped, or they'd all come at once when it's back. Not a market's
+// close, which is the match's or the event's own hour, nor a reminder, which goes out late.
+export const PLAZOS_QUE_SE_CORREN = [
+  ["laburos_escenas", "vence"], // a payday scene's answer
+  ["changas", "vence"],
+  ["bolsa_changas", "vence"], // a one-day job
+  ["espias_misiones", "vence"],
+  ["encargos", "vence"],
+  ["pueblo_eventos", "hasta"], // a town's event of several days
+  ["elecciones", "cierra_inscripcion"],
+  ["elecciones", "cierra_votacion"],
+  ["elecciones_juicios", "hasta"], // a juicio político's signatures
+  ["servicios", "vence"],
+  ["banco", "presion_hasta"],
+  ["banco", "rebote_hasta"],
+  ["banco_depositos", "vence"],
+  ["banco_prestamos", "proxima"], // a loan's next instalment
+  ["banco_clientes", "hasta"], // a client's standing
+  ["banco_remates", "cierra"],
+];
+// The columns that say until when and don't move: a market closes at its match's or event's hour; the rest isn't a
+// deadline of the group's (Claudia's glances and silences, a couple's anger, a diary's stretch, when an event began).
+export const PLAZOS_QUE_NO_SE_CORREN = [
+  ["mercados", "cierra_en"],
+  ["iniciativa_estado", "proximoVistazo"],
+  ["iniciativa_estado", "silencioHasta"],
+  ["parejas", "enojo_hasta"],
+  ["exparejas", "hasta"],
+  ["diario_grupo", "hasta"],
+];
+export const PENDIENTES_QUE_TERMINAN = ["escena_laburo", "changa_vence", "bolsa_changa_vence", "espia_vence", "encargo_vence", "pueblo_evento_fin", "servicio_vence", "banco_remate"];
+export const PENDIENTES_QUE_EMPIEZAN = ["trivia_relampago", "changa_grupal", "espia_sobre", "encargo_urgente", "pueblo_evento", "robo_auto", "reintento_descarga"];
+export const PENDIENTES_A_SU_HORA = ["recordatorio", "cerrar_mercado", "anular_mercado"];
+
+// From "desde" (when it went off) to "ahora". The time since a post's last news and since it was asked about leave the
+// time off out, so nobody is asked nor has a post taken down for the days nobody could answer; .inactivos counts it as a
+// closed stretch (cierres_grupo); and a streak alive when it went off ("antesDeApagar": its last day was that day or
+// the one before) goes on from the day before it came back ("ayerDeVuelta"), when that's a later day. Returns how many
+// pending ones moved and how many were dropped.
+export function correrPlazosDelGrupo(chat, desde, ahora, { antesDeApagar = null, ayerDeVuelta = null } = {}) {
+  const ms = Math.max(0, ahora - desde);
+  const tipos = (lista) => lista.map((t) => `'${t}'`).join(", ");
+  return db.transaction(() => {
+    for (const [tabla, columna] of PLAZOS_QUE_SE_CORREN) db.prepare(`UPDATE ${tabla} SET ${columna} = ${columna} + ? WHERE chat = ? AND ${columna} > ?`).run(ms, chat, desde);
+    const corridos = db.prepare(`UPDATE pendientes SET ejecutar_en = ejecutar_en + ? WHERE chat = ? AND estado = 'pendiente' AND ejecutar_en > ? AND tipo IN (${tipos(PENDIENTES_QUE_TERMINAN)})`).run(ms, chat, desde).changes;
+    const cancelados = db.prepare(`UPDATE pendientes SET estado = 'cancelado' WHERE chat = ? AND estado = 'pendiente' AND ejecutar_en <= ? AND tipo IN (${tipos(PENDIENTES_QUE_EMPIEZAN)})`).run(chat, ahora).changes;
+    db.prepare(`UPDATE publicaciones SET actualizada = actualizada + ? WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES}`).run(ms, chat);
+    db.prepare(`UPDATE publicaciones SET aviso = aviso + ? WHERE chat = ? AND estado IN ${ESTADOS_VIGENTES} AND aviso > 0`).run(ms, chat);
+    if (ms > 0) db.prepare(`INSERT INTO cierres_grupo (chat, desde, hasta) VALUES (?, ?, ?)`).run(chat, desde, ahora);
+    if (antesDeApagar && ayerDeVuelta) db.prepare(`UPDATE rachas SET ultimoDia = ? WHERE chat = ? AND ultimoDia >= ? AND ultimoDia < ?`).run(ayerDeVuelta, chat, antesDeApagar, ayerDeVuelta);
+    return { corridos, cancelados };
+  })();
+}
+
 // if the bot went down mid-run, those stay "running" forever: they go back to pending on startup
 export function recuperarPendientesColgados() {
   return db.prepare(`UPDATE pendientes SET estado = 'pendiente' WHERE estado = 'ejecutando'`).run().changes;
@@ -1545,11 +1602,17 @@ export function anotarAvisoOwner(clave, momento) {
   db.prepare(`INSERT INTO avisos_owner (clave, ultimo) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET ultimo = excluded.ultimo`).run(clave, momento);
 }
 
-// groups with an activity switch on (known columns only, so no SQL is built from free text)
+// The chats the bot is in, in SQL: not switched off by their admins (.claudia off) nor banned by an owner (.banchat), as
+// lib/apagado.js tells them. Every scheduled task that goes over the groups asks for them through this.
+const CON_EL_BOT = "COALESCE(apagadoDesde, 0) = 0 AND COALESCE(isBanned, 0) = 0";
+
+// groups with an activity switch on (known columns only, so no SQL is built from free text), and the bot in them: the
+// scheduled tasks that go through here (the daily question, the trivia, the changas, the towns, the bank, the
+// elections…) skip a group the bot is out of.
 const OPCIONES_ACTIVIDAD = new Set(["preguntaDia", "triviaRelampago", "recapSemanal", "iniciativa", "changas", "espias", "encargos", "pueblo"]);
 export function chatsConOpcion(columna) {
   if (!OPCIONES_ACTIVIDAD.has(columna)) return [];
-  return db.prepare(`SELECT remoteJid FROM chats WHERE ${columna} = 1`).all().map((r) => r.remoteJid);
+  return db.prepare(`SELECT remoteJid FROM chats WHERE ${columna} = 1 AND ${CON_EL_BOT}`).all().map((r) => r.remoteJid);
 }
 
 export function contarLogDesde(chat, motivo, desdeMs) {
@@ -1910,8 +1973,9 @@ export function ultimasCalificaciones(para, n = 3) {
 }
 
 // ===================== Group hours =====================
+// The groups with hours (.horariogrupo), and the bot in them: with it out, nobody closes or opens the group.
 export function chatsConHorarioGrupo() {
-  return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario, horarioGrupoFalla FROM chats WHERE horarioGrupo != ''`).all();
+  return db.prepare(`SELECT remoteJid, horarioGrupo, grupoCerradoPorHorario, horarioGrupoFalla FROM chats WHERE horarioGrupo != '' AND ${CON_EL_BOT}`).all();
 }
 
 // One rating by id, all the ones a person received (with the group they were made in), plus editing and deleting

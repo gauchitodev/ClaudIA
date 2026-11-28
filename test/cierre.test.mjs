@@ -67,6 +67,45 @@ test("cierre: devuelve lo que está en juego en cada juego, una sola vez", () =>
   }
 });
 
+// .claudia off switches the bot off in one group (plugins/claudia.js): what's in play there goes back, and only that.
+test("cierre: con un grupo, devuelve solo lo que está en juego ahí", () => {
+  const OTRO = "cierre-solo@g.us";
+  const gente = ["ruleta", "carrera", "bj", "mines", "retador", "retado", "pelea1", "pelea2", "linea", "poker1", "poker2"];
+  for (const u of gente) fijarSaldo(F, OTRO, u, 100);
+  // The same games going on in this one, which stay.
+  const quedan = ["qruleta", "qcarrera", "qbj", "qmines", "qretador", "qretado", "qpelea1", "qpelea2", "qlinea", "qpoker1", "qpoker2"];
+  for (const u of quedan) fijarSaldo(F, C, u, 100);
+  assert.ok(Casino.apostarRuleta(C, "qruleta", 20, "rojo", nada).ok);
+  assert.ok(Carrera.apostarCarrera(C, "qcarrera", 30, "1", nada).ok);
+  assert.equal(BJ.repartir(C, "qbj", 40, nada, mazoDe("8♠", "8♥", "9♣", "7♦", "2♠", "3♥")).terminada, false);
+  assert.ok(Mines.iniciar(C, "qmines", 25, "3", nada).ok);
+  assert.ok(D.desafiar(C, "qretador", "qretado", 15, "dado", null).ok);
+  D.desafiar(C, "qpelea1", "qpelea2", 10, "pelea", null);
+  assert.ok(D.aceptar(C, "qpelea2", nada).ok);
+  assert.ok(C4.abrirMesa(C, "qlinea", 30).ok);
+  assert.ok(Poker.abrirOSentarse(C, "qpoker1", "", 100).ok);
+  assert.ok(Poker.abrirOSentarse(C, "qpoker2", "", 100).ok);
+  assert.ok(Casino.apostarRuleta(OTRO, "ruleta", 20, "rojo", nada).ok);
+  assert.ok(Carrera.apostarCarrera(OTRO, "carrera", 30, "1", nada).ok);
+  assert.equal(BJ.repartir(OTRO, "bj", 40, nada, mazoDe("8♠", "8♥", "9♣", "7♦", "2♠", "3♥")).terminada, false);
+  assert.ok(Mines.iniciar(OTRO, "mines", 25, "3", nada).ok);
+  assert.ok(D.desafiar(OTRO, "retador", "retado", 15, "dado", null).ok);
+  D.desafiar(OTRO, "pelea1", "pelea2", 10, "pelea", null);
+  assert.ok(D.aceptar(OTRO, "pelea2", nada).ok);
+  assert.ok(C4.abrirMesa(OTRO, "linea", 30).ok);
+  assert.ok(Poker.abrirOSentarse(OTRO, "poker1", "", 100).ok);
+  assert.ok(Poker.abrirOSentarse(OTRO, "poker2", "", 100).ok);
+  try {
+    assert.deepEqual(Cierre.devolverLoQueEstaEnJuego(OTRO), { apuestas: 10, monedas: 380 });
+    for (const u of gente) assert.equal(F.getSaldoCoins(OTRO, u), 100, `${u} recupera todo`);
+    // The one challenged to a duel of dice hasn't put anything in yet.
+    for (const u of quedan.filter((u) => u !== "qretado")) assert.ok(F.getSaldoCoins(C, u) < 100, `${u}: lo de este grupo sigue en juego`);
+  } finally {
+    assert.deepEqual(Cierre.devolverLoQueEstaEnJuego(), { apuestas: 10, monedas: 380 }, "y vuelve cuando le toca");
+  }
+  for (const u of quedan) assert.equal(F.getSaldoCoins(C, u), 100, u);
+});
+
 test("cierre: al apagar con Ctrl+C devuelve y sale; con un error, devuelve igual", () => {
   const proceso = new EventEmitter();
   const codigos = [];

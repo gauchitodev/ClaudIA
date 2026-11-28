@@ -112,8 +112,9 @@ test("orden: los hooks reales tienen su marca, y handle-message corre cada uno p
   // A hook that throws takes only itself down; the greeting goes once the moderation has run, and only if it deleted
   // nothing; and what it deleted reaches no other hook but the short-term memory.
   const fuente = fs.readFileSync(path.join(RAIZ, "handle-message.js"), "utf8");
-  assert.match(fuente, /const hooks = hooksEnOrden\(cargados\.plugins\);[^]*?try \{\s*await plugin\.before\(/);
-  assert.match(fuente, /for \(const plugin of hooks\.filter\(\(p\) => p\.moderacion\)\) await correrHook\(plugin\);[^]*?if \(!m\.moderado\) saludar\([^]*?for \(const plugin of hooks\.filter\(\(p\) => !p\.moderacion\)\) \{[^]*?if \(m\.moderado && !plugin\.trasModeracion\) continue;\s*await correrHook\(plugin\);/);
+  // With the bot switched off in the group (.claudia off, lib/apagado.js), none of them, nor the greeting.
+  assert.match(fuente, /const hooks = m\._apagado \? \[\] : hooksEnOrden\(cargados\.plugins\);[^]*?try \{\s*await plugin\.before\(/);
+  assert.match(fuente, /for \(const plugin of hooks\.filter\(\(p\) => p\.moderacion\)\) await correrHook\(plugin\);[^]*?if \(!m\.moderado && !m\._apagado\) saludar\([^]*?for \(const plugin of hooks\.filter\(\(p\) => !p\.moderacion\)\) \{[^]*?if \(m\.moderado && !plugin\.trasModeracion\) continue;\s*await correrHook\(plugin\);/);
 });
 
 test("trivia: una respuesta que nombra a Claudia se evalúa al toque, y Claudia no la charla", async () => {

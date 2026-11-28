@@ -1407,6 +1407,83 @@ test("el despachador: a un comando que no existe le sugiere los parecidos que se
   assert.equal(respuesta.split("\n").filter((l) => l.startsWith("▸")).length, 3, respuesta);
 });
 
+// The bot switched off in the group (.claudia off, lib/apagado.js): nothing runs but .claudia, .estado and .enviados,
+// each with its own permissions, and as commands alone: no hook, the moderation included, no greeting. Not one from
+// while the bot was offline. Banned by an owner (.banchat), nobody's message but an owner's: the moderation and the
+// greeting used to go on there, ahead of the ban's check.
+test("el despachador: con el bot apagado solo andan .claudia, .estado y .enviados, y ningún hook", async () => {
+  const Cache = await import("../lib/cache-grupos.js");
+  const corrieron = [];
+  const vieron = [];
+  cargados.plugins = {
+    "claudia.js": carpeta["claudia.js"],
+    "probar.js": { cmd: ["probar"], run: async () => corrieron.push("probar") },
+    "estado.js": { cmd: ["estado"], conElBotApagado: true, onlyMod: true, run: async () => corrieron.push("estado") },
+    "moderacion.js": { moderacion: true, before: async (m) => vieron.push(m.text) },
+    "otro.js": { before: async (m) => vieron.push(m.text) },
+  };
+  assert.ok(carpeta["estado.js"].conElBotApagado && carpeta["owner-enviados.js"].conElBotApagado, ".estado y .enviados, marcados");
+  // Every send through the real queue (lib/envios.js), as lib/wa-socket.js has it: in a group switched off, only what
+  // the dispatcher sends with the permit goes out.
+  const client = cliente();
+  client.sendText = (chat, text, quoted, opciones = {}) => client.sendMessage(chat, { text, ...(opciones.mentions ? { mentions: opciones.mentions } : {}) }, { quoted });
+  (await import("../lib/envios.js")).envolverEnvios(client);
+  const pausa = RITMO.MIN_ENTRE_MENSAJES_MS;
+  RITMO.MIN_ENTRE_MENSAJES_MS = 1;
+  client.groupMetadata = async (id) => ({ id, subject: "Grupo", participants: [{ id: ANA, admin: "admin" }, { id: BETO, admin: null }, { id: BOT, admin: "admin" }] });
+  Cache.vaciar();
+  const mandar = async (quien, texto, upsert = "notify") => {
+    globalThis.enviados = [];
+    corrieron.length = 0;
+    vieron.length = 0;
+    const id = `APAGADO${String(++numero).padStart(5, "0")}`;
+    await handleMessage.call(client, { key: { remoteJid: GRUPO, fromMe: false, id, participant: quien }, message: { conversation: texto }, messageTimestamp: Math.floor(Date.now() / 1000), pushName: quien === ANA ? "Ana" : "Beto", _upsertType: upsert, _llegada: Date.now() });
+    return globalThis.enviados.map((e) => e.msg?.text ?? e.msg?.react?.text);
+  };
+  try {
+    const [aviso] = await mandar(ANA, ".claudia off");
+    assert.match(aviso, /^💤 Me apago en este grupo/);
+    assert.ok(F.getChat(GRUPO).apagadoDesde > 0);
+    assert.deepEqual([await mandar(BETO, ".probar"), corrieron], [[], []], "otro comando, nada");
+    assert.match((await mandar(BETO, ".claudia"))[0], /^💤 Estoy apagada en este grupo/, ".claudia contesta, con el permiso");
+    assert.deepEqual([await mandar(BETO, "hola"), vieron], [[], []], "ni el saludo, ni la moderación, ni otro hook");
+    // .estado goes through the door, and its own permission still applies.
+    assert.deepEqual([await mandar(BETO, ".estado"), corrieron], [[txt.onlyMod], []]);
+    await mandar(ANA, ".estado");
+    assert.deepEqual([corrieron, vieron], [["estado"], []], "y sin pasar por los hooks");
+    // Not even into Claudia's memory: from history, the dispatcher would keep it there further down.
+    const { contextoChat } = await import("../lib/contexto-chat.js");
+    const enMemoria = () => (contextoChat.get(GRUPO) || []).filter((x) => /claudia on/.test(x.texto || "")).length;
+    const antes = enMemoria();
+    assert.deepEqual(await mandar(ANA, ".claudia on", "append"), [], "uno de cuando el bot no estaba, no");
+    assert.equal(enMemoria(), antes, "ni a la memoria de Claudia");
+    // Someone muted isn't deleted (there's no moderation), and .bladd claudia doesn't leave the bot switched off for good.
+    F.updateUserInGroup(BETO, GRUPO, { mute: true });
+    F.updateChat(GRUPO, { blacklistMode: 1 });
+    F.addToChatBlacklist(GRUPO, "claudia");
+    try {
+      assert.match((await mandar(BETO, ".claudia"))[0], /^💤 Estoy apagada/, "al silenciado no se le borra");
+      assert.match((await mandar(ANA, ".claudia on"))[0], /^✅ Prendida de nuevo en este grupo/, "bloqueado con .bladd, igual");
+    } finally {
+      F.updateUserInGroup(BETO, GRUPO, { mute: false });
+      F.removeFromChatBlacklist(GRUPO, "claudia");
+      F.updateChat(GRUPO, { blacklistMode: 0 });
+    }
+    await mandar(ANA, ".claudia off");
+    assert.ok(F.getChat(GRUPO).apagadoDesde > 0);
+    assert.match((await mandar(ANA, ".claudia on"))[0], /^✅ Prendida de nuevo en este grupo/);
+    await mandar(BETO, ".probar");
+    assert.deepEqual(corrieron, ["probar"]);
+    assert.ok(vieron.length > 0, "prendido, los hooks de nuevo");
+    F.updateChat(GRUPO, { isBanned: 1 });
+    assert.deepEqual([await mandar(BETO, "hola che"), vieron], [[], []], "baneado, nada de nadie más que un dueño");
+  } finally {
+    F.updateChat(GRUPO, { apagadoDesde: 0, apagadoPor: "", isBanned: 0 });
+    Cache.vaciar();
+    RITMO.MIN_ENTRE_MENSAJES_MS = pausa;
+  }
+});
+
 // Before admin mode and the banned notice: a banned person who wrote "..." or mentioned someone got "ESTÁS BANEADO".
 test("el despachador: a un baneado que escribe «...» o menciona a alguien no le llega el aviso de baneado", async () => {
   cargados.plugins = { "probar.js": { cmd: ["probar"], run: async () => {} } };
