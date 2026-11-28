@@ -65,6 +65,18 @@ test(".nota anota, como .recordá que; y .notas las lista, como .nota sola", asy
   assert.equal(await pedir(chat, ANA, "nota", "que ya"), "❌ ¿Qué anoto? Ej: .nota Fulano siempre llega tarde");
 });
 
+// What's never kept (SENSIBLE, lib/memoria-grupo.js) goes for the group's notes too, and she says what it is: a note
+// reaches every prompt of her chat, and she'd hand a phone number to whoever asked.
+test(".nota no guarda un teléfono ni algo de salud, y dice qué no guarda", async () => {
+  const chat = grupo("notas-sensible@g.us");
+  const NO = "❌ Eso no lo guardo: nada de contraseñas, plata, direcciones, teléfonos, salud ni cosas íntimas.";
+  for (const texto of ["el cel de Fulano es 099 123 456", "Fulano anda con depresión", "la contraseña del wifi es toto123"]) assert.equal(await pedir(chat, ANA, "nota", texto), NO, texto);
+  assert.equal(F.memoriaGrupo(chat).length, 0);
+  // A price, a year or a mention isn't a phone.
+  const { dicho } = await anotar(chat, ANA, "nota", "el asado del 2026 sale 1500 y lo organiza @300000000000096");
+  assert.match(dicho, /^🧠 Anotado \(#\d+\): el asado del 2026 sale 1500 y lo organiza 300000000000096$/);
+});
+
 test(".notas borrar saca una: quien la anotó o un admin, y con su número", async () => {
   const chat = grupo("notas-borrar@g.us");
   const a = await anotar(chat, ANA, "nota", "Fulano siempre llega tarde");

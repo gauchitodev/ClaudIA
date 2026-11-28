@@ -1,5 +1,5 @@
 import { recordar, textoMemoria, borrar, limpiar, leible } from "../lib/memoria-grupo.js";
-import { recuerdosDe, olvidarDe, olvidarUno } from "../lib/memoria-persona.js";
+import { mostrarRecuerdos, olvidarDe, olvidarUno } from "../lib/memoria-persona.js";
 import { haceCuanto } from "../lib/tiempo.js";
 import { conNombres } from "../lib/menciones.js";
 import txt from "../lib/strings.js";
@@ -13,6 +13,27 @@ plugin.onlyGroup = true;
 // "borrar la carpeta vieja" included: nobody means to keep "borrar 3" or "olvidame" as one.
 const esDeLaLista = (args) =>
   args.length === 0 || (args.length === 1 && /^(limpiar|yo|m[ií]a|olvidame)$/i.test(args[0])) || (args.length === 2 && /^((borrar|olvidar|olvidame) \d+|olvidame todo)$/i.test(args.join(" ")));
+
+// What .notas yo answers: what she knows of whoever asks, numbered to have her forget one, and with when she learned
+// each (what was kept before the dates has none). The list stays as shown, for .notas olvidame <n> to read the number
+// there (mostrarRecuerdos). As the group's notes are shown (leible): what she noted while chatting may hold the digits
+// of a LID she was told about, which sendText turned into a mention of that person.
+function loQueSeDeVos(usuario, chat) {
+  const recuerdos = mostrarRecuerdos(usuario, chat);
+  if (!recuerdos.length) return "🧠 No tengo nada anotado de vos en este grupo.";
+  const lineas = recuerdos.map((r, i) => `${i + 1}. ${leible(r.dato)}${r.fecha ? ` (${haceCuanto(r.fecha)})` : ""}`);
+  return `🧠 Lo que sé de vos en este grupo:\n${lineas.join("\n")}\nPara que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame`;
+}
+
+// .notas olvidame <n>: the number of what .notas yo showed them (olvidarUno). If that isn't among what she knows any
+// more, nothing is taken out, and they get the list as it is now.
+function olvidarElNumero(usuario, chat, numero) {
+  const r = olvidarUno(usuario, chat, parseInt(numero, 10));
+  if (r?.olvidado) return `🧠 Listo, me olvidé de eso: ${leible(r.olvidado.dato)}`;
+  if (r?.yaOlvidado) return `🧠 Eso ya me lo había olvidado: ${leible(r.yaOlvidado.dato)}`;
+  if (r?.cambio) return `❌ La lista cambió desde que la viste, así que no borré nada.\n\n${loQueSeDeVos(usuario, chat)}`;
+  return `❌ No tengo nada tuyo con el número ${numero}: mirá qué hay con .notas yo`;
+}
 
 // What Claudia has noted down in a group, all under one name:
 // - the group's notes: .nota <something> (or .recordá que <something>) keeps one · .notas lists them · .notas borrar
@@ -30,23 +51,12 @@ plugin.run = async (m, { client, text, args = [], command, isAdmin, isOwner }) =
     return client.sendText(m.chat, r.ok ? r.mensaje : `❌ ${r.error}`, m);
   }
   const accion = (args[0] || "").toLowerCase();
-  if (accion === "yo" || accion === "mia" || accion === "mía") {
-    // As the group's notes are shown (leible): what she noted while chatting may hold the digits of a LID she was told
-    // about, which sendText turned into a mention of that person.
-    const recuerdos = recuerdosDe(m.sender, m.chat);
-    if (!recuerdos.length) return client.sendText(m.chat, "🧠 No tengo nada anotado de vos en este grupo.", m);
-    // Numbered, to have her forget one, and with when she learned each: what was kept before the dates has none.
-    const lineas = recuerdos.map((r, i) => `${i + 1}. ${leible(r.dato)}${r.fecha ? ` (${haceCuanto(r.fecha)})` : ""}`);
-    return client.sendText(m.chat, `🧠 Lo que sé de vos en este grupo:\n${lineas.join("\n")}\nPara que me olvide de una: .notas olvidame <número> · de todo: .notas olvidame`, m);
-  }
+  if (accion === "yo" || accion === "mia" || accion === "mía") return client.sendText(m.chat, loQueSeDeVos(m.sender, m.chat), m);
   if (accion === "olvidame") {
     // Alone, or with "todo", it's all of it. With a number, that one. With anything else, nothing: whatever came after
     // "olvidame" was ignored, and "olvidame la 2" would have wiped everything she knew.
     const resto = args.slice(1).join(" ").toLowerCase();
-    if (/^\d+$/.test(resto)) {
-      const olvidado = olvidarUno(m.sender, m.chat, parseInt(resto, 10));
-      return client.sendText(m.chat, olvidado ? `🧠 Listo, me olvidé de eso: ${leible(olvidado.dato)}` : `❌ No tengo nada tuyo con el número ${resto}: mirá qué hay con .notas yo`, m);
-    }
+    if (/^\d+$/.test(resto)) return client.sendText(m.chat, olvidarElNumero(m.sender, m.chat, resto), m);
     if (resto && resto !== "todo") {
       return client.sendText(m.chat, "❌ Para que me olvide de una sola cosa pasame su número, por ejemplo: .notas olvidame 2 (los números salen en .notas yo). Para que me olvide de todo: .notas olvidame todo", m);
     }
