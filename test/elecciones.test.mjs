@@ -507,7 +507,7 @@ test("el manual de Claudia cuenta las elecciones con los números de ELECCION, y
   assert.equal(e.VOTO_COBROS_MIN, 1, "el manual dice «por lo menos un cobro»");
   assert.equal(e.MANDATOS_SEGUIDOS, 2, "el manual dice «una sola vez seguida»");
   assert.doesNotMatch(MANUAL, /político del grupo de más nivel, desde el nivel/, "el intendente ya no es automático");
-  assert.equal(CAMBIOS[0].titulo, "Elecciones en el pueblo");
+  assert.equal(CAMBIOS.find((c) => c.version === "3.10").titulo, "Elecciones en el pueblo");
   for (const pregunta of ["cómo voto en las elecciones?", "quién puede ser candidato a intendente", "qué es el juicio político"]) assert.match(conocimientoPara(pregunta), /LAS ELECCIONES/, pregunta);
 });
 
